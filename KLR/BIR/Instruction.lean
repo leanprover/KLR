@@ -77,12 +77,29 @@ structure ImmValue where
   value : Lean.JsonNumber
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
+structure ImmArray where
+  dtype : String
+  value_array : List Lean.JsonNumber
+  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+
+structure Value where
+  value : Lean.JsonNumber
+  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+
+structure SymbolicImmValue where
+  dtype : String
+  value_list : List Value
+  expr : QuasiAffineExpr
+  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+
 inductive Argument where
   | PhysicalAccessPattern : PhysicalAccessPattern -> Argument
   | SymbolicAccessPattern : SymbolicAccessPattern -> Argument
   | RegisterAccessPattern : RegisterAccessPattern -> Argument
   | RegisterAccess : RegisterAccess -> Argument
   | ImmValue : ImmValue -> Argument
+  | ImmArray : ImmArray -> Argument
+  | SymbolicImmValue : SymbolicImmValue -> Argument
   deriving BEq, Repr
 
 -- The default From- and ToJson place the inductive name outside
@@ -98,6 +115,8 @@ instance : Lean.ToJson Argument where
     | .RegisterAccessPattern ap => tagObj "kind" "register_ap" ap
     | .RegisterAccess r => tagObj "kind" "register_access" r
     | .ImmValue v => tagObj "kind" "imm_value" v
+    | .ImmArray v => tagObj "kind" "imm_array" v
+    | .SymbolicImmValue v => tagObj "kind" "symbolic_imm_value" v
 
 instance : Lean.FromJson Argument where
   fromJson? j := do
@@ -108,6 +127,8 @@ instance : Lean.FromJson Argument where
     | "register_ap" => return .RegisterAccessPattern (<- Lean.fromJson? j)
     | "register_access" => return .RegisterAccess (<- Lean.fromJson? j)
     | "imm_value" => return .ImmValue (<- Lean.fromJson? j)
+    | "imm_array" => return .ImmArray (<- Lean.fromJson? j)
+    | "symbolic_imm_value" => return .SymbolicImmValue (<- Lean.fromJson? j)
     | _ => throw s!"Unknown argument kind {name}"
 
 structure Instruction where

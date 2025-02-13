@@ -72,11 +72,11 @@ structure MemoryLocation where
   Skind : StorageKind := .memory_location
   name : String
   type : MemoryType
+  addr : Nat := 0   -- per-partition offset
+  dims : List Nat   -- num partitions, bytes per partition
+  bank : Nat := 0   -- bank id
+  base : Nat := 0   -- base partition (0, 32, 64)
   allocated : Option Bool := some false
-  addr : Nat := 0
-  dims : List Nat
-  bank : Nat := 0
-  base : Nat := 0
   pinned : Bool := false
   tensor_id : Option Nat := none
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
