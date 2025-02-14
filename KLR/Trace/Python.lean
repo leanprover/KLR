@@ -211,9 +211,41 @@ def assign (xs : List Expr) (e : Term) : Tracer Unit := do
   for x in xs do
     assignTerm x e
 
+-- Translation of for-loop iterators
+
+-- range, but only in a for-loop context
+-- step is not zero (see below)
+partial def range (start stop step : Int) : List Term :=
+  if step < 0 then
+    if start <= stop then [] else
+    int start :: range (start + step) stop step
+  else
+    if start >= stop then [] else
+    int start :: range (start + step) stop step
+where
+  int i := Term.expr (.const (.int i)) .int
+
+def termToIter : Term -> Err (List Term)
+  | .tuple l | .list l => return l
+  | .expr (.call (.var "range") l []) _ =>
+       match l with
+       | [ .const (.int e) ] => return (range 0 e 1)
+       | [ .const (.int s), .const (.int e) ] => return (range s e 1)
+       | [ .const (.int s), .const (.int e), .const (.int t) ] =>
+           if t == 0
+           then throw "range arg 3 must not be zero"
+           else return (range s e t)
+       | _ => throw "invalid argument to range"
+  | _ => throw "unsupported loop interator"
+
 /-
 # Expressions and Statements
 -/
+
+-- return type of statement evaluator (see stmt below)
+inductive StmtResult where
+  | done | brk | cont | ret (t : Term)
+  deriving Repr, BEq
 
 mutual
 partial def expr : Expr -> Tracer Item
@@ -273,35 +305,51 @@ partial def expr' : Expr' -> Tracer Item
 partial def keyword (f : Expr -> Tracer a) : Keyword -> Tracer (String × a)
   | .keyword id e p => withPos p do return (id, (<- f e))
 
-partial def stmt : Stmt -> Tracer (Option Term)
+partial def stmt : Stmt -> Tracer StmtResult
   | .stmtPos s' p => withPos p (stmt' s')
 
-partial def stmt' : Stmt' -> Tracer (Option Term)
-  | .pass => return none
+partial def stmt' : Stmt' -> Tracer StmtResult
+  | .pass => return .done
   | .ret e => do
       let t <- term e
       let t <- RValue t
-      return some t
+      return .ret t
   | .expr e => do
       let t <- term e
       let _ <- RValue t
-      return none
+      return .done
   | .assert e => do
       let t <- term e
       if (<- t.isFalse) then throw "assertion failed"
-      return none
-  | .assign xs e => do assign xs (<- term e); return none
-  | .augAssign x op e => do assign [x] (<- term' (.binOp op x e)); return none
-  | .annAssign _ _ .none => return none
-  | .annAssign x _ (.some e) => do assign [x] (<- term e); return none
-  | _s => throw "not yet implemented"
+      return .done
+  | .assign xs e => do assign xs (<- term e); return .done
+  | .augAssign x op e => do assign [x] (<- term' (.binOp op x e)); return .done
+  | .annAssign _ _ .none => return .done
+  | .annAssign x _ (.some e) => do assign [x] (<- term e); return .done
+  | .ifStm e thn els => do
+      let t <- term e
+      let body := if <- t.isTrue then thn else els
+      stmts body
+  | .forLoop x iter body orelse => do
+      let x <- LValue x
+      let iter <- term iter
+      let ts <- termToIter iter
+      for t in ts do
+        assignTerm x t
+        let res <- stmts body
+        if res == .cont then continue
+        if res == .brk then break
+        if let .ret _ := res then return res
+      stmts orelse
+  | .breakLoop => return .brk
+  | .continueLoop => return .cont
 
-partial def stmts : List Stmt -> Tracer Term
-  | [] => return .expr (.const .none) .none
+partial def stmts : List Stmt -> Tracer StmtResult
+  | [] => return .done
   | s :: l => do
       match <- stmt s with
-      | none => stmts l
-      | some t => return t
+      | .done => stmts l
+      | r => return r
 
 -- Bind positional and keyword arguments to a Python function based on its
 -- signature.
@@ -346,7 +394,9 @@ partial def call (f : Fun)
                  : Tracer Term := do
   withSrc f.line f.source $ enterFun $ do
     args.forM fun (x,e) => do extend x.toName e
-    stmts f.body
+    match <- stmts f.body with
+    | .ret t => return t
+    | _ => return .expr (.const .none) .none
 
 partial def function_call (f : Fun)
                           (args : List Term)

@@ -110,8 +110,10 @@ inductive Stmt' where
   | assign (xs: List Expr) (e: Expr)
   | augAssign (x : Expr) (op : BinOp) (e : Expr)
   | annAssign (x : Expr) (annotation : Expr) (value : Option Expr)
-  | forLoop (x : Expr) (iter: Expr) (body: List Stmt) (orelse : List Stmt)
   | ifStm (e : Expr) (thn els: List Stmt)
+  | forLoop (x : Expr) (iter: Expr) (body: List Stmt) (orelse : List Stmt)
+  | breakLoop
+  | continueLoop
   deriving Repr
 end
 
@@ -409,8 +411,10 @@ where
     | "Assign" => return (.assign (<- exprs "targets") (<- expr "value"))
     | "AugAssign" => return (.augAssign (<- expr "target") (<- binOp "op") (<- expr "value"))
     | "AnnAssign" => return (.annAssign (<- expr "target") (<- expr "annotation") (<- expr? "value"))
-    | "For" => return (.forLoop (<- expr "target") (<- expr "iter") (<- stmts "body") (<- stmts "orelse"))
     | "If" => return (.ifStm (<- expr "test") (<- stmts "body") (<- stmts "orelse"))
+    | "For" => return (.forLoop (<- expr "target") (<- expr "iter") (<- stmts "body") (<- stmts "orelse"))
+    | "Break" => return .breakLoop
+    | "Continue" => return .continueLoop
     | _ => throw s!"unsupported python construct {key}"
 
 -- Both global references and arguments are processed in the global
