@@ -105,6 +105,22 @@ def assign(t):
   assert b == 3
   assert c == 4
 
+def ifs(t):
+  x = 0
+  if x: x = 1
+  else: x = 2
+  assert x == 2
+  if x: x = 1
+  else: x = 2
+  assert x == 1
+
+def loops(t):
+  for x in [1,2,3,4]:
+    if x == 1: continue
+    assert x != 1
+    if x == 3: break
+  assert x == 3
+
 # test each function in turn
 @pytest.mark.parametrize("f", [
   const_stmt,
@@ -114,7 +130,9 @@ def assign(t):
   expr_subscript,
   expr_bool_op,
   expr_cmp_op,
-  assign
+  assign,
+  ifs,
+  loops
   ])
 def test_succeed(f):
   t = np.ndarray(10)
