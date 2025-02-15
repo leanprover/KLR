@@ -4,9 +4,7 @@ Copyright (C) 2024, Amazon.com. All Rights Reserved
 NKI implementation for average pool 2D NKI tutorial.
 
 """
-import numpy as np
-import nki
-import nki.language as nl
+from apis import *
 
 def tensor_avgpool_kernel_(in_tensor, out_tensor, pool_size):
   """NKI kernel to compute a 2D avg-pool operation

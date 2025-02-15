@@ -231,7 +231,7 @@ class Parser(ast.NodeVisitor):
       return self.f.__globals__[s]
     if s in self.f.__builtins__:
       return self.f.__builtins__[s]
-    self.undefined_symbols.append(node)
+    self.undefined_symbols.append(s)
     return None
 
   def visit_Name(self, node):
@@ -258,6 +258,10 @@ class Parser(ast.NodeVisitor):
       return n, y
     except Unsupported as e:
       raise e
+    except AttributeError as e:
+      if isinstance(e.obj, types.ModuleType):
+        name = e.obj.__name__ + "." + e.name
+        self.undefined_symbols.append(name)
     except Exception:
       return
 

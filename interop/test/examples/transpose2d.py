@@ -3,10 +3,7 @@ Copyright (C) 2024, Amazon.com. All Rights Reserved
 
 NKI baremetal implementation for transpose2d NKI tutorial.
 """
-
-import numpy as np
-import nki
-import nki.language as nl
+from apis import *
 
 def tensor_transpose2D_kernel_(in_tensor, out_tensor, shape2D):
   """

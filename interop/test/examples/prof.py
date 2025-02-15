@@ -1,5 +1,4 @@
-from nki import tensor
-import nki.language as nl
+from apis import *
 import math
 
 def tensor_exp_kernel_(in_tensor, out_tensor):

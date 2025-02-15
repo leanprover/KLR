@@ -2,8 +2,10 @@
 # a set of basic unit tests. Each function is parsed,
 # handed to Lean, where it is checked and reduced to KLR.
 
+from apis import *
+
+# this needs to be after the apis
 import numpy as np
-import nki
 import pytest
 
 from klr.parser import Parser
@@ -26,7 +28,7 @@ floating = 1.23
 boolean = True
 nothing = None
 triple = (1, floating, False)
-list3 = [string, triple, nki]
+list3 = [string, triple, np]
 
 def expr_name(t):
   # these names will end up in the global environment after parsing
@@ -37,13 +39,13 @@ def expr_name(t):
   # as are constant lists
   list3
   # as are module references
-  nki
+  np
 
 def expr_tuple(t):
   assert (1,False,"hello")
 
 def expr_list(t):
-  assert [1,2,nki]
+  assert [1,2,False]
   assert not []
 
 def expr_subscript(t):
@@ -121,6 +123,10 @@ def loops(t):
     if x == 3: break
   assert x == 3
 
+# some undefined names are OK
+def undefined_ok(t):
+  nl.foo(t)
+
 # test each function in turn
 @pytest.mark.parametrize("f", [
   const_stmt,
@@ -132,7 +138,8 @@ def loops(t):
   expr_cmp_op,
   assign,
   ifs,
-  loops
+  loops,
+  undefined_ok
   ])
 def test_succeed(f):
   t = np.ndarray(10)

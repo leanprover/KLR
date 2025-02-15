@@ -5,10 +5,9 @@ RMSNorm NKI kernel implementation.
 
 """
 
-import numpy as np
 import math
-import nki
-import nki.language as nl
+
+from apis import *
 
 def nki_rmsnorm_kernel(a_tensor, g_tensor, out_tensor):
   # Calculate out_tensor = a_tensor/RMS(a_tensor) * g_tensor

@@ -412,16 +412,15 @@ end
 
 /-
 Evaluate each global in the current environment, skipping any globals that are
-already defined. We do not redefine globals because, we may have picked up
+already defined. We do not redefine globals, because we may have picked up
 functions with dummy implementations, e.g., nki.language.add is defined as:
 
   def add(x,y): pass
 
-in some versions of the code. We do not want this to shadow a built-in
-definition of add. If we have an internal definition, we will use this over
-anything found during parsing.
+in the official NKI API. We do not want this to shadow the built-in definition
+of add, if we have one. If we have an internal definition, we will use this
+over anything found during parsing.
 -/
-
 private def globals (k : Kernel) : Tracer Unit := do
   let s <- get
   for (n, f) in k.funcs do
@@ -429,13 +428,51 @@ private def globals (k : Kernel) : Tracer Unit := do
     if not (s.env.contains n) then
       extend_global n (.source f)
   for (n,e) in k.globals do
-    let n := n.toName
-    if not (s.env.contains n) then
-      extend_global n (<- expr' e)
+    let name := n.toName
+    if not (s.env.contains name) then
+      if not (k.undefinedSymbols.contains n) then
+        extend_global name (<- expr' e)
+
+/-
+Check all of the undefined names against the global environment. If an
+undefined name has a builtin implementation, then it is OK. In
+addition, we allow undefined names in certain special modules. This is
+because, for certain modules, we want to pass anything we don't know
+about through to KLR. For example, if NKI creates a new experimental
+api `nki.isa.newfn`, then rather than generating an error, a call to
+this function will end up in the KLR:
+
+  x[...] = nki.isa.newfn(t, 3)
+
+  .store (.access x ...)
+    .call (.var "nki.isa.newfn") [t, .const 3] ...
+
+Of course, the compiler will then fail, not knowing how to translate
+this constant. However, you still get out a KLR artifact that some
+other, experimental compiler may be able to handle.
+-/
+def undefinedOK : Name -> Bool
+  | .str .anonymous "numpy" => true
+  | .str .anonymous "nki" => true
+  | .str n _ => undefinedOK n
+  | _ => false
+
+def checkUndefined (k : Kernel) : Tracer Unit := do
+  let mut undefined := []
+  for sym in k.undefinedSymbols do
+    let name := sym.toName
+    if (<- lookup_global? name).isNone then
+      if undefinedOK name then
+        extend_global name (.term (.expr (.var sym) (.obj name)))
+      else
+        undefined := name :: undefined
+  if undefined.length > 0 then
+    throw s!"undefined names {undefined}"
 
 -- Call the top-level kernel function
 def traceKernel (k : Kernel) : Tracer Core.Kernel := do
   globals k
+  checkUndefined k
   match k.funcs.lookup k.entry with
   | none => throw s!"function {k.entry} not found"
   | some f => do

@@ -18,7 +18,4 @@ private def np : String -> Name := .str numpy
 
 def NumpyEnv : List (Name × Item) :=
   [ module numpy
-  , const_var (np "add")
-  , const_var (np "subtract")
-  , const_var (np "multiply")
   ]

@@ -1,5 +1,4 @@
-import nki.language as nl
-import nki.isa as nisa
+from apis import *
 
 def matmul_128x128x512_spmd_nisa(A_T, B, result):
   """NKI kernel to compute a 128x128x512 matrix multiplication operation

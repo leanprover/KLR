@@ -4,10 +4,7 @@ Copyright (C) 2024, Amazon.com. All Rights Reserved
 Mamba-v1 NKI kernel implementation.
 
 """
-import nki
-import nki.language as nl
-import nki.isa as nisa
-import numpy as np
+from apis import *
 
 def mamba_v1(delta, u, A, B, C, output):
     """Computes the SSM operation in the Mamba model.

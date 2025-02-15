@@ -4,10 +4,7 @@ Copyright (C) 2024, Amazon.com. All Rights Reserved
 LayerNorm NKI kernel implementation.
 
 """
-import nki
-import nki.language as nl
-import nki.isa as nisa
-import numpy as np
+from apis import *
 import math
 
 def nki_layernorm_kernel_v1(input_tensor, epsilon, gamma_vector, beta_vector, output_tensor):
