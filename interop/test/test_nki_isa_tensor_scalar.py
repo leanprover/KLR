@@ -7,6 +7,7 @@ import unittest
 import numpy as np
 import nki.isa as nisa
 import nki.language as nl
+import numpy as np
 
 """
 Unit tests for tensor_scalar.
