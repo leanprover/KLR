@@ -10,7 +10,9 @@ mkdir -p $WHEEL_DIR/{klr,bin}
 lake build
 
 # Get klr binary
-cp .lake/build/bin/klr $WHEEL_DIR/bin/klr
+cp $ROOT/.lake/build/bin/klr $WHEEL_DIR/bin
+# Get gather binary
+cp $ROOT/bin/gather $WHEEL_DIR/bin
 
 # Get Python packages
 cp -R $PYTHON_DIR/* $WHEEL_DIR

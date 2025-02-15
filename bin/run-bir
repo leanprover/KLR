@@ -1,0 +1,88 @@
+#!/bin/bash
+set -e -u -o pipefail
+trap "kill 0" SIGINT SIGTERM
+
+# Run a BIR JSON file on a trn EC2 instance using the public Neuron SDK
+# You can create one, for example, using make-bir in this directory.
+# To use this, copy your BIR.json file to the instance and run this
+# script. You will need several tools from the Neuron SDK in your path.
+# A bunch of files get generated, so it's best to do this in a new
+# directory, where the only file is the BIR. E.g. a workable pattern is
+# something like this, where 'trn' is a profile of a trainium instance
+# in your .ssh/config
+#
+#    osx$ scp run-bir trn:bin/run-bir # assumes bin is a dir at user root on the path
+#    osx$ scp bir.json trn:
+#    osx$ ssh trn
+#    trn$ mkdir bir && mv bir.json bir && cd bir
+#    trn$ run-bir bir.json
+#
+if [[ $# != 1 ]]; then
+  echo "Usage: run-bir BIR_FILE.json"
+  exit 1
+fi
+
+BIR_FILE=$1; shift
+NEFF_FILE=$BIR_FILE.neff
+LOG_FILE=$(mktemp log-neuron-cc.XXX.txt)
+
+# TODO: Absolute path to NCC is sketchy here. Find a better way.
+NEURONXCC_DIR=/opt/aws_neuronx_venv_pytorch_2_5/lib64/python3.9/site-packages/neuronxcc
+#TODO: This gets generated during compilation. Still figuring this out.
+TENSOR_MAP_FILE=tensor_map.json
+
+WALRUS_DRIVER=$NEURONXCC_DIR/starfish/bin/walrus_driver
+echo "Logging to $LOG_FILE"
+# Args are from a regular run of NKI baremetal logs
+$WALRUS_DRIVER \
+  -i $BIR_FILE \
+  --logfile $LOG_FILE \
+  --neff-output-filename $NEFF_FILE \
+  --act-root-json $NEURONXCC_DIR/pwp/pwp_bin_trainium/act_info.json \
+  --dve-root-json $NEURONXCC_DIR/neuronxcc/dve/dve_bin_gen2/dve_info.json \
+  --tensor-map $TENSOR_MAP_FILE \
+  --optlevel 2 \
+  --allocator coloring \
+  --verbose 60 \
+  --logfile-verbose 20 \
+  --execute-repetition 1 \
+  --min_split_size 10240 \
+  --skip_split_vns '' \
+  --no_split_dram \
+  --split_huge_dram_tensor 1.0 \
+  --preprocessing_only \
+  --max_tensorizer_distance 64 \
+  --pack_same_shape_only \
+  --instruction_fetch_latency 511 \
+  --max-partitions 1 \
+  --policy 3 \
+  --auxflag 0 \
+  --interleave none \
+  --schedule-delayed-latency 1 \
+  --postsched-mm-accum-reorder=false \
+  --max-load-lower-bound 0.14 \
+  --force-prefetch-follow-incoming-order -1 \
+  --allreduce-buffer-size 500 \
+  --dram-page-size 512 \
+  --dram-rotation-size -1 \
+  --allreduce-rotation-dis 8 \
+  --repeat-load-thres 4 \
+  --enable-mm-transpose-remat-optimization=true \
+  --save-len-thres 512 \
+  --save-dma-cnt-thres 32 \
+  --relaxed-order=true \
+  --enable-anti-dependence-reduction=false \
+  --num-semaphores-per-queue 16 \
+  --numcores 1 \
+  --unified-backend-and-legacy-codegen \
+  --enable-verifier=true \
+  --enable-birsim=false \
+  --enable-birsim-sync-only=false \
+  --enable-data-race-checker=false \
+  --enable-new-backend=true \
+  --inject-error=NONE \
+  --dge-levels scalar_dynamic_offset,vector_dynamic_offsets \
+  --dynamic-dma-scratch-size-per-partition=16384
+
+# TODO: Run the neff
+# neuron-profile capture -n ...

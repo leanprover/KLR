@@ -45,3 +45,5 @@ Note: ▷ is typed as \rhd
 -/
 notation f "▷" l =>
   List.mapM (fun ⟨ x, _ ⟩ => f x) (List.attach l)
+
+def impossible {a : Type} [h : Inhabited a] (msg : String := "") := @panic a h s!"Invariant violation: {msg}"
