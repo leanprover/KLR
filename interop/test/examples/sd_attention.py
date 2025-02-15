@@ -4,11 +4,7 @@ Copyright (C) 2024, Amazon.com. All Rights Reserved
 Stable Diffusion Attention NKI kernel implementation.
 
 """
-import nki
-import nki.language as nl
-from nki.language import par_dim
-import nki.isa as nisa
-import numpy as np
+from apis import *
 
 def fused_self_attn_for_SD_small_head_size(q_ref, k_ref, v_ref, out_ref, use_causal_mask=False,
                                            mixed_percision=True):

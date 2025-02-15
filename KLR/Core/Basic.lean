@@ -60,10 +60,10 @@ inductive AluOp where
   deriving BEq, Repr
 
 /-
-A TensorName is essentially a typed variable, where the type must be a
-tensor type. This only refers to dynamic tensors, or compile-time
-tensors, not trace-time tensors.
+A TensorName is essentially a typed variable, where the type must be a tensor
+type. This only refers to dynamic (run-time) tensors, not trace-time tensors.
 -/
+
 abbrev Dtype := String
 abbrev Shape := List Nat
 

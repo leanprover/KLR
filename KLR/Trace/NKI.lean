@@ -86,9 +86,6 @@ def NKIEnv : List (Name × Item) :=
   [ module nki
   , module nki_isa
   , module nki_lang
-  , const_var (nl "add")
-  , const_var (nl "exp")
-  , const_var (nl "shared_hbm")
   , global tile_size
   , global arange
   , globalFn (nl "ndarray") Tensor.ndarray

@@ -1,4 +1,4 @@
-import nki.language as nl
+from apis import *
 
 def nki_tensor_add_kernel(a_input, b_input, c_output):
     """NKI kernel to compute element-wise addition of two input tensors

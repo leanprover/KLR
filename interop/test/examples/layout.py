@@ -1,5 +1,4 @@
-
-import nki.language as nl
+from apis import *
 
 def tensor_exp_kernel_1(in_tensor, out_tensor):
   """NKI kernel to compute elementwise exponential of an input tensor

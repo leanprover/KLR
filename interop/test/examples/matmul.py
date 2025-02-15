@@ -5,10 +5,7 @@ NKI implementation for matrix multiplication NKI tutorial.
 
 """
 
-import nki
-import nki.isa as nisa
-import nki.language as nl
-import numpy as np
+from apis import *
 
 def nki_matmul_basic_(lhsT, rhs, result):
   """NKI kernel to compute a 64x128x512 matrix multiplication operation

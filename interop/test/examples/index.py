@@ -1,5 +1,6 @@
-import nki.language as nl
 import math
+
+from apis import *
 
 def tensor_split_kernel_(in_tensor, out_tensor_even, out_tensor_odd):
   """NKI kernel to split an input tensor into two output tensors, along the column axis.

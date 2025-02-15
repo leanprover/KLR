@@ -194,7 +194,7 @@ structure Kernel where
   args : List Expr'
   kwargs : List (String × Expr')
   globals : List (String × Expr')
-  undefinedSymbols : List Lean.Json
+  undefinedSymbols : List String
   deriving Repr
 
 /-
@@ -471,12 +471,11 @@ def kernel (j : Json) : Parser Kernel := do
   let args <- field (list global) j "args"
   let kwargs <- field (dict global) j "kwargs"
   let globals <- field (dict global) j "globals"
-  let undefinedSymbols <- field (list json) j "undefined_symbols"
+  let undefinedSymbols <- field (list str) j "undefined_symbols"
   return Kernel.mk name funcs args kwargs globals undefinedSymbols
 
 def parse (s : String) : Err Kernel := do
   let jsn <- Json.parse s
   match kernel jsn {} with
-  | .ok x _ =>
-    if !x.undefinedSymbols.isEmpty then .error "undefined symbols" else .ok x
+  | .ok x _ => .ok x
   | .error s _ => .error s

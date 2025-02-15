@@ -359,6 +359,11 @@ def enterFun (m : Tracer a) : Tracer a :=
 def extend_global (name : Name) (i : Item) : Tracer Unit :=
   modify fun s => { s with env := s.env.insert name i }
 
+def lookup_global? (name : Name) : Tracer (Option Item) := do
+  match (<- get).env.find? name with
+  | none => return none
+  | some x => return x
+
 def lookup_global (name : Name) : Tracer Item := do
   match (<- get).env.find? name with
   | none => throw s!"{name} not found"
