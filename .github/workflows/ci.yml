@@ -35,6 +35,10 @@ jobs:
       # Build (and test) Lean. Tests are all via #guard macros
       # now so you can't really build without testing.
       - uses: leanprover/lean-action@v1
+        with:
+          # Workaround for some spurious crashes during the build, likely a bug in lean-action
+          # https://github.com/leanprover/lean-action/issues/116#issuecomment-2663316227
+          use-github-cache: false
 
       - name: Run Lean tests
         run: lake exe klr
