@@ -136,7 +136,10 @@ def parseJson (p : Parsed) : IO UInt32 := do
 def trace (p : Parsed) : IO UInt32 := do
   let kernel <- parse p
   let klr <- KLR.Trace.runNKIKernel kernel.inferArguments
-  showAs p klr
+  if p.hasFlag "pretty" then
+    IO.println (toString $ Std.format klr)
+  else
+    showAs p klr
   return 0
 
 def parseBIR (p : Parsed) : IO UInt32 := do
@@ -157,6 +160,20 @@ def compile (p : Parsed) : IO UInt32 := do
   let s <- IO.FS.readFile file
   let bir <- compileStr s
   showAs p bir
+  return 0
+
+def nkiToKLR (p : Parsed) : IO UInt32 := do
+  let debug := p.hasFlag "debug"
+  let file := p.positionalArg! "moduleFileName" |>.as! String
+  let kernel := p.positionalArg! "kernelFunctionName" |>.as! String
+  let dir := (p.flag? "klr-module-dir").map fun x => x.as! String
+  let s <- gatherStr file kernel dir debug
+  let kernel <- KLR.Python.Parsing.parse s
+  let klr <- KLR.Trace.runNKIKernel kernel.inferArguments
+  if p.hasFlag "pretty" then
+    IO.println (toString $ Std.format klr)
+  else
+    showAs p klr
   return 0
 
 def nkiToBIR (p : Parsed) : IO UInt32 := do
@@ -199,6 +216,7 @@ def traceCmd := `[Cli|
   FLAGS:
     r, repr; "Output Repr format"
     j, json; "Output Json format"
+    p, pretty; "Output Pretty format"
   ARGS:
     file : String; "File of Python AST printed as JSON"
 ]
@@ -223,6 +241,21 @@ def compileCmd := `[Cli|
     file : String; "File of Python AST printed as JSON"
 ]
 
+def nkiToKLRCmd := `[Cli|
+  "nki-to-klr" VIA nkiToKLR;
+  "Compile NKI kernel in Python to KLR"
+
+  FLAGS:
+    d, "klr-module-dir" : String; "Directory of Python klr module. Added to PYTHONPATH."
+    r, repr; "Output Repr format, instead of JSON"
+    p, pretty; "Output Pretty format, instead of JSON"
+    debug : Unit; "Print debugging info"
+
+  ARGS:
+    moduleFileName : String; "File of the Python module with the kernel function"
+    kernelFunctionName : String; "Name of the kernel function"
+]
+
 def nkiToBIRCmd := `[Cli|
   "nki-to-bir" VIA nkiToBIR;
   "Compile NKI kernel in Python to BIR"
@@ -245,6 +278,7 @@ def klrCmd : Cmd := `[Cli|
     compileCmd;
     gatherCmd;
     nkiToBIRCmd;
+    nkiToKLRCmd;
     parseBIRCmd;
     parseJsonCmd;
     traceCmd
