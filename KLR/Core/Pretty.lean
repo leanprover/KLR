@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 -/
 import KLR.Core.Basic
+import KLR.Util
 
 namespace KLR.Core
 open Std
@@ -88,9 +89,14 @@ def ppStmt : Stmt -> Format
   | .assign x e => x ++ " = " ++ ppExpr e
   | .loop _ _ _ _ _ => "<loop>"
 
+def ppDtype (dty : Dtype) : Format :=
+  match (reprStr dty).toName with
+  | .str _ name => name
+  | _ => impossible "dtype repr must be a name"
+
 def ppFullTensor (t : TensorName) : Format :=
   t.name ++ abracket (.joinSep [
-    format t.dtype,
+    ppDtype t.dtype,
     .paren (.joinSep t.shape ","),
     ppMemory t.memory
     ] ",")
@@ -107,6 +113,7 @@ def ppKernel (k : Kernel) : Format :=
     "body:", nest_lines (k.body.map ppStmt)
   ]
 
+instance : ToFormat Dtype      where format := ppDtype
 instance : ToFormat TensorName where format := ppTensor
 instance : ToFormat Const      where format := ppConst
 instance : ToFormat IndexExpr  where format := ppIndexExpr 0

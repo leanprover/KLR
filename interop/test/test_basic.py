@@ -142,7 +142,7 @@ def undefined_ok(t):
   undefined_ok
   ])
 def test_succeed(f):
-  t = np.ndarray(10)
+  t = np.ndarray(10, dtype="float32")
   F = Parser(f)   # parse python
   F(t)            # specialize, and reduce to KLR
 

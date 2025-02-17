@@ -218,7 +218,8 @@ where
     let f <- k.funcs.lookup k.entry
     let args := f.args.required
     let ten := Expr.exprPos (.const (.int 10)) {}
-    let tensors := args.map fun _ => .tensor [ten,ten] "float32"
+    let dtype := "nki.language.float32"
+    let tensors := args.map fun _ => .tensor [ten,ten] dtype
     return tensors
 
 -------------------------------------------------------------------------------

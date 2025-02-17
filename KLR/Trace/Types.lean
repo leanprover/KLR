@@ -142,6 +142,9 @@ inductive Term where
   | expr     : Expr -> TermType -> Term
 end
 
+instance : Inhabited Term where
+  default := .expr (.const .none) .none
+
 def Term.format : Term -> Lean.Format
   | .object obj => .text s!"object<{obj.name}>"
   | .tuple l => .text s!"tuple<{l.length}>"
@@ -253,7 +256,7 @@ def lookup? (name : Name) : TraceM (Option Term) := do
 
 def lookup (name : Name) : TraceM Term := do
   match (<- lookup? name) with
-  | none => throw s!"{name} not found"
+  | none => throw s!"local name {name} not found"
   | some x => return x
 
 
@@ -366,7 +369,7 @@ def lookup_global? (name : Name) : Tracer (Option Item) := do
 
 def lookup_global (name : Name) : Tracer Item := do
   match (<- get).env.find? name with
-  | none => throw s!"{name} not found"
+  | none => throw s!"global name {name} not found"
   | some x => return x
 
 def lookup_item (name : Name) : Tracer Item := do

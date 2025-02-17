@@ -23,8 +23,8 @@ tensors have the same basic layout.
 -- TODO: just a for instance...
 def physicalShape (t : TensorName) : Shape :=
   match t.dtype, t.shape with
-  | "float16", [x, y] => [x, y * 2]
-  | "float32", [x, y] => [x, y * 4]
+  | .float16, [x, y] => [x, y * 2]
+  | .float32, [x, y] => [x, y * 4]
   | _, _ => t.shape -- TODO incorrect
 
 -- Create memory region corresponding to a named tensor
@@ -84,7 +84,7 @@ def slicesToAP (d1 d2 : Nat) : List Index -> Compile PhysicalAccessPattern
 
 private def setMemRef (t : TensorName) (ap : PhysicalAccessPattern) : PhysicalAccessPattern :=
   { ap with
-    dtype := t.dtype
+    dtype := toString (Std.format t.dtype)
     memsetref := t.name ++ "_set"
     memref := t.name
   }
