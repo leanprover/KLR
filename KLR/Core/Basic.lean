@@ -3,6 +3,7 @@ Copyright (c) 2024 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 -/
+import KLR.Core.Operators
 
 /-!
 # Abstract syntax of Core NKL language
@@ -12,64 +13,12 @@ portable format, a.k.a. Kernel Language Representation (KLR).
 -/
 namespace KLR.Core
 
--- Compute Engines
-
-inductive Engine where
-  | unassigned
-  | pool
-  | act
-  | pe
-  | dma
-  | dve
-  | sp
-  deriving BEq, Repr
-
--- ALU operations
--- TODO organize these into groups
-inductive AluOp where
-  | abs
-  | add
-  | arith_shift_left
-  | arith_shift_right
-  | average
-  | bitwise_and
-  | bitwise_not
-  | bitwise_or
-  | bitwise_xor
-  | bypass
-  | divide
-  | elemwise_mul
-  | is_equal
-  | is_ge
-  | is_gt
-  | is_le
-  | is_lt
-  | logical_and
-  | logical_or
-  | logical_shift_left
-  | logical_shift_right
-  | logical_xor
-  | max
-  | min
-  | mod
-  | mult
-  | not_equal
-  | pow
-  | rsqrt
-  | subtract
-  deriving BEq, Repr
-
 /-
 A TensorName is essentially a typed variable, where the type must be a tensor
 type. This only refers to dynamic (run-time) tensors, not trace-time tensors.
 -/
 
-abbrev Dtype := String
 abbrev Shape := List Nat
-
-inductive Memory where
-  | dram | sbuf | pmem | reg
-  deriving Repr, BEq
 
 structure TensorName where
   name  : String
@@ -104,19 +53,6 @@ inductive Index where
   | ellipsis
   | coord (e : Option IndexExpr)
   | slice (l u step : Option IndexExpr)
-  deriving Repr, BEq
-
-structure TensorScalar where
-  op0 : AluOp
-  const0 : Float
-  reverse0 : Bool
-  op1 : AluOp
-  const1 : Float
-  reverse1 : Bool
-  deriving Repr, BEq
-
-inductive Operator where
-  | tensorScalar : TensorScalar -> Operator
   deriving Repr, BEq
 
 inductive Expr where

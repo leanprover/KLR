@@ -6,6 +6,7 @@ Authors: Paul Govereau, Sean McLaughlin
 import KLR.Core
 import KLR.Trace.Types
 import KLR.Trace.Builtin
+import KLR.Trace.FromNKI
 
 /-
 # Tracing for Tensor related operations
@@ -109,56 +110,9 @@ private def some_int (i : Int) : Option Term :=
 private def some_string (s : String) : Option Term :=
   some (.expr (.const (.string s)) .string)
 
--- conversion from NKI
-
-def Option.fromNKI (f : Term -> Err a) (dflt : a) : Term -> Err a
-  | .expr (.const .none) .none => return dflt
-  | e => f e
-
-def Bool.fromNKI : Term -> Err Bool
- | .expr (.const (.bool b)) .bool => return b
- | _ => throw "expecting boolean"
-
-def Int.fromNKI : Term -> Err Int
- | .expr (.const (.int i)) .int => return i
- | _ => throw "expecting integer"
-
-def Nat.fromNKI (t : Term) : Err Nat :=
-  return (<- Int.fromNKI t).toNat
-
-def Float.fromNKI : Term -> Err Float
- | .expr (.const (.float f)) .float => return f
- | _ => throw "expecting float"
-
-def String.fromNKI : Term -> Err String
-  | .expr (.const (.string s)) .string => return s
-  | _ => throw "expecting string"
-
-def Memory.fromNKI (t : Term) : Err Memory :=
-  match t.type with
-  | .obj name =>
-    match name.toString with
-    | "nki.language.shared_hbm" => return .dram
-    | "nki.language.sbuf" => return .sbuf
-    | "nki.language.pmem" => return .pmem
-    | _ => throw "expecting buffer type"
-  | _ => throw "expecting buffer type"
-
-def Shape.fromNKI : Term -> Err Shape
-  | .list l | .tuple l => l.mapM Nat.fromNKI
-  | _ => throw "expecting shape"
-
-def AluOp.fromNKI : Term -> Err AluOp
-  | .expr (.var name) _ =>
-      match name with
-      | "numpy.subtract" => return .subtract
-      | name => throw s!"unsupported operator {name}"
-  | t => throw s!"expecting operator got {repr t}"
-
 /-
 TODO: These definitions are very verbose, but this pattern could be made more
-convenient with a typeclass (fromNKI) and a command macro, maybe something
-like:
+convenient with a command macro, maybe something like:
 
 #nki ndarray(shape:Shape, dtype:Dtype, memory:Memory = .sbuf) := do
   let t <- declare "t" dtype shape memory
@@ -170,9 +124,9 @@ def ndarray : GlobalFn :=
             ("buffer", some_string "nki.language.sbuf")]
   fun
   | [shape, dtype, buf] => do
-      let shape <- Shape.fromNKI shape
-      let dtype <- String.fromNKI dtype
-      let memory <- Memory.fromNKI buf
+      let shape <- fromNKI? shape
+      let dtype <- fromNKI? dtype
+      let memory <- fromNKI? buf
       let t <- declare "ndarray" dtype shape memory
       return .expr (.tensor t) (.tensor dtype shape)
   | _ => throw "invalid arguments"
@@ -183,7 +137,7 @@ def load : GlobalFn :=
             ("dtype", some_string "float32")]
   fun
   | [t, _, dtype] => do
-      let dtype <- String.fromNKI dtype
+      let dtype <- fromNKI? dtype
       store_expr "load" dtype .sbuf t
   | _ => throw "invalid arguments"
 
@@ -215,14 +169,14 @@ def tensor_scalar : GlobalFn :=
   | [data, op0, operand0, reverse0, op1, operand1, reverse1, dtype] => do
       let (t, ix) <- Term.inferTensor data
       let shape <- inferShape t ix
-      let dtype <- Option.fromNKI String.fromNKI t.dtype dtype
+      let dtype := fromNKI Dtype.float32 dtype
       let op : TensorScalar := {
-           op0 := <- AluOp.fromNKI op0
-           const0 := <- Float.fromNKI operand0
-           reverse0 := <- Option.fromNKI Bool.fromNKI false reverse0
-           op1 := <- Option.fromNKI AluOp.fromNKI .bypass op1
-           const1 := <- Option.fromNKI Float.fromNKI 0.0 operand1
-           reverse1 := <- Option.fromNKI Bool.fromNKI false reverse1
+           op0 := <- fromNKI? op0
+           const0 := <- fromNKI? operand0
+           reverse0 := fromNKI false reverse0
+           op1 := fromNKI .bypass op1
+           const1 := fromNKI 0.0 operand1
+           reverse1 := fromNKI false reverse1
            }
       let e := Expr.operator (.tensorScalar op)
       let ty := TermType.tensor dtype shape

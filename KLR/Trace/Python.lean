@@ -282,6 +282,7 @@ partial def expr' : Expr' -> Tracer Item
   | .tensor s dty => do
       let shape <- nat ▷ s
       let name <- genName "t".toName
+      let dty <- fromNKI? (.expr (.var dty) .none)
       return .term (.expr (.tensor ⟨ name.toString, dty, shape, .dram ⟩) (.tensor dty shape))
   | .name id _ => lookup_item id.toName
   | .attr (.exprPos e p) id _ => do withPos p ((<- expr' e).attr id)

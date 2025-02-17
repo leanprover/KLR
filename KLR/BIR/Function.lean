@@ -84,7 +84,7 @@ structure MemoryLocation where
 structure Allocation where
   Skind : StorageKind := .memory_location_set
   addr_space : Option AddrSpace
-  dtype : Option String
+  dtype : Option Dtype
   partition_dim : Option Nat
   tensor_shape : List Nat
   name : String

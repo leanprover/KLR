@@ -259,12 +259,14 @@ where
 
 def Term.attr : Term -> String -> TraceM Term
   | .object o, id => o.attr id
-  | .expr _ (.tensor d _), "dtype" => return (str d)
+  | .expr _ (.tensor d _), "dtype" => return (dtype d)
   | .expr _ (.tensor _ s), "shape" => return (list s)
   | .expr e _, id => throw s!"unsupported attribute {id} on {repr e}"
   | t, id => throw s!"unsupported attribute {id} on {repr t}"
 where
-  str s  := .expr (.const $ .string s) .string
+  dtype dty :=
+    let name := "nki.language." ++ toString (Std.format dty)
+    .expr (.var name) (.obj name.toName)
   list l := .list $ l.map fun i => .expr (.const (.int $ .ofNat i)) .int
 
 def Item.attr : Item -> String -> Tracer Item

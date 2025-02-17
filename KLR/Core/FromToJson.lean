@@ -61,6 +61,7 @@ instance : FromJson Engine where
   | .str s => throw s!"unknown engine type {s}"
   | _ => throw "expecting engine type"
 
+deriving instance ToJson for Dtype
 deriving instance ToJson for AluOp
 deriving instance ToJson for Memory
 deriving instance ToJson for TensorName
@@ -68,6 +69,7 @@ deriving instance ToJson for Const
 deriving instance ToJson for IndexExpr
 deriving instance ToJson for Index
 
+deriving instance FromJson for Dtype
 deriving instance FromJson for AluOp
 deriving instance FromJson for Memory
 deriving instance FromJson for TensorName
