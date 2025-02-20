@@ -230,7 +230,39 @@ def contains (s : State) (n : Name) : Bool :=
 
 end State
 
+instance : Inhabited State where
+  default := {}
+
 abbrev TraceM := StM State
+
+/-
+We can eliminate the Tracer Monad and the mutual block
+for Object and Term by using a ST.Ref. The ref is consistent
+with our state threading due to the definitions in KLR.Util.
+This version would not support running multiple, independent
+traces at the same time, because there is only one environment.
+
+Note: This Ref is also useful to implement mutable objects, which
+we may need at some point. Basically:
+
+  instance [Obj a] : Obj (Ref a) where  -- See builtin.lean
+    ...
+
+Would allow using a `Ref` as the internal state of a builtin object.
+-/
+
+abbrev Ref := ST.Ref State
+initialize refEnv : Ref Env <- do
+  ST.mkRef default
+
+-- This would replace lookup and lookup_global
+def refLookup (name : Name) : TraceM (Option Term) := do
+  let env <- refEnv.get
+  return env.find? name
+
+-- this would replace extend and extend_global
+def refExtend (x : Name) (v : Term) : TraceM Unit := do
+  refEnv.modify fun env => env.insert x v
 
 -- Run a trace with an empty initial environment
 def trace (m : TraceM a) : Err a :=

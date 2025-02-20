@@ -32,6 +32,23 @@ instance : MonadLift Err (StM a) where
     | .error s => .error s
 
 /-
+This is for use of ST.Ref within StM monads. ST.Ref has an instance of
+`MonadStateOf`, so we just need to provide `MonadLift`.
+-/
+instance [Inhabited a] : MonadLift (ST a) (StM a) where
+  monadLift st := fun s =>
+   match st s with
+   | .ok x s => .ok x s
+   | .error e _ => nomatch e
+
+-- This instance is for initialize blocks that access ST.Refs
+instance [Inhabited a] : MonadLiftT (ST a) IO :=
+  ⟨ fun st s =>
+    match st default with
+    | .ok a _     => .ok a s
+    | .error ex _ => nomatch ex ⟩
+
+/-
 A common issue is failure to prove termination automatically when using
 List.mapM. There is a work-around for this which involves introducing
 `{ x // x ∈ l }` in place of the list `l`.
