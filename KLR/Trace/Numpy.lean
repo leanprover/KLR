@@ -27,5 +27,5 @@ private def syms := [
   "logical_not", "logical_and", "logical_or", "logical_xor"
   ]
 
-def NumpyEnv : List (Name × Item) :=
+def NumpyEnv : List (Name × Term) :=
   module numpy :: syms.map fun s => const_var (np s)

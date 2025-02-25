@@ -24,72 +24,19 @@ private def nki_lang : Name := .str nki "language"
 private def nl : String -> Name := .str nki_lang
 private def nisa : String -> Name := .str nki_isa
 
-/-
-Note: this object contains a bunch of architecture parameters that
-need to be set according to which HW we are compiling for.
-TODO: figure out the mechanism for this.
--/
-def tile_size : Global :=
-  let name := nl "tile_size"
-  { name := name
-  , attr := attrs
-  , call := uncallable name
-  }
-where
-  attrs : GlobalAttr
-  | "pmax" => return .expr (.const $ .int 128) .int
-  | a => throw s!"unsupported attribute {a}"
+-- List of builtin function implementations
+def NKIBuiltins : List (Name × BuiltinFn) :=
+  [ (nl "load", Tensor.load)
+  , (nl "store", Tensor.store)
+  , (nl "ndarray", Tensor.ndarray)
+  , (nisa "tensor_scalar", Tensor.tensor_scalar)
+  ]
 
-/-
-This is a place-holder for arange.
-Note: arange is a bit inconsistent, and perhaps we should just use numpy.arange
-and later convert advanced indexing to basic indexing (when possible)
--/
-structure ARange where
-  arg : Int  -- argument to arange
-  ndx : Nat  -- location of slice index
-
-instance : Obj ARange where
-  name := "arange".toName
-  index := fun _ _ _ => .ok (.coord $ some $ .int 0)
-
-def arange : Global :=
-  { name := name
-  , attr := noAttr name
-  , call := noKWArgs range
-  }
-where
-  name := nl "arange"
-  range : List Term -> TraceM Term
-  | [ .expr (.const (.int i)) _ ] => do
-      return .object {
-        name := name
-        attr := noAttr name
-        access := arange_access i
-        index := noIndex name
-        binop := noBinop name
-        call := uncallable name
-      }
-  | _ => throw "invalid arguments"
-  arange_access (i : Int) (l : List Index) : Err Term := do
-    let (l₁, l₂) := l.enum.partition fun x => x.snd == .slice none none none
-    let all_none := l₂.all fun x => x.snd == .coord none
-    if not all_none then
-      throw "arange only supports None and slice indexes"
-    if h:l₁.length = 1 then
-      let (n,_) := l₁[0]
-      return .object (toObject (ARange.mk i n))
-    else
-      throw "arange subscript must have exactly one slice"
-
-def NKIEnv : List (Name × Item) :=
+-- NKI environment, including constants and the names of builtin functions
+def NKIEnv : List (Name × Term) :=
   [ module nki
   , module nki_isa
   , module nki_lang
-  , global tile_size
-  , global arange
-  , globalFn (nl "ndarray") Tensor.ndarray
-  , globalFn (nl "load") Tensor.load
-  , globalFn (nl "store") Tensor.store
-  , globalFn (nisa "tensor_scalar") Tensor.tensor_scalar
+  , const_int (.str (nl "tile_size") "pmax") 128
   ]
+  ++ NKIBuiltins.map fun (x,_) => (x, .builtin x (.obj x))

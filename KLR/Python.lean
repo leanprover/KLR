@@ -20,7 +20,7 @@ structure Pos where
   end_lineno : Nat := 0
   col_offset : Nat := 0
   end_col_offset : Nat := 0
-  deriving Repr
+  deriving Repr, BEq
 
 inductive Const where
   | none
@@ -289,7 +289,7 @@ def genError (offset : Nat) (source err : String) (pos : Pos) : String :=
               then "<source not available>"
               else lines[lineno]!
   let indent := (Nat.repeat (List.cons ' ') colno List.nil).asString
-  s!"line {lineno + offset}:\n{line}\n{indent}^-- {err}"
+  s!"\nline {lineno + offset}:\n{line}\n{indent}^-- {err}"
 
 private def withSrc (line : Nat) (source : String) (p : Parser a) : Parser a :=
   try set { lineno := 0 : Pos } ; p

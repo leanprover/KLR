@@ -55,13 +55,15 @@ def exprToIndex : Core.Expr -> Err Core.Index
   | .call _ _ _ => throw "invalid index"
 
 -- Convert a Term to an Index (if possible)
-def termToIndex (ty : TermType) : Term -> Err (List Core.Index)
+def termToIndex (_ty : TermType) : Term -> Err (List Core.Index)
   | .tuple l | .list l => l.enum.mapM fun (p,t) => toIndex p t
   | t => return [<- toIndex 0 t]
 where
-  toIndex (pos : Nat) : Term -> Err Core.Index
+  toIndex (_pos : Nat) : Term -> Err Core.Index
+  | .module _ => throw "module cannot be used as an index"
+  | .builtin n _ => throw s!"{n} cannot be used as an index"
+  | .source _ => throw "function cannot be used as an index"
   | .tuple _ | .list  _ => throw "nested tuple/list indexes not supported"
-  | .object o => o.index ty pos
   | .ellipsis => return .ellipsis
   | .slice x y z => return .slice (x.map .int) (y.map .int) (z.map .int)
   | .store _ _ _ => throw "store expression cannot be used as index"
@@ -88,12 +90,14 @@ def list_access (name : String) (l : List Term) : Term -> Err Term
 -- Top-level subscript access t[i]
 def access (t : Term) (i : Term) : Err Term := do
   match t with
-  | .object o => o.access (<- termToIndex t.type i)
+  | .module _
+  | .builtin ..
+  | .source _ => throw "subscript not supported"
   | .tuple l => list_access "list" l i
   | .list l => list_access "tuple" l i
   | .ellipsis
-  | .slice _ _ _ => throw "__subscript__ not supported"
-  | .store _ _ _ => throw "__subscript__ not supported"
+  | .slice ..
+  | .store .. => throw "subscript not supported"
   | .expr e _ => return .expr (.access e (<- termToIndex t.type i)) (.obj "object".toName)
 
 /-
@@ -144,10 +148,10 @@ dead-code elimination for simple assignments.
 
 -- Convert an expression in assignment context (an L-Value).
 -- TODO: handle subscript
-def LValue : Expr -> Tracer Term
+def LValue : Expr -> Trace Term
   | .exprPos e' p => withPos p (lval e')
 where
-  lval : Expr' -> Tracer Term
+  lval : Expr' -> Trace Term
   | .name id .store => return .expr (.var id) (.obj "object".toName)
   | .attr _ id .store => throw s!"cannot assign to attribute {id}"
   | .tuple l .store => return .tuple (<- LValue ▷ l)
@@ -157,8 +161,10 @@ where
 
 -- Convert an R-Value to a pure expression, emitting
 -- additional assignments as needed.
-def RValue : Term -> Tracer Term
-  | .object o => return .object o
+def RValue : Term -> Trace Term
+  | .module n => return .module n
+  | .builtin n t => return .builtin n t
+  | .source f => return .source f
   | .tuple  l => return .tuple (<- RValue ▷ l)
   | .list   l => return .list  (<- RValue ▷ l)
   | .ellipsis => return .ellipsis
@@ -175,20 +181,22 @@ def RValue : Term -> Tracer Term
   | .expr e ty => return .expr e ty
 
 -- Create an assignment to a Core Expr, this must be a variable
-def assignExpr (e : Core.Expr) (t : Term) : Tracer Unit := do
+def assignExpr (e : Core.Expr) (t : Term) : Trace Unit := do
   match e with
   | .var x => extend x.toName t
   | _ => throw s!"cannot assign to {repr e}"
 
 -- Unpack an RValue, must be a list or tuple
-def unpack : Term -> Tracer (List Term)
+def unpack : Term -> Trace (List Term)
   | .tuple l | .list  l => return l
   | t => throw s!"cannot unpack non-iterable object {repr t}"
 
 -- Assign to a term, handling unpacking for tuples and lists
-def assignTerm (x : Term) (e : Term) : Tracer Unit := do
+def assignTerm (x : Term) (e : Term) : Trace Unit := do
   match x with
-  | .object o => throw s!"cannot assign to {o.name}"
+  | .module name => throw s!"cannot assign to {name}"
+  | .builtin name _ => throw s!"cannot assign to {name}"
+  | .source _ => throw "cannot assign to function"
   | .tuple l
   | .list  l  => assignList l (<- unpack e)
   | .ellipsis => throw "cannot assign to ellipsis"
@@ -196,7 +204,7 @@ def assignTerm (x : Term) (e : Term) : Tracer Unit := do
   | .store _ _ _ => throw "cannot assign to a store"
   | .expr x _ => assignExpr x e
 where
-  assignList : List Term -> List Term -> Tracer Unit
+  assignList : List Term -> List Term -> Trace Unit
   | [], [] => return ()
   | [], _  => throw "not enough values to unpack"
   | _, []  => throw "too many values to unpack"
@@ -206,7 +214,7 @@ where
 
 -- Top-level assignment handling
 -- e.g. x1 = x2 = e
-def assign (xs : List Expr) (e : Term) : Tracer Unit := do
+def assign (xs : List Expr) (e : Term) : Trace Unit := do
   let xs <- LValue ▷ xs
   let e <- RValue e
   for x in xs do
@@ -251,92 +259,80 @@ inductive StmtResult where
   deriving Repr, BEq
 
 mutual
-partial def expr : Expr -> Tracer Item
-  | .exprPos e' p => withPos p (expr' e')
 
-partial def term (e : Expr) : Tracer Term :=
-  return <- (<- expr e).toTerm
+partial def expr [FromNKI a] : Expr -> Trace a
+  | .exprPos e' p => withPos p do fromNKI? (<- expr' e')
 
-partial def term' (e : Expr') : Tracer Term :=
-  return <- (<- expr' e).toTerm
-
-partial def klr (e : Expr) : Tracer Core.Expr :=
-  return <- (<- term e).toKLR
-
-partial def nat (e : Expr) : Tracer Nat := do
-  match <- klr e with
-  | .const c => return (<- c.toInt).toNat
-  | _ => throw "expecting positive integer"
-
--- Note, this is technically more permissive than python in some contexts (slices)
-partial def integer? : Option Expr -> Tracer (Option Int)
+-- This is only used for slices
+partial def integer? : Option Expr -> Trace (Option Int)
   | none => return none
-  | some e => do
-    match <- klr e with
-    | .const .none => return none
-    | .const c => return some (<- c.toInt)
-    | _ => throw "expecting integer or None"
+  | some e => expr e
 
-partial def expr' : Expr' -> Tracer Item
-  | .const c => return .term (const c)
+partial def expr' : Expr' -> Trace Term
+  | .const c => return const c
   | .tensor s dty => do
-      let shape <- nat ▷ s
+      let shape <- expr ▷ s
       let name <- genName "t".toName
       let dty <- fromNKI? (.expr (.var dty) .none)
-      return .term (.expr (.tensor ⟨ name.toString, dty, shape, .dram ⟩) (.tensor dty shape))
-  | .name id _ => lookup_item id.toName
-  | .attr (.exprPos e p) id _ => do withPos p ((<- expr' e).attr id)
-  | .tuple l _ => return .term (.tuple (<- term ▷ l))
-  | .list  l _ => return .term (.list  (<- term ▷ l))
-  | .subscript t i _ => return .term (<- access (<- term t) (<- term i))
-  | .slice x y z => return .term (.slice (<- integer? x) (<- integer? y) (<- integer? z))
-  | .boolOp op xs => return .term (<- boolOp op (<- term ▷ xs))
-  | .binOp op l r => return .term (<- binOp op (<- term l) (<- term r))
-  | .unaryOp op e => return .term (<- unOp op (<- term e))
-  | .compare l ops cs => return .term (<- compare (<- term l) ops (<- term ▷ cs))
+      return .expr (.tensor ⟨ name.toString, dty, shape, .dram ⟩) (.tensor dty shape)
+  | .name id _ => lookup id.toName
+  | .attr e id _ => do ((<- expr e : Term).attr id)
+  | .tuple l _ => return .tuple (<- expr ▷ l)
+  | .list  l _ => return .list  (<- expr ▷ l)
+  | .subscript t i _ => do access (<- expr t) (<- expr i)
+  | .slice x y z => return .slice (<- integer? x) (<- integer? y) (<- integer? z)
+  | .boolOp op xs => do boolOp op (<- expr ▷ xs)
+  | .binOp op l r => do binOp op (<- expr l) (<- expr r)
+  | .unaryOp op e => do unOp op (<- expr e)
+  | .compare l ops cs => do compare (<- expr l) ops (<- expr ▷ cs)
   | .ifExp tst tru fls => do
-      let tst <- (<- term tst).isTrue
+      let tst <- (<- expr tst : Term).isTrue
       let tru <- expr tru  -- eagerly evaluate both branches
       let fls <- expr fls  -- to report errors to user
       return if tst then tru else fls
   | .call f args kws => do
-      match <- expr f with
-      | .module n => throw s!"module {n} not callable"
-      | .global g => return .term (<- g.call (<- term ▷ args) (<- keyword term ▷ kws))
-      | .term t   => return .term (<- t.call (<- klr ▷ args) (<- keyword klr ▷ kws))
-      | .source f => return .term (<- function_call f (<- term ▷ args) (<- keyword term ▷ kws))
+      match (<- expr f : Term) with
+      | .module n    => throw s!"module {n} not callable"
+      | .builtin n _ => do (<- builtinFn n) (<- expr ▷ args) (<- keyword expr ▷ kws)
+      | .source f    => do function_call f (<- expr ▷ args) (<- keyword expr ▷ kws)
+      | .tuple _     => throw "tuple is not a callable type"
+      | .list _      => throw "list is not a callable type"
+      | .ellipsis    => throw "ellipsis is not a callable type"
+      | .slice _ _ _ => throw "slice is not a callable type"
+      | .store _ _ _ => throw "tensor is not a callable type"
+      | .expr f _    => return .expr (.call f (<- expr ▷ args) (<- keyword expr ▷ kws)) default
 
-partial def keyword (f : Expr -> Tracer a) : Keyword -> Tracer (String × a)
+partial def keyword (f : Expr -> Trace a) : Keyword -> Trace (String × a)
   | .keyword id e p => withPos p do return (id, (<- f e))
 
-partial def stmt : Stmt -> Tracer StmtResult
+partial def stmt : Stmt -> Trace StmtResult
   | .stmtPos s' p => withPos p (stmt' s')
 
-partial def stmt' : Stmt' -> Tracer StmtResult
+partial def stmt' : Stmt' -> Trace StmtResult
   | .pass => return .done
   | .ret e => do
-      let t <- term e
+      let t <- expr e
       let t <- RValue t
       return .ret t
   | .expr e => do
-      let t <- term e
+      let t <- expr e
       let _ <- RValue t
       return .done
   | .assert e => do
-      let t <- term e
+      let t : Term <- expr e
       if (<- t.isFalse) then throw "assertion failed"
       return .done
-  | .assign xs e => do assign xs (<- term e); return .done
-  | .augAssign x op e => do assign [x] (<- term' (.binOp op x e)); return .done
+  | .assign xs e => do assign xs (<- expr e); return .done
+  | .augAssign x op e => do assign [x] (<- expr' (.binOp op x e)); return .done
   | .annAssign _ _ .none => return .done
-  | .annAssign x _ (.some e) => do assign [x] (<- term e); return .done
+  | .annAssign x _ (.some e) => do assign [x] (<- expr e); return .done
   | .ifStm e thn els => do
-      let t <- term e
+      let t : Term <- expr e
       let body := if <- t.isTrue then thn else els
       stmts body
   | .forLoop x iter body orelse => do
       let x <- LValue x
-      let iter <- term iter
+      let iter <- expr iter
       let ts <- termToIter iter
       for t in ts do
         assignTerm x t
@@ -348,7 +344,7 @@ partial def stmt' : Stmt' -> Tracer StmtResult
   | .breakLoop => return .brk
   | .continueLoop => return .cont
 
-partial def stmts : List Stmt -> Tracer StmtResult
+partial def stmts : List Stmt -> Trace StmtResult
   | [] => return .done
   | s :: l => do
       match <- stmt s with
@@ -362,7 +358,7 @@ partial def bind_args (f : Fun)
                       (args : List Term)
                       (kwargs : List (String × Term))
                       (rename : Bool := false)
-                      : Tracer (List (String × Term)) := do
+                      : Trace (List (String × Term)) := do
   if f.args.vararg != none || f.args.kwarg != none then
     throw "var args not supported"
   if args.length < f.args.posonlyargs.length then
@@ -377,7 +373,7 @@ partial def bind_args (f : Fun)
     else if let some v := kwargs.lookup x then
       return (x, v)
     else if let some e := dflts.lookup x then
-      return (x, <- term' e)
+      return (x, <- expr' e)
     else
       throw s!"argument {x} not supplied"
   -- rename tensors if asked to
@@ -395,7 +391,7 @@ function call arguments will not be input tensors.
 -/
 partial def call (f : Fun)
                  (args : List (String × Term))
-                 : Tracer Term := do
+                 : Trace Term := do
   withSrc f.line f.source $ enterFun $ do
     args.forM fun (x,e) => do extend x.toName e
     match <- stmts f.body with
@@ -405,7 +401,7 @@ partial def call (f : Fun)
 partial def function_call (f : Fun)
                           (args : List Term)
                           (kwargs : List (String × Term))
-                          : Tracer Term := do
+                          : Trace Term := do
   let args <- bind_args f args kwargs (rename:=false)
   call f args
 
@@ -422,15 +418,15 @@ in the official NKI API. We do not want this to shadow the built-in definition
 of add, if we have one. If we have an internal definition, we will use this
 over anything found during parsing.
 -/
-private def globals (k : Kernel) : Tracer Unit := do
+private def globals (k : Kernel) : Trace Unit := do
   let s <- get
   for (n, f) in k.funcs do
     let n := n.toName
-    if not (s.env.contains n) then
+    if not (s.globals.contains n) then
       extend_global n (.source f)
   for (n,e) in k.globals do
     let name := n.toName
-    if not (s.env.contains name) then
+    if not (s.globals.contains name) then
       if not (k.undefinedSymbols.contains n) then
         extend_global name (<- expr' e)
 
@@ -453,32 +449,32 @@ this constant. However, you still get out a KLR artifact that some
 other, experimental compiler may be able to handle.
 -/
 def undefinedOK : Name -> Bool
-  | .str .anonymous "numpy" => true
   | .str .anonymous "nki" => true
   | .str n _ => undefinedOK n
   | _ => false
 
-def checkUndefined (k : Kernel) : Tracer Unit := do
+def checkUndefined (k : Kernel) : Trace Unit := do
   let mut undefined := []
   for sym in k.undefinedSymbols do
     let name := sym.toName
     if (<- lookup_global? name).isNone then
-      if undefinedOK name then
-        extend_global name (.term (.expr (.var sym) (.obj name)))
+      if undefinedOK name then do
+        warn s!"unknown NKI API {name}"
+        extend_global name (.expr (.var name.toString) (.obj name))
       else
         undefined := name :: undefined
   if undefined.length > 0 then
     throw s!"undefined names {undefined}"
 
 -- Call the top-level kernel function
-def traceKernel (k : Kernel) : Tracer Core.Kernel := do
+def traceKernel (k : Kernel) : Trace Core.Kernel := do
   globals k
   checkUndefined k
   match k.funcs.lookup k.entry with
   | none => throw s!"function {k.entry} not found"
   | some f => do
-      let args <- k.args.mapM term'
-      let kwargs <- k.kwargs.mapM fun (x,e) => return (x, <- term' e)
+      let args <- k.args.mapM expr'
+      let kwargs <- k.kwargs.mapM fun (x,e) => return (x, <- expr' e)
       let args <- bind_args f args kwargs (rename := true)
       let res <- call f args
       let inputs := Term.all_tensors (args.map fun x => x.snd)
@@ -495,6 +491,3 @@ def PythonEnv :=
   [
     const "range"
   ]
-
-def runKernel (k : Kernel) : Err Core.Kernel :=
-  tracer ⟨ ∅, #[] ⟩ (traceKernel k)

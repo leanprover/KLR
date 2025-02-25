@@ -70,7 +70,7 @@ these represent the memory we need to allocate in the dram, sbuf, etc.
 -/
 def declare (tag : String)
             (dtype : Dtype) (shape : Shape) (memory : Memory)
-            : TraceM TensorName := do
+            : Trace TensorName := do
   let pos := (<- get).pos
   let tname := s!"{tag}.{pos.lineno}.{pos.col_offset}"
   return {
@@ -83,7 +83,7 @@ def declare (tag : String)
 -- generate a store expression based on the src shape
 def store_expr (tag : String)
                (dtype : Dtype) (memory : Memory) (src : Term)
-               : TraceM Term := do
+               : Trace Term := do
   match src with
   | .expr e (.tensor _ shape) => do
       let dst <- declare tag dtype shape memory
@@ -118,7 +118,7 @@ convenient with a command macro, maybe something like:
   let t <- declare "t" dtype shape memory
   ...
 -/
-def ndarray : GlobalFn :=
+def ndarray : BuiltinFn :=
   withArgs [("shape", none),
             ("dtype", none),
             ("buffer", some_string "nki.language.sbuf")]
@@ -131,7 +131,7 @@ def ndarray : GlobalFn :=
       return .expr (.tensor t) (.tensor dtype shape)
   | _ => throw "invalid arguments"
 
-def load : GlobalFn :=
+def load : BuiltinFn :=
   withArgs [("src", none),
             ("mask", some_none),
             ("dtype", some_string "float32")]
@@ -141,7 +141,7 @@ def load : GlobalFn :=
       store_expr "load" dtype .sbuf t
   | _ => throw "invalid arguments"
 
-def store : GlobalFn :=
+def store : BuiltinFn :=
   withArgs [("dst", none),("value", none)]
   fun
   | [.expr dst _, .expr src _] => do
@@ -156,7 +156,7 @@ def store : GlobalFn :=
       return Term.store t₁ i₁ src
   | _ => throw "invalid arguments"
 
-def tensor_scalar : GlobalFn :=
+def tensor_scalar : BuiltinFn :=
   withArgs [("data", none),
             ("op0", none),
             ("operand0",none),
@@ -198,13 +198,13 @@ private def tensor_call (op : String) (args : List Expr) : Term :=
 
 -- Unary operations on tensors
 
-def tensor_op (op : UnaryOp) (t : TensorName) : TraceM Term :=
+def tensor_op (op : UnaryOp) (t : TensorName) : Trace Term :=
   let op := toString (repr op)
   return tensor_call op [.tensor t]
 
 -- Binary operations on tensors / scalars
 
-def tensor_tensor (op : BinOp) (l r : TensorName) : TraceM Term :=
+def tensor_tensor (op : BinOp) (l r : TensorName) : Trace Term :=
   let op := toString (repr op)
   return tensor_call op [.tensor l, .tensor r]
 
@@ -213,10 +213,10 @@ private def broadcast (t : TensorName) (c : Const) : Expr :=
   let args := .const c :: args
   .call (.var "broadcast") args []
 
-def tensor_scalar (op : BinOp) (t : TensorName) (c : Const) : TraceM Term :=
+def tensor_scalar (op : BinOp) (t : TensorName) (c : Const) : Trace Term :=
   let op := toString (repr op)
   return tensor_call op [ .tensor t, broadcast t c]
 
-def scalar_tensor (op : BinOp) (c : Const) (t : TensorName) : TraceM Term :=
+def scalar_tensor (op : BinOp) (c : Const) (t : TensorName) : Trace Term :=
   let op := toString (repr op)
   return tensor_call op [ .tensor t, broadcast t c]

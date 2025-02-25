@@ -16,5 +16,5 @@ namespace KLR.Trace
 
 def globalEnv := PythonEnv ++ NKIEnv ++ NumpyEnv
 
-def runNKIKernel (k : KLR.Python.Kernel) : Err KLR.Core.Kernel :=
-  tracer ⟨ .ofList globalEnv, #[] ⟩ (traceKernel k)
+def runNKIKernel (k : KLR.Python.Kernel) : Err (String × KLR.Core.Kernel) :=
+  tracer globalEnv (traceKernel k)

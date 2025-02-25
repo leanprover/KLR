@@ -34,6 +34,21 @@ instance [FromNKI a] : FromNKI (Option a) where
     | .expr (.const .none) _ => return none
     | e => return some (<- fromNKI? e)
 
+instance : FromNKI Term where
+  fromNKI? t := .ok t
+
+instance : FromNKI Expr where
+  fromNKI?
+    | .module _    => throw "module cannot be converted to a KLR term"
+    | .builtin n _ => return .var n.toString
+    | .source _    => throw "function cannot be converted to a KLR term"
+    | .tuple _     => throw "tuple cannot be converted to a KLR term"
+    | .list _      => throw "list cannot be converted to a KLR term"
+    | .ellipsis    => throw "ellipsis cannot be converted to a KLR term"
+    | .slice _ _ _ => throw "slice cannot be converted to KLR in this context"
+    | .store _ _ _ => throw "store cannot be converted to KLR in this context"
+    | .expr e _    => return e
+
 instance : FromNKI Bool where
   fromNKI?
     | .expr (.const (.bool b)) .bool => return b
@@ -41,6 +56,8 @@ instance : FromNKI Bool where
 
 instance : FromNKI Int where
   fromNKI?
+    | .expr (.const (.bool true)) _ => return 1
+    | .expr (.const (.bool false)) _ => return 0
     | .expr (.const (.int i)) .int => return i
     | _ => throw "expecting integer"
 
