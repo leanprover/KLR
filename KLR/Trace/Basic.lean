@@ -6,6 +6,7 @@ Authors: Paul Govereau, Sean McLaughlin
 import KLR.Core
 import KLR.Trace.Types
 import KLR.Trace.Tensor
+import KLR.Trace.NKI
 
 /-
 # Basic tracing facilities
@@ -66,14 +67,16 @@ def indexUnOp : String -> IndexExpr -> Err IndexExpr
 -- Truthiness of Terms following Python
 
 def Term.isTrue : Term -> Err Bool
-  | .object _ => return true
-  | .tuple [] => return false
-  | .tuple _  => return true
+  | .tuple []
   | .list []  => return false
-  | .list _   => return true
-  | .ellipsis => return true
-  | .slice _ _ _ => return true
-  | .store _ _ _ => return true
+  | .module _
+  | .builtin ..
+  | .source _
+  | .tuple _
+  | .list _
+  | .ellipsis
+  | .slice ..
+  | .store .. => return true
   | .expr (.const c) _ => return c.isTrue
   | .expr _ _ => throw "non-constant expression"
 
@@ -123,7 +126,7 @@ where
   int (i : Int) : Term := .expr (.const (.int i)) .int
 
 -- Binary operators on tensors (see Tensor.lean)
-private def exprOp : BinOp -> Expr -> Expr -> TraceM Term
+private def exprOp : BinOp -> Expr -> Expr -> Trace Term
   -- tensors
   | op, .tensor l, .tensor r => tensor_tensor op l r
   | op, .tensor t, .const  c => tensor_scalar op t c
@@ -135,10 +138,7 @@ private def exprOp : BinOp -> Expr -> Expr -> TraceM Term
   | _ , _        , _         => throw "non-constant expression"
 
 -- Binary operators on terms
-def binOp : BinOp -> Term -> Term -> TraceM Term
-  -- objects
-  | op, .object l, .expr r _ => l.binop true op r
-  | op, .expr l _, .object r => r.binop false op l
+def binOp : BinOp -> Term -> Term -> Trace Term
   -- lists and tuples
   | .add, .list   l,          .list   r => return .list (l ++ r)
   | .add, .tuple  l,          .tuple  r => return .tuple (l ++ r)
@@ -151,7 +151,7 @@ def binOp : BinOp -> Term -> Term -> TraceM Term
   | _, _, _ => throw "unsupported operator"
 
 -- Unary operators
-def unOp : UnaryOp -> Term -> TraceM Term
+def unOp : UnaryOp -> Term -> Trace Term
   | op, .expr (.tensor t) _ => tensor_op op t
   | .not, t => return .expr (.const $ .bool (<- t.isFalse)) .bool
   | _, _ => throw "unsupported operator"
@@ -173,33 +173,36 @@ We only need Eq (==) and Lt (<), other operators are implemted in terms of
 these two.
 -/
 
-private def exprEq : Expr -> Expr -> TraceM Bool
+private def exprEq : Expr -> Expr -> Trace Bool
   | .var x, .var y => return x == y
   | .const c₁, .const c₂ => return c₁ == c₂
   | .tensor t₁, .tensor t₂ => return t₁.name == t₂.name
   | _, _ => return false
 
-private partial def termEq : Term -> Term -> TraceM Bool
-  | .object o₁, .object o₂ => return o₁.name == o₂.name
+private def termEq : Term -> Term -> Trace Bool
+  | .module m₁, .module m₂ => return m₁ == m₂
+  | .builtin n₁ _, .builtin n₂ _ => return n₁ == n₂
   | .tuple l₁, .tuple l₂
-  | .list  l₁, .list  l₂ => do
-      if l₁.length != l₂.length then
-        return false
-      (l₁.zip l₂).allM termEq.uncurry
+  | .list  l₁, .list  l₂ => teq l₁ l₂
   | .expr e₁ _, .expr e₂ _ => exprEq e₁ e₂
   | _, _ => return false
+where
+  teq : List Term -> List Term -> Trace Bool
+    | [], [] => return true
+    | x :: xs, y :: ys => return (<- termEq x y) && (<- teq xs ys)
+    | _, _ => return false
 
 -- Python "is" operator is the same as == for all literals, except for lists.
-private def termIsIdentical : Term -> Term -> TraceM Bool
+private def termIsIdentical : Term -> Term -> Trace Bool
   | .list _, .list _ => return false
   | l, r => termEq l r
 
 -- Python: contains operator: 1 in [1,2,3]
-private def termIn (x : Term) : Term -> TraceM Bool
+private def termIn (x : Term) : Term -> Trace Bool
   | .tuple l | .list l => l.anyM (termEq x)
   | _ => throw "invalid use of in"
 
-private def constLt : Const -> Const -> TraceM Bool
+private def constLt : Const -> Const -> Trace Bool
   -- comparison between same types
   | .bool b₁, .bool b₂ => return !b₁ && b₂
   | .int l, .int r => return l < r
@@ -217,13 +220,13 @@ private def constLt : Const -> Const -> TraceM Bool
   | .string _, _ | _, .string _ => throw "unsupported comparison"
   | .none, _ | _, .none => throw "unsupported comparison"
 
-private def termLt : Term -> Term -> TraceM Bool
+private def termLt : Term -> Term -> Trace Bool
   | .tuple l₁, .tuple l₂
   | .list  l₁, .list  l₂ => listLt l₁ l₂
   | .expr (.const c₁) _, .expr (.const c₂) _ => constLt c₁ c₂
   | _, _ => throw "unsupported comparison"
 where
-  listLt : List Term -> List Term -> TraceM Bool
+  listLt : List Term -> List Term -> Trace Bool
   | [], [] => return false
   | [], _ => return true
   | _, [] => return false
@@ -231,7 +234,7 @@ where
       if <- termLt x y then return true
       else return (<- termEq x y) && (<- listLt xs ys)
 
-def cmpOp : CmpOp -> Term -> Term -> TraceM Bool
+def cmpOp : CmpOp -> Term -> Term -> Trace Bool
   | .eq, l, r => termEq l r
   | .ne, l, r => return not (<- termEq l r)
   | .lt, l, r => termLt l r
@@ -245,7 +248,7 @@ def cmpOp : CmpOp -> Term -> Term -> TraceM Bool
 
 -- Python comparison chains are short-circuting
 -- e.g. x < y < z  => x < y || y < z
-def compare : Term -> List CmpOp -> List Term -> TraceM Term
+def compare : Term -> List CmpOp -> List Term -> Trace Term
   | x, [op], [y] => return bool (<- cmpOp op x y)
   | x, op::ops, y::ys => do
      if (<- cmpOp op x y)
@@ -257,32 +260,24 @@ where
 
 -- Attributes
 
-def Term.attr : Term -> String -> TraceM Term
-  | .object o, id => o.attr id
+def Term.attr : Term -> String -> Trace Term
+  | .module n, id => lookup (n.str id)
   | .expr _ (.tensor d _), "dtype" => return (dtype d)
-  | .expr _ (.tensor _ s), "shape" => return (list s)
+  | .expr _ (.tensor _ s), "shape" => return (tuple s)
   | .expr e _, id => throw s!"unsupported attribute {id} on {repr e}"
   | t, id => throw s!"unsupported attribute {id} on {repr t}"
 where
   dtype dty :=
     let name := "nki.language." ++ toString (Std.format dty)
     .expr (.var name) (.obj name.toName)
-  list l := .list $ l.map fun i => .expr (.const (.int $ .ofNat i)) .int
+  tuple l := .tuple $ l.map fun i => .expr (.const (.int $ .ofNat i)) .int
 
-def Item.attr : Item -> String -> Tracer Item
-  | .module n, id => lookup_global (n.str id)
-  | .global g, id => return .term (<- g.attr id)
-  | .source _, id => throw s!"unsupported attribute {id}"
-  | .term   t, id => return .term (<- t.attr id)
+-- Static environment of builtins (extend as necessary)
 
-def Term.call (f : Term)
-              (args : List Expr)
-              (kws : List (String × Expr)) : TraceM Term := do
-  match f with
-  | .object o    => o.call args kws
-  | .tuple _     => throw "tuple is not a callable type"
-  | .list _      => throw "list is not a callable type"
-  | .ellipsis    => throw "ellipsis is not a callable type"
-  | .slice _ _ _ => throw "slice is not a callable type"
-  | .store _ _ _ => throw "tensor is not a callable type"
-  | .expr f _    => return .expr (.call f args kws) (.obj "object".toName)
+def builtinEnv : List (Name × Builtin.BuiltinFn) :=
+  NKIBuiltins
+
+def builtinFn (name : Name) : Trace Builtin.BuiltinFn :=
+  match builtinEnv.lookup name with
+  | some f => return f
+  | none => throw s!"unimplemented API {name}"

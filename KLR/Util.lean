@@ -12,24 +12,20 @@ namespace KLR
 The default choice for an error monad is `Except String`, used for simple
 computations that can fail.
 
-This is defined as a notation so that it can be used within mutually recursive
-inductive types without issues. (abbrev introduces a new definition which
-cannot be used in a mutually recursive inductive)
+Provide automatic lifting of Err to any monad that supports throwing strings
+as errors.
 -/
-notation "Err" => Except String
+abbrev Err := Except String
+
+instance [Monad m] [MonadExcept String m] : MonadLift Err m where
+  monadLift
+    | .ok x => return x
+    | .error s => throw s
 
 /-
 The default choice for a state monad is `EStateM String`.
-Again, we use a notation for the same reason as for `Err`.
-
-Provide automatic lifting of Err, for any state monad instance.
 -/
-notation "StM" => EStateM String
-
-instance : MonadLift Err (StM a) where
-  monadLift
-    | .ok x => .ok x
-    | .error s => .error s
+abbrev StM := EStateM String
 
 /-
 A common issue is failure to prove termination automatically when using
@@ -46,4 +42,5 @@ Note: ▷ is typed as \rhd
 notation f "▷" l =>
   List.mapM (fun ⟨ x, _ ⟩ => f x) (List.attach l)
 
-def impossible {a : Type} [h : Inhabited a] (msg : String := "") := @panic a h s!"Invariant violation: {msg}"
+def impossible {a : Type} [h : Inhabited a] (msg : String := "") :=
+  @panic a h s!"Invariant violation: {msg}"

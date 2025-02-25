@@ -128,15 +128,16 @@ private def parse (p : Parsed) : IO KLR.Python.Kernel := do
 
 def parseJson (p : Parsed) : IO UInt32 := do
   let kernel <- parse p
-  let klr <- KLR.Trace.runNKIKernel kernel.inferArguments
+  let (_, klr) <- KLR.Trace.runNKIKernel kernel.inferArguments
   let json := Lean.toJson klr
   IO.println json
   return 0
 
 def trace (p : Parsed) : IO UInt32 := do
   let kernel <- parse p
-  let klr <- KLR.Trace.runNKIKernel kernel.inferArguments
+  let (warnings, klr) <- KLR.Trace.runNKIKernel kernel.inferArguments
   if p.hasFlag "pretty" then
+    IO.println warnings
     IO.println (toString $ Std.format klr)
   else
     showAs p klr
@@ -152,7 +153,7 @@ def parseBIR (p : Parsed) : IO UInt32 := do
 
 def compileStr (s : String) : Err KLR.BIR.BIR := do
   let kernel <- KLR.Python.Parsing.parse s
-  let klr <- KLR.Trace.runNKIKernel kernel.inferArguments
+  let (_, klr) <- KLR.Trace.runNKIKernel kernel.inferArguments
   KLR.BIR.compile klr
 
 def compile (p : Parsed) : IO UInt32 := do
