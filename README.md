@@ -9,6 +9,19 @@ focus of KLR is the
 and the [Trainium](https://aws.amazon.com/ai/machine-learning/trainium/) hardware.
 
 
+# Quick Start
+
+The easiest way to get started using KLR is to install the python package
+using `pip`:
+
+```
+# pip install klr-lang
+# python -m klr nki-to-klr test.py test_kernel -o test_kernel.klr
+# python -m klr parse-klr test_kernel.klr
+```
+
+For more information see the [Getting Started Guide](docs/getting_started.md)
+
 # Interop
 
 The KLR compiler starts with Python code (e.g. NKI kernels), converts the source

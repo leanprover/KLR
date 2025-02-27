@@ -34,8 +34,7 @@ instance [FromNKI a] : FromNKI (Option a) where
     | .expr (.const .none) _ => return none
     | e => return some (<- fromNKI? e)
 
-instance : FromNKI Term where
-  fromNKI? t := .ok t
+instance : FromNKI Term := ⟨ .ok ⟩
 
 instance : FromNKI Expr where
   fromNKI?
@@ -51,37 +50,38 @@ instance : FromNKI Expr where
 
 instance : FromNKI Bool where
   fromNKI?
-    | .expr (.const (.bool b)) .bool => return b
+    | .expr (.const (.bool b)) _ => return b
     | _ => throw "expecting boolean"
 
 instance : FromNKI Int where
   fromNKI?
     | .expr (.const (.bool true)) _ => return 1
     | .expr (.const (.bool false)) _ => return 0
-    | .expr (.const (.int i)) .int => return i
+    | .expr (.const (.int i)) _ => return i
     | _ => throw "expecting integer"
 
 instance : FromNKI Nat where
-  fromNKI? t :=
-    let err := .error "expecting positive number"
-    match fromNKI? (a := Int) t with
-    | .ok i => if i < 0 then err else .ok i.toNat
-    | .error _ => err
+  fromNKI?
+    | .expr (.const (.bool true)) _ => return 1
+    | .expr (.const (.bool false)) _ => return 0
+    | .expr (.const (.int (.ofNat n))) _ => return n
+    | _ => throw "expecting positive integer"
 
 instance : FromNKI Float where
   fromNKI?
-    | .expr (.const (.float f)) .float => return f
+    | .expr (.const (.float f)) _ => return f
     | _ => throw "expecting float"
 
 instance : FromNKI String where
   fromNKI?
-    | .expr (.const (.string s)) .string => return s
+    | .expr (.const (.string s)) _ => return s
     | _ => throw "expecting string"
 
 -- TODO: when new NKI API is settled, rewrite is a nicer way
 instance : FromNKI Dtype where
   fromNKI?
-    | .expr (.var name) _ =>
+    | .expr (.var name) _
+    | .expr (.const (.string name)) _ =>
       match name with
       -- NKI variants (see table in NKI docs)
       | "nki.language.uint8" => .ok .uint8
@@ -110,7 +110,7 @@ instance : FromNKI Dtype where
       | "numpy.float16" => .ok .float16
       | "numpy.float32" => .ok .float32
       | "numpy.bool" => .ok .uint8
-      -- imported variants
+      -- imported and string variants
       | "uint8" => .ok .uint8
       | "int8" => .ok .int8
       | "uint16" => .ok .uint16
@@ -128,25 +128,6 @@ instance : FromNKI Dtype where
       | "float32" => .ok .float32
       | "bool" => .ok .uint8
       | s => throw s!"unsupported dtype {s}"
-    | .expr (.const (.string str)) _ =>
-      match str with
-      | "uint8" => .ok .uint8
-      | "int8" => .ok .int8
-      | "uint16" => .ok .uint16
-      | "int16" => .ok .int16
-      | "uint32" => .ok .int32
-      | "int32" => .ok .int32
-      | "float8e3" => .ok .float8e3
-      | "float8e4" => .ok .float8e4
-      | "float8e5" => .ok .float8e5
-      | "float8_e4m3" => .ok .float8e4
-      | "float8_e5m2" => .ok .float8e5
-      | "float16" => .ok .float16
-      | "bfloat16" => .ok .bfloat16
-      | "tfloat32" => .ok .float32r  -- TODO check this
-      | "float32" => .ok .float32
-      | "bool" => .ok .uint8
-      | s => throw s!"unsupported dtype name {s}"
     | _ => throw s!"expecting dtype"
 
 instance : FromNKI Shape where
@@ -158,7 +139,10 @@ instance : FromNKI Memory where
     match t with
     | .expr (.var name) _ =>
       match name with
+      -- TODO: do we need to distinguish the different HBM types?
       | "nki.language.shared_hbm" => .ok .dram
+      | "nki.language.private_hbm" => .ok .dram
+      | "nki.language.hbm" => .ok .dram
       | "nki.language.sbuf" => .ok .sbuf
       | "nki.language.pmem" => .ok .pmem
       | _ => err

@@ -5,13 +5,8 @@
 # rather, it leaves the argument list empty. This will cause the Lean
 # side to try to infer prototype arguments for the function.
 
-# This is just a POC to try out different ways of organizing the tooling.
-# The intention is to create a more typical compiler interface: e.g.
-#   klr gather mylib.kernels.mykernel -o mykernel.json
-#   klr trace mykernel.json -o mykernel.klr
-#   klr compile mykernel.klr -o mykernel.bir
-# This script is the "gather" step, e.g.
-#  PYTHONPATH=interop:interop/test ./bin/gather examples.layout.tensor_exp_kernel_2
+# This is only used for development. In production the python API would
+# gather the python code and the arguments before calling KLR.
 
 import sys
 import importlib

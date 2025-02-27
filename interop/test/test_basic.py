@@ -2,13 +2,14 @@
 # a set of basic unit tests. Each function is parsed,
 # handed to Lean, where it is checked and reduced to KLR.
 
+import os
 from apis import *
 
 # this needs to be after the apis
 import numpy as np
 import pytest
 
-from klr.parser import Parser
+from klr import Kernel
 
 # Success cases
 # (these functions should load and trace to KLR)
@@ -143,8 +144,9 @@ def undefined_ok(t):
   ])
 def test_succeed(f):
   t = np.ndarray(10, dtype="float32")
-  F = Parser(f)   # parse python
-  F(t)            # specialize, and reduce to KLR
+  F = Kernel(f)   # parse python
+  file = F(t)     # specialize, and reduce to KLR
+  os.remove(file)
 
 # Failing cases
 # (These functions are expected to fail elaboration to KLR)
@@ -156,7 +158,7 @@ def name_not_found():
   name_not_found,
 ])
 def test_fails(f):
-  F = Parser(f)
+  F = Kernel(f)
   with pytest.raises(Exception):
     F()
 

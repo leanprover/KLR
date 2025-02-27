@@ -38,5 +38,10 @@ def NKIEnv : List (Name × Term) :=
   , module nki_isa
   , module nki_lang
   , const_int (.str (nl "tile_size") "pmax") 128
+  , const_var (nl "shared_hbm")
+  , const_var (nl "private_hbm")
+  , const_var (nl "hbm")
+  , const_var (nl "sbuf")
+  , const_var (nl "psum")
   ]
   ++ NKIBuiltins.map fun (x,_) => (x, .builtin x (.obj x))

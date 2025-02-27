@@ -264,8 +264,7 @@ def Term.attr : Term -> String -> Trace Term
   | .module n, id => lookup (n.str id)
   | .expr _ (.tensor d _), "dtype" => return (dtype d)
   | .expr _ (.tensor _ s), "shape" => return (tuple s)
-  | .expr e _, id => throw s!"unsupported attribute {id} on {repr e}"
-  | t, id => throw s!"unsupported attribute {id} on {repr t}"
+  | _, id => throw s!"unsupported attribute {id}"
 where
   dtype dty :=
     let name := "nki.language." ++ toString (Std.format dty)

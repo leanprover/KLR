@@ -287,8 +287,8 @@ def warn (msg : String) : Trace Unit :=
 def tracer (g : List (Name × Term)) (m : Trace a) (showWarnings := true) : Err (String × a) :=
   match m { globals := Lean.RBMap.ofList g } with
   | .ok x s => .ok (addWarnings s "", x)
-  | .error (.formatted str) s => .error ("\n" ++ addWarnings s ("error:" ++ str))
-  | .error (.located _ str) s => .error ("\n" ++ addWarnings s ("error:" ++ str))
+  | .error (.formatted str) s => .error (addWarnings s ("error:" ++ str))
+  | .error (.located _ str) s => .error (addWarnings s ("error:" ++ str))
 where
   addWarnings s str := if showWarnings then addWarn s str else str
   addWarn s str := s.warnings.foldl warnStr str

@@ -5,6 +5,7 @@ import KLR.Util
 
 open KLR
 open Cli
+open System(FilePath)
 
 local instance : MonadLift Err IO where
   monadLift
@@ -99,48 +100,116 @@ def gatherStr (moduleFileName kernelFunctionName : String) (klrPythonModuleDir :
         args := #[ gatherArg ]
         env := #[ ("PYTHONPATH", some pypath) ]
       }
+      if output.exitCode != 0 then
+        IO.println output.stderr
+        IO.throwServerError "error gathering kernel"
       dbg $ "stdout: " ++ output.stdout
       dbg $ "stderr: " ++ output.stderr
       return output.stdout
   IO.throwServerError "could not find gather program"
+
+private def getOutfile (ext : String) (p : Parsed) : FilePath :=
+  match p.flag? "outfile" with
+  | some arg => FilePath.mk (arg.as! String)
+  | none =>
+      let arg := if p.hasPositionalArg "file"
+      then p.positionalArg! "file"
+      else p.positionalArg! "kernelFunctionName"
+      (FilePath.mk $ arg.as! String).withExtension ext
 
 def gather (p : Parsed) : IO UInt32 := do
   let debug := p.hasFlag "debug"
   let file := p.positionalArg! "moduleFileName" |>.as! String
   let kernel := p.positionalArg! "kernelFunctionName" |>.as! String
   let dir := (p.flag? "klr-module-dir").map fun x => x.as! String
-  try
-    let output <- gatherStr file kernel dir debug
-    IO.println output
-    return 0
-  catch
-  | IO.Error.userError s =>
-    IO.println s
-    return 1
-  | err =>
-    IO.println err
-    return 1
+  let output <- gatherStr file kernel dir debug
+  IO.FS.writeFile (getOutfile "ast" p) output
+  return 0
 
 private def parse (p : Parsed) : IO KLR.Python.Kernel := do
   let file := p.positionalArg! "file" |>.as! String
   let s <- IO.FS.readFile file
   KLR.Python.Parsing.parse s
 
-def parseJson (p : Parsed) : IO UInt32 := do
+def parseAST (p : Parsed) : IO UInt32 := do
   let kernel <- parse p
-  let (_, klr) <- KLR.Trace.runNKIKernel kernel.inferArguments
-  let json := Lean.toJson klr
-  IO.println json
+  if p.hasFlag "verbose" then
+    IO.println s!"{repr kernel}"
+    return 0
+  IO.println s!"AST summary for kernel {kernel.entry}"
+  let fs := String.intercalate "," $ kernel.funcs.map Prod.fst
+  IO.println s!"Source Functions: {fs}"
+  let gs := String.intercalate "," $ kernel.globals.map Prod.fst
+  IO.println s!"Globals: {gs}"
+  IO.println s!"Undefined names {kernel.undefinedSymbols}"
   return 0
 
 def trace (p : Parsed) : IO UInt32 := do
   let kernel <- parse p
   let (warnings, klr) <- KLR.Trace.runNKIKernel kernel.inferArguments
+  -- convenience for developers
   if p.hasFlag "pretty" then
-    IO.println warnings
+    if warnings.length > 0 then
+      IO.println warnings
     IO.println (toString $ Std.format klr)
+    return 0
+  -- normal operation
+  IO.FS.writeFile (getOutfile "klr" p) (toString $ Lean.toJson klr)
+  if warnings.length > 0 then
+    IO.eprintln warnings
+  return 0
+
+def parseKLR (p : Parsed) : IO UInt32 := do
+  let file := p.positionalArg! "file" |>.as! String
+  let s <- IO.FS.readFile file
+  let json <- Lean.Json.parse s
+  if p.hasFlag "json" then
+    IO.println json
+    return 0
+  let klr : Core.Kernel <- Lean.fromJson? (<- Lean.Json.parse s)
+  if p.hasFlag "repr" then
+    IO.println (toString $ repr klr)
   else
-    showAs p klr
+    IO.println (toString $ Std.format klr)
+  return 0
+
+/-
+Generate a filename for this invocation of the kernel. The hash value is
+generated from the json string from gather. This may be different for
+equivalent invocations of the kernel, but this is OK: it is wasteful but not
+incorrect.
+-/
+private def klrFilename (p : Parsed) (hash: UInt64) : FilePath :=
+  let hash := hash.toBitVec.toHex
+  let file := (FilePath.mk hash).withExtension "klr"
+  let dir :=
+    match p.flag? "dir" with
+    | none => FilePath.mk "."
+    | some d => FilePath.mk (d.as! String)
+  (dir / file).normalize
+
+-- This is used by the python code
+def traceAPI (p : Parsed) : IO UInt32 := do
+  let file := p.positionalArg! "file" |>.as! String
+  let s <- IO.FS.readFile file
+  let outfile := klrFilename p s.hash
+  if <- outfile.pathExists then
+    IO.eprintln "file exists: tracing skipped"
+    IO.println outfile
+    return 0
+  let kernel <- KLR.Python.Parsing.parse s
+  let (warnings, klr) <- KLR.Trace.runNKIKernel kernel
+  IO.FS.writeFile outfile (toString $ Lean.toJson klr)
+  IO.eprintln warnings
+  IO.println outfile
+  return 0
+
+def compile (p : Parsed) : IO UInt32 := do
+  let file := p.positionalArg! "file" |>.as! String
+  let s <- IO.FS.readFile file
+  let klr <- Lean.fromJson? (<- Lean.Json.parse s)
+  let bir <- KLR.BIR.compile klr
+  IO.FS.writeFile (getOutfile "bir" p) (toString $ Lean.toJson bir)
   return 0
 
 def parseBIR (p : Parsed) : IO UInt32 := do
@@ -151,17 +220,6 @@ def parseBIR (p : Parsed) : IO UInt32 := do
   showAs p bir
   return 0
 
-def compileStr (s : String) : Err KLR.BIR.BIR := do
-  let kernel <- KLR.Python.Parsing.parse s
-  let (_, klr) <- KLR.Trace.runNKIKernel kernel.inferArguments
-  KLR.BIR.compile klr
-
-def compile (p : Parsed) : IO UInt32 := do
-  let file := p.positionalArg! "file" |>.as! String
-  let s <- IO.FS.readFile file
-  let bir <- compileStr s
-  showAs p bir
-  return 0
 
 def nkiToKLR (p : Parsed) : IO UInt32 := do
   let debug := p.hasFlag "debug"
@@ -170,30 +228,20 @@ def nkiToKLR (p : Parsed) : IO UInt32 := do
   let dir := (p.flag? "klr-module-dir").map fun x => x.as! String
   let s <- gatherStr file kernel dir debug
   let kernel <- KLR.Python.Parsing.parse s
-  let klr <- KLR.Trace.runNKIKernel kernel.inferArguments
-  if p.hasFlag "pretty" then
-    IO.println (toString $ Std.format klr)
-  else
-    showAs p klr
-  return 0
-
-def nkiToBIR (p : Parsed) : IO UInt32 := do
-  let debug := p.hasFlag "debug"
-  let file := p.positionalArg! "moduleFileName" |>.as! String
-  let kernel := p.positionalArg! "kernelFunctionName" |>.as! String
-  let dir := (p.flag? "klr-module-dir").map fun x => x.as! String
-  let s <- gatherStr file kernel dir debug
-  let bir <- compileStr s
-  showAs p bir
+  let (warnings, klr) <- KLR.Trace.runNKIKernel kernel.inferArguments
+  IO.FS.writeFile (getOutfile "klr" p) (toString $ Lean.toJson klr)
+  if warnings.length > 0 then
+    IO.eprintln warnings
   return 0
 
 -- -- Command configuration
 
 def gatherCmd := `[Cli|
   "gather" VIA gather;
-  "Gather Python sources into a JSON file"
+  "Gather Python sources into an AST file"
 
   FLAGS:
+    o, outfile : String; "Name of output file"
     d, "klr-module-dir" : String; "Directory of Python klr module. Added to PYTHONPATH."
     debug : Unit; "Print debugging info"
 
@@ -202,12 +250,14 @@ def gatherCmd := `[Cli|
     kernelFunctionName : String; "Name of the kernel function"
 ]
 
-def parseJsonCmd := `[Cli|
-  "parse-json" VIA parseJson;
-  "Parse KLR kernels as JSON"
+def parseASTCmd := `[Cli|
+  "parse-ast" VIA parseAST;
+  "Parse Python AST file"
 
+  FLAGS:
+    v, verbose; "Output complete AST information"
   ARGS:
-    file : String;      "File of Python AST printed as JSON"
+    file : String;      "File of gathered Python AST"
 ]
 
 def traceCmd := `[Cli|
@@ -215,9 +265,40 @@ def traceCmd := `[Cli|
   "Trace Python to KLR"
 
   FLAGS:
-    r, repr; "Output Repr format"
+    o, outfile : String; "Name of output file"
+    p, pretty; "Output human-readable format (do not generate output file)"
+  ARGS:
+    file : String; "File of Python AST printed as JSON"
+]
+
+def parseKLRCmd := `[Cli|
+  "parse-klr" VIA parseKLR;
+  "Display information about a KLR file"
+
+  FLAGS:
     j, json; "Output Json format"
-    p, pretty; "Output Pretty format"
+    r, repr; "Output Repr format"
+    p, pretty; "Output human-readable format (default)"
+  ARGS:
+    file : String; "File of Python AST printed as JSON"
+]
+
+def traceAPICmd := `[Cli|
+  "trace-api" VIA traceAPI;
+  "Trace Python to KLR (API version)"
+
+  FLAGS:
+    d, dir : String; "Directory to write KLR file to"
+  ARGS:
+    file : String; "File of Python AST printed as JSON"
+]
+
+def compileCmd := `[Cli|
+  "compile" VIA compile;
+  "Compile Python to BIR"
+
+  FLAGS:
+    o, outfile : String; "Name of output file"
   ARGS:
     file : String; "File of Python AST printed as JSON"
 ]
@@ -232,39 +313,14 @@ def parseBIRCmd := `[Cli|
     file : String; "File of BIR JSON"
 ]
 
-def compileCmd := `[Cli|
-  "compile" VIA compile;
-  "Compile Python to BIR"
-
-  FLAGS:
-    r, repr; "Output Repr format"
-  ARGS:
-    file : String; "File of Python AST printed as JSON"
-]
-
 def nkiToKLRCmd := `[Cli|
   "nki-to-klr" VIA nkiToKLR;
-  "Compile NKI kernel in Python to KLR"
+  "Compile NKI kernel to KLR"
 
   FLAGS:
     d, "klr-module-dir" : String; "Directory of Python klr module. Added to PYTHONPATH."
-    r, repr; "Output Repr format, instead of JSON"
-    p, pretty; "Output Pretty format, instead of JSON"
     debug : Unit; "Print debugging info"
-
-  ARGS:
-    moduleFileName : String; "File of the Python module with the kernel function"
-    kernelFunctionName : String; "Name of the kernel function"
-]
-
-def nkiToBIRCmd := `[Cli|
-  "nki-to-bir" VIA nkiToBIR;
-  "Compile NKI kernel in Python to BIR"
-
-  FLAGS:
-    d, "klr-module-dir" : String; "Directory of Python klr module. Added to PYTHONPATH."
-    r, repr; "Output Repr format, instead of JSON"
-    debug : Unit; "Print debugging info"
+    o, outfile : String; "Name of output file"
 
   ARGS:
     moduleFileName : String; "File of the Python module with the kernel function"
@@ -278,16 +334,22 @@ def klrCmd : Cmd := `[Cli|
   SUBCOMMANDS:
     compileCmd;
     gatherCmd;
-    nkiToBIRCmd;
     nkiToKLRCmd;
+    parseASTCmd;
+    parseKLRCmd;
     parseBIRCmd;
-    parseJsonCmd;
-    traceCmd
+    traceCmd;
+    traceAPICmd
 ]
 
-def main (args : List String) : IO UInt32 :=
+def main (args : List String) : IO UInt32 := do
   if args.isEmpty then do
     IO.println klrCmd.help
     return 0
-  else do
-    klrCmd.validate args
+
+  try klrCmd.validate args
+  catch e =>
+    match e with
+    | .userError s => IO.eprintln s
+    | e => IO.eprintln s!"{e}"
+    pure 1

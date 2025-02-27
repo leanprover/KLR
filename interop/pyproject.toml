@@ -23,7 +23,6 @@ keywords = ["trainium", "tpu", "pallas", "triton", "gpu"]
 # other. requirements.txt is nice to have for installing
 # deps from GitHub Actions.
 dependencies = [
-  "ml_dtypes",
   "numpy",
 ]
 requires-python = ">= 3.8" # cibuildwheel can't seem to handle eariler versions

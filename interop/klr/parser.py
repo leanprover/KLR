@@ -6,34 +6,11 @@ import ast
 import inspect
 import json
 import numpy as np
-import os
-import subprocess
-import tempfile
 import types
 
 from collections import deque
 from textwrap import dedent
-from importlib.resources import files
 from typing import List
-
-
-def up(f, n):
-  d = os.path.dirname(f)
-  for _ in range(n):
-    d = os.path.dirname(d)
-  return d
-
-
-def run_klr(infile, outfile):
-  # For development, pick up the klr binary from the project dir
-  project_root = up(os.path.abspath(__file__), 2)
-  bin = project_root + '/bin/klr'
-  if not os.path.isfile(bin):
-    # For regular pip users, pick up the klr from the wheel. While the type of `bin` here is
-    # PosixPath rather than string, they both work as the first argument to subprocess.run
-    bin = files('klr').joinpath('bin/klr')
-  subprocess.run([bin, 'parse-json', infile.name], stdout=outfile, check=True)
-
 
 # This is a custom JSON encoder for use with AST nodes.
 # The AST nodes are not handled by the default encoder.
@@ -72,8 +49,6 @@ class Enc(json.JSONEncoder):
 # provides an encoding for the global environment for a common
 # set of types.
 
-class Unsupported(Exception): pass
-
 def encode_for_env(val):
   match val:
     case bool(b): return {'bool':b}
@@ -92,7 +67,7 @@ def encode_for_env(val):
             }
           }
     case _:
-      raise Unsupported(f"global value type: {val.__class__.__name__}")
+      raise Exception(f"global value type: {val.__class__.__name__}")
 
 class Parser(ast.NodeVisitor):
   def __init__(self, f: types.FunctionType):
@@ -125,7 +100,7 @@ class Parser(ast.NodeVisitor):
         self.reference(d, '_', arg)
         try: l.append(d.popitem()[1])
         except Exception:
-          raise Exception("Unsupported argument type")
+          raise Exception(f"Unsupported argument type: {arg.__class__.__name__}") from None
     if kwargs:
       for k,v in kwargs.items():
         self.reference(d, k, v)
@@ -135,31 +110,6 @@ class Parser(ast.NodeVisitor):
     l, d = self.process_args(args, kwargs)
     self.args = l
     self.kwargs = d
-
-  def __call__(self, *args, **kwargs):
-    klr_filename = None
-    try:
-      self.apply_args(*args, **kwargs)
-      json_kernel = self.json()
-      # temp_file will be deleted
-      with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as temp_file:
-        temp_file.write(json_kernel)
-        temp_file.flush()
-        temp_filename = temp_file.name
-        # klr_filename needs to be deleted after running klr
-        klr_filename = temp_filename + ".klr"
-        with open(klr_filename, 'w') as klr_file:
-          run_klr(temp_file, klr_file)
-          with open(klr_filename, 'r') as file:
-            klr = file.read()
-            # This isn't great, but when the Lean exe discovers an error, e.g. an undefined
-            # variable, it just returns an empty string. We'll fix this.
-            if klr == '':
-              raise Exception("tracing failed")
-            return klr
-    finally:
-      if os.path.exists(klr_filename):
-        os.remove(klr_filename)
 
   def ref_global(self, refname, val):
     return self.reference(self.globals, refname, val)
@@ -241,8 +191,6 @@ class Parser(ast.NodeVisitor):
       y = self.lookup(node)
       self.ref_global(node.id, y)
       return node.id, y
-    except Unsupported as e:
-      raise e
     except Exception:
       return
 
@@ -256,21 +204,9 @@ class Parser(ast.NodeVisitor):
       y = getattr(x, node.attr)
       self.ref_global(n, y)
       return n, y
-    except Unsupported as e:
-      raise e
     except AttributeError as e:
       if isinstance(e.obj, types.ModuleType):
         name = e.obj.__name__ + "." + e.name
         self.undefined_symbols.append(name)
     except Exception:
       return
-
-
-if __name__ == '__main__':
-  y = None
-  z = 5
-
-  def unknown():
-    return (x, y, z)
-
-  print (Parser(unknown).json())
