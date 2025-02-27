@@ -1,15 +1,15 @@
 {"version": "1.1.0",
  "packagesDir": ".lake/packages",
- "name": "KLR",
  "packages":
  [{"url": "https://github.com/leanprover/lean4-cli.git",
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "0c8ea32a15a4f74143e4e1e107ba2c412adb90fd",
+   "rev": "efa5aa20504b88e2826032ddaa606c7965ec9467",
    "name": "Cli",
    "manifestFile": "lake-manifest.json",
-   "inputRev": "v2.2.0-lv4.14.0-rc1",
+   "inputRev": "v4.16.0",
    "inherited": false,
    "configFile": "lakefile.toml"}],
+ "name": "KLR",
  "lakeDir": ".lake"}

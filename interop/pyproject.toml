@@ -47,3 +47,15 @@ packages = ["bin", "klr"] # This field is tequired to have more than 1 top level
 [[tool.setuptools.ext-modules]]
 name = "noop"
 sources = ["noop.c"]
+
+[tool.cibuildwheel]
+# Skip unsupported python versions as well as 32-bit platforms, which are not supported anymore.
+skip = "pp* *-win32 *-manylinux_i686 *-musllinux_*"
+# Let's use a more recent version of the manylinux image for more modern compilers
+
+# Build fails without this when we updated to Lean 4.16.0
+#    auditwheel: error: cannot repair "/tmp/cibuildwheel/built_wheel/klr_lang-0.0.7-cp38-cp38-linux_x86_64.whl" to "manylinux2014_x86_64" ABI because of the presence of too-recent versioned symbols. You'll need to compile the wheel on an older toolchain.
+# https://github.com/pypa/cibuildwheel/issues/1982
+# https://github.com/Blosc/python-blosc2/blob/99525d3141ac802e60b3d7bea4dabd1f2ae92b8f/pyproject.toml#L54-L55
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"

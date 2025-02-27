@@ -21,9 +21,8 @@ jobs:
     strategy:
       matrix:
         # We mainly care about hardware rather than OS
-        # macos-13 is x86
+        # macos-13 is x64
         # macos-latest is arm64
-        # ubuntu-latest is x64
         # ubuntu-latest is x64
         os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-13]
 
@@ -70,7 +69,6 @@ jobs:
           # https://github.com/leanprover/lean4/pull/6631/files
           MACOSX_DEPLOYMENT_TARGET: 99.0
           CIBW_BUILD_VERBOSITY: 1
-          CIBW_SKIP: 'pp* *-win32 *-manylinux_i686 *-musllinux_*' # The build doesn't work 686 or musl
         run: |
           pip install cibuildwheel
           bin/make-wheel
