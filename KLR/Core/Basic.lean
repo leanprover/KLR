@@ -27,48 +27,44 @@ structure TensorName where
   memory: Memory
   deriving Repr, BEq
 
-inductive Const where
-  | none
+-- Basic indexing elements: integers and slices
+inductive Index where
+  | coord (e : Int)
+  | slice (l u step : Option Int)
+  deriving Repr, BEq
+
+-- Access pattern elements
+structure APPair where
+  step : Int := 1
+  num : Nat := 1
+  deriving Repr, BEq
+
+-- Tensor access: whole tensor (simple), basic indexing, or access pattern
+-- TODO: add advanced indexing (tensor indirect)
+inductive Access where
+  | simple (t : TensorName)
+  | basic (t : TensorName) (indexes : List Index)
+  | pattern (t : TensorName) (offset : Nat) (aps : List APPair)
+  deriving Repr, BEq
+
+inductive Value where
+  | var (x : String)
   | bool (value : Bool)
   | int (value : Int)
   | float (value : Float)
-  | string (value : String)
+  | access (a : Access)
   deriving Repr, BEq
 
--- This corresponds to the "Quasi-Affine Expressions" in Neuron.
--- Note, `floor` is the usual integer division.
-inductive IndexExpr where
-  | var (name : String)
-  | int (i : Int)
-  | neg (expr : IndexExpr)
-  | add (left right : IndexExpr)
-  | mul (scalar : Int) (expr : IndexExpr)
-  | floor (expr : IndexExpr) (scalar : Int)
-  | ceil (expr : IndexExpr) (scalar : Int)
-  | mod (expr : IndexExpr) (scalar : Int)
-  deriving Repr, BEq
-
--- Note: `np.newindex` is represented as `(.coord none)`
-inductive Index where
-  | ellipsis
-  | coord (e : Option IndexExpr)
-  | slice (l u step : Option IndexExpr)
-  deriving Repr, BEq
-
+-- TODO: Expressions are trivial right now, waiting on dynamic loops
 inductive Expr where
-  | var (x : String)
-  | const (c : Const)
-  | tensor (t : TensorName)
-  | access (t : Expr) (ix : List Index)
-  | operator (op : Operator)
-  | call (f : Expr) (args : List Expr) (kwargs : List (String × Expr))
+  | value (v : Value)
+  | call (op : Operator) (args : List Value)
   deriving Repr, BEq
 
 inductive Stmt where
-  | ret (v : Expr)
-  | store (t : TensorName) (ix : List Index) (e : Expr)
+  | ret (v : Value)
   | assign (x : String) (e : Expr)
-  | loop (x : String) (l u step : IndexExpr) (body : List Stmt)
+  | store (dst : Access) (e : Expr)
   deriving Repr, BEq
 
 structure Kernel where
@@ -78,26 +74,38 @@ structure Kernel where
   body : List Stmt
   deriving Repr, BEq
 
--- TODO: not efficient
-partial def Expr.tensors : Expr -> List TensorName :=
-  tensors []
-where
-  tensors (l : List TensorName) : Expr -> List TensorName
-  | .var _ => l
-  | .const _ => l
-  | .tensor t => l.insert t
-  | .access t _ => tensors l t
-  | .operator _ => l
-  | .call f args kwargs =>
-      let l := tensors l f
-      let l := args.foldl tensors l
-      kwargs.foldl (fun l kw => tensors l kw.snd) l
+-- Utilities
 
-partial def Stmt.tensors : Stmt -> List TensorName
-  | .ret e => e.tensors
-  | .store t _ e => e.tensors.insert t
+namespace Access
+
+def tensor : Access -> TensorName
+  | simple t | basic t .. | pattern t .. => t
+
+def shape : Access -> Shape
+  | simple t => t.shape
+  | basic _ _ => panic! "TODO"
+  | pattern _ _ aps => aps.map fun ap => ap.num
+
+def tensors (a : Access) : List TensorName := [a.tensor]
+
+end Access
+
+def Value.tensors : Value -> List TensorName
+  | .access a => a.tensors
+  | _ => []
+
+-- TODO: not efficient
+private def unique : List (List TensorName) -> List TensorName
+  | lls => lls.flatten.eraseDups
+
+def Expr.tensors : Expr -> List TensorName
+  | .value v => v.tensors
+  | .call _ args => unique (args.map Value.tensors)
+
+def Stmt.tensors : Stmt -> List TensorName
+  | .ret v => v.tensors
   | .assign _ e => e.tensors
-  | .loop _ _ _ _ body => (body.map tensors).flatten.eraseDups
+  | .store dst e => unique (dst.tensors :: e.tensors :: [])
 
 def Kernel.internal (k : Kernel) : List TensorName :=
   let ts := (k.body.map Stmt.tensors).flatten.eraseDups

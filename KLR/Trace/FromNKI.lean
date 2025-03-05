@@ -31,57 +31,67 @@ instance [FromNKI a] : FromNKI (List a) where
 
 instance [FromNKI a] : FromNKI (Option a) where
   fromNKI?
-    | .expr (.const .none) _ => return none
+    | .none => return none
     | e => return some (<- fromNKI? e)
 
 instance : FromNKI Term := ⟨ .ok ⟩
 
 instance : FromNKI Expr where
-  fromNKI?
-    | .module _    => throw "module cannot be converted to a KLR term"
-    | .builtin n _ => return .var n.toString
-    | .source _    => throw "function cannot be converted to a KLR term"
-    | .tuple _     => throw "tuple cannot be converted to a KLR term"
-    | .list _      => throw "list cannot be converted to a KLR term"
-    | .ellipsis    => throw "ellipsis cannot be converted to a KLR term"
-    | .slice _ _ _ => throw "slice cannot be converted to KLR in this context"
-    | .store _ _ _ => throw "store cannot be converted to KLR in this context"
+  fromNKI? t :=
+    let err ty := throw s!"{ty} cannot be converted to a KLR term"
+    match t with
+    | .module _    => err "module"
+    | .builtin n _ => return .value (.var n.toString)
+    | .source _    => err "function"
+    | .none        => err "none"
+    | .string _    => err "string"
+    | .tuple _     => err "tuple"
+    | .list _      => err "list"
+    | .ellipsis    => err "ellipsis"
+    | .slice _ _ _ => err "slice"
+    | .store _ _   => err "store"
     | .expr e _    => return e
+
+instance : FromNKI Value where
+  fromNKI? t := do
+    match <- fromNKI? t with
+    | Expr.value v => return v
+    | _ => throw "expecting value"
 
 instance : FromNKI Bool where
   fromNKI?
-    | .expr (.const (.bool b)) _ => return b
+    | .expr (.value $ .bool b) _ => return b
     | _ => throw "expecting boolean"
 
 instance : FromNKI Int where
   fromNKI?
-    | .expr (.const (.bool true)) _ => return 1
-    | .expr (.const (.bool false)) _ => return 0
-    | .expr (.const (.int i)) _ => return i
+    | .expr (.value $ .bool true) _ => return 1
+    | .expr (.value $ .bool false) _ => return 0
+    | .expr (.value $ .int i) _ => return i
     | _ => throw "expecting integer"
 
 instance : FromNKI Nat where
   fromNKI?
-    | .expr (.const (.bool true)) _ => return 1
-    | .expr (.const (.bool false)) _ => return 0
-    | .expr (.const (.int (.ofNat n))) _ => return n
+    | .expr (.value $ .bool true) _ => return 1
+    | .expr (.value $ .bool false) _ => return 0
+    | .expr (.value $ .int (.ofNat n)) _ => return n
     | _ => throw "expecting positive integer"
 
 instance : FromNKI Float where
   fromNKI?
-    | .expr (.const (.float f)) _ => return f
+    | .expr (.value $ .float f) _ => return f
     | _ => throw "expecting float"
 
 instance : FromNKI String where
   fromNKI?
-    | .expr (.const (.string s)) _ => return s
+    | .string s => return s
     | _ => throw "expecting string"
 
 -- TODO: when new NKI API is settled, rewrite is a nicer way
 instance : FromNKI Dtype where
   fromNKI?
-    | .expr (.var name) _
-    | .expr (.const (.string name)) _ =>
+    | .expr (.value $ .var name) _
+    | .string name =>
       match name with
       -- NKI variants (see table in NKI docs)
       | "nki.language.uint8" => .ok .uint8
@@ -137,7 +147,7 @@ instance : FromNKI Memory where
   fromNKI? t :=
     let err := .error "expecting buffer type"
     match t with
-    | .expr (.var name) _ =>
+    | .expr (.value $ .var name) _ =>
       match name with
       -- TODO: do we need to distinguish the different HBM types?
       | "nki.language.shared_hbm" => .ok .dram
@@ -148,9 +158,19 @@ instance : FromNKI Memory where
       | _ => err
     | _ => err
 
+instance : FromNKI Access where
+  fromNKI?
+    | .expr (.value $ .access a) _ => return a
+    | _ => throw "expecting tensor access"
+
+instance : FromNKI TensorName where
+  fromNKI?
+    | .expr (.value (.access (.simple t))) _ => return t
+    | _ => throw "expecting tensor"
+
 instance : FromNKI AluOp where
   fromNKI?
-    | .expr (.var name) _ =>
+    | .expr (.value $ .var name) _ =>
         match name with
         -- bitwise operations
         | "nki.language.invert" => return .bitwise_not

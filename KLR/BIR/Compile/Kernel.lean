@@ -14,30 +14,29 @@ def gatherAPs : List Expr -> Compile (List Argument)
   | x :: xs => do
     let xs <- gatherAPs xs
     match x with
-    | .tensor _ | .access _ _ => return .PhysicalAccessPattern (<- accessToAP x) :: xs
+    | .value (.access a) => return .PhysicalAccessPattern (<- accessToAP a) :: xs
     | _ => return xs
 
-def compileStore (t : TensorName) (ix : List Index) (e : Expr) : Compile Inst := do
+def compileStore (dst : Access) (e : Expr) : Compile Inst := do
   match e with
-  | .tensor _ | .access _ _ => do
+  | .value (.access _) =>
       return .TensorLoad {
         name := "load_test"  -- I think these have to be unique (need state monad?)
-        ins  := <- gatherAPs [.access (.tensor t) ix]
-        outs := <- gatherAPs [e]
+        ins  := <- gatherAPs [e]
+        outs := <- gatherAPs [.value (.access dst)]
       }
-  | .call (.operator _) args [] => do
+  | .call _ args => do
       return .NoOp {
         name := "noop_test"  -- I think these have to be unique (need state monad?)
-        ins  := <- gatherAPs [.access (.tensor t) ix]
-        outs := <- gatherAPs args
+        ins  := <- gatherAPs (args.map .value)
+        outs := <- gatherAPs [.value (.access dst)]
       }
   | _ => throw s!"store pattern not yet implemented {repr e}"
 
 def compileStmt : Stmt -> Compile Inst
   | .ret _ => throw "unimp ret"
-  | .store t ix e => compileStore t ix e
+  | .store dst e => compileStore dst e
   | .assign .. => throw "unimp assign"
-  | .loop .. => throw "unimp loop"
 
 def compile_kernel (k : Kernel) : Compile BIR := do
   let inputs <- k.inputs.mapM (allocate .Input)

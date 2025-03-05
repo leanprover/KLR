@@ -69,10 +69,9 @@ def dimToAP (d1 d2 : Nat) : Compile PhysicalAccessPattern :=
   }
 
 def slicesToAP (d1 d2 : Nat) : List Index -> Compile PhysicalAccessPattern
-  | [ .ellipsis ]
   | [ .slice none none none, .slice none none none ] => dimToAP d1 d2
-  | [ .slice none (some (.int a)) none,
-      .slice none (some (.int b)) none ] => do
+  | [ .slice none (some a) none,
+      .slice none (some b) none ] => do
         if a < 0 || b < 0 then
           throw "negative slice patterns not supported"
         let a := a.toNat
@@ -82,6 +81,15 @@ def slicesToAP (d1 d2 : Nat) : List Index -> Compile PhysicalAccessPattern
         dimToAP a b
   | _ => throw "unimplemented access pattern"
 
+def pairsToAP (offset : Nat) (aps : List APPair) : PhysicalAccessPattern :=
+  {
+    ap := aps.map fun ap => [ap.step, ap.num]
+    dtype := "" -- filled in below
+    offset := offset
+    memsetref := "" -- filled in below
+    memref := "" -- filled in below
+  }
+
 private def setMemRef (t : TensorName) (ap : PhysicalAccessPattern) : PhysicalAccessPattern :=
   { ap with
     dtype := toString (Std.format t.dtype)
@@ -89,11 +97,14 @@ private def setMemRef (t : TensorName) (ap : PhysicalAccessPattern) : PhysicalAc
     memref := t.name
   }
 
-def accessToAP : Expr -> Compile PhysicalAccessPattern
-  | .tensor t@{ shape := [a,b], .. } => do
+def accessToAP : Access -> Compile PhysicalAccessPattern
+  | .simple t@{ shape := [a,b], .. } => do
       let ap <- dimToAP a b
       return (setMemRef t ap)
-  | .access (.tensor t@{ shape := [a,b], ..}) ix => do
+  | .basic t@{ shape := [a,b], ..} ix => do
       let ap <- slicesToAP a b ix
       return (setMemRef t ap)
-  | _ => throw "unimplemented access pattern"
+  | .pattern t off aps => do
+      let ap := pairsToAP off aps
+      return (setMemRef t ap)
+  | _ => throw "unsupported access"

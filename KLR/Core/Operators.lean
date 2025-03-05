@@ -105,5 +105,6 @@ structure TensorScalar where
 
 -- All of the operators
 inductive Operator where
+  | named : String -> Operator
   | tensorScalar : TensorScalar -> Operator
   deriving Repr, BEq

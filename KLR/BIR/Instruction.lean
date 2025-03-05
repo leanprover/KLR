@@ -16,7 +16,7 @@ Note: the naming of fields is carefully designed so that the derived
 instances of to- and from-json are compatible with the compiler.
 -/
 namespace KLR.BIR
-export KLR.Core (Dtype Shape Engine AluOp Memory)
+export KLR.Core (Dtype Shape Engine AluOp Memory APPair)
 
 -- TODO: this is incomplete
 structure QAETerm where
@@ -36,11 +36,6 @@ inductive InstSyncType where
   | DataPathType
   | SequencerType
   | DMAType
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
-
-structure APPair where
-  step : Int := 1
-  num : Nat := 1
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
 structure PhysicalAccessPattern where

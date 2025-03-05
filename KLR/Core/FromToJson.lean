@@ -65,26 +65,28 @@ deriving instance ToJson for Dtype
 deriving instance ToJson for AluOp
 deriving instance ToJson for Memory
 deriving instance ToJson for TensorName
-deriving instance ToJson for Const
-deriving instance ToJson for IndexExpr
 deriving instance ToJson for Index
+deriving instance ToJson for APPair
+deriving instance ToJson for Access
 
 deriving instance FromJson for Dtype
 deriving instance FromJson for AluOp
 deriving instance FromJson for Memory
 deriving instance FromJson for TensorName
-deriving instance FromJson for Const
-deriving instance FromJson for IndexExpr
 deriving instance FromJson for Index
+deriving instance FromJson for APPair
+deriving instance FromJson for Access
 
 deriving instance ToJson for TensorScalar
 deriving instance ToJson for Operator
+deriving instance ToJson for Value
 deriving instance ToJson for Expr
 deriving instance ToJson for Stmt
 deriving instance ToJson for Kernel
 
 deriving instance FromJson for TensorScalar
 deriving instance FromJson for Operator
+deriving instance FromJson for Value
 deriving instance FromJson for Expr
 deriving instance FromJson for Stmt
 deriving instance FromJson for Kernel

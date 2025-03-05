@@ -20,10 +20,10 @@ def module (name : Name) : Name × Term :=
   (name, .module name)
 
 def const_var (name: Name) : Name × Term :=
-  (name, .expr (.var name.toString) (.obj name))
+  (name, .expr (.value $ .var name.toString) (.obj name))
 
 def const_int (name: Name) (i : Int) : Name × Term :=
-  (name, .expr (.const (.int i)) .int)
+  (name, .expr (.value $ .int i) .int)
 
 abbrev BuiltinAttr := String -> Trace Term
 abbrev BuiltinFn := List Term -> List (String × Term) -> Trace Term

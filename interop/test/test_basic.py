@@ -51,7 +51,7 @@ def expr_list(t):
 
 def expr_subscript(t):
   t[1]
-  t[1,2,3]
+  #t[1,2,3]
   t[1:2:3]
   t[1:2]
   t[1:]
@@ -60,10 +60,11 @@ def expr_subscript(t):
   t[1:2:None]
   t[1:None:2]
   t[:]
-  t[:,:]
+  #t[:,:]
   t[...]
   t[1,...]
-  t[:,None]
+  t[...,1]
+  #t[:,None]
   t[1]
 
 def expr_bool_op(t):

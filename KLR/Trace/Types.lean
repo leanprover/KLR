@@ -89,11 +89,11 @@ instance : Inhabited TermType where
 /-
 A term contains KLR expressions plus things that may exists at trace time.
 References to modules, built-ins or user functions are only valid during
-tracing. Also, tuples and lists are only valid during tracing. The ellipsis may
-be translated to a set of tensor indexes, or to a pass statement depending on
-context. A slice is only valid in a tensor access context in KLR, but may also
-be used with a list at trace time, or may float around as a term for a while
-before it finds a home in a KLR term.
+tracing. Also, none, strings, tuples and lists are only valid during tracing.
+The ellipsis may be translated to a set of tensor indexes, or to a pass
+statement depending on context. A slice is only valid in a tensor access
+context in KLR, but may also be used with a list at trace time, or may float
+around as a term for a while before it finds a home in a KLR term.
 
 The store expression is an interesting case. In the original python
 code, a store can show up in an expression context. For example:
@@ -117,16 +117,18 @@ inductive Term where
   | module   : Name -> Term
   | builtin  : Name -> TermType -> Term
   | source   : Python.Fun -> Term
+  | none     : Term
+  | string   : String -> Term
   | tuple    : List Term -> Term
   | list     : List Term -> Term
   | ellipsis : Term
   | slice    : Option Int -> Option Int -> Option Int -> Term
-  | store    : TensorName -> List Index -> Expr -> Term
+  | store    : Access -> Expr -> Term
   | expr     : Expr -> TermType -> Term
   deriving Repr, BEq
 
 instance : Inhabited Term where
-  default := .expr (.const .none) .none
+  default := .none
 
 namespace Term
 
@@ -134,11 +136,13 @@ def type : Term -> TermType
   | .module name => .obj name
   | .builtin _ t => t
   | .source _    => .obj (.str .anonymous "function")
+  | .none        => .none
+  | .string _    => .string
   | .tuple l     => .tuple (types l)
   | .list l      => .list (types l)
   | .ellipsis    => .obj "ellipsis".toName
   | .slice _ _ _ => .obj "slice".toName
-  | .store t _ _ => .tensor t.dtype t.shape -- TODO: incorrect, but unused?
+  | .store a _   => .tensor a.tensor.dtype a.shape
   | .expr _ t    => t
 where
   types : List Term -> List TermType
@@ -151,10 +155,12 @@ partial def tensors : Term -> List Core.TensorName
   | .module _ => []
   | .builtin _ _ => []
   | .source _ => []
+  | .none => []
+  | .string _ => []
   | .tuple l | .list l => all_tensors l
   | .ellipsis    => []
   | .slice _ _ _ => []
-  | .store t _ _ => [t]
+  | .store a e   => (a.tensors ++ e.tensors).eraseDups
   | .expr e _    => e.tensors
 
 partial def all_tensors (l : List Term) : List Core.TensorName :=

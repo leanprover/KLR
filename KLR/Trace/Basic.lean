@@ -14,17 +14,18 @@ import KLR.Trace.NKI
 Basic tracing definitions only deal with Terms (not Python sources)
 -/
 
-namespace KLR.Core.Const
+namespace KLR.Core.Value
 
 -- Python-like rules for conversion to boolean
-def isTrue : Const -> Bool
-  | .none     => false
+def isTrue : Value -> Bool
+  | .var _    => true
   | .bool b   => b
   | .int i    => i != 0
   | .float f  => f != 0.0
-  | .string s => s != ""
+  | .access _ => true
 
 -- Python-like rules for conversion to integer
+/-
 def toInt : Const -> Err Int
   | .none       => throw "none cannot be converted to an integer"
   | .bool true  => return 1
@@ -43,41 +44,28 @@ def toInt : Const -> Err Int
       match s.toInt? with
       | .none  => throw s!"string {s} cannot be converted to an integer"
       | .some i => return i
-
-end KLR.Core.Const
+-/
+end KLR.Core.Value
 
 namespace KLR.Trace
 open KLR.Core
 
--- Operators within index expressions
-
-def indexBinOp : String -> IndexExpr -> IndexExpr -> Err IndexExpr
-  | "Add" ,      l,      r => return .add l r
-  | "Sub" ,      l,      r => return .add l r.neg
-  | "Mult", .int i,      e
-  | "Mult",      e, .int i => return .mul i e
-  | "Div" ,      e, .int i => return .floor e i
-  | "Mod" ,      e, .int i => return .mod e i
-  | _, _, _ => throw "invalid index expression"
-
-def indexUnOp : String -> IndexExpr -> Err IndexExpr
-  | "USub", e => return .neg e
-  | _, _ => throw "invalid index expresssion"
-
 -- Truthiness of Terms following Python
 
 def Term.isTrue : Term -> Err Bool
+  | .none
   | .tuple []
   | .list []  => return false
   | .module _
   | .builtin ..
   | .source _
+  | .string _
   | .tuple _
   | .list _
   | .ellipsis
   | .slice ..
   | .store .. => return true
-  | .expr (.const c) _ => return c.isTrue
+  | .expr (.value v) _ => return v.isTrue
   | .expr _ _ => throw "non-constant expression"
 
 def Term.isFalse (t : Term) : Err Bool :=
@@ -108,7 +96,7 @@ where
 --   [1,2] * True  => [1,2]
 --   [1,2] * False => []
 
-private def mulseq (l : List a) : Const -> Err (List a)
+private def mulseq (l : List a) : Value -> Err (List a)
   | .bool false => return []
   | .bool true  => return l
   | .int i      => return List.flatten $ List.replicate i.toNat l
@@ -116,44 +104,45 @@ private def mulseq (l : List a) : Const -> Err (List a)
 
 -- Binary operators on constants
 -- Note: both Lean and Python use big integers
-private def constOp : BinOp -> Const -> Const -> Err Term
+-- TODO: imcomplete
+private def valueOp : BinOp -> Value -> Value -> Trace Term
+  -- tensors
+  | op, .access l, .access r => tensor_tensor op l r
+  | op, .access t, v => tensor_scalar op t v
+  | op, v, .access t => scalar_tensor op v t
+  -- constants
   | .add, .int l, .int r => return int (l + r)
   | .sub, .int l, .int r => return int (l - r)
   | .mul, .int l, .int r => return int (l * r)
   | .div, .int l, .int r => return int (l / r)
   | _,_,_ => throw "unimp"
 where
-  int (i : Int) : Term := .expr (.const (.int i)) .int
+  int (i : Int) : Term := .expr (.value (.int i)) .int
 
 -- Binary operators on tensors (see Tensor.lean)
 private def exprOp : BinOp -> Expr -> Expr -> Trace Term
-  -- tensors
-  | op, .tensor l, .tensor r => tensor_tensor op l r
-  | op, .tensor t, .const  c => tensor_scalar op t c
-  | op, .const  c, .tensor t => scalar_tensor op c t
-  | _ , .tensor _, _
-  | _ , _        , .tensor _ => throw "invalid tensor op"
-  -- constants
-  | op, .const  l, .const  r => constOp op l r
-  | _ , _        , _         => throw "non-constant expression"
+  | op, .value l, .value r => valueOp op l r
+  | _ , _       , _        => throw "non-constant expression"
 
 -- Binary operators on terms
+-- TODO mulseq on strings
 def binOp : BinOp -> Term -> Term -> Trace Term
   -- lists and tuples
+  | .add, .string l,          .string r => return .string (l ++ r)
   | .add, .list   l,          .list   r => return .list (l ++ r)
   | .add, .tuple  l,          .tuple  r => return .tuple (l ++ r)
-  | .mul, .list   l,          .expr (.const  c) _
-  | .mul, .expr (.const c) _, .list l   => return .list (<- mulseq l c)
-  | .mul, .tuple  l,          .expr (.const  c) _
-  | .mul, .expr (.const c) _, .tuple l  => return .tuple (<- mulseq l c)
+  | .mul, .list   l,          .expr (.value  v) _
+  | .mul, .expr (.value v) _, .list l   => return .list (<- mulseq l v)
+  | .mul, .tuple  l,          .expr (.value  v) _
+  | .mul, .expr (.value v) _, .tuple l  => return .tuple (<- mulseq l v)
   -- expressions
   | op, .expr l _, .expr r _ => exprOp op l r
   | _, _, _ => throw "unsupported operator"
 
 -- Unary operators
 def unOp : UnaryOp -> Term -> Trace Term
-  | op, .expr (.tensor t) _ => tensor_op op t
-  | .not, t => return .expr (.const $ .bool (<- t.isFalse)) .bool
+  | op, .expr (.value $ .access t) _ => tensor_op op t
+  | .not, t => return .expr (.value $ .bool (<- t.isFalse)) .bool
   | _, _ => throw "unsupported operator"
 
 /-
@@ -174,16 +163,17 @@ these two.
 -/
 
 private def exprEq : Expr -> Expr -> Trace Bool
-  | .var x, .var y => return x == y
-  | .const c₁, .const c₂ => return c₁ == c₂
-  | .tensor t₁, .tensor t₂ => return t₁.name == t₂.name
+  | .value l, .value r => return l == r
   | _, _ => return false
 
 private def termEq : Term -> Term -> Trace Bool
   | .module m₁, .module m₂ => return m₁ == m₂
   | .builtin n₁ _, .builtin n₂ _ => return n₁ == n₂
+  | .none, .none => return true
+  | .string s₁, .string s₂ => return s₁ == s₂
   | .tuple l₁, .tuple l₂
   | .list  l₁, .list  l₂ => teq l₁ l₂
+  | .ellipsis, .ellipsis => return true
   | .expr e₁ _, .expr e₂ _ => exprEq e₁ e₂
   | _, _ => return false
 where
@@ -198,32 +188,32 @@ private def termIsIdentical : Term -> Term -> Trace Bool
   | l, r => termEq l r
 
 -- Python: contains operator: 1 in [1,2,3]
+-- TODO: strings
 private def termIn (x : Term) : Term -> Trace Bool
   | .tuple l | .list l => l.anyM (termEq x)
   | _ => throw "invalid use of in"
 
-private def constLt : Const -> Const -> Trace Bool
+private def valueLt : Value -> Value -> Trace Bool
   -- comparison between same types
   | .bool b₁, .bool b₂ => return !b₁ && b₂
   | .int l, .int r => return l < r
   | .float l, .float r => return l < r
-  | .string l, .string r => return l < r
   -- float promotion
   | .float f, .bool b => return f < if b then 1.0 else 0.0
   | .bool b, .float f => return (if b then 1.0 else 0.0) < f
   | .float f, .int i => return f < .ofInt i
   | .int i, .float f => return .ofInt i < f
   -- int promotion
-  | c, .int i => return (<- c.toInt) < i
-  | .int i, c => return i < (<- c.toInt)
+  | .bool b, .int i => return (if b then 1 else 0) < i
+  | .int i, .bool b => return i < (if b then 1 else 0)
   -- errors
-  | .string _, _ | _, .string _ => throw "unsupported comparison"
-  | .none, _ | _, .none => throw "unsupported comparison"
+  | _, _ => throw "unsupported comparison"
 
 private def termLt : Term -> Term -> Trace Bool
-  | .tuple l₁, .tuple l₂
-  | .list  l₁, .list  l₂ => listLt l₁ l₂
-  | .expr (.const c₁) _, .expr (.const c₂) _ => constLt c₁ c₂
+  | .string l, .string r => return l < r
+  | .tuple l, .tuple r
+  | .list  l, .list  r => listLt l r
+  | .expr (.value l) _, .expr (.value r) _ => valueLt l r
   | _, _ => throw "unsupported comparison"
 where
   listLt : List Term -> List Term -> Trace Bool
@@ -256,7 +246,7 @@ def compare : Term -> List CmpOp -> List Term -> Trace Term
      else return (bool false)
   | _, _, _ => throw "invalid comparison"
 where
-  bool b := .expr (.const $ .bool b) .bool
+  bool b := .expr (.value $ .bool b) .bool
 
 -- Attributes
 
@@ -268,8 +258,8 @@ def Term.attr : Term -> String -> Trace Term
 where
   dtype dty :=
     let name := "nki.language." ++ toString (Std.format dty)
-    .expr (.var name) (.obj name.toName)
-  tuple l := .tuple $ l.map fun i => .expr (.const (.int $ .ofNat i)) .int
+    .expr (.value $ .var name) (.obj name.toName)
+  tuple l := .tuple $ l.map fun i => .expr (.value (.int $ .ofNat i)) .int
 
 -- Static environment of builtins (extend as necessary)
 

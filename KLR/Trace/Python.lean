@@ -14,11 +14,11 @@ namespace KLR.Trace
 open KLR.Python
 
 def const : Const -> Term
-  | .none     => .expr (.const $ .none)     .none
-  | .bool b   => .expr (.const $ .bool b)   .bool
-  | .int i    => .expr (.const $ .int i)    .int
-  | .float f  => .expr (.const $ .float f)  .float
-  | .string s => .expr (.const $ .string s) .string
+  | .none     => .none
+  | .bool b   => .expr (.value $ .bool b)   .bool
+  | .int i    => .expr (.value $ .int i)    .int
+  | .float f  => .expr (.value $ .float f)  .float
+  | .string s => .string s
   | .ellipsis => .ellipsis
 
 /-
@@ -44,42 +44,50 @@ these are syntax errors in python. Note, we do not support nested tuples or
 lists as indexes e.g. t[1,(2,3),4] is disallowed
 -/
 
--- Convert an Expr to an Index (if possible)
-def exprToIndex : Core.Expr -> Err Core.Index
-  | .var x => return .coord (some $ .var x)
-  | .const .none => return .coord none
-  | .const c => return .coord (some $ .int (<- c.toInt))
-  | .tensor _ => throw "tensor indirect indexing unsupported"
-  | .access _ _ => throw "invalid index"
-  | .operator _ => throw "invalid index"
-  | .call _ _ _ => throw "invalid index"
-
 -- Convert a Term to an Index (if possible)
-def termToIndex (_ty : TermType) : Term -> Err (List Core.Index)
-  | .tuple l | .list l => l.enum.mapM fun (p,t) => toIndex p t
-  | t => return [<- toIndex 0 t]
+def termToIndex (shape : Core.Shape) : Term -> Err (List Core.Index)
+  | .tuple l | .list l => toIndex shape l
+  | t => toIndex shape [t]
 where
-  toIndex (_pos : Nat) : Term -> Err Core.Index
-  | .module _ => throw "module cannot be used as an index"
-  | .builtin n _ => throw s!"{n} cannot be used as an index"
-  | .source _ => throw "function cannot be used as an index"
-  | .tuple _ | .list  _ => throw "nested tuple/list indexes not supported"
-  | .ellipsis => return .ellipsis
-  | .slice x y z => return .slice (x.map .int) (y.map .int) (z.map .int)
-  | .store _ _ _ => throw "store expression cannot be used as index"
-  | .expr e _ => exprToIndex e
+  slice (d : Nat) := Core.Index.slice (some 0) (some (Int.ofNat d)) (some 1)
+  toIndex : Core.Shape -> List Term -> Err (List Core.Index)
+  | [], []
+  | [], [.ellipsis] => return []
+  | [], _  => throw "too many indexes for shape"
+  | ds, [] => return ds.map slice
+  | d :: ds, t :: ts =>
+    match t with
+    | .none => return slice d :: (<- toIndex ds ts)
+    | .ellipsis =>
+        if ds.length + 1 == ts.length
+        then toIndex (d::ds) ts
+        else return slice d :: (<- toIndex ds (t::ts))
+    | .slice x y z => do
+        let d := Int.ofNat d
+        let x := x.getD 0
+        let y := y.getD d
+        let z := z.getD 1
+        if x < 0 || x >= d || y < 0 || y > d || z <= 0 then
+          throw "index out of range of tensor dimension"
+        return .slice x y z :: (<- toIndex ds ts)
+    | .tuple _ | .list  _ => throw "nested tuple/list indexes not supported"
+    | t => do
+        let i : Int <- fromNKI? t
+        if i < 0 || i >= d then
+          throw "index out of range of tensor dimension"
+        return .coord i :: (<- toIndex ds ts)
 
 -- Note, a list index can be negative, which means index from end of list.
 -- Python also allows l[True] and l[False]
 -- TODO: add case for slice
 def list_access (name : String) (l : List Term) : Term -> Err Term
-  | .expr (.const (.bool false)) _ => do
+  | .expr (.value (.bool false)) _ => do
       if h:l.length > 0 then return l.get (Fin.mk 0 h)
       else throw "index out of bounds"
-  | .expr (.const (.bool true)) _ => do
+  | .expr (.value (.bool true)) _ => do
       if h:l.length > 1 then return l.get (Fin.mk 1 h)
       else throw "index out of bounds"
-  | .expr (.const (.int i)) _ => do
+  | .expr (.value (.int i)) _ => do
       let i := if i < 0 then l.length + i else i
       if i < 0 then throw "index out of bounds"
       let n := i.toNat
@@ -88,17 +96,24 @@ def list_access (name : String) (l : List Term) : Term -> Err Term
   |_ => throw s!"{name} indicies must be integers of slices"
 
 -- Top-level subscript access t[i]
+-- TODO: add case for String
 def access (t : Term) (i : Term) : Err Term := do
   match t with
   | .module _
   | .builtin ..
-  | .source _ => throw "subscript not supported"
-  | .tuple l => list_access "list" l i
-  | .list l => list_access "tuple" l i
+  | .source _
+  | .none
   | .ellipsis
   | .slice ..
   | .store .. => throw "subscript not supported"
-  | .expr e _ => return .expr (.access e (<- termToIndex t.type i)) (.obj "object".toName)
+  | .string _ => throw "string subscript not implemented"
+  | .tuple l => list_access "list" l i
+  | .list l => list_access "tuple" l i
+  | .expr .. => do
+      let tensor : Core.TensorName <- fromNKI? t
+      let access := Core.Access.basic tensor (<- termToIndex tensor.shape i)
+      let shape <- Tensor.inferShape access
+      return .expr (.value (.access access)) (.tensor tensor.dtype shape)
 
 /-
 # Handling of assignment statements
@@ -152,7 +167,7 @@ def LValue : Expr -> Trace Term
   | .exprPos e' p => withPos p (lval e')
 where
   lval : Expr' -> Trace Term
-  | .name id .store => return .expr (.var id) (.obj "object".toName)
+  | .name id .store => return .expr (.value $ .var id) (.obj "object".toName)
   | .attr _ id .store => throw s!"cannot assign to attribute {id}"
   | .tuple l .store => return .tuple (<- LValue ▷ l)
   | .list  l .store => return .list  (<- LValue ▷ l)
@@ -165,25 +180,26 @@ def RValue : Term -> Trace Term
   | .module n => return .module n
   | .builtin n t => return .builtin n t
   | .source f => return .source f
+  | .none => return .none
+  | .string s => return .string s
   | .tuple  l => return .tuple (<- RValue ▷ l)
   | .list   l => return .list  (<- RValue ▷ l)
   | .ellipsis => return .ellipsis
   | .slice a b c => return .slice a b c
-  | .store t ix e => do
-       add_stmt (.store t ix e)
-       if ix == []
-       then return .expr (.tensor t) (.tensor t.dtype t.shape)
-       else return .expr (.access (.tensor t) ix) (.tensor t.dtype t.shape)
-  | .expr e@(.call _ _ _) ty => do
+  | .store acc e => do
+       add_stmt (.store acc e)
+       let shape <- Tensor.inferShape acc
+       return .expr (.value (.access acc)) (.tensor acc.tensor.dtype shape)
+  | .expr e@(.call ..) ty => do
        let v := (<- genName).toString
        add_stmt (.assign v e)
-       return .expr (.var v) ty
+       return .expr (.value $ .var v) ty
   | .expr e ty => return .expr e ty
 
 -- Create an assignment to a Core Expr, this must be a variable
 def assignExpr (e : Core.Expr) (t : Term) : Trace Unit := do
   match e with
-  | .var x => extend x.toName t
+  | .value (.var x) => extend x.toName t
   | _ => throw s!"cannot assign to {repr e}"
 
 -- Unpack an RValue, must be a list or tuple
@@ -197,11 +213,13 @@ def assignTerm (x : Term) (e : Term) : Trace Unit := do
   | .module name => throw s!"cannot assign to {name}"
   | .builtin name _ => throw s!"cannot assign to {name}"
   | .source _ => throw "cannot assign to function"
+  | .none => throw "cannot assign to None"
+  | .string _ => throw "cannot assign to a string literal"
   | .tuple l
   | .list  l  => assignList l (<- unpack e)
   | .ellipsis => throw "cannot assign to ellipsis"
-  | .slice _ _ _ => throw "cannot assign to slice"
-  | .store _ _ _ => throw "cannot assign to a store"
+  | .slice .. => throw "cannot assign to slice"
+  | .store .. => throw "cannot assign to a store"
   | .expr x _ => assignExpr x e
 where
   assignList : List Term -> List Term -> Trace Unit
@@ -224,7 +242,7 @@ def assign (xs : List Expr) (e : Term) : Trace Unit := do
 
 -- range, but only in a for-loop context
 private def range (start stop step : Int) : List Term :=
-  let int i := Term.expr (.const (.int i)) .int
+  let int i := Term.expr (.value (.int i)) .int
   if step = 0 then []
   else if 0 < step then
     if stop <= start then [] else
@@ -238,11 +256,11 @@ termination_by (stop - start).natAbs
 
 def termToIter : Term -> Err (List Term)
   | .tuple l | .list l => return l
-  | .expr (.call (.var "range") l []) _ =>
+  | .expr (.call (.named "range") l) _ =>
        match l with
-       | [ .const (.int e) ] => return (range 0 e 1)
-       | [ .const (.int s), .const (.int e) ] => return (range s e 1)
-       | [ .const (.int s), .const (.int e), .const (.int t) ] =>
+       | [ .int e ] => return (range 0 e 1)
+       | [ .int s, .int e ] => return (range s e 1)
+       | [ .int s, .int e, .int t ] =>
            if t == 0
            then throw "range arg 3 must not be zero"
            else return (range s e t)
@@ -273,8 +291,8 @@ partial def expr' : Expr' -> Trace Term
   | .tensor s dty => do
       let shape <- expr ▷ s
       let name <- genName "t".toName
-      let dty <- fromNKI? (.expr (.var dty) .none)
-      return .expr (.tensor ⟨ name.toString, dty, shape, .dram ⟩) (.tensor dty shape)
+      let dty <- fromNKI? (.expr (.value $ .var dty) .none)
+      return .expr (.value $ .access $ .simple ⟨ name.toString, dty, shape, .dram ⟩) (.tensor dty shape)
   | .name id _ => lookup id.toName
   | .attr e id _ => do ((<- expr e : Term).attr id)
   | .tuple l _ => return .tuple (<- expr ▷ l)
@@ -292,15 +310,13 @@ partial def expr' : Expr' -> Trace Term
       return if tst then tru else fls
   | .call f args kws => do
       match (<- expr f : Term) with
-      | .module n    => throw s!"module {n} not callable"
       | .builtin n _ => do (<- builtinFn n) (<- expr ▷ args) (<- keyword expr ▷ kws)
       | .source f    => do function_call f (<- expr ▷ args) (<- keyword expr ▷ kws)
-      | .tuple _     => throw "tuple is not a callable type"
-      | .list _      => throw "list is not a callable type"
-      | .ellipsis    => throw "ellipsis is not a callable type"
-      | .slice _ _ _ => throw "slice is not a callable type"
-      | .store _ _ _ => throw "tensor is not a callable type"
-      | .expr f _    => return .expr (.call f (<- expr ▷ args) (<- keyword expr ▷ kws)) default
+      | .expr (.value (.var f)) _ =>
+          if kws.length > 0 then
+            throw "keyword arguments not supported"
+          return .expr (.call (.named f) (<- expr ▷ args))  default
+      | _ => throw "not a callable type"
 
 partial def keyword (f : Expr -> Trace a) : Keyword -> Trace (String × a)
   | .keyword id e p => withPos p do return (id, (<- f e))
@@ -381,8 +397,13 @@ partial def bind_args (f : Fun)
   return argmap
 where
   renameTensors : String × Term -> String × Term
-  | (s, .expr (.tensor t) ty) => (s, .expr (.tensor {t with name := s}) ty)
+  | (s, .expr (.value (.access a)) ty) => (s, .expr (.value (.access (renameAcc s a))) ty)
   | other => other
+  renameAcc (s : String) : Core.Access -> Core.Access
+  | .simple t => .simple (renameTN s t)
+  | .basic t l => .basic (renameTN s t) l
+  | .pattern t o l => .pattern (renameTN s t) o l
+  renameTN (s : String) (t : Core.TensorName) : Core.TensorName := { t with name := s }
 
 /-
 Function calls are split into two parts because we need to handle the top-level
@@ -396,7 +417,7 @@ partial def call (f : Fun)
     args.forM fun (x,e) => do extend x.toName e
     match <- stmts f.body with
     | .ret t => return t
-    | _ => return .expr (.const .none) .none
+    | _ => return .none
 
 partial def function_call (f : Fun)
                           (args : List Term)
@@ -460,7 +481,7 @@ def checkUndefined (k : Kernel) : Trace Unit := do
     if (<- lookup_global? name).isNone then
       if undefinedOK name then do
         warn s!"unknown NKI API {name}"
-        extend_global name (.expr (.var name.toString) (.obj name))
+        extend_global name (.expr (.value $ .var name.toString) (.obj name))
       else
         undefined := name :: undefined
   if undefined.length > 0 then

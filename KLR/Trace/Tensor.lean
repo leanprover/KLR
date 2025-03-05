@@ -19,40 +19,28 @@ open KLR.Trace.Builtin
 
 namespace Tensor
 
--- decompose a tensor expresssion
-def Expr.inferTensor : Expr -> Err (TensorName × List Index)
-  | .tensor t => return (t, [.ellipsis])
-  | .access t ix => do
-      match <- inferTensor t with
-      | (t, [.ellipsis]) => return (t, ix)
-      | _ => throw "unsupported tensor expression"
-  | _ => throw "expecting tensor expression"
-
-def Term.inferTensor : Term -> Err (TensorName × List Index)
-  | .expr e _ => Expr.inferTensor e
-  | _ => throw "expecting tensor"
-
 -- This only handles the simple cases
 -- Note: Maybe only simple cases are possible at this point ??
-def inferShape (t : TensorName) : List Index -> Err Shape
-  | [] | [.ellipsis] => return t.shape
-  | ix => do
-      let base := t.shape
-      if base.length != ix.length then
-        throw "unsupported index"
-      let dims <- (base.zip ix).mapM fun (x, i) =>
-        match i with
-        | .coord _ => return 0
-        | .slice none none none
-        | .slice (some (.int 0)) none none => return x
-        | .slice none (some (.int i)) none
-        | .slice (some (.int 0)) (some (.int i)) none => return i.toNat
-        | _ => throw "unsupported index"
-      return dims.filter (. != 0)
-
-def Expr.inferShape (e : Expr) : Err Shape := do
-  let (t, ix) <- inferTensor e
-  Tensor.inferShape t ix
+-- TODO: move to Access.shape
+def inferShape : Access -> Err Shape
+  | .basic t l =>
+    match l with
+    | [] => return t.shape
+    | ix => do
+        let base := t.shape
+        if base.length != ix.length then
+          throw "unsupported index."
+        let dims <- ix.mapM fun i =>
+          match i with
+          | .coord _ => return 0
+          | .slice (some s) (some e) (some n) => do
+              if s < 0 then throw "invalid start"
+              if e <= s then throw "invalid end"
+              if n <= 0 then throw "invalid step size"
+              return ((e-s)/n).toNat
+          | _ => throw s!"unsupported index"
+        return dims.filter (. != 0)
+  | a => return a.shape
 
 /-
 Declare a new tensor, unique to the current expression.
@@ -87,28 +75,28 @@ def store_expr (tag : String)
   match src with
   | .expr e (.tensor _ shape) => do
       let dst <- declare tag dtype shape memory
-      return .store dst [.ellipsis] e
-  | .expr e _ => do
-      let shape <- Expr.inferShape e
+      return .store (.simple dst) e
+  | t => do
+      let acc <- fromNKI? t
+      let shape <- inferShape acc
       let dst <- declare tag dtype shape memory
-      return .store dst [.ellipsis] e
-  | _ => throw "expecting tensor in store"
+      return .store (.simple dst) (.value (.access acc))
 
 -- APIs
 
 -- conversion to NKI
 
 private def some_none : Option Term :=
-  some (.expr (.const .none) .none)
+  some .none
 
 private def some_bool (b : Bool) : Option Term :=
-  some (.expr (.const (.bool b)) .bool)
+  some (.expr (.value (.bool b)) .bool)
 
 private def some_int (i : Int) : Option Term :=
-  some (.expr (.const (.int i)) .int)
+  some (.expr (.value (.int i)) .int)
 
 private def some_string (s : String) : Option Term :=
-  some (.expr (.const (.string s)) .string)
+  some (.string s)
 
 /-
 TODO: These definitions are very verbose, but this pattern could be made more
@@ -128,7 +116,8 @@ def ndarray : BuiltinFn :=
       let dtype <- fromNKI? dtype
       let memory <- fromNKI? buf
       let t <- declare "ndarray" dtype shape memory
-      return .expr (.tensor t) (.tensor dtype shape)
+      let e := Expr.value (.access (.simple t))
+      return .expr e (.tensor dtype shape)
   | _ => throw "invalid arguments"
 
 def load : BuiltinFn :=
@@ -144,16 +133,14 @@ def load : BuiltinFn :=
 def store : BuiltinFn :=
   withArgs [("dst", none),("value", none)]
   fun
-  | [.expr dst _, .expr src _] => do
-      let (t₁, i₁) <- Expr.inferTensor dst
-      let (t₂, i₂) <- Expr.inferTensor src
-      let s₁ <- inferShape t₁ i₁
-      let s₂ <- inferShape t₂ i₂
+  | [dst, src] => do
+      let a₁ <- fromNKI? dst
+      let a₂ <- fromNKI? src
+      let s₁ <- inferShape a₁
+      let s₂ <- inferShape a₂
       if s₁ != s₂ then
         throw s!"incompatible shapes {s₁} {s₂}"
-
-      let src := Expr.access (.tensor t₂) i₂
-      return Term.store t₁ i₁ src
+      return Term.store a₁ (.value $ .access a₂)
   | _ => throw "invalid arguments"
 
 def tensor_scalar : BuiltinFn :=
@@ -167,8 +154,8 @@ def tensor_scalar : BuiltinFn :=
             ("dtype", some_none)]
   fun
   | [data, op0, operand0, reverse0, op1, operand1, reverse1, dtype] => do
-      let (t, ix) <- Term.inferTensor data
-      let shape <- inferShape t ix
+      let acc <- fromNKI? data
+      let shape <- inferShape acc
       let dtype := fromNKI Dtype.float32 dtype
       let op : TensorScalar := {
            op0 := <- fromNKI? op0
@@ -178,9 +165,9 @@ def tensor_scalar : BuiltinFn :=
            const1 := fromNKI 0.0 operand1
            reverse1 := fromNKI false reverse1
            }
-      let e := Expr.operator (.tensorScalar op)
+      let op := Operator.tensorScalar op
       let ty := TermType.tensor dtype shape
-      let e := Expr.call e [.access (.tensor t) ix] []
+      let e := Expr.call op [.access acc]
       store_expr "tsc" dtype .sbuf (.expr e ty)
   | _ => throw "invalid arguments"
 
@@ -189,34 +176,19 @@ end Tensor
 --------
 -- TODO: These are just placeholdrs for the python operators
 
-private def tensor_call (op : String) (args : List Expr) : Term :=
-  let type := if let .tensor t :: _ := args
-              then TermType.tensor t.dtype t.shape
-              else TermType.obj "object".toName
-  let name := Expr.var ("tensor_".append op)
-  .expr (.call name args []) type
-
 -- Unary operations on tensors
 
-def tensor_op (op : UnaryOp) (t : TensorName) : Trace Term :=
-  let op := toString (repr op)
-  return tensor_call op [.tensor t]
+set_option linter.unusedVariables false
+def tensor_op (op : UnaryOp) (t : Access) : Trace Term :=
+  throw "unimp"
 
 -- Binary operations on tensors / scalars
 
-def tensor_tensor (op : BinOp) (l r : TensorName) : Trace Term :=
-  let op := toString (repr op)
-  return tensor_call op [.tensor l, .tensor r]
+def tensor_tensor (op : BinOp) (l r : Access) : Trace Term :=
+  throw "unimp"
 
-private def broadcast (t : TensorName) (c : Const) : Expr :=
-  let args := t.shape.map fun i => Expr.const (.int $ .ofNat i)
-  let args := .const c :: args
-  .call (.var "broadcast") args []
+def tensor_scalar (op : BinOp) (t : Access) (v : Value) : Trace Term :=
+  throw "unimp"
 
-def tensor_scalar (op : BinOp) (t : TensorName) (c : Const) : Trace Term :=
-  let op := toString (repr op)
-  return tensor_call op [ .tensor t, broadcast t c]
-
-def scalar_tensor (op : BinOp) (c : Const) (t : TensorName) : Trace Term :=
-  let op := toString (repr op)
-  return tensor_call op [ .tensor t, broadcast t c]
+def scalar_tensor (op : BinOp) (v : Value) (t : Access) : Trace Term :=
+  throw "unimp"
