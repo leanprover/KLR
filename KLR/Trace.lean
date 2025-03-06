@@ -14,7 +14,21 @@ import KLR.Trace.Numpy
 
 namespace KLR.Trace
 
-def globalEnv := PythonEnv ++ NKIEnv ++ NumpyEnv
+-- Keywords recognized by the tracer (KLR keywords)
+-- Limits come from:
+-- https://awsdocs-neuron.readthedocs-hosted.com/en/latest/general/nki/nki_arch_guides.html
+def keywords : List (Name × Term) :=
+  let ptr s memory size := (Lean.Name.mkStr1 s, Term.pointer { memory, size })
+  let const s := Builtin.const_var (.mkStr1 s)
+  let int s := Builtin.const_int (.mkStr1 s)
+  [ int "arch" 2
+  , const "hbm"
+  , ptr "sbuf" .sbuf (128, 0x30000)
+  , ptr "pmem" .pmem (128, 0x4000)
+  , const "range"
+  ]
+
+def globalEnv := keywords ++ NKIEnv ++ NumpyEnv
 
 def runNKIKernel (k : KLR.Python.Kernel) : Err (String × KLR.Core.Kernel) :=
   tracer globalEnv (traceKernel k)

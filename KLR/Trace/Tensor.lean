@@ -27,7 +27,7 @@ def inferShape : Access -> Err Shape
     match l with
     | [] => return t.shape
     | ix => do
-        let base := t.shape
+        let base := t.shape.toList
         if base.length != ix.length then
           throw "unsupported index."
         let dims <- ix.mapM fun i =>
@@ -39,7 +39,8 @@ def inferShape : Access -> Err Shape
               if n <= 0 then throw "invalid step size"
               return ((e-s)/n).toNat
           | _ => throw s!"unsupported index"
-        return dims.filter (. != 0)
+        let shape <- Shape.fromList (dims.filter (. != 0))
+        return shape
   | a => return a.shape
 
 /-
@@ -65,8 +66,11 @@ def declare (tag : String)
     name := tname
     dtype := dtype
     shape := shape
-    memory := memory
+    address := {
+        memory := memory
+        size   := Address.defaultSize shape dtype
     }
+  }
 
 -- APIs
 

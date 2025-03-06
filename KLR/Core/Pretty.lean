@@ -30,7 +30,7 @@ instance [ToFormat a] [ToFormat b] : ToFormat (a × b) where
 
 instance : ToFormat Memory where
   format
-  | .dram => "dram"
+  | .hbm => "hbm"
   | .sbuf => "sbuf"
   | .pmem => "pmem"
   | .reg  => "reg"
@@ -40,6 +40,12 @@ instance : ToFormat Dtype where
     match (reprStr dty).toName with
     | .str _ name => name
     | _ => impossible "dtype repr must be a name"
+
+instance : ToFormat Address where
+  format a := format a.memory ++ sqArgs [format a.start, format a.size]
+
+instance : ToFormat Shape where
+  format s := sqArgs (s.parDim :: s.freeDims)
 
 instance : ToFormat TensorName where
   format t := t.name
@@ -55,11 +61,15 @@ instance : ToFormat Index where
 instance : ToFormat APPair where
   format ap := args [ap.step, Int.ofNat ap.num]
 
+instance : ToFormat AccessPattern where
+  format ap := .sbracket <| sqArgs <|
+    format ap.offset :: format ap.parNum :: ap.freePattern.map format
+
 instance : ToFormat Access where
   format
   | .simple t => format t
   | .basic t l => format t ++ sqArgs l
-  | .pattern t off aps => format t ++ .sbracket (sqArgs (format off :: aps.map format))
+  | .pattern t ap => format t ++ format ap
 
 instance : ToFormat Operator where
   format
@@ -86,7 +96,7 @@ instance : ToFormat Stmt where
   | .store d op as => format d ++ " := " ++ format op ++ args as
 
 def ppFullTensor (t : TensorName) : Format :=
-  t.name ++ sqArgs [ format t.dtype, args t.shape, format t.memory ]
+  t.name ++ sqArgs [ format t.dtype, format t.shape, format t.address ]
 
 instance : ToFormat Kernel where
   format k :=

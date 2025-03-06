@@ -64,7 +64,8 @@ def Term.isTrue : Term -> Err Bool
   | .list _
   | .ellipsis
   | .slice ..
-  | .store .. => return true
+  | .store ..
+  | .pointer .. => return true
   | .expr (.value v) _ => return v.isTrue
   | .expr _ _ => throw "non-constant expression"
 
@@ -253,7 +254,7 @@ where
 def Term.attr : Term -> String -> Trace Term
   | .module n, id => lookup (n.str id)
   | .expr _ (.tensor d _), "dtype" => return (dtype d)
-  | .expr _ (.tensor _ s), "shape" => return (tuple s)
+  | .expr _ (.tensor _ s), "shape" => return (tuple s.toList)
   | _, id => throw s!"unsupported attribute {id}"
 where
   dtype dty :=

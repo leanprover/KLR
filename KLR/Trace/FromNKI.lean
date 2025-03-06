@@ -48,8 +48,9 @@ instance : FromNKI Expr where
     | .tuple _     => err "tuple"
     | .list _      => err "list"
     | .ellipsis    => err "ellipsis"
-    | .slice _ _ _ => err "slice"
-    | .store _ _ _ => err "store"
+    | .slice ..    => err "slice"
+    | .store ..    => err "store"
+    | .pointer ..  => err "pointer"
     | .expr e _    => return e
 
 instance : FromNKI Value where
@@ -141,7 +142,11 @@ instance : FromNKI Dtype where
     | _ => throw s!"expecting dtype"
 
 instance : FromNKI Shape where
-  fromNKI? := fromNKI? (a := List Nat)
+  fromNKI? t := do
+    let l : List Nat <- fromNKI? t
+    match l with
+    | [] => throw "invalid shape"
+    | p :: f => return ⟨ p, f ⟩
 
 instance : FromNKI Memory where
   fromNKI? t :=
@@ -150,9 +155,9 @@ instance : FromNKI Memory where
     | .expr (.value $ .var name) _ =>
       match name with
       -- TODO: do we need to distinguish the different HBM types?
-      | "nki.language.shared_hbm" => .ok .dram
-      | "nki.language.private_hbm" => .ok .dram
-      | "nki.language.hbm" => .ok .dram
+      | "nki.language.shared_hbm" => .ok .hbm
+      | "nki.language.private_hbm" => .ok .hbm
+      | "nki.language.hbm" => .ok .hbm
       | "nki.language.sbuf" => .ok .sbuf
       | "nki.language.pmem" => .ok .pmem
       | _ => err
