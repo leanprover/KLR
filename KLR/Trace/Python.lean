@@ -12,6 +12,7 @@ import KLR.Trace.Basic
 
 namespace KLR.Trace
 open KLR.Python
+open Core (tensors)
 
 def const : Const -> Term
   | .none     => .none
@@ -186,8 +187,8 @@ def RValue : Term -> Trace Term
   | .list   l => return .list  (<- RValue ▷ l)
   | .ellipsis => return .ellipsis
   | .slice a b c => return .slice a b c
-  | .store acc e => do
-       add_stmt (.store acc e)
+  | .store acc op args => do
+       add_stmt (.store acc op args)
        let shape <- Tensor.inferShape acc
        return .expr (.value (.access acc)) (.tensor acc.tensor.dtype shape)
   | .expr e@(.call ..) ty => do
@@ -256,7 +257,7 @@ termination_by (stop - start).natAbs
 
 def termToIter : Term -> Err (List Term)
   | .tuple l | .list l => return l
-  | .expr (.call (.named "range") l) _ =>
+  | .expr (.call "range" l _) _ =>
        match l with
        | [ .int e ] => return (range 0 e 1)
        | [ .int s, .int e ] => return (range s e 1)
@@ -313,9 +314,7 @@ partial def expr' : Expr' -> Trace Term
       | .builtin n _ => do (<- builtinFn n) (<- expr ▷ args) (<- keyword expr ▷ kws)
       | .source f    => do function_call f (<- expr ▷ args) (<- keyword expr ▷ kws)
       | .expr (.value (.var f)) _ =>
-          if kws.length > 0 then
-            throw "keyword arguments not supported"
-          return .expr (.call (.named f) (<- expr ▷ args))  default
+          return .expr (.call f (<- expr ▷ args) (<- keyword expr ▷ kws)) default
       | _ => throw "not a callable type"
 
 partial def keyword (f : Expr -> Trace a) : Keyword -> Trace (String × a)
@@ -498,8 +497,8 @@ def traceKernel (k : Kernel) : Trace Core.Kernel := do
       let kwargs <- k.kwargs.mapM fun (x,e) => return (x, <- expr' e)
       let args <- bind_args f args kwargs (rename := true)
       let res <- call f args
-      let inputs := Term.all_tensors (args.map fun x => x.snd)
-      let outputs := Term.tensors res
+      let inputs := tensors (args.map fun x => x.snd)
+      let outputs := tensors res
       return {
         name := k.entry
         inputs := inputs

@@ -27,13 +27,36 @@ structure TensorName where
   memory: Memory
   deriving Repr, BEq
 
--- Basic indexing elements: integers and slices
+/--
+Basic indexing elements: integers and slices.
+These are used for basic indexing, such as:
+  t[1, 2]
+  t[0:10, :]
+  t[5, 0:10:2]
+-/
 inductive Index where
   | coord (e : Int)
   | slice (l u step : Option Int)
   deriving Repr, BEq
 
--- Access pattern elements
+/--
+Access pattern elements.
+
+These are used for HW-native indexing which consists of an offset and a list
+of access pattern pairs. Each pair specifies a step size and the number of
+steps to take. The first pair corresponds to the partition dimension and
+changes the slowest; the last pair changes the fastest. For example, in the
+list of pairs:
+
+  [ (3,2), (1,3) ]
+
+the first pair will produce the values 0,3 and the second pair will produce the
+values 0,1,2. Added together, the pairs produce the values:
+
+  0, 1, 2, 3, 4, 5.
+
+which is equivalent to the basic index [0:2,0:3] for a standard tensor layout.
+-/
 structure APPair where
   step : Int := 1
   num : Nat := 1
@@ -55,16 +78,21 @@ inductive Value where
   | access (a : Access)
   deriving Repr, BEq
 
--- TODO: Expressions are trivial right now, waiting on dynamic loops
+/--
+Expressions are trivial right now, waiting on dynamic loops.
+
+The call expression would only appear in a KLR program if the tracer
+encountered an unknown function.
+-/
 inductive Expr where
   | value (v : Value)
-  | call (op : Operator) (args : List Value)
+  | call (f : String) (args : List Value) (kwargs : List (String × Value))
   deriving Repr, BEq
 
 inductive Stmt where
   | ret (v : Value)
   | assign (x : String) (e : Expr)
-  | store (dst : Access) (e : Expr)
+  | store (dst : Access) (op : Operator) (args : List Value)
   deriving Repr, BEq
 
 structure Kernel where
@@ -86,27 +114,38 @@ def shape : Access -> Shape
   | basic _ _ => panic! "TODO"
   | pattern _ _ aps => aps.map fun ap => ap.num
 
-def tensors (a : Access) : List TensorName := [a.tensor]
-
 end Access
 
-def Value.tensors : Value -> List TensorName
-  | .access a => a.tensors
-  | _ => []
+class Tensors (a : Type) where
+  tensors : a -> List TensorName
+export Tensors (tensors)
+
+instance : Tensors TensorName where
+  tensors tn := [tn]
 
 -- TODO: not efficient
-private def unique : List (List TensorName) -> List TensorName
-  | lls => lls.flatten.eraseDups
+instance [inst : Tensors a] : Tensors (List a) where
+  tensors l := (l.flatMap tensors).eraseDups
 
-def Expr.tensors : Expr -> List TensorName
-  | .value v => v.tensors
-  | .call _ args => unique (args.map Value.tensors)
+instance : Tensors Access where
+  tensors a := [a.tensor]
 
-def Stmt.tensors : Stmt -> List TensorName
-  | .ret v => v.tensors
-  | .assign _ e => e.tensors
-  | .store dst e => unique (dst.tensors :: e.tensors :: [])
+instance : Tensors Value where
+  tensors
+  | .access a => tensors a
+  | _ => []
+
+instance : Tensors Expr where
+  tensors
+  | .value v => tensors v
+  | .call _ args kwargs => tensors (args ++ kwargs.map Prod.snd)
+
+instance : Tensors Stmt where
+  tensors
+  | .ret v => tensors v
+  | .assign _ e => tensors e
+  | .store dst _ vs => tensors (tensors dst :: vs.map tensors)
 
 def Kernel.internal (k : Kernel) : List TensorName :=
-  let ts := (k.body.map Stmt.tensors).flatten.eraseDups
+  let ts := (k.body.map tensors).flatten.eraseDups
   (ts.removeAll k.inputs).removeAll k.outputs

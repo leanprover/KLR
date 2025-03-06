@@ -17,25 +17,16 @@ def gatherAPs : List Expr -> Compile (List Argument)
     | .value (.access a) => return .PhysicalAccessPattern (<- accessToAP a) :: xs
     | _ => return xs
 
-def compileStore (dst : Access) (e : Expr) : Compile Inst := do
-  match e with
-  | .value (.access _) =>
-      return .TensorLoad {
-        name := "load_test"  -- I think these have to be unique (need state monad?)
-        ins  := <- gatherAPs [e]
-        outs := <- gatherAPs [.value (.access dst)]
-      }
-  | .call _ args => do
-      return .NoOp {
-        name := "noop_test"  -- I think these have to be unique (need state monad?)
-        ins  := <- gatherAPs (args.map .value)
-        outs := <- gatherAPs [.value (.access dst)]
-      }
-  | _ => throw s!"store pattern not yet implemented {repr e}"
+def compileStore (dst : Access) (_op : Operator) (args : List Core.Value) : Compile Inst := do
+  return .NoOp {
+    name := "noop_test"  -- I think these have to be unique (need state monad?)
+    ins  := <- gatherAPs (args.map .value)
+    outs := <- gatherAPs [.value (.access dst)]
+  }
 
 def compileStmt : Stmt -> Compile Inst
   | .ret _ => throw "unimp ret"
-  | .store dst e => compileStore dst e
+  | .store dst op args => compileStore dst op args
   | .assign .. => throw "unimp assign"
 
 def compile_kernel (k : Kernel) : Compile BIR := do

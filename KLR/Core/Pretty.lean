@@ -25,6 +25,9 @@ private def args [ToFormat a] (l : List a) : Format :=
 private def sqArgs [ToFormat a] (l : List a) : Format :=
   .sbracket (.joinSep l ",")
 
+instance [ToFormat a] [ToFormat b] : ToFormat (a × b) where
+  format | (a,b) => .paren (format a ++ "," ++ format b)
+
 instance : ToFormat Memory where
   format
   | .dram => "dram"
@@ -74,13 +77,13 @@ instance : ToFormat Value where
 instance : ToFormat Expr where
   format
   | .value v => format v
-  | .call f a => format f ++ args a
+  | .call f a k => format f ++ args (a ++ k.map Prod.snd)
 
 instance : ToFormat Stmt where
   format
-  | .ret e      => "ret" ++ format e
+  | .ret e => "ret" ++ format e
   | .assign x e => x ++ " = " ++ format e
-  | .store d e  => format d ++ " := " ++ format e
+  | .store d op as => format d ++ " := " ++ format op ++ args as
 
 def ppFullTensor (t : TensorName) : Format :=
   t.name ++ sqArgs [ format t.dtype, args t.shape, format t.memory ]

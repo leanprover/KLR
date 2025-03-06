@@ -123,7 +123,7 @@ inductive Term where
   | list     : List Term -> Term
   | ellipsis : Term
   | slice    : Option Int -> Option Int -> Option Int -> Term
-  | store    : Access -> Expr -> Term
+  | store    : Access -> Operator -> List Value -> Term
   | expr     : Expr -> TermType -> Term
   deriving Repr, BEq
 
@@ -141,31 +141,30 @@ def type : Term -> TermType
   | .tuple l     => .tuple (types l)
   | .list l      => .list (types l)
   | .ellipsis    => .obj "ellipsis".toName
-  | .slice _ _ _ => .obj "slice".toName
-  | .store a _   => .tensor a.tensor.dtype a.shape
+  | .slice ..    => .obj "slice".toName
+  | .store a ..  => .tensor a.tensor.dtype a.shape
   | .expr _ t    => t
 where
   types : List Term -> List TermType
   | [] => []
   | x :: xs => type x :: types xs
 
--- TODO not efficient!
-mutual
-partial def tensors : Term -> List Core.TensorName
+-- TODO: not efficient!
+-- TODO: this is partial because of the use of flatMap
+-- the ▷ syntax in Util could be updated to handle this case.
+partial def tensor_list : Term -> List Core.TensorName
   | .module _ => []
   | .builtin _ _ => []
   | .source _ => []
   | .none => []
   | .string _ => []
-  | .tuple l | .list l => all_tensors l
+  | .tuple l | .list l => (l.flatMap tensor_list).eraseDups
   | .ellipsis    => []
   | .slice _ _ _ => []
-  | .store a e   => (a.tensors ++ e.tensors).eraseDups
-  | .expr e _    => e.tensors
+  | .store a _ v => (tensors a ++ tensors v).eraseDups
+  | .expr e _    => tensors e
 
-partial def all_tensors (l : List Term) : List Core.TensorName :=
-  (l.map tensors).flatten.eraseDups
-end
+instance : Tensors Term := ⟨ Term.tensor_list ⟩
 
 end Term
 

@@ -68,20 +68,6 @@ def declare (tag : String)
     memory := memory
     }
 
--- generate a store expression based on the src shape
-def store_expr (tag : String)
-               (dtype : Dtype) (memory : Memory) (src : Term)
-               : Trace Term := do
-  match src with
-  | .expr e (.tensor _ shape) => do
-      let dst <- declare tag dtype shape memory
-      return .store (.simple dst) e
-  | t => do
-      let acc <- fromNKI? t
-      let shape <- inferShape acc
-      let dst <- declare tag dtype shape memory
-      return .store (.simple dst) (.value (.access acc))
-
 -- APIs
 
 -- conversion to NKI
@@ -126,8 +112,11 @@ def load : BuiltinFn :=
             ("dtype", some_string "float32")]
   fun
   | [t, _, dtype] => do
+      let acc <- fromNKI? t
+      let shape <- inferShape acc
       let dtype <- fromNKI? dtype
-      store_expr "load" dtype .sbuf t
+      let dst <- declare "load" dtype shape .sbuf
+      return .store (.simple dst) (.named "Load") [.access acc]
   | _ => throw "invalid arguments"
 
 def store : BuiltinFn :=
@@ -140,7 +129,7 @@ def store : BuiltinFn :=
       let s₂ <- inferShape a₂
       if s₁ != s₂ then
         throw s!"incompatible shapes {s₁} {s₂}"
-      return Term.store a₁ (.value $ .access a₂)
+      return Term.store a₁ (.named "Store") [.access a₂]
   | _ => throw "invalid arguments"
 
 def tensor_scalar : BuiltinFn :=
@@ -166,9 +155,9 @@ def tensor_scalar : BuiltinFn :=
            reverse1 := fromNKI false reverse1
            }
       let op := Operator.tensorScalar op
-      let ty := TermType.tensor dtype shape
-      let e := Expr.call op [.access acc]
-      store_expr "tsc" dtype .sbuf (.expr e ty)
+      --let ty := TermType.tensor dtype shape
+      let dst <- declare "tsc" dtype shape .sbuf
+      return .store (.simple dst) op [.access acc]
   | _ => throw "invalid arguments"
 
 end Tensor

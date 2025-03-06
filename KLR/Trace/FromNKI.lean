@@ -49,7 +49,7 @@ instance : FromNKI Expr where
     | .list _      => err "list"
     | .ellipsis    => err "ellipsis"
     | .slice _ _ _ => err "slice"
-    | .store _ _   => err "store"
+    | .store _ _ _ => err "store"
     | .expr e _    => return e
 
 instance : FromNKI Value where
