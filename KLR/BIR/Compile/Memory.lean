@@ -21,19 +21,19 @@ tensors have the same basic layout.
 -/
 
 -- TODO: just a for instance...
-def physicalShape (t : TensorName) : Shape :=
-  match t.dtype, t.shape with
+def physicalShape (t : TensorName) : List Nat :=
+  match t.dtype, t.shape.toList with
   | .float16, [x, y] => [x, y * 2]
   | .float32, [x, y] => [x, y * 4]
-  | _, _ => t.shape -- TODO incorrect
+  | _, _ => t.shape.toList -- TODO incorrect
 
 -- Create memory region corresponding to a named tensor
 def allocate (kind : TensorKind) (t : TensorName) : Compile Allocation := do
   let type : MemoryType :=
-    match kind, t.memory with
+    match kind, t.address.memory with
     | .Input, _ => .Input
     | .Output, _ => .Output
-    | _, .dram => .DRAM
+    | _, .hbm => .DRAM
     | _, .sbuf => .SB
     | _, .pmem => .PSUM
     | _, .reg => .REG
@@ -41,7 +41,7 @@ def allocate (kind : TensorKind) (t : TensorName) : Compile Allocation := do
     addr_space := some .Shared  -- LNC ?
     dtype := some t.dtype
     partition_dim := some 0
-    tensor_shape := t.shape
+    tensor_shape := t.shape.toList
     name := t.name ++ "_set"
     kind := kind
     memorylocations := [{
@@ -98,13 +98,13 @@ private def setMemRef (t : TensorName) (ap : PhysicalAccessPattern) : PhysicalAc
   }
 
 def accessToAP : Access -> Compile PhysicalAccessPattern
-  | .simple t@{ shape := [a,b], .. } => do
+  | .simple t@{ shape := ⟨ a, [b] ⟩, .. } => do
       let ap <- dimToAP a b
       return (setMemRef t ap)
-  | .basic t@{ shape := [a,b], ..} ix => do
+  | .basic t@{ shape := ⟨ a, [b] ⟩, ..} ix => do
       let ap <- slicesToAP a b ix
       return (setMemRef t ap)
-  | .pattern t off aps => do
-      let ap := pairsToAP off aps
+  | .pattern t ap => do
+      let ap := pairsToAP ap.offset (⟨1, ap.parNum⟩ :: ap.freePattern )
       return (setMemRef t ap)
   | _ => throw "unsupported access"

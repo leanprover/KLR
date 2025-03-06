@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 -/
 import KLR.Core.Operators
+import KLR.Util
 
 /-!
 # Abstract syntax of Core NKL language
@@ -14,17 +15,67 @@ portable format, a.k.a. Kernel Language Representation (KLR).
 namespace KLR.Core
 
 /-
-A TensorName is essentially a typed variable, where the type must be a tensor
-type. This only refers to dynamic (run-time) tensors, not trace-time tensors.
+A tensor shape is a list of the sizes of each dimension of the tensor. By
+convention, the first dimension is always the "partition" dimension, and the
+remaining dimensions are "free" dimensions. When laid out in memory, the
+partition dimension will correspond to the memory partition.
 -/
 
-abbrev Shape := List Nat
+structure Shape where
+  parDim : Nat
+  freeDims : List Nat
+  deriving Repr, BEq, Inhabited
+
+def Shape.toList (shape : Shape) : List Nat :=
+  shape.parDim :: shape.freeDims
+
+def Shape.fromList : List Nat -> Err Shape
+  | [] => throw "invalid shape"
+  | p :: f => return ⟨ p, f ⟩
+
+instance : ToString Shape where
+  toString shape := toString shape.toList
+
+def Shape.freeElements (shape : Shape) : Nat :=
+  shape.freeDims.foldl (. * .) 1
+
+/-
+An Address represents a region of memory. Each address has a memory type, and
+the starting location and size of the memory region. The memory regions are
+always two-dimensional and the start and size are expressed in bytes. The
+starting location can be omitted to have the compiler choose this for you.
+
+An address may have a parent, in which case the start is relative to the
+parent's start location. This allows the user to declare a memory region with
+no start address, but containing subregions with specific relative positions.
+
+The Address structure is represented as a "pointer" term during tracing.
+-/
+
+structure Address where
+  memory : Memory
+  size : Nat × Nat
+  start : Option Nat × Option Nat := (none, none)
+  parent : Option Address := none
+  deriving Repr, BEq
+
+def Address.defaultSize (shape : Shape) (dtype : Dtype) : (Nat × Nat) :=
+  (shape.parDim * dtype.size, shape.freeElements * dtype.size)
+
+/-
+TensorName represents a tensor in memory at runtime. Each runtime tensor has a
+dtype, shape, and address. The address size must be large enough to hold the
+tensor.
+-/
 
 structure TensorName where
-  name  : String
-  dtype : Dtype
-  shape : Shape
-  memory: Memory
+  name    : String
+  dtype   : Dtype
+  shape   : Shape
+  address : Address := {
+    memory := .sbuf
+    size   := Address.defaultSize shape dtype
+  }
   deriving Repr, BEq
 
 /--
@@ -39,14 +90,28 @@ inductive Index where
   | slice (l u step : Option Int)
   deriving Repr, BEq
 
+-- Compute the number of elements an index represents
+-- Note: this assumes Index is well-formed w.r.t dim
+-- TODO: pass in proof that this is well-formed
+def Index.size (dim : Nat) : Index -> Nat
+ | .coord _ => 1
+ | .slice l u s =>
+     let abs (i : Int) : Nat := if i < 0 then (-i).toNat else i.toNat
+     let l := l.getD 0
+     let u := u.getD dim
+     let s := s.getD 1
+     let l := if l < 0 then dim + l else l
+     let u := if u < 0 then dim + u else u
+     let s := if s < 0 then -s else s
+     (abs (u - l) / s).toNat
+
 /--
 Access pattern elements.
 
-These are used for HW-native indexing which consists of an offset and a list
-of access pattern pairs. Each pair specifies a step size and the number of
-steps to take. The first pair corresponds to the partition dimension and
-changes the slowest; the last pair changes the fastest. For example, in the
-list of pairs:
+These are used for HW-native indexing which consists of an offset and a list of
+access pattern pairs. Each pair specifies a step size and the number of steps
+to take. The first changes the slowest, and the last pair changes the fastest.
+For example, in the list of pairs:
 
   [ (3,2), (1,3) ]
 
@@ -62,14 +127,61 @@ structure APPair where
   num : Nat := 1
   deriving Repr, BEq
 
+/--
+Complete access patterns
+
+A complete access pattern has a list of APPairs, a number of partitions, and an
+offset. In NKI, the fist access pattern pair corresponds to the partition
+dimension, and the step size of this first pair must be one. So, in the
+complete access pattern, we only store the `num` field of the first pair. The
+offset field allows for an arbitrary offset to be applied to each partition.
+
+Put together, a complete access pattern would be written as:
+
+  t[[ offset, (1, parNum), (step1,num1), (step2,num2), ... ]]
+
+With a meaning of:
+
+  forall p < parNum, x < num1, y < num2, ...
+    offset + p + x * step1 + y * step2 + ...
+
+The elements generated above are multiplied by the dtype size of the tensor to
+get the final memory addresses.
+-/
+
+structure AccessPattern where
+  parNum : Nat
+  freePattern : List APPair
+  offset : Nat := 0
+  deriving Repr, BEq
+
+def AccessPattern.shape (ap : AccessPattern) : Shape :=
+  .mk ap.parNum $ ap.freePattern.map fun pair => pair.num
+
 -- Tensor access: whole tensor (simple), basic indexing, or access pattern
 -- TODO: add advanced indexing (tensor indirect)
 inductive Access where
   | simple (t : TensorName)
   | basic (t : TensorName) (indexes : List Index)
-  | pattern (t : TensorName) (offset : Nat) (aps : List APPair)
+  | pattern (t : TensorName) (ap : AccessPattern)
   deriving Repr, BEq
 
+def Access.tensor : Access -> TensorName
+  | simple t | basic t .. | pattern t .. => t
+
+-- Note: this assumes Access is well-formed
+-- TODO: require proof of well-formedness and eliminate panic
+def Access.shape : Access -> Shape
+  | .simple t => t.shape
+  | .pattern _ ap => ap.shape
+  | .basic t [] => t.shape   -- Shouldn't happen, but OK
+  | .basic t (p::l) =>
+      if t.shape.freeDims.length != l.length
+      then panic "invalid access pattern" else
+      Shape.mk (p.size t.shape.parDim)
+               ((t.shape.freeDims.zip l).map fun (d,i) => i.size d)
+
+-- Fully reduced values
 inductive Value where
   | var (x : String)
   | bool (value : Bool)
@@ -103,18 +215,6 @@ structure Kernel where
   deriving Repr, BEq
 
 -- Utilities
-
-namespace Access
-
-def tensor : Access -> TensorName
-  | simple t | basic t .. | pattern t .. => t
-
-def shape : Access -> Shape
-  | simple t => t.shape
-  | basic _ _ => panic! "TODO"
-  | pattern _ _ aps => aps.map fun ap => ap.num
-
-end Access
 
 class Tensors (a : Type) where
   tensors : a -> List TensorName

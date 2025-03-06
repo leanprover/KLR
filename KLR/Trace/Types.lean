@@ -124,6 +124,7 @@ inductive Term where
   | ellipsis : Term
   | slice    : Option Int -> Option Int -> Option Int -> Term
   | store    : Access -> Operator -> List Value -> Term
+  | pointer  : Core.Address -> Term
   | expr     : Expr -> TermType -> Term
   deriving Repr, BEq
 
@@ -135,14 +136,15 @@ namespace Term
 def type : Term -> TermType
   | .module name => .obj name
   | .builtin _ t => t
-  | .source _    => .obj (.str .anonymous "function")
+  | .source _    => .obj (.mkStr1 "function")
   | .none        => .none
   | .string _    => .string
   | .tuple l     => .tuple (types l)
   | .list l      => .list (types l)
-  | .ellipsis    => .obj "ellipsis".toName
-  | .slice ..    => .obj "slice".toName
+  | .ellipsis    => .obj (.mkStr1 "ellipsis")
+  | .slice ..    => .obj (.mkStr1 "slice")
   | .store a ..  => .tensor a.tensor.dtype a.shape
+  | .pointer ..  => .obj (.mkStr1 "pointer")
   | .expr _ t    => t
 where
   types : List Term -> List TermType
@@ -153,16 +155,13 @@ where
 -- TODO: this is partial because of the use of flatMap
 -- the ▷ syntax in Util could be updated to handle this case.
 partial def tensor_list : Term -> List Core.TensorName
-  | .module _ => []
-  | .builtin _ _ => []
-  | .source _ => []
-  | .none => []
-  | .string _ => []
+  | .module _ | .builtin _ _ | .source _
+  | .none | .string _
+  | .ellipsis | .slice ..
+  | .pointer .. => []
   | .tuple l | .list l => (l.flatMap tensor_list).eraseDups
-  | .ellipsis    => []
-  | .slice _ _ _ => []
   | .store a _ v => (tensors a ++ tensors v).eraseDups
-  | .expr e _    => tensors e
+  | .expr e _ => tensors e
 
 instance : Tensors Term := ⟨ Term.tensor_list ⟩
 

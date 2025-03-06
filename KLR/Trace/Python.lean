@@ -46,12 +46,12 @@ lists as indexes e.g. t[1,(2,3),4] is disallowed
 -/
 
 -- Convert a Term to an Index (if possible)
-def termToIndex (shape : Core.Shape) : Term -> Err (List Core.Index)
+def termToIndex (shape : List Nat) : Term -> Err (List Core.Index)
   | .tuple l | .list l => toIndex shape l
   | t => toIndex shape [t]
 where
   slice (d : Nat) := Core.Index.slice (some 0) (some (Int.ofNat d)) (some 1)
-  toIndex : Core.Shape -> List Term -> Err (List Core.Index)
+  toIndex : List Nat -> List Term -> Err (List Core.Index)
   | [], []
   | [], [.ellipsis] => return []
   | [], _  => throw "too many indexes for shape"
@@ -81,7 +81,7 @@ where
 -- Note, a list index can be negative, which means index from end of list.
 -- Python also allows l[True] and l[False]
 -- TODO: add case for slice
-def list_access (name : String) (l : List Term) : Term -> Err Term
+def listAccess (name : String) (l : List Term) : Term -> Err Term
   | .expr (.value (.bool false)) _ => do
       if h:l.length > 0 then return l.get (Fin.mk 0 h)
       else throw "index out of bounds"
@@ -96,6 +96,98 @@ def list_access (name : String) (l : List Term) : Term -> Err Term
       else throw "index out of bounds"
   |_ => throw s!"{name} indicies must be integers of slices"
 
+/-
+Access to pointer types (a.k.a. Address)
+NKI users can define memory regions by using slices on other memory regions.
+Initially, the regions `sbuf` and `psum` are defined. For example:
+
+  ptr = sbuf[0:32, 0:512]  # memory region in SBUF
+  ptr2 = ptr[:, :256]      # left half of region
+  ptr3 = ptr[:, 256:]      # right half of region
+
+https://awsdocs-neuron.readthedocs-hosted.com/en/latest/general/nki/nki_arch_guides.html
+-/
+
+def pointerAccess (addr : Core.Address) (i : Term) : Err Term := do
+  let chkPdim (p : Int) : Err Nat := do
+    if p != 0 && p != 32 && p != 64 && p != 96 then
+      throw "partition dimension must be 0, 32, 64, or 96"
+    if p > addr.size.fst then
+      throw s!"partition dimension {p} is larger than the pointer size {addr.size.fst}"
+    return p.toNat
+
+  let chkFdim (f : Int) : Err Nat := do
+    if f < 0 then
+      throw s!"free dimension {f} is must be positive"
+    if f % 2 != 0 then
+      throw s!"free dimension {f} must be even"
+    if f > addr.size.snd then
+      throw s!"free dimension {f} is larger than pointer size {addr.size.snd}"
+    return f.toNat
+
+  let chkPslice (a b c : Option Int) : Err (Option Nat × Nat) := do
+    let b := b.getD addr.size.fst
+    if b < 0 then
+      throw s!"partition size {b} must be positive"
+    let b := b.toNat
+    if b > addr.size.fst then
+      throw s!"partition size {b} is larger than the pointer size {addr.size.fst}"
+    if c.getD 1 != 1 then
+      throw "pointer step size must be 1"
+    match a with
+    | none => return (none, b)
+    | some a =>
+      let a <- chkPdim a
+      if a >= b then
+        throw s!"partition start {a} is larger than partition end {b}"
+      return (a, b - a)
+
+  let chkFslice (a b c : Option Int) : Err (Option Nat × Nat) := do
+    let b <- chkFdim (b.getD addr.size.snd)
+    if c.getD 1 != 1 then
+      throw "pointer step size must be 1"
+    match a with
+    | none => return (none, b)
+    | some a => do
+      if a < 0 then
+        throw "free dimenstion start must be positive"
+      if a % 2 != 0 then
+        throw s!"free dimension start {a} must be even"
+      let a := a.toNat
+      if a >= b then
+        throw s!"free start {a} is larger than free end {b}"
+      return (a, b - a)
+
+  let ptr (start : Option Nat × Option Nat) (size : Nat × Nat) : Term :=
+    .pointer { memory := addr.memory
+               size := size
+               start := start
+               parent := addr
+             }
+
+  match <- termToIndex [addr.size.fst, addr.size.snd] i with
+  | [.coord p, .coord f] => do
+      let p <- chkPdim p
+      let f <- chkFdim f
+      return ptr (p, f) (1, 1)
+
+  | [.coord p, .slice a b c] => do
+      let p <- chkPdim p
+      let (start, size) <- chkFslice a b c
+      return ptr (p, start) (1, size)
+
+  | [.slice a b c, .coord f] => do
+      let (start, size) <- chkPslice a b c
+      let f <- chkFdim f
+      return ptr (start, f) (size, 1)
+
+  | [.slice a b c, .slice x y z] => do
+      let (p0, p1) <- chkPslice a b c
+      let (f0, f1) <- chkFslice x y z
+      return ptr (p0, f0) (p1, f1)
+
+  | _ => throw "pointers require two indexes"
+
 -- Top-level subscript access t[i]
 -- TODO: add case for String
 def access (t : Term) (i : Term) : Err Term := do
@@ -108,11 +200,12 @@ def access (t : Term) (i : Term) : Err Term := do
   | .slice ..
   | .store .. => throw "subscript not supported"
   | .string _ => throw "string subscript not implemented"
-  | .tuple l => list_access "list" l i
-  | .list l => list_access "tuple" l i
+  | .tuple l => listAccess "list" l i
+  | .list l => listAccess "tuple" l i
+  | .pointer addr => pointerAccess addr i
   | .expr .. => do
       let tensor : Core.TensorName <- fromNKI? t
-      let access := Core.Access.basic tensor (<- termToIndex tensor.shape i)
+      let access := Core.Access.basic tensor (<- termToIndex tensor.shape.toList i)
       let shape <- Tensor.inferShape access
       return .expr (.value (.access access)) (.tensor tensor.dtype shape)
 
@@ -191,6 +284,7 @@ def RValue : Term -> Trace Term
        add_stmt (.store acc op args)
        let shape <- Tensor.inferShape acc
        return .expr (.value (.access acc)) (.tensor acc.tensor.dtype shape)
+  | .pointer a => return .pointer a
   | .expr e@(.call ..) ty => do
        let v := (<- genName).toString
        add_stmt (.assign v e)
@@ -221,6 +315,7 @@ def assignTerm (x : Term) (e : Term) : Trace Unit := do
   | .ellipsis => throw "cannot assign to ellipsis"
   | .slice .. => throw "cannot assign to slice"
   | .store .. => throw "cannot assign to a store"
+  | .pointer .. => throw "cannot assign to a pointer"
   | .expr x _ => assignExpr x e
 where
   assignList : List Term -> List Term -> Trace Unit
@@ -291,9 +386,11 @@ partial def expr' : Expr' -> Trace Term
   | .const c => return const c
   | .tensor s dty => do
       let shape <- expr ▷ s
+      let shape <- Core.Shape.fromList shape
       let name <- genName "t".toName
-      let dty <- fromNKI? (.expr (.value $ .var dty) .none)
-      return .expr (.value $ .access $ .simple ⟨ name.toString, dty, shape, .dram ⟩) (.tensor dty shape)
+      let dtype <- fromNKI? (.expr (.value $ .var dty) .none)
+      let tensor := { name := name.toString, dtype, shape }
+      return .expr (.value $ .access $ .simple tensor) (.tensor dtype shape)
   | .name id _ => lookup id.toName
   | .attr e id _ => do ((<- expr e : Term).attr id)
   | .tuple l _ => return .tuple (<- expr ▷ l)
@@ -401,7 +498,7 @@ where
   renameAcc (s : String) : Core.Access -> Core.Access
   | .simple t => .simple (renameTN s t)
   | .basic t l => .basic (renameTN s t) l
-  | .pattern t o l => .pattern (renameTN s t) o l
+  | .pattern t ap => .pattern (renameTN s t) ap
   renameTN (s : String) (t : Core.TensorName) : Core.TensorName := { t with name := s }
 
 /-
@@ -505,9 +602,3 @@ def traceKernel (k : Kernel) : Trace Core.Kernel := do
         outputs := outputs
         body := (<- get).body.toList
       }
-
-def PythonEnv :=
-  let const s := Builtin.const_var (.str .anonymous s)
-  [
-    const "range"
-  ]

@@ -51,7 +51,7 @@ def expr_list(t):
 
 def expr_subscript(t):
   t[1]
-  #t[1,2,3]
+  t[1,2]
   t[1:2:3]
   t[1:2]
   t[1:]
@@ -60,11 +60,12 @@ def expr_subscript(t):
   t[1:2:None]
   t[1:None:2]
   t[:]
-  #t[:,:]
+  t[:,:]
+  t[:,:,:]
   t[...]
   t[1,...]
   t[...,1]
-  #t[:,None]
+  t[:,None]
   t[1]
 
 def expr_bool_op(t):
@@ -144,7 +145,7 @@ def undefined_ok(t):
   undefined_ok
   ])
 def test_succeed(f):
-  t = np.ndarray(10, dtype="float32")
+  t = np.ndarray((10,10,10), dtype="float32")
   F = Kernel(f)   # parse python
   file = F(t)     # specialize, and reduce to KLR
   os.remove(file)
