@@ -19,8 +19,8 @@ namespace Builtin
 def module (name : Name) : Name × Term :=
   (name, .module name)
 
-def const_var (name: Name) : Name × Term :=
-  (name, .expr (.value $ .var name.toString) (.obj name))
+def const_var (name: Name) (ty : TermType := .obj name) : Name × Term :=
+  (name, .expr (.value $ .var name.toString) ty)
 
 def const_int (name: Name) (i : Int) : Name × Term :=
   (name, .expr (.value $ .int i) .int)

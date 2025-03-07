@@ -61,20 +61,39 @@ instance : FromJson Engine where
   | .str s => throw s!"unknown engine type {s}"
   | _ => throw "expecting engine type"
 
+instance : ToJson Memory where
+  toJson
+  | .hbm => "dram"
+  | .sbuf => "sbuf"
+  | .pmem => "pmem"
+  | .reg => "reg"
+
+instance : FromJson Memory where
+  fromJson?
+  | .str "dram" => return .hbm
+  | .str "sbuf" => return .sbuf
+  | .str "pmem" => return .pmem
+  | .str "reg" => return .reg
+  | _ => throw "expecting memory type"
+
 deriving instance ToJson for Dtype
 deriving instance ToJson for AluOp
-deriving instance ToJson for Memory
+deriving instance ToJson for Shape
+deriving instance ToJson for Address
 deriving instance ToJson for TensorName
 deriving instance ToJson for Index
 deriving instance ToJson for APPair
+deriving instance ToJson for AccessPattern
 deriving instance ToJson for Access
 
 deriving instance FromJson for Dtype
 deriving instance FromJson for AluOp
-deriving instance FromJson for Memory
+deriving instance FromJson for Shape
+deriving instance FromJson for Address
 deriving instance FromJson for TensorName
 deriving instance FromJson for Index
 deriving instance FromJson for APPair
+deriving instance FromJson for AccessPattern
 deriving instance FromJson for Access
 
 deriving instance ToJson for TensorScalar
