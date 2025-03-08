@@ -44,4 +44,4 @@ def NKIEnv : List (Name × Term) :=
   , const_var (nl "sbuf")
   , const_var (nl "psum")
   ]
-  ++ NKIBuiltins.map fun (x,_) => (x, .builtin x (.obj x))
+  ++ NKIBuiltins.map fun (x,_) => (x, .builtin x (.obj x) none)

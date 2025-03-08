@@ -41,7 +41,7 @@ instance : FromNKI Expr where
     let err ty := throw s!"{ty} cannot be converted to a KLR term"
     match t with
     | .module _    => err "module"
-    | .builtin n _ => return .value (.var n.toString)
+    | .builtin n .. => return .value (.var n.toString)
     | .source _    => err "function"
     | .none        => err "none"
     | .string _    => err "string"
@@ -52,6 +52,11 @@ instance : FromNKI Expr where
     | .store ..    => err "store"
     | .pointer ..  => err "pointer"
     | .expr e _    => return e
+
+instance : FromNKI Address where
+  fromNKI?
+  | .pointer addr => return addr
+  | _ => throw "experting pointer"
 
 instance : FromNKI Value where
   fromNKI? t := do
