@@ -15,17 +15,12 @@ open KLR.Core
 /-
 # Memory allocation
 
-Create Allocations for each named tensor. The access pattern compiler (below)
-needs to know how the physical memory is defined for each tensor. For now, all
-tensors have the same basic layout.
+Create Allocations for each named tensor.
 -/
 
--- TODO: just a for instance...
 def physicalShape (t : TensorName) : List Nat :=
-  match t.dtype, t.shape.toList with
-  | .float16, [x, y] => [x, y * 2]
-  | .float32, [x, y] => [x, y * 4]
-  | _, _ => t.shape.toList -- TODO incorrect
+  let sz := t.dtype.size
+  t.shape.parDim :: t.shape.freeDims.map (. * sz)
 
 -- Create memory region corresponding to a named tensor
 def allocate (kind : TensorKind) (t : TensorName) : Compile Allocation := do

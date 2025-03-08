@@ -38,6 +38,8 @@ termination proof tactics, in the scope of the original function.
 
 Writing, `List.mapM f l`, as `f ▷ l` doesn't break the termination proof.
 Note: ▷ is typed as \rhd
+TODO: This notation doesn't work outside of a Monad
+TODO: Choose a non-unicode character
 -/
 notation f "▷" l =>
   List.mapM (fun ⟨ x, _ ⟩ => f x) (List.attach l)

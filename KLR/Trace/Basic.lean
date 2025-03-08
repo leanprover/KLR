@@ -48,7 +48,8 @@ def toInt : Const -> Err Int
 end KLR.Core.Value
 
 namespace KLR.Trace
-open KLR.Core
+open Builtin
+open Core
 
 -- Truthiness of Terms following Python
 
@@ -169,7 +170,7 @@ private def exprEq : Expr -> Expr -> Trace Bool
 
 private def termEq : Term -> Term -> Trace Bool
   | .module m₁, .module m₂ => return m₁ == m₂
-  | .builtin n₁ _, .builtin n₂ _ => return n₁ == n₂
+  | .builtin n₁ .., .builtin n₂ .. => return n₁ == n₂
   | .none, .none => return true
   | .string s₁, .string s₂ => return s₁ == s₂
   | .tuple l₁, .tuple l₂
@@ -253,21 +254,49 @@ where
 
 def Term.attr : Term -> String -> Trace Term
   | .module n, id => lookup (n.str id)
+  | .pointer addr, "start" => return tuple [addr.start.fst, addr.start.snd]
+  | .pointer addr, "size" => return tuple [addr.size.fst, addr.size.snd]
+  | t@(.pointer _), "view" => return mem_view t
   | .expr _ (.tensor d _), "dtype" => return (dtype d)
-  | .expr _ (.tensor _ s), "shape" => return (tuple s.toList)
+  | .expr _ (.tensor _ s), "shape" => return (tuple $ s.toList.map some)
   | _, id => throw s!"unsupported attribute {id}"
 where
   dtype dty :=
     let name := "nki.language." ++ toString (Std.format dty)
     .expr (.value $ .var name) (.obj name.toName)
-  tuple l := .tuple $ l.map fun i => .expr (.value (.int $ .ofNat i)) .int
+  tuple (l : List (Option Nat)) : Term :=
+    Term.tuple $ l.map fun
+      | Option.none => Term.none
+      | some x => .expr (.value (.int x)) .int
 
 -- Static environment of builtins (extend as necessary)
 
-def builtinEnv : List (Name × Builtin.BuiltinFn) :=
+def mem_view : BuiltinFn :=
+  withArgs [("self", none),
+            ("dtype", none),
+            ("shape", none),
+            ("name", some (.string "tensor")) ]
+  fun
+  | [ self, dtype, shape, name ] => do
+    let self : Address <- fromNKI? self
+    let dtype : Dtype <- fromNKI? dtype
+    let shape : Shape <- fromNKI? shape
+    let name : String <- fromNKI? name
+    if shape.parDim > self.size.fst then
+      throw "partition size is too large for memory region"
+    if dtype.size * shape.freeElements > self.size.snd then
+      throw "shape is too large for memory region"
+    let name <- genName (.mkStr1 name)
+    let tensor : TensorName := ⟨ name.toString, dtype, shape, self ⟩
+    let ty := TermType.tensor dtype shape
+    return .expr (.value (.access (.simple tensor))) ty
+  | _ => throw "invalid arguments"
+
+def builtinEnv : List (Name × BuiltinFn) :=
+  (mem_view_name, mem_view) ::
   NKIBuiltins
 
-def builtinFn (name : Name) : Trace Builtin.BuiltinFn :=
+def builtinFn (name : Name) : Trace BuiltinFn :=
   match builtinEnv.lookup name with
   | some f => return f
   | none => throw s!"unimplemented API {name}"

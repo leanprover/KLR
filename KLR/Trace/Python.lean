@@ -272,7 +272,7 @@ where
 -- additional assignments as needed.
 def RValue : Term -> Trace Term
   | .module n => return .module n
-  | .builtin n t => return .builtin n t
+  | .builtin n t s => return .builtin n t s
   | .source f => return .source f
   | .none => return .none
   | .string s => return .string s
@@ -306,7 +306,7 @@ def unpack : Term -> Trace (List Term)
 def assignTerm (x : Term) (e : Term) : Trace Unit := do
   match x with
   | .module name => throw s!"cannot assign to {name}"
-  | .builtin name _ => throw s!"cannot assign to {name}"
+  | .builtin name .. => throw s!"cannot assign to {name}"
   | .source _ => throw "cannot assign to function"
   | .none => throw "cannot assign to None"
   | .string _ => throw "cannot assign to a string literal"
@@ -408,7 +408,14 @@ partial def expr' : Expr' -> Trace Term
       return if tst then tru else fls
   | .call f args kws => do
       match (<- expr f : Term) with
-      | .builtin n _ => do (<- builtinFn n) (<- expr ▷ args) (<- keyword expr ▷ kws)
+      | .builtin n _ self => do
+          let f <- builtinFn n
+          let args <- expr ▷ args
+          let kwargs <- keyword expr ▷ kws
+          let args := match self with
+                      | none => args
+                      | some t => t :: args
+          f args kwargs
       | .source f    => do function_call f (<- expr ▷ args) (<- keyword expr ▷ kws)
       | .expr (.value (.var f)) _ =>
           return .expr (.call f (<- expr ▷ args) (<- keyword expr ▷ kws)) default
