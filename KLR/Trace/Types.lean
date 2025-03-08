@@ -115,7 +115,7 @@ up to a KLR statement in the `RValue` function.
 -/
 inductive Term where
   | module   : Name -> Term
-  | builtin  : Name -> TermType -> Term
+  | builtin  : Name -> TermType -> Option Term -> Term
   | source   : Python.Fun -> Term
   | none     : Term
   | string   : String -> Term
@@ -135,7 +135,7 @@ namespace Term
 
 def type : Term -> TermType
   | .module name => .obj name
-  | .builtin _ t => t
+  | .builtin _ t _ => t
   | .source _    => .obj (.mkStr1 "function")
   | .none        => .none
   | .string _    => .string
@@ -155,7 +155,7 @@ where
 -- TODO: this is partial because of the use of flatMap
 -- the ▷ syntax in Util could be updated to handle this case.
 partial def tensor_list : Term -> List Core.TensorName
-  | .module _ | .builtin _ _ | .source _
+  | .module _ | .builtin .. | .source _
   | .none | .string _
   | .ellipsis | .slice ..
   | .pointer .. => []
