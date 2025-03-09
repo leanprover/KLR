@@ -95,7 +95,10 @@ convenient with a command macro, maybe something like:
 #nki ndarray(shape:Shape, dtype:Dtype, memory:Memory = .sbuf) := do
   let t <- declare "t" dtype shape memory
   ...
--/
+
+TODO: pg - I think we can implement this in python, but leaving commented out
+here in case it needs to come back.
+
 def ndarray : BuiltinFn :=
   withArgs [("shape", none),
             ("dtype", none),
@@ -109,6 +112,7 @@ def ndarray : BuiltinFn :=
       let e := Expr.value (.access (.simple t))
       return .expr e (.tensor dtype shape)
   | _ => throw "invalid arguments"
+-/
 
 def load : BuiltinFn :=
   withArgs [("src", none),

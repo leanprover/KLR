@@ -37,7 +37,7 @@ testpaths = [
 ]
 
 [tool.setuptools]
-packages = ["bin", "klr"] # This field is tequired to have more than 1 top level packages (nki/klr). It's not beautiful but it works.
+packages = ["nki", "bin", "klr"] # This field is required to have more than 1 top level packages (nki/klr). It's not beautiful but it works.
 
 # Build a fake C file to trick the `build` command to make an arch-specific wheel
 # We need this because we hide our `klr` Lean binary in the wheel but Python tools
