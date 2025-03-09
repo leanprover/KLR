@@ -16,6 +16,14 @@ open KLR.Core
 
 namespace Builtin
 
+-- Use numeric names to create names that can't be spelled by users
+private def hidden (str : String) : Name := .num (.str .anonymous str) 0
+
+-- Here are all of the special hidden names
+
+def mem_view_name := hidden "mem_view"
+def mem_view (self : Term) : Term := .builtin mem_view_name default (some self)
+
 def module (name : Name) : Name × Term :=
   (name, .module name)
 
