@@ -23,7 +23,7 @@ namespace Tensor
 -- Note: Maybe only simple cases are possible at this point ??
 -- TODO: move to Access.shape
 def inferShape : Access -> Err Shape
-  | .basic t l =>
+  | .basic t l _ =>
     match l with
     | [] => return t.shape
     | ix => do
@@ -33,12 +33,10 @@ def inferShape : Access -> Err Shape
         let dims <- ix.mapM fun i =>
           match i with
           | .coord _ => return 0
-          | .slice (some s) (some e) (some n) => do
-              if s < 0 then throw "invalid start"
-              if e <= s then throw "invalid end"
-              if n <= 0 then throw "invalid step size"
+          | .slice s e n => do
+              if e <= s then throw "unsupported end"
+              if n <= 0 then throw "unsupported step size"
               return ((e-s)/n).toNat
-          | _ => throw s!"unsupported index"
         let shape <- Shape.fromList (dims.filter (. != 0))
         return shape
   | a => return a.shape

@@ -3,6 +3,10 @@
 def ndarray(shape, dtype, buffer=None, name=''):
   if buffer == None:
     buffer = sbuf
+  elif buffer == nki.language.sbuf:
+    buffer = sbuf
+  elif buffer == nki.language.psum:
+    buffer = pmem
   else:
-    assert buffer.size[0] == shape[0]
+    assert False, "invalid buffer argument"
   return buffer.view(dtype, shape, name)

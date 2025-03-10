@@ -84,7 +84,12 @@ deriving instance ToJson for TensorName
 deriving instance ToJson for Index
 deriving instance ToJson for APPair
 deriving instance ToJson for AccessPattern
-deriving instance ToJson for Access
+
+instance : ToJson Access where
+  toJson
+  | .simple t => .mkObj [ ("simple", Lean.toJson t) ]
+  | .basic t i _ => .mkObj [ ("basic", .arr #[Lean.toJson t, Lean.toJson i]) ]
+  | .pattern t ap => .mkObj [ ("pattern", .arr #[Lean.toJson t, Lean.toJson ap]) ]
 
 deriving instance FromJson for Dtype
 deriving instance FromJson for AluOp
@@ -94,7 +99,16 @@ deriving instance FromJson for TensorName
 deriving instance FromJson for Index
 deriving instance FromJson for APPair
 deriving instance FromJson for AccessPattern
-deriving instance FromJson for Access
+
+instance : FromJson Access where
+  fromJson?
+  | .obj (.node _ _ "simple" (.arr #[t]) _) =>
+      return .simple (<- Lean.fromJson? t)
+  | .obj (.node _ _ "basic" (.arr #[t,i]) _) => do
+      Access.mkBasic (<- Lean.fromJson? t) (<- Lean.fromJson? i)
+  | .obj (.node _ _ "pattern" (.arr #[t,ap]) _) =>
+      return .pattern (<- Lean.fromJson? t) (<- Lean.fromJson? ap)
+  | _ => throw "expecting tensor access"
 
 deriving instance ToJson for TensorScalar
 deriving instance ToJson for Operator

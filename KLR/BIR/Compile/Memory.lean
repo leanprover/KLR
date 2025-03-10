@@ -63,17 +63,12 @@ def dimToAP (d1 d2 : Nat) : Compile PhysicalAccessPattern :=
     memref := "" -- filled in below
   }
 
+-- TODO: move to Core and make general
 def slicesToAP (d1 d2 : Nat) : List Index -> Compile PhysicalAccessPattern
-  | [ .slice none none none, .slice none none none ] => dimToAP d1 d2
-  | [ .slice none (some a) none,
-      .slice none (some b) none ] => do
-        if a < 0 || b < 0 then
-          throw "negative slice patterns not supported"
-        let a := a.toNat
-        let b := b.toNat
-        if a < d1 || b < d2 then
+  | [ .slice 0 b 1, .slice 0 y 1 ] => do
+        if b != d1 || y != d2 then
           throw "partial slice patterns not supported"
-        dimToAP a b
+        dimToAP d1 d2
   | _ => throw "unimplemented access pattern"
 
 def pairsToAP (offset : Nat) (aps : List APPair) : PhysicalAccessPattern :=
@@ -96,7 +91,7 @@ def accessToAP : Access -> Compile PhysicalAccessPattern
   | .simple t@{ shape := ⟨ a, [b] ⟩, .. } => do
       let ap <- dimToAP a b
       return (setMemRef t ap)
-  | .basic t@{ shape := ⟨ a, [b] ⟩, ..} ix => do
+  | .basic t@{ shape := ⟨ a, [b] ⟩, ..} ix _ => do
       let ap <- slicesToAP a b ix
       return (setMemRef t ap)
   | .pattern t ap => do

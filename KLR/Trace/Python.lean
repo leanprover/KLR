@@ -50,7 +50,7 @@ def termToIndex (shape : List Nat) : Term -> Err (List Core.Index)
   | .tuple l | .list l => toIndex shape l
   | t => toIndex shape [t]
 where
-  slice (d : Nat) := Core.Index.slice (some 0) (some (Int.ofNat d)) (some 1)
+  slice (d : Nat) := Core.Index.slice 0 d 1
   toIndex : List Nat -> List Term -> Err (List Core.Index)
   | [], []
   | [], [.ellipsis] => return []
@@ -68,15 +68,17 @@ where
         let x := x.getD 0
         let y := y.getD d
         let z := z.getD 1
+        let x := if x < 0 then d + x else x
+        let y := if y < 0 then d + y else y
         if x < 0 || x >= d || y < 0 || y > d || z <= 0 then
           throw "index out of range of tensor dimension"
-        return .slice x y z :: (<- toIndex ds ts)
+        return .slice x.toNat y.toNat z :: (<- toIndex ds ts)
     | .tuple _ | .list  _ => throw "nested tuple/list indexes not supported"
     | t => do
         let i : Int <- fromNKI? t
         if i < 0 || i >= d then
           throw "index out of range of tensor dimension"
-        return .coord i :: (<- toIndex ds ts)
+        return .coord i.toNat :: (<- toIndex ds ts)
 
 -- Note, a list index can be negative, which means index from end of list.
 -- Python also allows l[True] and l[False]
@@ -109,54 +111,45 @@ https://awsdocs-neuron.readthedocs-hosted.com/en/latest/general/nki/nki_arch_gui
 -/
 
 def pointerAccess (addr : Core.Address) (i : Term) : Err Term := do
-  let chkPdim (p : Int) : Err Nat := do
+  let chkPdim (p : Nat) : Err Nat := do
     if p != 0 && p != 32 && p != 64 && p != 96 then
       throw "partition dimension must be 0, 32, 64, or 96"
     if p > addr.size.fst then
       throw s!"partition dimension {p} is larger than the pointer size {addr.size.fst}"
-    return p.toNat
+    return p
 
-  let chkFdim (f : Int) : Err Nat := do
+  let chkFdim (f : Nat) : Err Nat := do
     if f < 0 then
-      throw s!"free dimension {f} is must be positive"
+      throw s!"free dimension {f} must be positive"
     if f % 2 != 0 then
       throw s!"free dimension {f} must be even"
     if f > addr.size.snd then
       throw s!"free dimension {f} is larger than pointer size {addr.size.snd}"
-    return f.toNat
+    return f
 
-  let chkPslice (a b c : Option Int) : Err (Option Nat × Nat) := do
-    let b := b.getD addr.size.fst
+  let chkPslice (a b : Nat) (c : Int) : Err (Option Nat × Nat) := do
     if b < 0 then
       throw s!"partition size {b} must be positive"
-    let b := b.toNat
     if b > addr.size.fst then
       throw s!"partition size {b} is larger than the pointer size {addr.size.fst}"
-    if c.getD 1 != 1 then
+    if c != 1 then
       throw "pointer step size must be 1"
-    match a with
-    | none => return (none, b)
-    | some a =>
-      let a <- chkPdim a
-      if a >= b then
-        throw s!"partition start {a} is larger than partition end {b}"
-      return (a, b - a)
+    let a <- chkPdim a
+    if a >= b then
+      throw s!"partition start {a} is larger than partition end {b}"
+    return (a, b - a)
 
-  let chkFslice (a b c : Option Int) : Err (Option Nat × Nat) := do
-    let b <- chkFdim (b.getD addr.size.snd)
-    if c.getD 1 != 1 then
+  let chkFslice (a b : Nat) (c : Int) : Err (Option Nat × Nat) := do
+    let b <- chkFdim b
+    if c != 1 then
       throw "pointer step size must be 1"
-    match a with
-    | none => return (none, b)
-    | some a => do
-      if a < 0 then
-        throw "free dimenstion start must be positive"
-      if a % 2 != 0 then
-        throw s!"free dimension start {a} must be even"
-      let a := a.toNat
-      if a >= b then
-        throw s!"free start {a} is larger than free end {b}"
-      return (a, b - a)
+    if a < 0 then
+      throw "free dimenstion start must be positive"
+    if a % 2 != 0 then
+      throw s!"free dimension start {a} must be even"
+    if a >= b then
+      throw s!"free start {a} is larger than free end {b}"
+    return (a, b - a)
 
   let ptr (start : Option Nat × Option Nat) (size : Nat × Nat) : Term :=
     .pointer { memory := addr.memory
@@ -205,7 +198,7 @@ def access (t : Term) (i : Term) : Err Term := do
   | .pointer addr => pointerAccess addr i
   | .expr .. => do
       let tensor : Core.TensorName <- fromNKI? t
-      let access := Core.Access.basic tensor (<- termToIndex tensor.shape.toList i)
+      let access <- Core.Access.mkBasic tensor (<- termToIndex tensor.shape.toList i)
       let shape <- Tensor.inferShape access
       return .expr (.value (.access access)) (.tensor tensor.dtype shape)
 
@@ -496,16 +489,17 @@ partial def bind_args (f : Fun)
     else
       throw s!"argument {x} not supplied"
   -- rename tensors if asked to
-  let argmap := if rename then argmap.map renameTensors else argmap
+  let argmap <- if rename then argmap.mapM renameTensors else pure argmap
   return argmap
 where
-  renameTensors : String × Term -> String × Term
-  | (s, .expr (.value (.access a)) ty) => (s, .expr (.value (.access (renameAcc s a))) ty)
-  | other => other
-  renameAcc (s : String) : Core.Access -> Core.Access
-  | .simple t => .simple (renameTN s t)
-  | .basic t l => .basic (renameTN s t) l
-  | .pattern t ap => .pattern (renameTN s t) ap
+  renameTensors : String × Term -> Trace (String × Term)
+  | (s, .expr (.value (.access a)) ty) =>
+      return (s, .expr (.value (.access (<- renameAcc s a))) ty)
+  | other => return other
+  renameAcc (s : String) : Core.Access -> Err Core.Access
+  | .simple t => return .simple (renameTN s t)
+  | .basic t l _ => Core.Access.mkBasic (renameTN s t) l
+  | .pattern t ap => return .pattern (renameTN s t) ap
   renameTN (s : String) (t : Core.TensorName) : Core.TensorName := { t with name := s }
 
 /-

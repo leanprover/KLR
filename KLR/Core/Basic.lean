@@ -3,6 +3,7 @@ Copyright (c) 2024 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 -/
+import Init.Data.Int.Basic
 import KLR.Core.Operators
 import KLR.Util
 
@@ -60,7 +61,7 @@ structure Address where
   deriving Repr, BEq
 
 def Address.defaultSize (shape : Shape) (dtype : Dtype) : (Nat × Nat) :=
-  (shape.parDim * dtype.size, shape.freeElements * dtype.size)
+  (shape.parDim, shape.freeElements * dtype.size)
 
 /-
 TensorName represents a tensor in memory at runtime. Each runtime tensor has a
@@ -84,26 +85,21 @@ These are used for basic indexing, such as:
   t[1, 2]
   t[0:10, :]
   t[5, 0:10:2]
+
+The tracing process will generate Indexes relative to a given shape,
+and therefore we do not have `None` or `...` as possibilities.
 -/
 inductive Index where
-  | coord (e : Int)
-  | slice (l u step : Option Int)
+  | coord (e : Nat)
+  | slice (l u : Nat) (step : Int)
   deriving Repr, BEq
 
 -- Compute the number of elements an index represents
--- Note: this assumes Index is well-formed w.r.t dim
--- TODO: pass in proof that this is well-formed
-def Index.size (dim : Nat) : Index -> Nat
+-- Note: this assumes Index is well-formed w.r.t the dimension it is accessing
+-- (which should be true).
+def Index.size : Index -> Nat
  | .coord _ => 1
- | .slice l u s =>
-     let abs (i : Int) : Nat := if i < 0 then (-i).toNat else i.toNat
-     let l := l.getD 0
-     let u := u.getD dim
-     let s := s.getD 1
-     let l := if l < 0 then dim + l else l
-     let u := if u < 0 then dim + u else u
-     let s := if s < 0 then -s else s
-     (abs (u - l) / s).toNat
+ | .slice l u s => ((u - l) / s.natAbs)
 
 /--
 Access pattern elements.
@@ -159,27 +155,45 @@ def AccessPattern.shape (ap : AccessPattern) : Shape :=
   .mk ap.parNum $ ap.freePattern.map fun pair => pair.num
 
 -- Tensor access: whole tensor (simple), basic indexing, or access pattern
--- TODO: add advanced indexing (tensor indirect)
+-- TODO: add advanced indexing (tensor indirect) inductive Access where
+
+-- Access must be correct by construction, the structures below describe
+-- the well-formedness conditions for access expresssions.
+-- TODO: more conditions are necessary
+
+structure Access.BasicWF (t : TensorName) (indexes : List Index) : Prop where
+  leq : t.shape.freeDims.length + 1 = indexes.length
+
 inductive Access where
   | simple (t : TensorName)
-  | basic (t : TensorName) (indexes : List Index)
+  | basic (t : TensorName) (indexes : List Index) (wf : Access.BasicWF t indexes)
   | pattern (t : TensorName) (ap : AccessPattern)
-  deriving Repr, BEq
+  deriving Repr
+
+def Access.mkBasic (t : TensorName) (indexes : List Index) : Err Access := do
+  if h : t.shape.freeDims.length + 1 = indexes.length then
+    return .basic t indexes ⟨ h ⟩
+  else throw "invalid basic access pattern"
+
+instance : BEq Access where
+  beq
+  | .simple l, .simple r => l == r
+  | .basic a b _, .basic x y _ => a == x && b == y
+  | .pattern a b, .pattern x y => a == x && b == y
+  | _, _ => false
 
 def Access.tensor : Access -> TensorName
-  | simple t | basic t .. | pattern t .. => t
+  | simple t .. | basic t .. | pattern t .. => t
 
--- Note: this assumes Access is well-formed
--- TODO: require proof of well-formedness and eliminate panic
 def Access.shape : Access -> Shape
   | .simple t => t.shape
   | .pattern _ ap => ap.shape
-  | .basic t [] => t.shape   -- Shouldn't happen, but OK
-  | .basic t (p::l) =>
-      if t.shape.freeDims.length != l.length
-      then panic "invalid access pattern" else
-      Shape.mk (p.size t.shape.parDim)
-               ((t.shape.freeDims.zip l).map fun (d,i) => i.size d)
+  | .basic t [] wf =>
+      let h : False := by
+        let x := wf.leq
+        induction t.shape.freeDims <;> contradiction
+      nomatch h
+  | .basic t (p::l) wf => Shape.mk p.size (l.map Index.size)
 
 -- Fully reduced values
 inductive Value where

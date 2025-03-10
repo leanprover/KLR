@@ -5,7 +5,7 @@ Python bindings for KLR
 
 # Note
 
-There are 3 files in our `nki` Python package. They are all copied directly from the Neuron SDK repo:
+There are 3 files in our `nki` Python package. These are KLR implementations of the corresponding files from the Neuron SDK repo:
 
 * [nki/__init__.py](https://github.com/aws-neuron/aws-neuron-sdk/blob/master/general/nki/api/nki/__init__.py)
 * [nki/isa/__init__.py](https://github.com/aws-neuron/aws-neuron-sdk/blob/master/general/nki/api/nki/isa/__init__.py)

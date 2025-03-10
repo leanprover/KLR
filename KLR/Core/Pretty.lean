@@ -53,10 +53,7 @@ instance : ToFormat TensorName where
 instance : ToFormat Index where
   format
   | .coord i => format i
-  | .slice none none none => ":"
-  | .slice none u none => "0:" ++ format u
-  | .slice s u none => .joinSep [s,u] ":"
-  | .slice l u s => .joinSep [l,u,s] ":"
+  | .slice l u s => .joinSep [format l, format u, format s] ":"
 
 instance : ToFormat APPair where
   format ap := args [ap.step, Int.ofNat ap.num]
@@ -68,7 +65,7 @@ instance : ToFormat AccessPattern where
 instance : ToFormat Access where
   format
   | .simple t => format t
-  | .basic t l => format t ++ sqArgs l
+  | .basic t l _ => format t ++ sqArgs l
   | .pattern t ap => format t ++ format ap
 
 instance : ToFormat Operator where
