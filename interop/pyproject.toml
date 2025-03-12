@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "klr-lang"
-version = "0.0.8"
+version = "0.0.9"
 authors = [
   {name = "Paul Govereau", email = "govereau@amazon.com"},
   {name = "Sean McLaughlin", email = "seanmcl@amazon.com"},

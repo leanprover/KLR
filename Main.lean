@@ -328,7 +328,7 @@ def nkiToKLRCmd := `[Cli|
 ]
 
 def klrCmd : Cmd := `[Cli|
-  klr NOOP; ["0.0.8"]
+  klr NOOP; ["0.0.9"]
   "KLR is an IR for NKI and other tensor-like languages in Lean."
 
   SUBCOMMANDS:
