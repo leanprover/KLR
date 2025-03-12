@@ -125,14 +125,3 @@ instance : Lean.FromJson Argument where
     | "imm_array" => return .ImmArray (<- Lean.fromJson? j)
     | "symbolic_imm_value" => return .SymbolicImmValue (<- Lean.fromJson? j)
     | _ => throw s!"Unknown argument kind {name}"
-
-structure Instruction where
-  name : String
-  engine : Engine := .unassigned
-  ins : List Argument := []
-  outs : List Argument := []
-  -- TODO: not using these right now...
-  --dependencies : Option (List String) := none
-  --unroll_dependencies : Option (List String) := none
-  --loop_carried_dependencies : Option (List String) := none
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson

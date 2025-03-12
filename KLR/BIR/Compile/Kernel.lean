@@ -17,16 +17,19 @@ def gatherAPs : List Expr -> Compile (List Argument)
     | .value (.access a) => return .PhysicalAccessPattern (<- accessToAP a) :: xs
     | _ => return xs
 
-def compileStore (dst : Access) (_op : Operator) (args : List Core.Value) : Compile Inst := do
-  return .NoOp {
+def compileStore (dst : Access) (_op : Operator) (args : List Core.Value) : Compile Instruction := do
+  return {
     name := "noop_test"  -- I think these have to be unique (need state monad?)
     ins  := <- gatherAPs (args.map .value)
     outs := <- gatherAPs [.value (.access dst)]
+    inst := .NoOp
   }
 
-def compileStmt : Stmt -> Compile Inst
+def compileStmt : Stmt -> Compile Block
   | .ret _ => throw "unimp ret"
-  | .store dst op args => compileStore dst op args
+  | .store dst op args => do
+      let inst <- compileStore dst op args
+      return Block.inst inst
   | .assign .. => throw "unimp assign"
 
 def compile_kernel (k : Kernel) : Compile BIR := do
@@ -35,15 +38,11 @@ def compile_kernel (k : Kernel) : Compile BIR := do
   let internal <- k.internal.mapM (allocate .Internal)
   let allocs := inputs ++ outputs ++ internal
   let insts <- compileStmt ▷ k.body
-  let insts := insts.map InstLoop.I
-  -- There is alway one function with one block...
+  -- There is always one function with one block...
   return {
     functions := [{
       name := "sg0000"
       allocations := allocs
-      blocks := [{
-        name := "Block1"
-        instructions := insts
-        }]
+      blocks := [ Block.block "Block1" insts ]
     }]
   }

@@ -159,7 +159,7 @@ inductive BranchCompareOp where
 
 -- Instruction
 
-structure Activation extends Instruction where
+structure Activation /- extends Instruction -/ where
   scale : Option Float := some 0
   alpha : Option Float := some 0
   can_read_uninit : Option Bool := some False
@@ -167,73 +167,67 @@ structure Activation extends Instruction where
   acc : Option EngineAccumulationType := some .Idle
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure ReadActivationAccumulator extends Instruction where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- ReadActivationAccumulator (extends Instruction) has no fields
 
-structure LoadActFuncSet extends Instruction where
+structure LoadActFuncSet /- extends Instruction -/ where
   act_func_set_id : Option Int := none
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure Memset extends Instruction where
+structure Memset /- extends Instruction -/ where
   mode : MemsetMode
   constant : Nat
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure GetGlobalRankId extends Instruction where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- GetGlobalRankId (extends Instruction) has no fields
 
-structure NoOp extends Instruction where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- NoOp (extends Instruction) has no fields
 
-structure EventSemaphore extends Instruction where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- EventSemaphore (extends Instruction) has no fields
 
-structure AllEngineBarrier extends Instruction where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- GroupResetSemaphores (extends Instruction) has no fields
 
-structure Drain extends Instruction where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- AllEngineBarrier (extends Instruction) has no fields
 
-structure Halt extends Instruction where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- Drain (extends Instruction) has no fields
 
-structure Pool extends Instruction where
+-- Halt (extends Instruction) has no fields
+
+structure Pool /- extends Instruction -/ where
   func : PoolFunctionType
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure Reciprocal extends Instruction where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- Reciprocal (extends Instruction) has no fields
 
-structure Shuffle extends Instruction where
+structure Shuffle /- extends Instruction -/ where
   indices : List Nat
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure TensorCopy extends Instruction where
+structure TensorCopy /- extends Instruction -/ where
   can_read_uninit : Option Bool := some False
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure TensorCopyDynamicSrc extends Instruction where
+structure TensorCopyDynamicSrc /- extends Instruction -/ where
   scale : Option Nat := none
   can_read_uninit : Option Bool := some False
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure TensorCopyDynamicDst extends Instruction where
+structure TensorCopyDynamicDst /- extends Instruction -/ where
   scale : Option Nat := none
   can_read_uninit : Option Bool := some False
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure IndirectCopy extends Instruction where
+structure IndirectCopy /- extends Instruction -/ where
   num_valid_indices : Nat
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure TensorReduce extends Instruction where
+structure TensorReduce /- extends Instruction -/ where
   op : AluOp
   axis : AxisListType
   apply_transpose : Option Bool := some False
   negate : Option Bool := some False
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure TensorScalar extends Instruction where
+structure TensorScalar /- extends Instruction -/ where
   op0 : AluOp
   const0 : Float
   reverse0 : Bool
@@ -242,7 +236,7 @@ structure TensorScalar extends Instruction where
   reverse1 : Bool
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure TensorScalarPtr extends Instruction where
+structure TensorScalarPtr /- extends Instruction -/ where
   op0 : AluOp
   reverse0 : Bool
   op1 : AluOp
@@ -255,48 +249,45 @@ structure TensorScalarPtr extends Instruction where
   negate_second_output : Option Bool := some False
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure TensorTensor extends Instruction where
+structure TensorTensor /- extends Instruction -/ where
   op : AluOp
   acc : Option EngineAccumulationType := some .Idle
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure BNStats extends Instruction where
+structure BNStats /- extends Instruction -/ where
   apply_transpose : Option Bool := some False
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure BNStatsAggregate extends Instruction where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- BNStatsAggregate (extends Instruction) has no fields
 
-structure BNGradients extends Instruction where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- BNGradients (extends Instruction) has no fields
 
-structure BNBackprop extends Instruction where
+structure BNBackprop /- extends Instruction -/ where
   total_elements : Float
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure BNBackprop2 extends Instruction where
+structure BNBackprop2 /- extends Instruction -/ where
   total_elements : Float
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure StreamShuffle extends Instruction where
+structure StreamShuffle /- extends Instruction -/ where
   mask : List Nat
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure CalcVarAddr extends Instruction where
+structure CalcVarAddr /- extends Instruction -/ where
   baseoffset : Nat
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure StreamTranspose extends Instruction where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- StreamTranspose (extends Instruction) has no fields
 
-structure Select extends Instruction where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- Select (extends Instruction) has no fields
 
-structure CopyPredicated extends Instruction where
+structure CopyPredicated /- extends Instruction -/ where
   can_read_uninit : Option Bool := some False
+  reverse_pred : Option Bool := some False
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure CustomOp extends Instruction where
+structure CustomOp /- extends Instruction -/ where
   opFunctionName : String
   opLibFile : String
   ulib_to_ucode_version : String
@@ -306,7 +297,7 @@ structure CustomOp extends Instruction where
   dstsShape : List ShapeVector
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure BIRKernel extends Instruction where
+structure BIRKernel /- extends Instruction -/ where
   kernel_name : String
   srcs_shape : List ShapeVector
   dsts_shape : List ShapeVector
@@ -325,33 +316,32 @@ structure BIRKernel extends Instruction where
   output_layout : Option Int := some 0
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure NKIKernel extends Instruction where
+structure NKIKernel /- extends Instruction -/ where
   func : String
   sb_buf_shape : Nat × Nat
   psum_buf_shape : Nat × Nat × Nat
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure GetRandState extends Instruction where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- GetRandState (extends Instruction) has no fields
 
-structure SetRandState extends Instruction where
+structure SetRandState /- extends Instruction -/ where
   rng_engine : Engine
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure Rand extends Instruction where
+structure Rand /- extends Instruction -/ where
   random_algorithm : RandomAlgorithmKind
   rand_num_steps : Nat
   distribution : RandomDistributionKind
   params : List Float
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure Iota extends Instruction where
+structure Iota /- extends Instruction -/ where
   base : Option Int := some 0
   pattern : List APPair
   channel_multiplier : Option Int := some 0
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure TensorScalarAffineSelect extends Instruction where
+structure TensorScalarAffineSelect /- extends Instruction -/ where
   base : Option Int := some 0
   pattern : List APPair
   channel_multiplier : Option Int := some 0
@@ -359,61 +349,65 @@ structure TensorScalarAffineSelect extends Instruction where
   fill_value : Option Float := some 0
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure Dropout extends Instruction where
+structure RangeSelect /- extends Instruction -/ where
+  base : Option Int := some 0
+  compare_op0 : AluOp
+  compare_op1 : AluOp
+  reduce_op : Option AluOp := some .max
+  reduce_cmd : Option EngineAccumulationType := some .ZeroAccumulate
+  fill_value : Option Float := none
+  num_active_channels : Int := 0
+  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+
+structure Dropout /- extends Instruction -/ where
   is_keep_threshold : Option Bool := some False
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure GetCurProcessingRankID extends Instruction where
+structure GetCurProcessingRankID /- extends Instruction -/ where
   iter_id : Nat
   channel_id : Nat
   stream_id : Option Int := some 0
   replica_groups : Option (List (List Nat)) := none
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure RegisterAlu extends Instruction where
+structure RegisterAlu /- extends Instruction -/ where
   op : AluOp
   is_64bit : Option Bool := some False
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure RegisterMove extends Instruction where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- RegisterMove (extends Instruction) has no fields
 
-structure TensorLoad extends Instruction where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- TensorLoad (extends Instruction) has no fields
 
-structure TensorSave extends Instruction where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- TensorSave (extends Instruction) has no fields
 
-structure Call extends Instruction where
+structure Call /- extends Instruction -/ where
   target : Option String := none
   table_id : Option Int := none
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure SwitchQueueInstance extends Instruction where
+structure SwitchQueueInstance /- extends Instruction -/ where
   queue : Option String := none
   instance_name : Option String := none
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure CoreBarrier extends Instruction where
+structure CoreBarrier /- extends Instruction -/ where
   runtime_semaphore : Option Nat := some 0
   id : Nat
   cores : List Nat
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure Max extends Instruction where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- Max (extends Instruction) has no fields
 
-structure MaxIndex extends Instruction where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- MaxIndex (extends Instruction) has no fields
 
-structure MatchReplace extends Instruction where
+structure MatchReplace /- extends Instruction -/ where
   imm_value : Float
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure Gather extends Instruction where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- Gather (extends Instruction) has no fields
 
-structure InlineASMBytes extends Instruction where
+structure InlineASMBytes /- extends Instruction -/ where
   asm_bytes : String
   sync_type : InstSyncType
   latency_estimate : Int
@@ -421,22 +415,19 @@ structure InlineASMBytes extends Instruction where
 
 -- Generic
 
-structure Generic extends Instruction where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- Generic (extends Instruction) has no fields
 
-structure GenericCopy extends Generic where
+structure GenericCopy /- extends Generic -/ where
   can_read_uninit : Option Bool := some False
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure GenericRelu extends Generic where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- GenericRelu (extends Generic) has no fields
 
-structure AbstractCopy extends Generic where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- AbstractCopy (extends Generic) has no fields
 
 -- MatmultBase
 
-structure MatmultBase extends Instruction where
+structure MatmultBase /- extends Instruction -/ where
   start_tensor_calc : Bool
   stop_tensor_calc : Option Bool := some False
   replication_resolution : Option Nat := some 0
@@ -445,8 +436,8 @@ structure MatmultBase extends Instruction where
   is_transpose : Option Bool := some False
   is_fmap_onezero : Option Bool := some False
   is_weight_onezero : Option Bool := some False
-  tile_size : Option (Nat × Nat) := some (0, 0)
-  tile_position : Option (List (Nat × Nat)) := some [(0,0)]
+  tile_size : Option (Int × Int) := some (-1,-1)
+  tile_position : Option (Int × Int) := some (-1,-1)
   perf_mode : Option MatmultPerfMode := some .None
   ifmap_quant_offset : Option Nat := some 0
   weights_quant_offset : Option Nat := some 0
@@ -461,7 +452,7 @@ structure MatmultSparse extends MatmultBase where
 
 -- DMA
 
-structure DMA extends Instruction where
+structure DMA /- extends Instruction -/ where
   queue : Option String := none
   dge_type : Option DGEType := some .None
   duplicate : Option Bool := some False
@@ -518,7 +509,7 @@ structure DMATrigger extends DMA where
 
 -- Collective
 
-structure Collective extends Instruction where
+structure Collective /- extends Instruction -/ where
   queue : Option String := none
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
@@ -549,7 +540,7 @@ structure CollectiveRecv extends Collective where
 
 -- DMADescriptor
 
-structure DMADescriptor extends Instruction where
+structure DMADescriptor /- extends Instruction -/ where
   num_tiling_dimensions : Option Nat := some 0
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
@@ -572,49 +563,59 @@ structure DMADescriptorReplicate extends DMADescriptor where
 
 -- Terminator
 
-structure Terminator extends Instruction where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- Terminator (extends Instruction) has no fields
 
-structure CompareAndBranch extends Terminator where
+structure CompareAndBranch /- extends Terminator -/ where
   comp_op : BranchCompareOp
   on_true : Option String := none
   on_false : Option String := none
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure UnconditionalBranch extends Terminator where
+structure UnconditionalBranch /- extends Terminator -/ where
   target : Option String := none
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure Return extends Terminator where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- Return (extends Terminator) has no fields
 
-structure Break extends Terminator where
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+-- Break (extends Terminator) has no fields
 
 -- Symbolic
 
-structure MatmultSymbolic extends Instruction where
+structure MatmultSymbolic /- extends Instruction -/ where
   replication_resolution : Nat
   replication_shift_amnt : Nat
   replication_num_rows : Nat
   start_tensor_calc : Bool
   stop_tensor_calc : Option Bool := some False
   is_transpose : Option Bool := some False
-  rowgrp_symbolic : QuasiAffineExpr
-  colgrp_symbolic : QuasiAffineExpr
   is_fmap_onezero : Option Bool := some False
   is_weight_onezero : Option Bool := some False
-  tile_position : Option (List (Nat × Nat)) := some [(0,0)]
+  tile_size_expr : Option (QuasiAffineExpr × QuasiAffineExpr) := some ({},{})
+  tile_position_expr : Option (QuasiAffineExpr × QuasiAffineExpr) := some ({},{})
   perf_mode : Option MatmultPerfMode := some .None
   ifmap_quant_offset : Option Nat := some 0
   weights_quant_offset : Option Nat := some 0
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure ShuffleSymbolic extends Instruction where
+structure RangeSelectSymbolic /- extends Instruction -/ where
+  base_expr : Option QuasiAffineExpr := none
+  compare_op0 : AluOp
+  compare_op1 : AluOp
+  reduce_op : Option AluOp := some .max
+  reduce_cmd : Option EngineAccumulationType := some .ZeroAccumulate
+  fill_value : Option Float := none
+  num_active_channels : Int := 0
+  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+
+structure ShuffleSymbolic /- extends Instruction -/ where
   elts : List Nat
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure TensorScalarSymbolic extends Instruction where
+structure StreamShuffleSymbolic /- extends Instruction -/ where
+  mask : List QuasiAffineExpr
+  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
+
+structure TensorScalarSymbolic /- extends Instruction -/ where
   op0 : AluOp
   value0 : List Float
   expr0 : QuasiAffineExpr
@@ -625,24 +626,24 @@ structure TensorScalarSymbolic extends Instruction where
   reverse1 : Bool
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure TongaReduceMacroSymbolic extends Instruction where
+structure TongaReduceMacroSymbolic /- extends Instruction -/ where
   op : AluOp
   is_first_reduce : Bool
   reduce_axes : List LoopAxis
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure CalcVarAddrSymbolic extends Instruction where
+structure CalcVarAddrSymbolic /- extends Instruction -/ where
   expr_baseoffset : QuasiAffineExpr
   size : Nat
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure IotaSymbolic extends Instruction where
+structure IotaSymbolic /- extends Instruction -/ where
   base : QuasiAffineExpr
   pattern : List APPair
   channel_multiplier : Option Nat := some 0
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure TensorScalarAffineSelectSymbolic extends Instruction where
+structure TensorScalarAffineSelectSymbolic /- extends Instruction -/ where
   base : QuasiAffineExpr
   pattern : List APPair
   channel_multiplier : Option Nat := some 0
@@ -653,17 +654,18 @@ structure TensorScalarAffineSelectSymbolic extends Instruction where
 -- Union of all instruction types
 inductive Inst where
   | Activation : Activation -> Inst
-  | ReadActivationAccumulator : ReadActivationAccumulator -> Inst
+  | ReadActivationAccumulator : Inst
   | LoadActFuncSet : LoadActFuncSet -> Inst
   | Memset : Memset -> Inst
-  | GetGlobalRankId : GetGlobalRankId -> Inst
-  | NoOp : NoOp -> Inst
-  | EventSemaphore : EventSemaphore -> Inst
-  | AllEngineBarrier : AllEngineBarrier -> Inst
-  | Drain : Drain -> Inst
-  | Halt : Halt -> Inst
+  | GetGlobalRankId : Inst
+  | NoOp : Inst
+  | EventSemaphore : Inst
+  | GroupResetSemaphores : Inst
+  | AllEngineBarrier : Inst
+  | Drain : Inst
+  | Halt : Inst
   | Pool : Pool -> Inst
-  | Reciprocal : Reciprocal -> Inst
+  | Reciprocal : Inst
   | Shuffle : Shuffle -> Inst
   | TensorCopy : TensorCopy -> Inst
   | TensorCopyDynamicSrc : TensorCopyDynamicSrc -> Inst
@@ -674,41 +676,42 @@ inductive Inst where
   | TensorScalarPtr : TensorScalarPtr -> Inst
   | TensorTensor : TensorTensor -> Inst
   | BNStats : BNStats -> Inst
-  | BNStatsAggregate : BNStatsAggregate -> Inst
-  | BNGradients : BNGradients -> Inst
+  | BNStatsAggregate : Inst
+  | BNGradients : Inst
   | BNBackprop : BNBackprop -> Inst
   | BNBackprop2 : BNBackprop2 -> Inst
   | StreamShuffle : StreamShuffle -> Inst
   | CalcVarAddr : CalcVarAddr -> Inst
-  | StreamTranspose : StreamTranspose -> Inst
-  | Select : Select -> Inst
+  | StreamTranspose : Inst
+  | Select : Inst
   | CopyPredicated : CopyPredicated -> Inst
   | CustomOp : CustomOp -> Inst
   | BIRKernel : BIRKernel -> Inst
   | NKIKernel : NKIKernel -> Inst
-  | GetRandState : GetRandState -> Inst
+  | GetRandState : Inst
   | SetRandState : SetRandState -> Inst
   | Rand : Rand -> Inst
   | Iota : Iota -> Inst
   | TensorScalarAffineSelect : TensorScalarAffineSelect -> Inst
+  | RangeSelect : RangeSelect -> Inst
   | Dropout : Dropout -> Inst
   | GetCurProcessingRankID : GetCurProcessingRankID -> Inst
   | RegisterAlu : RegisterAlu -> Inst
-  | RegisterMove : RegisterMove -> Inst
-  | TensorLoad : TensorLoad -> Inst
-  | TensorSave : TensorSave -> Inst
+  | RegisterMove : Inst
+  | TensorLoad : Inst
+  | TensorSave : Inst
   | Call : Call -> Inst
   | SwitchQueueInstance : SwitchQueueInstance -> Inst
   | CoreBarrier : CoreBarrier -> Inst
-  | Max : Max -> Inst
-  | MaxIndex : MaxIndex -> Inst
+  | Max : Inst
+  | MaxIndex : Inst
   | MatchReplace : MatchReplace -> Inst
-  | Gather : Gather -> Inst
+  | Gather : Inst
   | InlineASMBytes : InlineASMBytes -> Inst
-  | Generic : Generic -> Inst
+  | Generic : Inst
   | GenericCopy : GenericCopy -> Inst
-  | GenericRelu : GenericRelu -> Inst
-  | AbstractCopy : AbstractCopy -> Inst
+  | GenericRelu : Inst
+  | AbstractCopy : Inst
   | MatmultBase : MatmultBase -> Inst
   | Matmult : Matmult -> Inst
   | MatmultSparse : MatmultSparse -> Inst
@@ -732,13 +735,15 @@ inductive Inst where
   | DMADescriptorCCE : DMADescriptorCCE -> Inst
   | DMADescriptorTranspose : DMADescriptorTranspose -> Inst
   | DMADescriptorReplicate : DMADescriptorReplicate -> Inst
-  | Terminator : Terminator -> Inst
+  | Terminator : Inst
   | CompareAndBranch : CompareAndBranch -> Inst
   | UnconditionalBranch : UnconditionalBranch -> Inst
-  | Return : Return -> Inst
-  | Break : Break -> Inst
+  | Return : Inst
+  | Break : Inst
   | MatmultSymbolic : MatmultSymbolic -> Inst
+  | RangeSelectSymbolic : RangeSelectSymbolic -> Inst
   | ShuffleSymbolic : ShuffleSymbolic -> Inst
+  | StreamShuffleSymbolic : StreamShuffleSymbolic -> Inst
   | TensorScalarSymbolic : TensorScalarSymbolic -> Inst
   | TongaReduceMacroSymbolic : TongaReduceMacroSymbolic -> Inst
   | CalcVarAddrSymbolic : CalcVarAddrSymbolic -> Inst
@@ -749,17 +754,18 @@ inductive Inst where
 instance : Lean.ToJson Inst where
   toJson
   | .Activation x => tagObj "opcode" "Activation" x
-  | .ReadActivationAccumulator x => tagObj "opcode" "ReadActivationAccumulator" x
+  | .ReadActivationAccumulator => .mkObj [("opcode", .str "ReadActivationAccumulator")]
   | .LoadActFuncSet x => tagObj "opcode" "LoadActFuncSet" x
   | .Memset x => tagObj "opcode" "Memset" x
-  | .GetGlobalRankId x => tagObj "opcode" "GetGlobalRankId" x
-  | .NoOp x => tagObj "opcode" "NoOp" x
-  | .EventSemaphore x => tagObj "opcode" "EventSemaphore" x
-  | .AllEngineBarrier x => tagObj "opcode" "AllEngineBarrier" x
-  | .Drain x => tagObj "opcode" "Drain" x
-  | .Halt x => tagObj "opcode" "Halt" x
+  | .GetGlobalRankId => .mkObj [("opcode", .str "GetGlobalRankId")]
+  | .NoOp => .mkObj [("opcode", .str "NoOp")]
+  | .EventSemaphore => .mkObj [("opcode", .str "EventSemaphore")]
+  | .GroupResetSemaphores => .mkObj [("opcode", .str "GroupResetSemaphores")]
+  | .AllEngineBarrier => .mkObj [("opcode", .str "AllEngineBarrier")]
+  | .Drain => .mkObj [("opcode", .str "Drain")]
+  | .Halt => .mkObj [("opcode", .str "Halt")]
   | .Pool x => tagObj "opcode" "Pool" x
-  | .Reciprocal x => tagObj "opcode" "Reciprocal" x
+  | .Reciprocal => .mkObj [("opcode", .str "Reciprocal")]
   | .Shuffle x => tagObj "opcode" "Shuffle" x
   | .TensorCopy x => tagObj "opcode" "TensorCopy" x
   | .TensorCopyDynamicSrc x => tagObj "opcode" "TensorCopyDynamicSrc" x
@@ -770,41 +776,42 @@ instance : Lean.ToJson Inst where
   | .TensorScalarPtr x => tagObj "opcode" "TensorScalarPtr" x
   | .TensorTensor x => tagObj "opcode" "TensorTensor" x
   | .BNStats x => tagObj "opcode" "BNStats" x
-  | .BNStatsAggregate x => tagObj "opcode" "BNStatsAggregate" x
-  | .BNGradients x => tagObj "opcode" "BNGradients" x
+  | .BNStatsAggregate => .mkObj [("opcode", .str "BNStatsAggregate")]
+  | .BNGradients => .mkObj [("opcode", .str "BNGradients")]
   | .BNBackprop x => tagObj "opcode" "BNBackprop" x
   | .BNBackprop2 x => tagObj "opcode" "BNBackprop2" x
   | .StreamShuffle x => tagObj "opcode" "StreamShuffle" x
   | .CalcVarAddr x => tagObj "opcode" "CalcVarAddr" x
-  | .StreamTranspose x => tagObj "opcode" "StreamTranspose" x
-  | .Select x => tagObj "opcode" "Select" x
+  | .StreamTranspose => .mkObj [("opcode", .str "StreamTranspose")]
+  | .Select => .mkObj [("opcode", .str "Select")]
   | .CopyPredicated x => tagObj "opcode" "CopyPredicated" x
   | .CustomOp x => tagObj "opcode" "CustomOp" x
   | .BIRKernel x => tagObj "opcode" "BIRKernel" x
   | .NKIKernel x => tagObj "opcode" "NKIKernel" x
-  | .GetRandState x => tagObj "opcode" "GetRandState" x
+  | .GetRandState => .mkObj [("opcode", .str "GetRandState")]
   | .SetRandState x => tagObj "opcode" "SetRandState" x
   | .Rand x => tagObj "opcode" "Rand" x
   | .Iota x => tagObj "opcode" "Iota" x
   | .TensorScalarAffineSelect x => tagObj "opcode" "TensorScalarAffineSelect" x
+  | .RangeSelect x => tagObj "opcode" "RangeSelect" x
   | .Dropout x => tagObj "opcode" "Dropout" x
   | .GetCurProcessingRankID x => tagObj "opcode" "GetCurProcessingRankID" x
   | .RegisterAlu x => tagObj "opcode" "RegisterAlu" x
-  | .RegisterMove x => tagObj "opcode" "RegisterMove" x
-  | .TensorLoad x => tagObj "opcode" "TensorLoad" x
-  | .TensorSave x => tagObj "opcode" "TensorSave" x
+  | .RegisterMove => .mkObj [("opcode", .str "RegisterMove")]
+  | .TensorLoad => .mkObj [("opcode", .str "TensorLoad")]
+  | .TensorSave => .mkObj [("opcode", .str "TensorSave")]
   | .Call x => tagObj "opcode" "Call" x
   | .SwitchQueueInstance x => tagObj "opcode" "SwitchQueueInstance" x
   | .CoreBarrier x => tagObj "opcode" "CoreBarrier" x
-  | .Max x => tagObj "opcode" "Max" x
-  | .MaxIndex x => tagObj "opcode" "MaxIndex" x
+  | .Max => .mkObj [("opcode", .str "Max")]
+  | .MaxIndex => .mkObj [("opcode", .str "MaxIndex")]
   | .MatchReplace x => tagObj "opcode" "MatchReplace" x
-  | .Gather x => tagObj "opcode" "Gather" x
+  | .Gather => .mkObj [("opcode", .str "Gather")]
   | .InlineASMBytes x => tagObj "opcode" "InlineASMBytes" x
-  | .Generic x => tagObj "opcode" "Generic" x
+  | .Generic => .mkObj [("opcode", .str "Generic")]
   | .GenericCopy x => tagObj "opcode" "GenericCopy" x
-  | .GenericRelu x => tagObj "opcode" "GenericRelu" x
-  | .AbstractCopy x => tagObj "opcode" "AbstractCopy" x
+  | .GenericRelu => .mkObj [("opcode", .str "GenericRelu")]
+  | .AbstractCopy => .mkObj [("opcode", .str "AbstractCopy")]
   | .MatmultBase x => tagObj "opcode" "MatmultBase" x
   | .Matmult x => tagObj "opcode" "Matmult" x
   | .MatmultSparse x => tagObj "opcode" "MatmultSparse" x
@@ -828,13 +835,15 @@ instance : Lean.ToJson Inst where
   | .DMADescriptorCCE x => tagObj "opcode" "DMADescriptorCCE" x
   | .DMADescriptorTranspose x => tagObj "opcode" "DMADescriptorTranspose" x
   | .DMADescriptorReplicate x => tagObj "opcode" "DMADescriptorReplicate" x
-  | .Terminator x => tagObj "opcode" "Terminator" x
+  | .Terminator => .mkObj [("opcode", .str "Terminator")]
   | .CompareAndBranch x => tagObj "opcode" "CompareAndBranch" x
   | .UnconditionalBranch x => tagObj "opcode" "UnconditionalBranch" x
-  | .Return x => tagObj "opcode" "Return" x
-  | .Break x => tagObj "opcode" "Break" x
+  | .Return => .mkObj [("opcode", .str "Return")]
+  | .Break => .mkObj [("opcode", .str "Break")]
   | .MatmultSymbolic x => tagObj "opcode" "MatmultSymbolic" x
+  | .RangeSelectSymbolic x => tagObj "opcode" "RangeSelectSymbolic" x
   | .ShuffleSymbolic x => tagObj "opcode" "ShuffleSymbolic" x
+  | .StreamShuffleSymbolic x => tagObj "opcode" "StreamShuffleSymbolic" x
   | .TensorScalarSymbolic x => tagObj "opcode" "TensorScalarSymbolic" x
   | .TongaReduceMacroSymbolic x => tagObj "opcode" "TongaReduceMacroSymbolic" x
   | .CalcVarAddrSymbolic x => tagObj "opcode" "CalcVarAddrSymbolic" x
@@ -846,17 +855,18 @@ instance : Lean.FromJson Inst where
   let name <- j.getObjValAs? String "opcode"
   match name with
   | "Activation" => return .Activation (<- Lean.fromJson? j)
-  | "ReadActivationAccumulator" => return .ReadActivationAccumulator (<- Lean.fromJson? j)
+  | "ReadActivationAccumulator" => return .ReadActivationAccumulator
   | "LoadActFuncSet" => return .LoadActFuncSet (<- Lean.fromJson? j)
   | "Memset" => return .Memset (<- Lean.fromJson? j)
-  | "GetGlobalRankId" => return .GetGlobalRankId (<- Lean.fromJson? j)
-  | "NoOp" => return .NoOp (<- Lean.fromJson? j)
-  | "EventSemaphore" => return .EventSemaphore (<- Lean.fromJson? j)
-  | "AllEngineBarrier" => return .AllEngineBarrier (<- Lean.fromJson? j)
-  | "Drain" => return .Drain (<- Lean.fromJson? j)
-  | "Halt" => return .Halt (<- Lean.fromJson? j)
+  | "GetGlobalRankId" => return .GetGlobalRankId
+  | "NoOp" => return .NoOp
+  | "EventSemaphore" => return .EventSemaphore
+  | "GroupResetSemaphores" => return .GroupResetSemaphores
+  | "AllEngineBarrier" => return .AllEngineBarrier
+  | "Drain" => return .Drain
+  | "Halt" => return .Halt
   | "Pool" => return .Pool (<- Lean.fromJson? j)
-  | "Reciprocal" => return .Reciprocal (<- Lean.fromJson? j)
+  | "Reciprocal" => return .Reciprocal
   | "Shuffle" => return .Shuffle (<- Lean.fromJson? j)
   | "TensorCopy" => return .TensorCopy (<- Lean.fromJson? j)
   | "TensorCopyDynamicSrc" => return .TensorCopyDynamicSrc (<- Lean.fromJson? j)
@@ -867,41 +877,42 @@ instance : Lean.FromJson Inst where
   | "TensorScalarPtr" => return .TensorScalarPtr (<- Lean.fromJson? j)
   | "TensorTensor" => return .TensorTensor (<- Lean.fromJson? j)
   | "BNStats" => return .BNStats (<- Lean.fromJson? j)
-  | "BNStatsAggregate" => return .BNStatsAggregate (<- Lean.fromJson? j)
-  | "BNGradients" => return .BNGradients (<- Lean.fromJson? j)
+  | "BNStatsAggregate" => return .BNStatsAggregate
+  | "BNGradients" => return .BNGradients
   | "BNBackprop" => return .BNBackprop (<- Lean.fromJson? j)
   | "BNBackprop2" => return .BNBackprop2 (<- Lean.fromJson? j)
   | "StreamShuffle" => return .StreamShuffle (<- Lean.fromJson? j)
   | "CalcVarAddr" => return .CalcVarAddr (<- Lean.fromJson? j)
-  | "StreamTranspose" => return .StreamTranspose (<- Lean.fromJson? j)
-  | "Select" => return .Select (<- Lean.fromJson? j)
+  | "StreamTranspose" => return .StreamTranspose
+  | "Select" => return .Select
   | "CopyPredicated" => return .CopyPredicated (<- Lean.fromJson? j)
   | "CustomOp" => return .CustomOp (<- Lean.fromJson? j)
   | "BIRKernel" => return .BIRKernel (<- Lean.fromJson? j)
   | "NKIKernel" => return .NKIKernel (<- Lean.fromJson? j)
-  | "GetRandState" => return .GetRandState (<- Lean.fromJson? j)
+  | "GetRandState" => return .GetRandState
   | "SetRandState" => return .SetRandState (<- Lean.fromJson? j)
   | "Rand" => return .Rand (<- Lean.fromJson? j)
   | "Iota" => return .Iota (<- Lean.fromJson? j)
   | "TensorScalarAffineSelect" => return .TensorScalarAffineSelect (<- Lean.fromJson? j)
+  | "RangeSelect" => return .RangeSelect (<- Lean.fromJson? j)
   | "Dropout" => return .Dropout (<- Lean.fromJson? j)
   | "GetCurProcessingRankID" => return .GetCurProcessingRankID (<- Lean.fromJson? j)
   | "RegisterAlu" => return .RegisterAlu (<- Lean.fromJson? j)
-  | "RegisterMove" => return .RegisterMove (<- Lean.fromJson? j)
-  | "TensorLoad" => return .TensorLoad (<- Lean.fromJson? j)
-  | "TensorSave" => return .TensorSave (<- Lean.fromJson? j)
+  | "RegisterMove" => return .RegisterMove
+  | "TensorLoad" => return .TensorLoad
+  | "TensorSave" => return .TensorSave
   | "Call" => return .Call (<- Lean.fromJson? j)
   | "SwitchQueueInstance" => return .SwitchQueueInstance (<- Lean.fromJson? j)
   | "CoreBarrier" => return .CoreBarrier (<- Lean.fromJson? j)
-  | "Max" => return .Max (<- Lean.fromJson? j)
-  | "MaxIndex" => return .MaxIndex (<- Lean.fromJson? j)
+  | "Max" => return .Max
+  | "MaxIndex" => return .MaxIndex
   | "MatchReplace" => return .MatchReplace (<- Lean.fromJson? j)
-  | "Gather" => return .Gather (<- Lean.fromJson? j)
+  | "Gather" => return .Gather
   | "InlineASMBytes" => return .InlineASMBytes (<- Lean.fromJson? j)
-  | "Generic" => return .Generic (<- Lean.fromJson? j)
+  | "Generic" => return .Generic
   | "GenericCopy" => return .GenericCopy (<- Lean.fromJson? j)
-  | "GenericRelu" => return .GenericRelu (<- Lean.fromJson? j)
-  | "AbstractCopy" => return .AbstractCopy (<- Lean.fromJson? j)
+  | "GenericRelu" => return .GenericRelu
+  | "AbstractCopy" => return .AbstractCopy
   | "MatmultBase" => return .MatmultBase (<- Lean.fromJson? j)
   | "Matmult" => return .Matmult (<- Lean.fromJson? j)
   | "MatmultSparse" => return .MatmultSparse (<- Lean.fromJson? j)
@@ -925,13 +936,15 @@ instance : Lean.FromJson Inst where
   | "DMADescriptorCCE" => return .DMADescriptorCCE (<- Lean.fromJson? j)
   | "DMADescriptorTranspose" => return .DMADescriptorTranspose (<- Lean.fromJson? j)
   | "DMADescriptorReplicate" => return .DMADescriptorReplicate (<- Lean.fromJson? j)
-  | "Terminator" => return .Terminator (<- Lean.fromJson? j)
+  | "Terminator" => return .Terminator
   | "CompareAndBranch" => return .CompareAndBranch (<- Lean.fromJson? j)
   | "UnconditionalBranch" => return .UnconditionalBranch (<- Lean.fromJson? j)
-  | "Return" => return .Return (<- Lean.fromJson? j)
-  | "Break" => return .Break (<- Lean.fromJson? j)
+  | "Return" => return .Return
+  | "Break" => return .Break
   | "MatmultSymbolic" => return .MatmultSymbolic (<- Lean.fromJson? j)
+  | "RangeSelectSymbolic" => return .RangeSelectSymbolic (<- Lean.fromJson? j)
   | "ShuffleSymbolic" => return .ShuffleSymbolic (<- Lean.fromJson? j)
+  | "StreamShuffleSymbolic" => return .StreamShuffleSymbolic (<- Lean.fromJson? j)
   | "TensorScalarSymbolic" => return .TensorScalarSymbolic (<- Lean.fromJson? j)
   | "TongaReduceMacroSymbolic" => return .TongaReduceMacroSymbolic (<- Lean.fromJson? j)
   | "CalcVarAddrSymbolic" => return .CalcVarAddrSymbolic (<- Lean.fromJson? j)
