@@ -91,10 +91,10 @@ def accessToAP : Access -> Compile PhysicalAccessPattern
   | .simple t@{ shape := ⟨ a, [b] ⟩, .. } => do
       let ap <- dimToAP a b
       return (setMemRef t ap)
-  | .basic t@{ shape := ⟨ a, [b] ⟩, ..} ix _ => do
-      let ap <- slicesToAP a b ix
+  | .basic { tensor := t@{ shape := ⟨ a, [b] ⟩, ..} , indexes, .. } => do
+      let ap <- slicesToAP a b indexes
       return (setMemRef t ap)
-  | .pattern t ap => do
-      let ap := pairsToAP ap.offset (⟨1, ap.parNum⟩ :: ap.freePattern )
-      return (setMemRef t ap)
+  | .pattern ap => do
+      let ap' := pairsToAP ap.offset (⟨1, ap.parNum⟩ :: ap.freePattern )
+      return (setMemRef ap.tensor ap')
   | _ => throw "unsupported access"

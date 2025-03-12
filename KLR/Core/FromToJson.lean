@@ -15,7 +15,7 @@ code.
 -/
 
 namespace KLR.Core
-open Lean (FromJson ToJson)
+open Lean (JsonNumber Json FromJson fromJson? ToJson toJson)
 
 /-
 The tools we are interacting use a different encoding of infinity and NaN from
@@ -24,7 +24,7 @@ the default instance in Lean.
 
 instance : ToJson Float where
   toJson f :=
-    match Lean.JsonNumber.fromFloat? f with
+    match JsonNumber.fromFloat? f with
     | .inr n => .num n
     | .inl "NaN" => .str "nan"
     | .inl "Infinity" => .str "inf"
@@ -80,35 +80,52 @@ deriving instance ToJson for Dtype
 deriving instance ToJson for AluOp
 deriving instance ToJson for Shape
 deriving instance ToJson for Address
-deriving instance ToJson for TensorName
+
+instance : ToJson TensorName where
+  toJson t := .mkObj [
+    ("name", toJson t.name),
+    ("dtype", toJson t.dtype),
+    ("shape", toJson t.shape),
+    ("address", toJson t.address)
+  ]
+
 deriving instance ToJson for Index
+
+instance : ToJson AccessBasic where
+  toJson acc := .mkObj [
+    ("tensor", toJson acc.tensor),
+    ("indexes", toJson acc.indexes)
+  ]
+
 deriving instance ToJson for APPair
 deriving instance ToJson for AccessPattern
-
-instance : ToJson Access where
-  toJson
-  | .simple t => .mkObj [ ("simple", Lean.toJson t) ]
-  | .basic t i _ => .mkObj [ ("basic", .arr #[Lean.toJson t, Lean.toJson i]) ]
-  | .pattern t ap => .mkObj [ ("pattern", .arr #[Lean.toJson t, Lean.toJson ap]) ]
+deriving instance ToJson for Access
 
 deriving instance FromJson for Dtype
 deriving instance FromJson for AluOp
 deriving instance FromJson for Shape
 deriving instance FromJson for Address
-deriving instance FromJson for TensorName
+
+private def getField [FromJson t] (j : Json) (name : String) : Err t := do
+  fromJson? (<- j.getObjVal? name)
+
+instance : FromJson TensorName where
+  fromJson? j := do
+    TensorName.make (<- getField j "name")
+                    (<- getField j "dtype")
+                    (<- getField j "shape")
+                    (some (<- getField j "address"))
+
 deriving instance FromJson for Index
+
+instance : FromJson AccessBasic where
+  fromJson? j := do
+    AccessBasic.make (<- getField j "tensor")
+                     (<- getField j "indexes")
+
 deriving instance FromJson for APPair
 deriving instance FromJson for AccessPattern
-
-instance : FromJson Access where
-  fromJson?
-  | .obj (.node _ _ "simple" (.arr #[t]) _) =>
-      return .simple (<- Lean.fromJson? t)
-  | .obj (.node _ _ "basic" (.arr #[t,i]) _) => do
-      Access.mkBasic (<- Lean.fromJson? t) (<- Lean.fromJson? i)
-  | .obj (.node _ _ "pattern" (.arr #[t,ap]) _) =>
-      return .pattern (<- Lean.fromJson? t) (<- Lean.fromJson? ap)
-  | _ => throw "expecting tensor access"
+deriving instance FromJson for Access
 
 deriving instance ToJson for TensorScalar
 deriving instance ToJson for Operator

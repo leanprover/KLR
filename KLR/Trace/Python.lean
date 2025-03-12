@@ -382,7 +382,7 @@ partial def expr' : Expr' -> Trace Term
       let shape <- Core.Shape.fromList shape
       let name <- genName "t".toName
       let dtype <- fromNKI? (.expr (.value $ .var dty) .none)
-      let tensor := { name := name.toString, dtype, shape }
+      let tensor <- Core.TensorName.make name.toString dtype shape none
       return .expr (.value $ .access $ .simple tensor) (.tensor dtype shape)
   | .name id _ => lookup id.toName
   | .attr e id _ => do ((<- expr e : Term).attr id)
@@ -498,8 +498,8 @@ where
   | other => return other
   renameAcc (s : String) : Core.Access -> Err Core.Access
   | .simple t => return .simple (renameTN s t)
-  | .basic t l _ => Core.Access.mkBasic (renameTN s t) l
-  | .pattern t ap => return .pattern (renameTN s t) ap
+  | .basic { tensor, indexes, .. } => Core.Access.mkBasic (renameTN s tensor) indexes
+  | .pattern ap => return .pattern { ap with tensor := renameTN s ap.tensor }
   renameTN (s : String) (t : Core.TensorName) : Core.TensorName := { t with name := s }
 
 /-

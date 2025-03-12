@@ -133,24 +133,6 @@ instance : Inhabited Term where
 
 namespace Term
 
-def type : Term -> TermType
-  | .module name => .obj name
-  | .builtin _ t _ => t
-  | .source _    => .obj (.mkStr1 "function")
-  | .none        => .none
-  | .string _    => .string
-  | .tuple l     => .tuple (types l)
-  | .list l      => .list (types l)
-  | .ellipsis    => .obj (.mkStr1 "ellipsis")
-  | .slice ..    => .obj (.mkStr1 "slice")
-  | .store a ..  => .tensor a.tensor.dtype a.shape
-  | .pointer ..  => .obj (.mkStr1 "pointer")
-  | .expr _ t    => t
-where
-  types : List Term -> List TermType
-  | [] => []
-  | x :: xs => type x :: types xs
-
 -- TODO: not efficient!
 -- TODO: this is partial because of the use of flatMap
 -- the ▷ syntax in Util could be updated to handle this case.

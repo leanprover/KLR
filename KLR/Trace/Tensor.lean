@@ -19,27 +19,7 @@ open KLR.Trace.Builtin
 
 namespace Tensor
 
--- This only handles the simple cases
--- Note: Maybe only simple cases are possible at this point ??
--- TODO: move to Access.shape
-def inferShape : Access -> Err Shape
-  | .basic t l _ =>
-    match l with
-    | [] => return t.shape
-    | ix => do
-        let base := t.shape.toList
-        if base.length != ix.length then
-          throw "unsupported index."
-        let dims <- ix.mapM fun i =>
-          match i with
-          | .coord _ => return 0
-          | .slice s e n => do
-              if e <= s then throw "unsupported end"
-              if n <= 0 then throw "unsupported step size"
-              return ((e-s)/n).toNat
-        let shape <- Shape.fromList (dims.filter (. != 0))
-        return shape
-  | a => return a.shape
+def inferShape : Access -> Err Shape := Access.shape
 
 /-
 Declare a new tensor, unique to the current expression.
@@ -60,14 +40,9 @@ def declare (tag : String)
             : Trace TensorName := do
   let pos := (<- get).pos
   let tname := s!"{tag}.{pos.lineno}.{pos.col_offset}"
-  return {
-    name := tname
-    dtype := dtype
-    shape := shape
-    address := {
-        memory := memory
-        size   := Address.defaultSize shape dtype
-    }
+  TensorName.make tname dtype shape $ some {
+    memory := memory
+    size   := Address.defaultSize shape dtype
   }
 
 -- APIs

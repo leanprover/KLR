@@ -282,14 +282,14 @@ def mem_view : BuiltinFn :=
     let dtype : Dtype <- fromNKI? dtype
     let shape : Shape <- fromNKI? shape
     let name : String <- fromNKI? name
-    if shape.parDim > self.size.fst then
-      throw "partition size is too large for memory region"
-    if dtype.size * shape.freeElements > self.size.snd then
-      throw "shape is too large for memory region"
-    let name <- genName (.mkStr1 name)
-    let tensor : TensorName := ⟨ name.toString, dtype, shape, self ⟩
-    let ty := TermType.tensor dtype shape
-    return .expr (.value (.access (.simple tensor))) ty
+    let name := (<- genName (.mkStr1 name)).toString
+    if parWF: shape.parDim <= self.size.fst then
+      if freeWF: shape.freeElements * dtype.size <= self.size.snd then
+        let tensor := ⟨ name, dtype, shape, self, parWF, freeWF ⟩
+        let ty := TermType.tensor dtype shape
+        return .expr (.value (.access (.simple tensor))) ty
+      else throw "shape is too large for memory region"
+    else throw "partition size is too large for memory region"
   | _ => throw "invalid arguments"
 
 def builtinEnv : List (Name × BuiltinFn) :=

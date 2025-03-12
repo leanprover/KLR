@@ -55,18 +55,21 @@ instance : ToFormat Index where
   | .coord i => format i
   | .slice l u s => .joinSep [format l, format u, format s] ":"
 
+instance : ToFormat AccessBasic where
+  format acc := format acc.tensor ++ sqArgs acc.indexes
+
 instance : ToFormat APPair where
   format ap := args [ap.step, Int.ofNat ap.num]
 
 instance : ToFormat AccessPattern where
-  format ap := .sbracket <| sqArgs <|
-    format ap.offset :: format ap.parNum :: ap.freePattern.map format
+  format ap := format ap.tensor ++ (.sbracket <| sqArgs <|
+    format ap.offset :: format ap.parNum :: ap.freePattern.map format)
 
 instance : ToFormat Access where
   format
   | .simple t => format t
-  | .basic t l _ => format t ++ sqArgs l
-  | .pattern t ap => format t ++ format ap
+  | .basic acc => format acc
+  | .pattern ap => format ap
 
 instance : ToFormat Operator where
   format

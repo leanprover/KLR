@@ -63,7 +63,7 @@ structure Address where
 def Address.defaultSize (shape : Shape) (dtype : Dtype) : (Nat × Nat) :=
   (shape.parDim, shape.freeElements * dtype.size)
 
-/-
+/--
 TensorName represents a tensor in memory at runtime. Each runtime tensor has a
 dtype, shape, and address. The address size must be large enough to hold the
 tensor.
@@ -73,11 +73,26 @@ structure TensorName where
   name    : String
   dtype   : Dtype
   shape   : Shape
-  address : Address := {
-    memory := .sbuf
-    size   := Address.defaultSize shape dtype
-  }
-  deriving Repr, BEq
+  address : Address
+  parWF   : shape.parDim <= address.size.fst
+  freeWF  : shape.freeElements * dtype.size <= address.size.snd
+  deriving Repr
+
+def TensorName.make (name : String)
+                    (dtype : Dtype)
+                    (shape : Shape)
+                    (addr : Option Address) : Err TensorName := do
+  let addr := addr.getD { memory := .sbuf, size := Address.defaultSize shape dtype }
+  if parWF: shape.parDim <= addr.size.fst then
+    if freeWF: shape.freeElements * dtype.size <= addr.size.snd then
+      return ⟨ name, dtype, shape, addr, parWF, freeWF ⟩
+  throw "Invalid tensor"
+
+instance : BEq TensorName where
+  beq l r := l.name == r.name &&
+             l.dtype == r.dtype &&
+             l.shape == r.shape &&
+             l.address == r.address
 
 /--
 Basic indexing elements: integers and slices.
@@ -95,11 +110,42 @@ inductive Index where
   deriving Repr, BEq
 
 -- Compute the number of elements an index represents
--- Note: this assumes Index is well-formed w.r.t the dimension it is accessing
--- (which should be true).
 def Index.size : Index -> Nat
  | .coord _ => 1
  | .slice l u s => ((u - l) / s.natAbs)
+
+/--
+Complete Basic Indexing expression
+
+The number of indexes must match the dimension of the tensor.
+-/
+
+structure AccessBasic where
+  tensor : TensorName
+  indexes : List Index
+  lenWF : tensor.shape.freeDims.length + 1 = indexes.length
+  deriving Repr
+
+instance : BEq AccessBasic where
+  beq l r := l.tensor == r.tensor && l.indexes == r.indexes
+
+def AccessBasic.make (t : TensorName) (i : List Index) : Err AccessBasic := do
+  if lenWF : t.shape.freeDims.length + 1 = i.length then
+    return ⟨ t, i, lenWF ⟩
+  throw "invalid basic access"
+
+def AccessBasic.shape (a : AccessBasic) : Err Shape :=
+  if let p::l := a.indexes then
+    .ok ⟨ p.size, l.map Index.size ⟩
+  else .error "invalid access"
+
+theorem AccessBasic.shape.noFail :
+  forall (a : AccessBasic), AccessBasic.shape a ≠ Except.error s := by
+  intro a
+  unfold AccessBasic.shape
+  let { tensor, indexes, lenWF : AccessBasic } := a
+  induction indexes <;> simp ; trivial
+  done
 
 /--
 Access pattern elements.
@@ -127,7 +173,7 @@ structure APPair where
 Complete access patterns
 
 A complete access pattern has a list of APPairs, a number of partitions, and an
-offset. In NKI, the fist access pattern pair corresponds to the partition
+offset. In NKI, the first access pattern pair corresponds to the partition
 dimension, and the step size of this first pair must be one. So, in the
 complete access pattern, we only store the `num` field of the first pair. The
 offset field allows for an arbitrary offset to be applied to each partition.
@@ -146,6 +192,7 @@ get the final memory addresses.
 -/
 
 structure AccessPattern where
+  tensor : TensorName
   parNum : Nat
   freePattern : List APPair
   offset : Nat := 0
@@ -157,43 +204,42 @@ def AccessPattern.shape (ap : AccessPattern) : Shape :=
 -- Tensor access: whole tensor (simple), basic indexing, or access pattern
 -- TODO: add advanced indexing (tensor indirect) inductive Access where
 
--- Access must be correct by construction, the structures below describe
--- the well-formedness conditions for access expresssions.
--- TODO: more conditions are necessary
-
-structure Access.BasicWF (t : TensorName) (indexes : List Index) : Prop where
-  leq : t.shape.freeDims.length + 1 = indexes.length
-
 inductive Access where
-  | simple (t : TensorName)
-  | basic (t : TensorName) (indexes : List Index) (wf : Access.BasicWF t indexes)
-  | pattern (t : TensorName) (ap : AccessPattern)
-  deriving Repr
+  | simple  : TensorName -> Access
+  | basic   : AccessBasic -> Access
+  | pattern : AccessPattern -> Access
+  deriving Repr, BEq
 
-def Access.mkBasic (t : TensorName) (indexes : List Index) : Err Access := do
-  if h : t.shape.freeDims.length + 1 = indexes.length then
-    return .basic t indexes ⟨ h ⟩
-  else throw "invalid basic access pattern"
-
-instance : BEq Access where
-  beq
-  | .simple l, .simple r => l == r
-  | .basic a b _, .basic x y _ => a == x && b == y
-  | .pattern a b, .pattern x y => a == x && b == y
-  | _, _ => false
+def Access.mkBasic (t : TensorName) (i : List Index) : Err Access :=
+  return .basic (<- AccessBasic.make t i)
 
 def Access.tensor : Access -> TensorName
-  | simple t .. | basic t .. | pattern t .. => t
+  | simple tensor | basic {tensor, ..} | pattern {tensor, ..} => tensor
 
-def Access.shape : Access -> Shape
-  | .simple t => t.shape
-  | .pattern _ ap => ap.shape
-  | .basic t [] wf =>
-      let h : False := by
-        let x := wf.leq
-        induction t.shape.freeDims <;> contradiction
-      nomatch h
-  | .basic t (p::l) wf => Shape.mk p.size (l.map Index.size)
+def Access.shape : Access -> Err Shape
+  | .simple t => return t.shape
+  | .basic b => b.shape
+  | .pattern ap => return ap.shape
+
+theorem Access.shape.noFail :
+  forall (a : Access), Access.shape a ≠ Except.error s := by
+  unfold Access.shape pure
+  unfold Applicative.toPure
+  unfold Monad.toApplicative
+  unfold Except.instMonad Except.pure
+  intro a
+  induction a <;> simp
+  apply AccessBasic.shape.noFail
+  done
+
+-- We could make a pure variant of shape, but proofs about this
+-- function may be difficult due to the dependent matching
+def Access.shapePure (a : Access) : Shape :=
+  match m:a.shape with
+  | .ok x => x
+  | .error _ =>
+     have h : False := by apply (shape.noFail a); trivial
+     nomatch h
 
 -- Fully reduced values
 inductive Value where
@@ -219,14 +265,14 @@ inductive Stmt where
   | ret (v : Value)
   | assign (x : String) (e : Expr)
   | store (dst : Access) (op : Operator) (args : List Value)
-  deriving Repr, BEq
+  deriving Repr
 
 structure Kernel where
   name : String
   inputs : List TensorName
   outputs : List TensorName
   body : List Stmt
-  deriving Repr, BEq
+  deriving Repr
 
 -- Utilities
 
