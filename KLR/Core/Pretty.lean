@@ -50,10 +50,13 @@ instance : ToFormat Shape where
 instance : ToFormat TensorName where
   format t := t.name
 
+instance : ToFormat Slice where
+  format s := .joinSep [format s.l, format s.u, format s.step] ":"
+
 instance : ToFormat Index where
   format
   | .coord i => format i
-  | .slice l u s => .joinSep [format l, format u, format s] ":"
+  | .slice s => format s
 
 instance : ToFormat AccessBasic where
   format acc := format acc.tensor ++ sqArgs acc.indexes

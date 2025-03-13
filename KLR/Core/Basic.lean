@@ -104,15 +104,48 @@ These are used for basic indexing, such as:
 The tracing process will generate Indexes relative to a given shape,
 and therefore we do not have `None` or `...` as possibilities.
 -/
+structure Slice where
+  l : Nat
+  u : Nat
+  step : Int
+  wf : step ≠ 0
+deriving Repr
+
+namespace Slice
+
+def make (l u : Nat) (step : Int) : Err Slice :=
+  if H : step == 0 then throw "step can't be 0"
+  else return Slice.mk l u step (by simp_all)
+
+instance : Inhabited Slice where
+  default := Slice.mk 0 1 1 (by omega)
+
+def make! (l u : Nat) (step : Int) : Slice := get! $  make l u step
+
+instance : BEq Slice where
+  beq s1 s2 := s1.l == s2.l && s1.u == s2.u && s1.step == s2.step
+
+def size (slice : Slice) : Nat :=
+  let step := slice.step
+    if step < 0 then (slice.l - slice.u) / step.natAbs
+    else natDivCeil (slice.u - slice.l) step.toNat
+
+#guard (make! 0 10 1).size == 10
+#guard (make! 10 0 (-1)).size == 10
+#guard (make! 0 10 (-1)).size == 0
+#guard (make! 10 0 1).size == 0
+
+end Slice
+
 inductive Index where
   | coord (e : Nat)
-  | slice (l u : Nat) (step : Int)
+  | slice (slice : Slice)
   deriving Repr, BEq
 
 -- Compute the number of elements an index represents
 def Index.size : Index -> Nat
  | .coord _ => 1
- | .slice l u s => ((u - l) / s.natAbs)
+ | .slice s => s.size
 
 /--
 Complete Basic Indexing expression

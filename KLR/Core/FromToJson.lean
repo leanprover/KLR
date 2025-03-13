@@ -89,6 +89,18 @@ instance : ToJson TensorName where
     ("address", toJson t.address)
   ]
 
+instance toJsonInst : ToJson Slice where
+  toJson s := toJson (s.l, s.u, s.step)
+
+instance fromJsonInst : FromJson Slice where
+  fromJson? j := do
+    let (l, u, step) <- fromJson? j
+    Slice.make l u step
+
+#guard
+  let s := Slice.make! 1 5 1
+  get! (fromJsonInst.fromJson? (toJsonInst.toJson s)) == s
+
 deriving instance ToJson for Index
 
 instance : ToJson AccessBasic where

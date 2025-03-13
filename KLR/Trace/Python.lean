@@ -12,7 +12,7 @@ import KLR.Trace.Basic
 
 namespace KLR.Trace
 open KLR.Python
-open Core (tensors)
+open Core (tensors Slice)
 
 def const : Const -> Term
   | .none     => .none
@@ -50,19 +50,19 @@ def termToIndex (shape : List Nat) : Term -> Err (List Core.Index)
   | .tuple l | .list l => toIndex shape l
   | t => toIndex shape [t]
 where
-  slice (d : Nat) := Core.Index.slice 0 d 1
+  slice (d : Nat) := (Slice.make 0 d 1).map .slice
   toIndex : List Nat -> List Term -> Err (List Core.Index)
   | [], []
   | [], [.ellipsis] => return []
   | [], _  => throw "too many indexes for shape"
-  | ds, [] => return ds.map slice
+  | ds, [] => ds.mapM slice
   | d :: ds, t :: ts =>
     match t with
-    | .none => return slice d :: (<- toIndex ds ts)
+    | .none => return (<- slice d) :: (<- toIndex ds ts)
     | .ellipsis =>
         if ds.length + 1 == ts.length
         then toIndex (d::ds) ts
-        else return slice d :: (<- toIndex ds (t::ts))
+        else return (<- slice d) :: (<- toIndex ds (t::ts))
     | .slice x y z => do
         let d := Int.ofNat d
         let x := x.getD 0
@@ -72,7 +72,7 @@ where
         let y := if y < 0 then d + y else y
         if x < 0 || x >= d || y < 0 || y > d || z <= 0 then
           throw "index out of range of tensor dimension"
-        return .slice x.toNat y.toNat z :: (<- toIndex ds ts)
+        return .slice (<- Slice.make x.toNat y.toNat z) :: (<- toIndex ds ts)
     | .tuple _ | .list  _ => throw "nested tuple/list indexes not supported"
     | t => do
         let i : Int <- fromNKI? t
@@ -127,29 +127,29 @@ def pointerAccess (addr : Core.Address) (i : Term) : Err Term := do
       throw s!"free dimension {f} is larger than pointer size {addr.size.snd}"
     return f
 
-  let chkPslice (a b : Nat) (c : Int) : Err (Option Nat × Nat) := do
-    if b < 0 then
-      throw s!"partition size {b} must be positive"
-    if b > addr.size.fst then
-      throw s!"partition size {b} is larger than the pointer size {addr.size.fst}"
-    if c != 1 then
+  let chkPslice (s : Slice) : Err (Option Nat × Nat) := do
+    if s.u < 0 then
+      throw s!"partition size {s.u} must be positive"
+    if s.u > addr.size.fst then
+      throw s!"partition size {s.u} is larger than the pointer size {addr.size.fst}"
+    if s.step != 1 then
       throw "pointer step size must be 1"
-    let a <- chkPdim a
-    if a >= b then
-      throw s!"partition start {a} is larger than partition end {b}"
-    return (a, b - a)
+    let a <- chkPdim s.l
+    if a >= s.u then
+      throw s!"partition start {a} is larger than partition end {s.u}"
+    return (a, s.u - a)
 
-  let chkFslice (a b : Nat) (c : Int) : Err (Option Nat × Nat) := do
-    let b <- chkFdim b
-    if c != 1 then
+  let chkFslice (s : Slice) : Err (Option Nat × Nat) := do
+    let b <- chkFdim s.u
+    if s.step != 1 then
       throw "pointer step size must be 1"
-    if a < 0 then
+    if s.l < 0 then
       throw "free dimenstion start must be positive"
-    if a % 2 != 0 then
-      throw s!"free dimension start {a} must be even"
-    if a >= b then
-      throw s!"free start {a} is larger than free end {b}"
-    return (a, b - a)
+    if s.l % 2 != 0 then
+      throw s!"free dimension start {s.l} must be even"
+    if s.l >= b then
+      throw s!"free start {s.l} is larger than free end {b}"
+    return (s.l, b - s.l)
 
   let ptr (start : Option Nat × Option Nat) (size : Nat × Nat) : Term :=
     .pointer { memory := addr.memory
@@ -164,19 +164,19 @@ def pointerAccess (addr : Core.Address) (i : Term) : Err Term := do
       let f <- chkFdim f
       return ptr (p, f) (1, 1)
 
-  | [.coord p, .slice a b c] => do
+  | [.coord p, .slice s] => do
       let p <- chkPdim p
-      let (start, size) <- chkFslice a b c
+      let (start, size) <- chkFslice s
       return ptr (p, start) (1, size)
 
-  | [.slice a b c, .coord f] => do
-      let (start, size) <- chkPslice a b c
+  | [.slice s, .coord f] => do
+      let (start, size) <- chkPslice s
       let f <- chkFdim f
       return ptr (start, f) (size, 1)
 
-  | [.slice a b c, .slice x y z] => do
-      let (p0, p1) <- chkPslice a b c
-      let (f0, f1) <- chkFslice x y z
+  | [.slice s1, .slice s2] => do
+      let (p0, p1) <- chkPslice s1
+      let (f0, f1) <- chkFslice s2
       return ptr (p0, f0) (p1, f1)
 
   | _ => throw "pointers require two indexes"

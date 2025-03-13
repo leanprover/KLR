@@ -65,7 +65,7 @@ def dimToAP (d1 d2 : Nat) : Compile PhysicalAccessPattern :=
 
 -- TODO: move to Core and make general
 def slicesToAP (d1 d2 : Nat) : List Index -> Compile PhysicalAccessPattern
-  | [ .slice 0 b 1, .slice 0 y 1 ] => do
+  | [ .slice (Slice.mk 0 b 1 _), .slice (Slice.mk 0 y 1 _)] => do
         if b != d1 || y != d2 then
           throw "partial slice patterns not supported"
         dimToAP d1 d2
