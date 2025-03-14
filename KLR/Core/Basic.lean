@@ -56,7 +56,8 @@ The Address structure is represented as a "pointer" term during tracing.
 structure Address where
   memory : Memory
   size : Nat × Nat
-  start : Option Nat × Option Nat := (none, none)
+  partitionOffset : Option Nat := none
+  freeOffset : Option Nat := none
   parent : Option Address := none
   deriving Repr, BEq
 
@@ -231,8 +232,22 @@ structure AccessPattern where
   offset : Nat := 0
   deriving Repr, BEq
 
-def AccessPattern.shape (ap : AccessPattern) : Shape :=
+namespace AccessPattern
+
+def shape (ap : AccessPattern) : Shape :=
   .mk ap.parNum $ ap.freePattern.map fun pair => pair.num
+
+-- Partitions are not counted in bytes or elements; I'll call them logical "rows".
+def partitionRowOffset (ap : AccessPattern) : Nat := ap.tensor.address.partitionOffset.getD 0
+
+def freeByteOffset (ap : AccessPattern) : Nat := ap.tensor.address.freeOffset.getD 0 + ap.offset
+
+-- We can't find documentation that the free offset must be aligned by dtype size, but we think
+-- it's probably the case. It certainly makes calculating indexes easier so we're going with it
+-- for now.
+def freeElementOffset (ap : AccessPattern) : Nat := ap.freeByteOffset / ap.tensor.dtype.size
+
+end AccessPattern
 
 -- Tensor access: whole tensor (simple), basic indexing, or access pattern
 -- TODO: add advanced indexing (tensor indirect) inductive Access where

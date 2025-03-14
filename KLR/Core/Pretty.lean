@@ -42,7 +42,7 @@ instance : ToFormat Dtype where
     | _ => impossible "dtype repr must be a name"
 
 instance : ToFormat Address where
-  format a := format a.memory ++ sqArgs [format a.start, format a.size]
+  format a := format a.memory ++ sqArgs [format a.partitionOffset, format a.freeOffset, format a.size]
 
 instance : ToFormat Shape where
   format s := sqArgs (s.parDim :: s.freeDims)
