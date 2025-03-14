@@ -19,8 +19,8 @@ namespace KLR.Trace
 -- https://awsdocs-neuron.readthedocs-hosted.com/en/latest/general/nki/nki_arch_guides.html
 def keywords : List (Name × Term) :=
   let ptr s memory size := (Lean.Name.mkStr1 s, Term.pointer { memory, size })
-  let const s := Builtin.const_var (.mkStr1 s)
-  let int s := Builtin.const_int (.mkStr1 s)
+  let const s := const_var (.mkStr1 s)
+  let int s := const_int (.mkStr1 s)
   [ int "arch" 2
   , const "hbm"
   , ptr "sbuf" .sbuf (128, 0x30000)
