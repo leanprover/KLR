@@ -237,15 +237,24 @@ namespace AccessPattern
 def shape (ap : AccessPattern) : Shape :=
   .mk ap.parNum $ ap.freePattern.map fun pair => pair.num
 
--- Partitions are not counted in bytes or elements; I'll call them logical "rows".
-def partitionRowOffset (ap : AccessPattern) : Nat := ap.tensor.address.partitionOffset.getD 0
+private def withNoParents (ap : AccessPattern) (f : AccessPattern -> a) : Err a :=
+  if ap.tensor.address.parent.isSome
+    then throw "Please compile away the parent indirections"
+  else return f ap
 
-def freeByteOffset (ap : AccessPattern) : Nat := ap.tensor.address.freeOffset.getD 0 + ap.offset
+-- Partitions are not counted in bytes or elements; I'll call them logical "rows".
+def partitionRowOffset (ap : AccessPattern) : Err Nat := ap.withNoParents fun ap =>
+  ap.tensor.address.partitionOffset.getD 0
+
+private def freeByteOffset' (ap : AccessPattern) := ap.tensor.address.freeOffset.getD 0 + ap.offset
+
+def freeByteOffset (ap : AccessPattern) : Err Nat := ap.withNoParents freeByteOffset'
 
 -- We can't find documentation that the free offset must be aligned by dtype size, but we think
 -- it's probably the case. It certainly makes calculating indexes easier so we're going with it
 -- for now.
-def freeElementOffset (ap : AccessPattern) : Nat := ap.freeByteOffset / ap.tensor.dtype.size
+def freeElementOffset (ap : AccessPattern) : Err Nat := ap.withNoParents fun ap =>
+  ap.freeByteOffset' / ap.tensor.dtype.size
 
 end AccessPattern
 
@@ -289,7 +298,13 @@ def Access.shapePure (a : Access) : Shape :=
      have h : False := by apply (shape.noFail a); trivial
      nomatch h
 
--- Fully reduced values
+/-
+Fully reduced values
+
+While it may seem strange, an `Access` is really a value. It succinctly
+describes an (admittedly complex) set of physical memory locations. However,
+we only lookup or set the bits in those locations when applied to an operator.
+-/
 inductive Value where
   | var (x : String)
   | bool (value : Bool)
