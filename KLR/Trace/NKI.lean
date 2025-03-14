@@ -15,11 +15,10 @@ This module defines the builtin constants used by tracing for NKI kernels.
 -/
 namespace KLR.Trace
 open KLR.Core
-open KLR.Trace.Builtin
 
-private def nki : Name := .str .anonymous "nki"
-private def nki_isa : Name := .str nki "isa"
-private def nki_lang : Name := .str nki "language"
+private def nki_ : Name := .str .anonymous "nki"
+private def nki_isa : Name := .str nki_ "isa"
+private def nki_lang : Name := .str nki_ "language"
 
 private def nl : String -> Name := .str nki_lang
 private def nisa : String -> Name := .str nki_isa
@@ -34,7 +33,7 @@ def NKIBuiltins : List (Name × BuiltinFn) :=
 
 -- NKI environment, including constants and the names of builtin functions
 def NKIEnv : List (Name × Term) :=
-  [ module nki
+  [ module nki_
   , module nki_isa
   , module nki_lang
   , const_int (.str (nl "tile_size") "pmax") 128

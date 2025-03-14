@@ -15,7 +15,6 @@ TODO: These are just place holders...
 -/
 namespace KLR.Trace
 open KLR.Core
-open KLR.Trace.Builtin
 
 namespace Tensor
 
@@ -47,99 +46,33 @@ def declare (tag : String)
 
 -- APIs
 
--- conversion to NKI
+nki load (src : Access) (dtype : Dtype := .float32) := do
+  let shape <- src.shape
+  let dst <- declare "load" dtype shape .sbuf
+  return .store (.simple dst) (.named "Load") [.access src]
 
-private def some_none : Option Term :=
-  some .none
+nki store (dst : Access) (value : Access) := do
+  let s1 <- dst.shape
+  let s2 <- value.shape
+  if s1 != s2 then
+    throw s!"incompatible shapes {s1} {s2}"
+  return Term.store dst (.named "Store") [.access value]
 
-private def some_bool (b : Bool) : Option Term :=
-  some (.expr (.value (.bool b)) .bool)
-
-private def some_int (i : Int) : Option Term :=
-  some (.expr (.value (.int i)) .int)
-
-private def some_string (s : String) : Option Term :=
-  some (.string s)
-
-/-
-TODO: These definitions are very verbose, but this pattern could be made more
-convenient with a command macro, maybe something like:
-
-#nki ndarray(shape:Shape, dtype:Dtype, memory:Memory = .sbuf) := do
-  let t <- declare "t" dtype shape memory
-  ...
-
-TODO: pg - I think we can implement this in python, but leaving commented out
-here in case it needs to come back.
-
-def ndarray : BuiltinFn :=
-  withArgs [("shape", none),
-            ("dtype", none),
-            ("buffer", some_string "nki.language.sbuf")]
-  fun
-  | [shape, dtype, buf] => do
-      let shape <- fromNKI? shape
-      let dtype <- fromNKI? dtype
-      let memory <- fromNKI? buf
-      let t <- declare "ndarray" dtype shape memory
-      let e := Expr.value (.access (.simple t))
-      return .expr e (.tensor dtype shape)
-  | _ => throw "invalid arguments"
--/
-
-def load : BuiltinFn :=
-  withArgs [("src", none),
-            ("mask", some_none),
-            ("dtype", some_string "float32")]
-  fun
-  | [t, _, dtype] => do
-      let acc <- fromNKI? t
-      let shape <- inferShape acc
-      let dtype <- fromNKI? dtype
-      let dst <- declare "load" dtype shape .sbuf
-      return .store (.simple dst) (.named "Load") [.access acc]
-  | _ => throw "invalid arguments"
-
-def store : BuiltinFn :=
-  withArgs [("dst", none),("value", none)]
-  fun
-  | [dst, src] => do
-      let a₁ <- fromNKI? dst
-      let a₂ <- fromNKI? src
-      let s₁ <- inferShape a₁
-      let s₂ <- inferShape a₂
-      if s₁ != s₂ then
-        throw s!"incompatible shapes {s₁} {s₂}"
-      return Term.store a₁ (.named "Store") [.access a₂]
-  | _ => throw "invalid arguments"
-
-def tensor_scalar : BuiltinFn :=
-  withArgs [("data", none),
-            ("op0", none),
-            ("operand0",none),
-            ("reverse0", some_bool false),
-            ("op1", some_none),
-            ("operand1", some_none),
-            ("reverse1", some_bool false),
-            ("dtype", some_none)]
-  fun
-  | [data, op0, operand0, reverse0, op1, operand1, reverse1, dtype] => do
-      let acc <- fromNKI? data
-      let shape <- inferShape acc
-      let dtype := fromNKI Dtype.float32 dtype
-      let op : TensorScalar := {
-           op0 := <- fromNKI? op0
-           const0 := <- fromNKI? operand0
-           reverse0 := fromNKI false reverse0
-           op1 := fromNKI .bypass op1
-           const1 := fromNKI 0.0 operand1
-           reverse1 := fromNKI false reverse1
-           }
-      let op := Operator.tensorScalar op
-      --let ty := TermType.tensor dtype shape
-      let dst <- declare "tsc" dtype shape .sbuf
-      return .store (.simple dst) op [.access acc]
-  | _ => throw "invalid arguments"
+nki tensor_scalar (data : Access)
+                  (op0 : AluOp)
+                  (operand0 : Float)
+                  (reverse0 : Bool := False)
+                  (op1 : AluOp := .bypass)
+                  (operand1 : Float := 0.0)
+                  (reverse1 : Bool := false)
+                  (dtype : Dtype := .float32) := do
+  let shape <- data.shape
+  let op := Operator.tensorScalar {
+    op0, const0 := operand0, reverse0,
+    op1, const1 := operand1, reverse1,
+  }
+  let dst <- declare "tsc" dtype shape .sbuf
+  return .store (.simple dst) op [.access data]
 
 end Tensor
 

@@ -11,7 +11,6 @@ import KLR.Trace.Builtin
 # Numpy built-ins
 -/
 namespace KLR.Trace
-open KLR.Trace.Builtin
 
 private def numpy : Name := .str .anonymous "numpy"
 private def np : String -> Name := .str numpy

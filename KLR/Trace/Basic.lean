@@ -48,7 +48,6 @@ def toInt : Const -> Err Int
 end KLR.Core.Value
 
 namespace KLR.Trace
-open Builtin
 open Core
 
 -- Truthiness of Terms following Python
@@ -256,7 +255,7 @@ def Term.attr : Term -> String -> Trace Term
   | .module n, id => lookup (n.str id)
   | .pointer addr, "start" => return tuple [addr.start.fst, addr.start.snd]
   | .pointer addr, "size" => return tuple [addr.size.fst, addr.size.snd]
-  | t@(.pointer _), "view" => return mem_view t
+  | .pointer addr, "view" => return memViewBuiltin addr
   | .expr _ (.tensor d _), "dtype" => return (dtype d)
   | .expr _ (.tensor _ s), "shape" => return (tuple $ s.toList.map some)
   | _, id => throw s!"unsupported attribute {id}"
@@ -271,29 +270,18 @@ where
 
 -- Static environment of builtins (extend as necessary)
 
-def mem_view : BuiltinFn :=
-  withArgs [("self", none),
-            ("dtype", none),
-            ("shape", none),
-            ("name", some (.string "tensor")) ]
-  fun
-  | [ self, dtype, shape, name ] => do
-    let self : Address <- fromNKI? self
-    let dtype : Dtype <- fromNKI? dtype
-    let shape : Shape <- fromNKI? shape
-    let name : String <- fromNKI? name
-    let name := (<- genName (.mkStr1 name)).toString
-    if parWF: shape.parDim <= self.size.fst then
-      if freeWF: shape.freeElements * dtype.size <= self.size.snd then
-        let tensor := ⟨ name, dtype, shape, self, parWF, freeWF ⟩
-        let ty := TermType.tensor dtype shape
-        return .expr (.value (.access (.simple tensor))) ty
-      else throw "shape is too large for memory region"
-    else throw "partition size is too large for memory region"
-  | _ => throw "invalid arguments"
+nki memView (self : Address) (dtype : Dtype) (shape : Shape) (name : String := "tensor") := do
+  let name := (<- genName (.mkStr1 name)).toString
+  if parWF: shape.parDim <= self.size.fst then
+    if freeWF: shape.freeElements * dtype.size <= self.size.snd then
+      let tensor := ⟨ name, dtype, shape, self, parWF, freeWF ⟩
+      let ty := TermType.tensor dtype shape
+      return .expr (.value (.access (.simple tensor))) ty
+    else throw "shape is too large for memory region"
+  else throw "partition size is too large for memory region"
 
 def builtinEnv : List (Name × BuiltinFn) :=
-  (mem_view_name, mem_view) ::
+  (memViewName, memView) ::
   NKIBuiltins
 
 def builtinFn (name : Name) : Trace BuiltinFn :=
