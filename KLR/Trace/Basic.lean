@@ -254,7 +254,7 @@ where
 
 def Term.attr : Term -> String -> Trace Term
   | .module n, id => lookup (n.str id)
-  | .pointer addr, "start" => return tuple [addr.start.fst, addr.start.snd]
+  | .pointer addr, "start" => return tuple [addr.partitionOffset, addr.freeOffset]
   | .pointer addr, "size" => return tuple [addr.size.fst, addr.size.snd]
   | t@(.pointer _), "view" => return mem_view t
   | .expr _ (.tensor d _), "dtype" => return (dtype d)

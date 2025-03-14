@@ -151,10 +151,11 @@ def pointerAccess (addr : Core.Address) (i : Term) : Err Term := do
       throw s!"free start {s.l} is larger than free end {b}"
     return (s.l, b - s.l)
 
-  let ptr (start : Option Nat × Option Nat) (size : Nat × Nat) : Term :=
+  let ptr (partitionOffset freeOffset : Option Nat) (size : Nat × Nat) : Term :=
     .pointer { memory := addr.memory
-               size := size
-               start := start
+               size
+               partitionOffset,
+               freeOffset,
                parent := addr
              }
 
@@ -162,22 +163,22 @@ def pointerAccess (addr : Core.Address) (i : Term) : Err Term := do
   | [.coord p, .coord f] => do
       let p <- chkPdim p
       let f <- chkFdim f
-      return ptr (p, f) (1, 1)
+      return ptr p f (1, 1)
 
   | [.coord p, .slice s] => do
       let p <- chkPdim p
       let (start, size) <- chkFslice s
-      return ptr (p, start) (1, size)
+      return ptr p start (1, size)
 
   | [.slice s, .coord f] => do
       let (start, size) <- chkPslice s
       let f <- chkFdim f
-      return ptr (start, f) (size, 1)
+      return ptr start f (size, 1)
 
   | [.slice s1, .slice s2] => do
       let (p0, p1) <- chkPslice s1
       let (f0, f1) <- chkFslice s2
-      return ptr (p0, f0) (p1, f1)
+      return ptr p0 f0 (p1, f1)
 
   | _ => throw "pointers require two indexes"
 
