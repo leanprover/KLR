@@ -139,6 +139,15 @@ deriving instance FromJson for APPair
 deriving instance FromJson for AccessPattern
 deriving instance FromJson for Access
 
+-- TODO: Move to Lean stdlib?
+instance : ToJson Float32 where
+  toJson x := toJson x.toFloat
+
+instance : FromJson Float32 where
+  fromJson? x := do
+    let f : Float <- fromJson? x
+    return f.toFloat32
+
 deriving instance ToJson for TensorScalar
 deriving instance ToJson for Operator
 deriving instance ToJson for Value

@@ -1,10 +1,13 @@
 import KLR
 import KLR.BIR.Compile
 import Cli
+import KLR.Eval
 import KLR.Util
+import TensorLib.Npy
+import TensorLib.Tensor
 
-open KLR
 open Cli
+open KLR
 open System(FilePath)
 
 local instance : MonadLift Err IO where
@@ -117,6 +120,25 @@ private def getOutfile (ext : String) (p : Parsed) : FilePath :=
       else p.positionalArg! "kernelFunctionName"
       (FilePath.mk $ arg.as! String).withExtension ext
 
+private def evalKlrTensors
+  (moduleFileName kernelFunctionName : String)
+  (klrPythonModuleDir : Option String)
+  (debug : Bool)
+  (npyInputFiles : List String)
+   : IO (List (String × TensorLib.Tensor)) := do
+  let s <- gatherStr moduleFileName kernelFunctionName klrPythonModuleDir debug
+  let kernel <- KLR.Python.Parsing.parse s
+  let (k, warnings1) := kernel.inferArguments
+  let (warnings, klr) <- KLR.Trace.runNKIKernel k
+  dbg_trace s!"klr-inputs: {repr klr.inputs}"
+  if !warnings1.isEmpty then IO.eprintln warnings1
+  if !warnings.isEmpty then IO.eprintln warnings
+  let inputs := npyInputFiles.map FilePath.mk
+  let npys <- inputs.mapM TensorLib.Npy.parseFile
+  let inputs <- npys.mapM fun npy => TensorLib.Tensor.ofNpy npy
+  dbg_trace s!"npy-inputs: {repr inputs}"
+  KLR.Eval.eval klr inputs
+
 def gather (p : Parsed) : IO UInt32 := do
   let debug := p.hasFlag "debug"
   let file := p.positionalArg! "moduleFileName" |>.as! String
@@ -146,17 +168,17 @@ def parseAST (p : Parsed) : IO UInt32 := do
 
 def trace (p : Parsed) : IO UInt32 := do
   let kernel <- parse p
-  let (warnings, klr) <- KLR.Trace.runNKIKernel kernel.inferArguments
+  let (k, warnings1) := kernel.inferArguments
+  let (warnings, klr) <- KLR.Trace.runNKIKernel k
   -- convenience for developers
   if p.hasFlag "pretty" then
-    if warnings.length > 0 then
-      IO.println warnings
+    if !warnings.isEmpty then IO.eprintln warnings
+    if !warnings1.isEmpty then IO.eprintln warnings1
     IO.println (toString $ Std.format klr)
     return 0
   -- normal operation
   IO.FS.writeFile (getOutfile "klr" p) (toString $ Lean.toJson klr)
-  if warnings.length > 0 then
-    IO.eprintln warnings
+  if !warnings.isEmpty then IO.eprintln warnings
   return 0
 
 def parseKLR (p : Parsed) : IO UInt32 := do
@@ -220,7 +242,6 @@ def parseBIR (p : Parsed) : IO UInt32 := do
   showAs p bir
   return 0
 
-
 def nkiToKLR (p : Parsed) : IO UInt32 := do
   let debug := p.hasFlag "debug"
   let file := p.positionalArg! "moduleFileName" |>.as! String
@@ -228,10 +249,36 @@ def nkiToKLR (p : Parsed) : IO UInt32 := do
   let dir := (p.flag? "klr-module-dir").map fun x => x.as! String
   let s <- gatherStr file kernel dir debug
   let kernel <- KLR.Python.Parsing.parse s
-  let (warnings, klr) <- KLR.Trace.runNKIKernel kernel.inferArguments
+  let (k, warnings1) := kernel.inferArguments
+  let (warnings, klr) <- KLR.Trace.runNKIKernel k
   IO.FS.writeFile (getOutfile "klr" p) (toString $ Lean.toJson klr)
-  if warnings.length > 0 then
-    IO.eprintln warnings
+  if !warnings.isEmpty then IO.eprintln warnings
+  if !warnings1.isEmpty then IO.eprintln warnings1
+  return 0
+
+def evalKLR (p : Parsed) : IO UInt32 := do
+  let debug := p.hasFlag "debug"
+  let file := p.positionalArg! "moduleFileName" |>.as! String
+  let kernel := p.positionalArg! "kernelFunctionName" |>.as! String
+  let kernelDir := (p.flag? "klr-module-dir").map fun x => x.as! String
+  let outputDir := (p.flag? "output-dir").map fun x => x.as! String
+  let inputs := (p.variableArgsAs! String).toList
+  let outputs := (p.flag? "output-names").map fun f => (f.as! (Array String)).toList
+  let resultMap <- evalKlrTensors file kernel kernelDir debug inputs
+  let n := resultMap.length
+  let outputs :=
+    let outputs := outputs.getD []
+    if n <= outputs.length then outputs else
+    let k := n - outputs.length
+    outputs ++ ((List.range k).map fun i => s!"output-{outputs.length + i}")
+   -- ignore the inferred name from the kernel
+  (resultMap.zip outputs).forM fun ((_, t), name) => do
+    let arr := TensorLib.Tensor.toNpy t
+    let filename := match outputDir with
+    | .none => s!"{name}.npy"
+    | .some d => s!"{d}/{name}.npy"
+    IO.println s!"Writing file {filename}"
+    TensorLib.Npy.Ndarray.save! arr filename
   return 0
 
 -- -- Command configuration
@@ -327,12 +374,29 @@ def nkiToKLRCmd := `[Cli|
     kernelFunctionName : String; "Name of the kernel function"
 ]
 
+def evalKLRCmd := `[Cli|
+  "eval-klr" VIA evalKLR;
+  "Evaluate a kernel using a pure-Lean KLR interpreter. Outputs one npy file for each output."
+
+  FLAGS:
+    "klr-module-dir" : String; "Directory of Python klr module. Added to PYTHONPATH."
+    debug : Unit; "Print debugging info"
+    "output-dir" : String; "Where to write npy files. Defaults to cwd."
+    "output-names" : Array String; "Names of output npy files to write to disk. E.g. --outputs a,b will " ++
+                                   "write a.npy and b.npy with the contents of arrays `a` and `b`."
+  ARGS:
+    moduleFileName : String;      "File of the Python module with the kernel function"
+    kernelFunctionName : String;  "Name of the kernel function"
+    ...inputFiles : String;       ".npy files corresponding to the inputs to the kernel, in positional order"
+]
+
 def klrCmd : Cmd := `[Cli|
   klr NOOP; ["0.0.9"]
   "KLR is an IR for NKI and other tensor-like languages in Lean."
 
   SUBCOMMANDS:
     compileCmd;
+    evalKLRCmd;
     gatherCmd;
     nkiToKLRCmd;
     parseASTCmd;

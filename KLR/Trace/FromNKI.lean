@@ -90,6 +90,11 @@ instance : FromNKI Float where
     | .expr (.value $ .float f) _ => return f
     | _ => throw "expecting float"
 
+instance : FromNKI Float32 where
+  fromNKI?
+    | .expr (.value $ .float f) _ => return f.toFloat32
+    | _ => throw "expecting float32"
+
 instance : FromNKI String where
   fromNKI?
     | .string s => return s

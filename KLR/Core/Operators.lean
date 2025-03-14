@@ -92,14 +92,17 @@ inductive AluOp where
   | subtract
   deriving BEq, Repr
 
+instance : ToString AluOp where
+  toString := reprStr
+
 -- Tensor-Scalar operator
 -- TODO: this is gen1 only, add gen2
 structure TensorScalar where
   op0 : AluOp
-  const0 : Float
+  const0 : Float32
   reverse0 : Bool
   op1 : AluOp
-  const1 : Float
+  const1 : Float32
   reverse1 : Bool
   deriving Repr, BEq
 

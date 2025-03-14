@@ -60,10 +60,10 @@ nki store (dst : Access) (value : Access) := do
 
 nki tensor_scalar (data : Access)
                   (op0 : AluOp)
-                  (operand0 : Float)
+                  (operand0 : Float32)
                   (reverse0 : Bool := False)
                   (op1 : AluOp := .bypass)
-                  (operand1 : Float := 0.0)
+                  (operand1 : Float32 := 0.0)
                   (reverse1 : Bool := false)
                   (dtype : Dtype := .float32) := do
   let shape <- data.shape

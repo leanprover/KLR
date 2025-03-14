@@ -208,11 +208,12 @@ How to do better:
   - Run type inference
   - Provide command-line arguments to adjust how we pick defaults
 -/
-def Kernel.inferArguments (k : Kernel) : Kernel :=
-  if k.args.length > 0 then k else
+def Kernel.inferArguments (k : Kernel) : Kernel × List String :=
+  if k.args.length > 0 then (k, []) else
     match inferArgs with
-    | none => k
-    | some args => { k with args := args }
+    | none => (k, [])
+    | some [] => ({ k with args := [] }, [])
+    | some args => ({ k with args := args }, [s!"Warning: inferred arbitrary values for {k.entry}"])
 where
   inferArgs : Option (List Expr') := do
     let f <- k.funcs.lookup k.entry
