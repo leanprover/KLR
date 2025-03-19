@@ -194,7 +194,7 @@ structure Kernel where
   args : List Expr'
   kwargs : List (String × Expr')
   globals : List (String × Expr')
-  undefinedSymbols : List String
+  undefinedSymbols : Std.HashSet String
   deriving Repr
 
 /-
@@ -474,6 +474,7 @@ def kernel (j : Json) : Parser Kernel := do
   let kwargs <- field (dict global) j "kwargs"
   let globals <- field (dict global) j "globals"
   let undefinedSymbols <- field (list str) j "undefined_symbols"
+  let undefinedSymbols := Std.HashSet.ofList undefinedSymbols
   return Kernel.mk name funcs args kwargs globals undefinedSymbols
 
 def parse (s : String) : Err Kernel := do

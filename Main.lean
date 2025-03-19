@@ -163,7 +163,7 @@ def parseAST (p : Parsed) : IO UInt32 := do
   IO.println s!"Source Functions: {fs}"
   let gs := String.intercalate "," $ kernel.globals.map Prod.fst
   IO.println s!"Globals: {gs}"
-  IO.println s!"Undefined names {kernel.undefinedSymbols}"
+  IO.println s!"Undefined names {kernel.undefinedSymbols.toList.mergeSort}"
   return 0
 
 def trace (p : Parsed) : IO UInt32 := do
