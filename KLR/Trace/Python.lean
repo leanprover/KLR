@@ -257,8 +257,8 @@ where
   lval : Expr' -> Trace Term
   | .name id .store => return .expr (.value $ .var id) (.obj "object".toName)
   | .attr _ id .store => throw s!"cannot assign to attribute {id}"
-  | .tuple l .store => return .tuple (<- LValue ▷ l)
-  | .list  l .store => return .list  (<- LValue ▷ l)
+  | .tuple es .store => return .tuple (<- es.attach.mapM fun ⟨ e, _ ⟩ => LValue e)
+  | .list es .store => return .list (<- es.attach.mapM fun ⟨ e, _ ⟩ => LValue e)
   | .subscript _ _ .store => throw "unimp subscript store"
   | _ => throw "cannot assign to expression"
 
@@ -270,8 +270,8 @@ def RValue : Term -> Trace Term
   | .source f => return .source f
   | .none => return .none
   | .string s => return .string s
-  | .tuple  l => return .tuple (<- RValue ▷ l)
-  | .list   l => return .list  (<- RValue ▷ l)
+  | .tuple es => return .tuple (<- es.attach.mapM fun ⟨ e, _ ⟩ => RValue e)
+  | .list es => return .tuple (<- es.attach.mapM fun ⟨ e, _ ⟩ => RValue e)
   | .ellipsis => return .ellipsis
   | .slice a b c => return .slice a b c
   | .store acc op args => do
@@ -323,7 +323,7 @@ where
 -- Top-level assignment handling
 -- e.g. x1 = x2 = e
 def assign (xs : List Expr) (e : Term) : Trace Unit := do
-  let xs <- LValue ▷ xs
+  let xs <- xs.mapM LValue
   let e <- RValue e
   for x in xs do
     assignTerm x e
@@ -379,7 +379,7 @@ partial def integer? : Option Expr -> Trace (Option Int)
 partial def expr' : Expr' -> Trace Term
   | .const c => return const c
   | .tensor s dty => do
-      let shape <- expr ▷ s
+      let shape <- s.mapM expr
       let shape <- Core.Shape.fromList shape
       let name <- genName "t".toName
       let dtype <- fromNKI? (.expr (.value $ .var dty) .none)
@@ -387,14 +387,14 @@ partial def expr' : Expr' -> Trace Term
       return .expr (.value $ .access $ .simple tensor) (.tensor dtype shape)
   | .name id _ => lookup id.toName
   | .attr e id _ => do ((<- expr e : Term).attr id)
-  | .tuple l _ => return .tuple (<- expr ▷ l)
-  | .list  l _ => return .list  (<- expr ▷ l)
+  | .tuple l _ => return .tuple (<- l.mapM expr)
+  | .list  l _ => return .list  (<- l.mapM expr)
   | .subscript t i _ => do access (<- expr t) (<- expr i)
   | .slice x y z => return .slice (<- integer? x) (<- integer? y) (<- integer? z)
-  | .boolOp op xs => do boolOp op (<- expr ▷ xs)
+  | .boolOp op xs => do boolOp op (<- xs.mapM expr)
   | .binOp op l r => do binOp op (<- expr l) (<- expr r)
   | .unaryOp op e => do unOp op (<- expr e)
-  | .compare l ops cs => do compare (<- expr l) ops (<- expr ▷ cs)
+  | .compare l ops cs => do compare (<- expr l) ops (<- cs.mapM expr)
   | .ifExp tst tru fls => do
       let tst <- (<- expr tst : Term).isTrue
       let tru <- expr tru  -- eagerly evaluate both branches
@@ -404,15 +404,15 @@ partial def expr' : Expr' -> Trace Term
       match (<- expr f : Term) with
       | .builtin n _ self => do
           let f <- builtinFn n
-          let args <- expr ▷ args
-          let kwargs <- keyword expr ▷ kws
+          let args <- args.mapM expr
+          let kwargs <- kws.mapM (keyword expr)
           let args := match self with
                       | none => args
                       | some t => t :: args
           f args kwargs
-      | .source f    => do function_call f (<- expr ▷ args) (<- keyword expr ▷ kws)
+      | .source f    => do function_call f (<- args.mapM expr) (<- kws.mapM (keyword expr))
       | .expr (.value (.var f)) _ =>
-          return .expr (.call f (<- expr ▷ args) (<- keyword expr ▷ kws)) default
+          return .expr (.call f (<- args.mapM expr) (<- kws.mapM (keyword expr))) default
       | _ => throw "not a callable type"
 
 partial def keyword (f : Expr -> Trace a) : Keyword -> Trace (String × a)

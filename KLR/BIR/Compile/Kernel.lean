@@ -37,7 +37,7 @@ def compile_kernel (k : Kernel) : Compile BIR := do
   let outputs <- k.outputs.mapM (allocate .Output)
   let internal <- k.internal.mapM (allocate .Internal)
   let allocs := inputs ++ outputs ++ internal
-  let insts <- compileStmt ▷ k.body
+  let insts <- k.body.mapM compileStmt
   -- There is always one function with one block...
   return {
     functions := [{

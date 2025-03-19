@@ -27,23 +27,6 @@ The default choice for a state monad is `EStateM String`.
 -/
 abbrev StM := EStateM String
 
-/-
-A common issue is failure to prove termination automatically when using
-List.mapM. There is a work-around for this which involves introducing
-`{ x // x ∈ l }` in place of the list `l`.
-
-We can capture this trick in a notation. Note we need to use a notation and not
-a definition because the proof object `x∈l` needs to be available to the
-termination proof tactics, in the scope of the original function.
-
-Writing, `List.mapM f l`, as `f ▷ l` doesn't break the termination proof.
-Note: ▷ is typed as \rhd
-TODO: This notation doesn't work outside of a Monad
-TODO: Choose a non-unicode character
--/
-notation f "▷" l =>
-  List.mapM (fun ⟨ x, _ ⟩ => f x) (List.attach l)
-
 def impossible {a : Type} [h : Inhabited a] (msg : String := "") :=
   @panic a h s!"Invariant violation: {msg}"
 
