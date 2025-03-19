@@ -480,7 +480,7 @@ partial def bind_args (f : Fun)
   let names := f.args.names
   if args.length + kwargs.length > names.length then
     throw "too many arguments supplied (varargs not supported)"
-  let argmap <- f.args.names.enum.mapM fun (i,x) => do
+  let argmap <- f.args.names.zipIdx.mapM fun (x, i) => do
     if h:args.length > i then
       return (x, args.get (Fin.mk i h))
     else if let some v := kwargs.lookup x then
