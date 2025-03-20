@@ -4,25 +4,26 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 -/
 import KLR.BIR.Compile.Memory
+import KLR.BIR.Compile.Operators
 import KLR.BIR.Compile.Types
 
 namespace KLR.BIR.Compile
 open KLR.Core
 
-def gatherAPs : List Expr -> Compile (List Argument)
+def gatherAPs : List Core.Value -> Compile (List Argument)
   | [] => return []
   | x :: xs => do
     let xs <- gatherAPs xs
     match x with
-    | .value (.access a) => return .PhysicalAccessPattern (<- accessToAP a) :: xs
+    | .access a => return .PhysicalAccessPattern (<- accessToAP a) :: xs
     | _ => return xs
 
-def compileStore (dst : Access) (_op : Operator) (args : List Core.Value) : Compile Instruction := do
+def compileStore (dst : Access) (op : Operator) (args : List Core.Value) : Compile Instruction := do
   return {
     name := "noop_test"  -- I think these have to be unique (need state monad?)
-    ins  := <- gatherAPs (args.map .value)
-    outs := <- gatherAPs [.value (.access dst)]
-    inst := .NoOp
+    ins  := <- gatherAPs args
+    outs := <- gatherAPs [.access dst]
+    inst := <- translateOperator op
   }
 
 def compileStmt : Stmt -> Compile Block

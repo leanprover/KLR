@@ -49,14 +49,14 @@ def declare (tag : String)
 nki load (src : Access) (dtype : Dtype := .float32) := do
   let shape <- src.shape
   let dst <- declare "load" dtype shape .sbuf
-  return .store (.simple dst) (.named "Load") [.access src]
+  return .store (.simple dst) .load [.access src]
 
 nki store (dst : Access) (value : Access) := do
   let s1 <- dst.shape
   let s2 <- value.shape
   if s1 != s2 then
     throw s!"incompatible shapes {s1} {s2}"
-  return Term.store dst (.named "Store") [.access value]
+  return Term.store dst .save [.access value]
 
 nki tensor_scalar (data : Access)
                   (op0 : AluOp)

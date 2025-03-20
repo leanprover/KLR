@@ -78,6 +78,12 @@ instance : FromJson Memory where
 
 deriving instance ToJson for Dtype
 deriving instance ToJson for AluOp
+
+instance : ToJson Const where
+  toJson
+  | .int i => toJson i
+  | .float f => toJson f
+
 deriving instance ToJson for Shape
 deriving instance ToJson for Address
 
@@ -115,6 +121,15 @@ deriving instance ToJson for Access
 
 deriving instance FromJson for Dtype
 deriving instance FromJson for AluOp
+
+instance : FromJson Const where
+  fromJson? j :=
+    match j.getInt? with
+    | .ok i => return .int i
+    | .error _ => match j.getNum? with
+    | .ok n => return .float n.toFloat
+    | .error _ => .error "expecting int or float"
+
 deriving instance FromJson for Shape
 deriving instance FromJson for Address
 
@@ -149,6 +164,7 @@ instance : FromJson Float32 where
     return f.toFloat32
 
 deriving instance ToJson for TensorScalar
+deriving instance ToJson for TensorScalarAddr
 deriving instance ToJson for Operator
 deriving instance ToJson for Value
 deriving instance ToJson for Expr
@@ -156,6 +172,7 @@ deriving instance ToJson for Stmt
 deriving instance ToJson for Kernel
 
 deriving instance FromJson for TensorScalar
+deriving instance FromJson for TensorScalarAddr
 deriving instance FromJson for Operator
 deriving instance FromJson for Value
 deriving instance FromJson for Expr

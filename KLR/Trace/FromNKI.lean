@@ -95,6 +95,14 @@ instance : FromNKI Float32 where
     | .expr (.value $ .float f) _ => return f.toFloat32
     | _ => throw "expecting float32"
 
+instance : FromNKI Const where
+  fromNKI?
+    | .expr (.value $ .bool true) _ => return .int 1
+    | .expr (.value $ .bool false) _ => return .int 0
+    | .expr (.value $ .int i) _ => return .int i
+    | .expr (.value $ .float f) _ => return .float f
+    | _ => throw "expecting int or float"
+
 instance : FromNKI String where
   fromNKI?
     | .string s => return s
@@ -187,6 +195,7 @@ instance : FromNKI TensorName where
 
 instance : FromNKI AluOp where
   fromNKI?
+    | .none => return .bypass
     | .expr (.value $ .var name) _ =>
         match name with
         -- bitwise operations

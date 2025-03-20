@@ -76,8 +76,10 @@ instance : ToFormat Access where
 
 instance : ToFormat Operator where
   format
-  | .named name => name
-  | .tensorScalar _ => "tensor_scalar{..}"
+  | .load => "load"
+  | .save => "save"
+  | .tensorScalar .. => "tensor_scalar{..}"
+  | .tensorScalarAddr .. => "tensor_scalar_addr{..}"
 
 instance : ToFormat Value where
   format

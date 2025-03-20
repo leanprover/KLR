@@ -18,7 +18,7 @@ instances of to- and from-json are compatible with the compiler.
 namespace KLR.BIR
 export KLR.Core (Dtype Shape Engine AluOp Memory APPair)
 
--- TODO: this is incomplete
+-- TODO: this is incomplete, but we probably do not need
 structure QAETerm where
   coeff: Int
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
@@ -69,21 +69,20 @@ structure RegisterAccess where
 
 structure ImmValue where
   dtype : String
-  value : Lean.JsonNumber
+  value : Core.Const
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
 structure ImmArray where
   dtype : String
-  value_array : List Lean.JsonNumber
+  value_array : List Core.Const
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
-structure Value where
-  value : Lean.JsonNumber
-  deriving BEq, Repr, Lean.FromJson, Lean.ToJson
-
+-- TODO: in BIR Json, each value in value_list is { value:x },
+-- default ToJson will be incorrect.
+-- Fix this or delete this type (we may not need it)
 structure SymbolicImmValue where
   dtype : String
-  value_list : List Value
+  value_list : List Core.Const
   expr : QuasiAffineExpr
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 

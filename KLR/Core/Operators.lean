@@ -55,10 +55,19 @@ inductive Dtype where
     | .uint16 | .int16 | .bfloat16 | .float16 => 2
     | .uint32 | .int32 | .float32 | .float32r => 4
     | .uint64 | .int64 => 8
+    @[computed_field]
+    isInt : Dtype -> Bool
+    | .int8 | .int16 | .int64 | .int32
+    | .uint8 | .uint16 | .uint32 | .uint64 => true
+    | _ => false
+
   deriving Repr, BEq
 
--- ALU operations supported by the HW
--- TODO organize these into groups to make seantic checking easier
+/-
+ALU operations supported by the HW
+Only used by: TensorScalar, TensorScalarPtr, TensorReduce, TensorTensor
+-/
+
 inductive AluOp where
   | abs
   | add
@@ -71,7 +80,6 @@ inductive AluOp where
   | bitwise_xor
   | bypass
   | divide
-  | elemwise_mul
   | is_equal
   | is_ge
   | is_gt
@@ -92,11 +100,54 @@ inductive AluOp where
   | subtract
   deriving BEq, Repr
 
+namespace AluOp
+
+def isBitwise : AluOp -> Bool
+  | arith_shift_left
+  | arith_shift_right
+  | bitwise_not
+  | bitwise_and
+  | bitwise_or
+  | bitwise_xor
+  | logical_shift_left
+  | logical_shift_right
+  | bypass => true
+  | _ => false
+
+def isArith : AluOp -> Bool
+  | .bypass => true
+  | op => not op.isBitwise
+
 instance : ToString AluOp where
-  toString := reprStr
+  toString op := reprStr op
+
+end AluOp
+
+-- TODO: should these be Int32 and Float32?
+-- At the python level: no, after tracing: yes.
+-- Perhaps FromNKI can check for overflow and raise an error?
+inductive Const where
+  | int (i : Int)
+  | float (f : Float)
+  deriving BEq, Repr
+
+namespace Const
+
+def isInt : Const -> Bool
+  | .int _ => true | _ => false
+
+def isFloat : Const -> Bool
+  | .float _ => true | _ => false
+
+instance : ToString Const where
+  toString
+  | .int i => toString i
+  | .float f => toString f
+
+end Const
 
 -- Tensor-Scalar operator
--- TODO: this is gen1 only, add gen2
+-- Note: this is not supported in NKI, but it useful for testing.
 structure TensorScalar where
   op0 : AluOp
   const0 : Float32
@@ -106,8 +157,18 @@ structure TensorScalar where
   reverse1 : Bool
   deriving Repr, BEq
 
+-- Tensor-Scalar where the scalars are loaded from memory
+structure TensorScalarAddr where
+  op0 : AluOp
+  reverse0 : Bool
+  op1 : AluOp
+  reverse1 : Bool
+  deriving Repr, BEq
+
 -- All of the operators
 inductive Operator where
-  | named : String -> Operator
+  | load : Operator
+  | save : Operator
   | tensorScalar : TensorScalar -> Operator
+  | tensorScalarAddr : TensorScalarAddr -> Operator
   deriving Repr, BEq

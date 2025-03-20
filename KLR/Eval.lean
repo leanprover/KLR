@@ -302,7 +302,6 @@ private def evalAluOp (op : AluOp) : Err (ByteArray -> ByteArray -> Err ByteArra
 | .bitwise_not
 | .bitwise_or
 | .bitwise_xor
-| .elemwise_mul
 | .is_equal
 | .is_ge
 | .is_gt
@@ -357,18 +356,19 @@ private def evalStmt (stmt : Core.Stmt) : WithEnv Unit := match stmt with
   let f := evalTensorScalar ts
   let v <- TensorLib.Tensor.Ufunc.unop v f
   write dst v
-| .store dst (Operator.named "Load") [arg] => do
+| .store dst Operator.load [arg] => do
   let v <- evalValue arg
   modify fun env => env.insert dst.tensor.name v
-| .store _ (Operator.named "Load") args => throw s!"Load expected 1 argument, got {repr args}"
-| .store dst (Operator.named "Store") [arg] => do
+| .store _ Operator.load args => throw s!"Load expected 1 argument, got {repr args}"
+| .store dst Operator.save [arg] => do
   let v <- evalValue arg
   modify fun env => env.insert dst.tensor.name v
 | .store _ (Operator.tensorScalar ts) _ => throw s!"Unimplemented: store tensorScalar {repr ts}"
-| .store _ (Operator.named op) _ => do
+| .store _ (Operator.tensorScalarAddr ts) _ => throw s!"Unimplemented: store tensorScalarAddr {repr ts}"
+| .store _ Operator.save _ => do
   let env <- get
   dbg_trace s!"env: {repr env}"
-  throw s!"Unimplemented: store named {op}"
+  throw s!"Unimplemented: store"
 
 private def evalKernel (kernel : Core.Kernel) (inputs : List Tensor) : WithEnv (List (String × Tensor)) := do
   let kernel <- checkInputTensors kernel inputs
