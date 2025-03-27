@@ -111,14 +111,13 @@ def gatherStr (moduleFileName kernelFunctionName : String) (klrPythonModuleDir :
       return output.stdout
   IO.throwServerError "could not find gather program"
 
-private def getOutfile (ext : String) (p : Parsed) : FilePath :=
+private def writeContent (ext : String) (p : Parsed) (content : String) : IO Unit := do
   match p.flag? "outfile" with
-  | some arg => FilePath.mk (arg.as! String)
+  | some arg =>
+    let f := (FilePath.mk (arg.as! String)).withExtension ext
+    IO.FS.writeFile f content
   | none =>
-      let arg := if p.hasPositionalArg "file"
-      then p.positionalArg! "file"
-      else p.positionalArg! "kernelFunctionName"
-      (FilePath.mk $ arg.as! String).withExtension ext
+    IO.println content
 
 private def evalKlrTensors
   (moduleFileName kernelFunctionName : String)
@@ -145,7 +144,7 @@ def gather (p : Parsed) : IO UInt32 := do
   let kernel := p.positionalArg! "kernelFunctionName" |>.as! String
   let dir := (p.flag? "klr-module-dir").map fun x => x.as! String
   let output <- gatherStr file kernel dir debug
-  IO.FS.writeFile (getOutfile "ast" p) output
+  writeContent "ast" p output
   return 0
 
 private def parse (p : Parsed) : IO KLR.Python.Kernel := do
@@ -170,15 +169,11 @@ def trace (p : Parsed) : IO UInt32 := do
   let kernel <- parse p
   let (k, warnings1) := kernel.inferArguments
   let (warnings, klr) <- KLR.Trace.runNKIKernel k
-  -- convenience for developers
-  if p.hasFlag "pretty" then
-    if !warnings.isEmpty then IO.eprintln warnings
-    if !warnings1.isEmpty then IO.eprintln warnings1
-    IO.println (toString $ Std.format klr)
-    return 0
-  -- normal operation
-  IO.FS.writeFile (getOutfile "klr" p) (toString $ Lean.toJson klr)
   if !warnings.isEmpty then IO.eprintln warnings
+  if !warnings1.isEmpty then IO.eprintln warnings1
+  -- convenience for developers
+  let s := if p.hasFlag "pretty" then toString $ Std.format klr else toString $ Lean.toJson klr
+  writeContent "klr" p s
   return 0
 
 def parseKLR (p : Parsed) : IO UInt32 := do
@@ -231,7 +226,7 @@ def compile (p : Parsed) : IO UInt32 := do
   let s <- IO.FS.readFile file
   let klr <- Lean.fromJson? (<- Lean.Json.parse s)
   let bir <- KLR.BIR.compile klr
-  IO.FS.writeFile (getOutfile "bir" p) (toString $ Lean.toJson bir)
+  writeContent "bir" p (toString $ Lean.toJson bir)
   return 0
 
 def parseBIR (p : Parsed) : IO UInt32 := do
@@ -251,7 +246,8 @@ def nkiToKLR (p : Parsed) : IO UInt32 := do
   let kernel <- KLR.Python.Parsing.parse s
   let (k, warnings1) := kernel.inferArguments
   let (warnings, klr) <- KLR.Trace.runNKIKernel k
-  IO.FS.writeFile (getOutfile "klr" p) (toString $ Lean.toJson klr)
+  let str := if p.hasFlag "repr" then reprStr klr else toString $ Lean.toJson klr
+  writeContent "klr" p str
   if !warnings.isEmpty then IO.eprintln warnings
   if !warnings1.isEmpty then IO.eprintln warnings1
   return 0
@@ -368,6 +364,7 @@ def nkiToKLRCmd := `[Cli|
     d, "klr-module-dir" : String; "Directory of Python klr module. Added to PYTHONPATH."
     debug : Unit; "Print debugging info"
     o, outfile : String; "Name of output file"
+    r, repr; "Output Repr format"
 
   ARGS:
     moduleFileName : String; "File of the Python module with the kernel function"
