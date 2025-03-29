@@ -15,14 +15,25 @@ local instance : MonadLift Err IO where
     | .ok x => return x
     | .error s => throw $ .userError s
 
-def showAs [Lean.ToJson a] [Repr a] (p : Parsed) (x : a) : IO Unit :=
-  if p.hasFlag "repr" then
-    IO.println (toString $ repr x)
-  else if p.hasFlag "json" then
-    IO.println (toString $ Lean.toJson x)
-  else
-    -- For now, default is JSON, but we may change this
-    IO.println (toString $ Lean.toJson x)
+inductive Form where
+| json
+| pretty
+
+def asString [Lean.ToJson a] [Repr a] (p : Parsed) (x : a) (defaultForm : Form := .pretty) : String :=
+  let fm := if p.hasFlag "pretty" then .pretty
+            else if p.hasFlag "json" then .json
+            else defaultForm
+  match fm with
+  | .json => toString $ Lean.toJson x
+  | .pretty => reprStr x
+
+def writeContent (ext : String) (p : Parsed) (content : String) : IO Unit := do
+  match p.flag? "outfile" with
+  | some arg =>
+    let f := (FilePath.mk (arg.as! String)).withExtension ext
+    IO.FS.writeFile f content
+  | none =>
+    IO.println content
 
 def eprintln [ToString a] (debug : Bool) (x : a) : IO Unit := do
   if debug then IO.eprintln x
@@ -111,14 +122,6 @@ def gatherStr (moduleFileName kernelFunctionName : String) (klrPythonModuleDir :
       return output.stdout
   IO.throwServerError "could not find gather program"
 
-private def writeContent (ext : String) (p : Parsed) (content : String) : IO Unit := do
-  match p.flag? "outfile" with
-  | some arg =>
-    let f := (FilePath.mk (arg.as! String)).withExtension ext
-    IO.FS.writeFile f content
-  | none =>
-    IO.println content
-
 private def evalKlrTensors
   (moduleFileName kernelFunctionName : String)
   (klrPythonModuleDir : Option String)
@@ -171,9 +174,7 @@ def trace (p : Parsed) : IO UInt32 := do
   let (warnings, klr) <- KLR.Trace.runNKIKernel k
   if !warnings.isEmpty then IO.eprintln warnings
   if !warnings1.isEmpty then IO.eprintln warnings1
-  -- convenience for developers
-  let s := if p.hasFlag "pretty" then toString $ Std.format klr else toString $ Lean.toJson klr
-  writeContent "klr" p s
+  writeContent "klr" p (asString p klr)
   return 0
 
 def parseKLR (p : Parsed) : IO UInt32 := do
@@ -184,10 +185,7 @@ def parseKLR (p : Parsed) : IO UInt32 := do
     IO.println json
     return 0
   let klr : Core.Kernel <- Lean.fromJson? (<- Lean.Json.parse s)
-  if p.hasFlag "repr" then
-    IO.println (toString $ repr klr)
-  else
-    IO.println (toString $ Std.format klr)
+  IO.println $ asString p klr
   return 0
 
 /-
@@ -234,7 +232,7 @@ def parseBIR (p : Parsed) : IO UInt32 := do
   let str <- IO.FS.readFile file
   let json <- Lean.Json.parse str
   let bir : KLR.BIR.BIR <- Lean.fromJson? json
-  showAs p bir
+  IO.println $ asString p bir
   return 0
 
 def nkiToKLR (p : Parsed) : IO UInt32 := do
@@ -246,8 +244,7 @@ def nkiToKLR (p : Parsed) : IO UInt32 := do
   let kernel <- KLR.Python.Parsing.parse s
   let (k, warnings1) := kernel.inferArguments
   let (warnings, klr) <- KLR.Trace.runNKIKernel k
-  let str := if p.hasFlag "repr" then reprStr klr else toString $ Lean.toJson klr
-  writeContent "klr" p str
+  writeContent "klr" p (asString p klr)
   if !warnings.isEmpty then IO.eprintln warnings
   if !warnings1.isEmpty then IO.eprintln warnings1
   return 0
@@ -320,7 +317,6 @@ def parseKLRCmd := `[Cli|
 
   FLAGS:
     j, json; "Output Json format"
-    r, repr; "Output Repr format"
     p, pretty; "Output human-readable format (default)"
   ARGS:
     file : String; "File of Python AST printed as JSON"
@@ -351,7 +347,8 @@ def parseBIRCmd := `[Cli|
   "Parse a BIR Json file"
 
   FLAGS:
-    r, repr; "Output Repr format"
+    j, json; "Output JSON format"
+    p, pretty; "Output human-readable format (default)"
   ARGS:
     file : String; "File of BIR JSON"
 ]
@@ -364,7 +361,8 @@ def nkiToKLRCmd := `[Cli|
     d, "klr-module-dir" : String; "Directory of Python klr module. Added to PYTHONPATH."
     debug : Unit; "Print debugging info"
     o, outfile : String; "Name of output file"
-    r, repr; "Output Repr format"
+    j, json; "Output JSON format"
+    p, pretty; "Output human-readable format (default)"
 
   ARGS:
     moduleFileName : String; "File of the Python module with the kernel function"
