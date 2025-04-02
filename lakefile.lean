@@ -12,10 +12,10 @@ lean_exe "klr" where
   root := `Main
 
 require Cli from git
-  "https://github.com/leanprover/lean4-cli.git" @ "v4.17.0"
+  "https://github.com/leanprover/lean4-cli.git" @ "v4.18.0"
 
 require TensorLib from git
-  "https://github.com/leanprover/TensorLib.git" @ "v0.0.4"
+  "https://github.com/leanprover/TensorLib.git" @ "v0.0.5"
 
 -- Comment the above and uncomment this for local development
 -- require TensorLib from "../TensorLib"
