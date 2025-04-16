@@ -36,7 +36,6 @@ a simple file-IO pipeline;
   4. KLR writes klr.json
   5. Python reads klr.json into a data structure
 
-
 # Steps to make a new version/wheel
 
 1. Bump the build or minor version in
@@ -45,3 +44,10 @@ a simple file-IO pipeline;
 2. Create a git tag of the form v1.2.3 and push it to KLR repo
 
 This should trigger a build that uploads the artifacts to pypi.
+
+# Adding a new Lake package
+
+If you want to add a new directory with its own lakefile,
+please ensure you (relative) symlink lean-toolchain to that directory.
+Otherwise the VSCode plugin will use the top level directory
+lakefile.
