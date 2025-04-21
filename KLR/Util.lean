@@ -5,6 +5,7 @@ Authors: Paul Govereau, Sean McLaughlin
 -/
 
 -- Common Utilities
+import KLR.Util.SHA256
 
 namespace KLR
 

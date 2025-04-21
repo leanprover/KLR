@@ -8,3 +8,4 @@ import KLR.Core
 import KLR.Eval
 import KLR.Python
 import KLR.Trace
+import KLR.Util
