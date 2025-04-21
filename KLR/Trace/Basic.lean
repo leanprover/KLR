@@ -83,8 +83,8 @@ where
     | [x] => return x
     | x :: xs => do if (<- fn x) then return x else bop fn xs
   bopFn : BoolOp -> Err (Term -> Err Bool)
-    | .or  => return Term.isTrue
-    | .and => return Term.isFalse
+    | .lor  => return Term.isTrue
+    | .land => return Term.isFalse
 
 -- Binary Operators
 
@@ -238,7 +238,7 @@ def cmpOp : CmpOp -> Term -> Term -> Trace Bool
   | .notIn, l, r => return not (<- termIn l r)
 
 -- Python comparison chains are short-circuting
--- e.g. x < y < z  => x < y || y < z
+-- e.g. x < y < z  => x < y && y < z
 def compare : Term -> List CmpOp -> List Term -> Trace Term
   | x, [op], [y] => return bool (<- cmpOp op x y)
   | x, op::ops, y::ys => do

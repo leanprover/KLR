@@ -251,8 +251,8 @@ dead-code elimination for simple assignments.
 
 -- Convert an expression in assignment context (an L-Value).
 -- TODO: handle subscript
-def LValue : Expr -> Trace Term
-  | .exprPos e' p => withPos p (lval e')
+partial def LValue (e : Expr) : Trace Term :=
+  withPos e.pos (lval e.expr)
 where
   lval : Expr' -> Trace Term
   | .name id .store => return .expr (.value $ .var id) (.obj "object".toName)
@@ -368,8 +368,8 @@ inductive StmtResult where
 
 mutual
 
-partial def expr [FromNKI a] : Expr -> Trace a
-  | .exprPos e' p => withPos p do fromNKI? (<- expr' e')
+partial def expr [FromNKI a] (e : Expr) : Trace a :=
+  withPos e.pos do fromNKI? (<- expr' e.expr)
 
 -- This is only used for slices
 partial def integer? : Option Expr -> Trace (Option Int)
@@ -416,10 +416,10 @@ partial def expr' : Expr' -> Trace Term
       | _ => throw "not a callable type"
 
 partial def keyword (f : Expr -> Trace a) : Keyword -> Trace (String × a)
-  | .keyword id e p => withPos p do return (id, (<- f e))
+  | ⟨ id, e, p ⟩ => withPos p do return (id, (<- f e))
 
 partial def stmt : Stmt -> Trace StmtResult
-  | .stmtPos s' p => withPos p (stmt' s')
+  | ⟨ s', p ⟩ => withPos p (stmt' s')
 
 partial def stmt' : Stmt' -> Trace StmtResult
   | .pass => return .done
@@ -485,8 +485,8 @@ partial def bind_args (f : Fun)
       return (x, args.get (Fin.mk i h))
     else if let some v := kwargs.lookup x then
       return (x, v)
-    else if let some e := dflts.lookup x then
-      return (x, <- expr' e)
+    else if let some kw := dflts.find? fun k => k.id == x then
+      return (x, <- expr kw.value)
     else
       throw s!"argument {x} not supplied"
   -- rename tensors if asked to
@@ -539,15 +539,16 @@ over anything found during parsing.
 -/
 private def globals (k : Kernel) : Trace Unit := do
   let s <- get
-  for (n, f) in k.funcs do
-    let n := n.toName
+  for f in k.funcs do
+    let n := f.name.toName
     if not (s.globals.contains n) then
       extend_global n (.source f)
-  for (n,e) in k.globals do
+  for g in k.globals do
+    let n := g.id
     let name := n.toName
     if not (s.globals.contains name) then
       if not (k.undefinedSymbols.contains n) then
-        extend_global name (<- expr' e)
+        extend_global name (<- expr' g.value.expr)
 
 /-
 Check all of the undefined names against the global environment. If an
@@ -589,11 +590,11 @@ def checkUndefined (k : Kernel) : Trace Unit := do
 def traceKernel (k : Kernel) : Trace Core.Kernel := do
   globals k
   checkUndefined k
-  match k.funcs.lookup k.entry with
+  match k.funcs.find? fun f => f.name == k.entry with
   | none => throw s!"function {k.entry} not found"
   | some f => do
-      let args <- k.args.mapM expr'
-      let kwargs <- k.kwargs.mapM fun (x,e) => return (x, <- expr' e)
+      let args <- k.args.mapM expr
+      let kwargs <- k.kwargs.mapM fun kw => return (kw.id, <- expr kw.value)
       let args <- bind_args f args kwargs (rename := true)
       let res <- call f args
       let inputs := tensors (args.map fun x => x.snd)

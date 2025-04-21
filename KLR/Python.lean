@@ -48,9 +48,9 @@ inductive Ctx where
   | load | store | del
   deriving Repr
 
--- Python boolean operators
+-- Python boolean (logical) operators
 inductive BoolOp where
-  | and | or
+  | land | lor
   deriving Repr
 
 -- Python comparison operators
@@ -71,8 +71,9 @@ inductive BinOp where
   deriving Repr
 
 mutual
-inductive Expr where
-  | exprPos (expr : Expr') (pos : Pos)
+structure Expr where
+  expr : Expr'
+  pos : Pos
   deriving Repr
 
 inductive Expr' where
@@ -92,14 +93,17 @@ inductive Expr' where
   | call (f: Expr) (args: List Expr) (keywords : List Keyword)
   deriving Repr
 
-inductive Keyword where
-  | keyword (id : String) (value : Expr) (pos : Pos)
+structure Keyword where
+  id : String
+  value : Expr
+  pos : Pos
   deriving Repr
 end
 
 mutual
-inductive Stmt where
-  | stmtPos (stmt : Stmt') (pos : Pos)
+structure Stmt where
+  stmt : Stmt'
+  pos : Pos
   deriving Repr
 
 inductive Stmt' where
@@ -139,10 +143,10 @@ encodes the kw_defaults as a list with None for missing defaults.
 structure Args where
   posonlyargs : List String
   args : List String
-  defaults: List Expr'
+  defaults: List Expr
   vararg : Option String
   kwonlyargs : List String
-  kw_defaults: List (String × Expr')
+  kw_defaults: List Keyword
   kwarg : Option String
   deriving Repr
 
@@ -154,12 +158,14 @@ def Args.required (args : Args) : List String :=
   let pargs := args.posonlyargs ++ args.args
   pargs.take (pargs.length - args.defaults.length)
 
-def Args.all_defaults (args : Args) : List (String × Expr') :=
+def Args.all_defaults (args : Args) : List Keyword :=
   let pargs := args.posonlyargs ++ args.args
   let dflt  := pargs.reverse.zip args.defaults.reverse
+  let dflt  := dflt.map fun (n, e) => .mk n e {}
   dflt ++ args.kw_defaults
 
 structure Fun where
+  name : String
   line : Nat
   source : String
   args : Args
@@ -190,11 +196,11 @@ instance : Repr Lean.Json where
 
 structure Kernel where
   entry : String
-  funcs : List (String × Fun)
-  args : List Expr'
-  kwargs : List (String × Expr')
-  globals : List (String × Expr')
-  undefinedSymbols : Std.HashSet String
+  funcs : List Fun
+  args : List Expr
+  kwargs : List Keyword
+  globals : List Keyword
+  undefinedSymbols : List String
   deriving Repr
 
 /-
@@ -215,12 +221,12 @@ def Kernel.inferArguments (k : Kernel) : Kernel × List String :=
     | some [] => ({ k with args := [] }, [])
     | some args => ({ k with args := args }, [s!"Warning: inferred arbitrary values for {k.entry}"])
 where
-  inferArgs : Option (List Expr') := do
-    let f <- k.funcs.lookup k.entry
+  inferArgs : Option (List Expr) := do
+    let f <- k.funcs.find? fun f => f.name == k.entry
     let args := f.args.required
-    let ten := Expr.exprPos (.const (.int 10)) {}
+    let ten := { expr := .const (.int 10), pos := {} }
     let dtype := "nki.language.float32"
-    let tensors := args.map fun _ => .tensor [ten,ten] dtype
+    let tensors := args.map fun _ => { expr := .tensor [ten,ten] dtype, pos := {} }
     return tensors
 
 -------------------------------------------------------------------------------
@@ -318,8 +324,8 @@ def exprCtx : Json -> Parser Ctx
 
 def boolOp (j : Json) : Parser BoolOp := do
   match <- str j with
-  | "And" => return .and
-  | "Or" => return .or
+  | "And" => return .land
+  | "Or" => return .lor
   | s => throw s!"unknown operator {s}"
 
 def cmpOp (j : Json) : Parser CmpOp := do
@@ -362,7 +368,7 @@ def binOp (j: Json) : Parser BinOp := do
   | s => throw s!"unknown operator {s}"
 
 partial def expr (j : Json) : Parser Expr :=
-  withPos expr' Expr.exprPos j
+  withPos expr' Expr.mk j
 where
   expr' (key : String) (j : Json) : Parser Expr' := do
     let boolOp := field boolOp j
@@ -397,7 +403,7 @@ where
     return ⟨ <- field str j "arg", <- field expr j "value", <- pos j ⟩
 
 partial def stmt (j : Json) : Parser Stmt :=
-  withPos stmt' Stmt.stmtPos j
+  withPos stmt' Stmt.mk j
 where
   stmt' (key : String) (j : Json) : Parser Stmt' := do
     let binOp := field binOp j
@@ -422,7 +428,7 @@ where
 -- Both global references and arguments are processed in the global
 -- environment. These terms do not have a position, and must be
 -- evaluable in the default environment.
-partial def global : Json -> Parser Expr'
+partial def global' : Json -> Parser Expr'
   | .null => return .const .none
   | .obj (.node _ _ "fun"   (.str  s)    _) => return .name s .load
   | .obj (.node _ _ "mod"   (.str  s)    _) => return .name s .load
@@ -433,25 +439,30 @@ partial def global : Json -> Parser Expr'
   | .obj (.node _ _ "tuple" (.arr arr)   _) => return .tuple (<- globals arr) .load
   | .obj (.node _ _ "list"  (.arr arr)   _) => return .list  (<- globals arr) .load
   | .obj (.node _ _ "tensor" kvs         _) => do
-      let dtype <- field global kvs "dtype"
-      let shape <- field global kvs "shape"
+      let dtype <- field global' kvs "dtype"
+      let shape <- field global' kvs "shape"
       match dtype, shape with
       | .const (.string s), .tuple l _ => return .tensor l s
       | _, _ => throw "malformed tensor type"
   | j => throw s!"malformed global environment '{j}'"
 where
   globals (arr : Array Json) : Parser (List Expr) :=
-    arr.toList.mapM fun x => return .exprPos (<- global x) {}
+    arr.toList.mapM fun x => return .mk (<- global' x) {}
+
+private def global (j : Json) : Parser Expr :=
+  return { expr := <- global' j, pos := {} }
 
 def arguments (j : Json) : Parser Args := do
   let obj <- j.getObjVal? "arguments"
+  let kws <- field (dict global) obj "kw_defaults"
+  let kws := kws.map fun (n,e) => Keyword.mk n e {}
   return {
     posonlyargs := (<- field (list arg)    obj "posonlyargs")
     args        := (<- field (list arg)    obj "args")
     defaults    := (<- field (list global) obj "defaults")
     vararg      := (<- field (opt arg)     obj "vararg")
     kwonlyargs  := (<- field (list arg)    obj "kwonlyargs")
-    kw_defaults := (<- field (dict global) obj "kw_defaults")
+    kw_defaults := kws
     kwarg       := (<- field (opt arg)     obj "kwarg")
   }
 where
@@ -465,16 +476,19 @@ def function (j : Json) : Parser Fun := do
   withSrc line source do
     let args <- field arguments j "args"
     let body <- field (list stmt) j "body"
-    return Fun.mk line source args body
+    return Fun.mk "" line source args body
 
 def kernel (j : Json) : Parser Kernel := do
   let name <- field str j "entry"
   let funcs <- field (dict function) j "funcs"
+  let funcs := funcs.map fun (name,f) => { f with name }
   let args <- field (list global) j "args"
   let kwargs <- field (dict global) j "kwargs"
+  let kwargs := kwargs.map fun (n,e) => Keyword.mk n e {}
   let globals <- field (dict global) j "globals"
+  let globals := globals.map fun (n,e) => Keyword.mk n e {}
   let undefinedSymbols <- field (list str) j "undefined_symbols"
-  let undefinedSymbols := Std.HashSet.ofList undefinedSymbols
+  let undefinedSymbols := undefinedSymbols.eraseDups
   return Kernel.mk name funcs args kwargs globals undefinedSymbols
 
 def parse (s : String) : Err Kernel := do

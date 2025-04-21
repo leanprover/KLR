@@ -161,11 +161,11 @@ def parseAST (p : Parsed) : IO UInt32 := do
     IO.println s!"{repr kernel}"
     return 0
   IO.println s!"AST summary for kernel {kernel.entry}"
-  let fs := String.intercalate "," $ kernel.funcs.map Prod.fst
+  let fs := String.intercalate "," $ kernel.funcs.map fun f => f.name
   IO.println s!"Source Functions: {fs}"
-  let gs := String.intercalate "," $ kernel.globals.map Prod.fst
+  let gs := String.intercalate "," $ kernel.globals.map fun kw => kw.id
   IO.println s!"Globals: {gs}"
-  IO.println s!"Undefined names {kernel.undefinedSymbols.toList.mergeSort}"
+  IO.println s!"Undefined names {kernel.undefinedSymbols.mergeSort}"
   return 0
 
 def trace (p : Parsed) : IO UInt32 := do
