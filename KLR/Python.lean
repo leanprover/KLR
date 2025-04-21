@@ -78,6 +78,7 @@ structure Expr where
 
 inductive Expr' where
   | const (value : Const)
+    -- TODO we don't need tensor here, it can be NKI only
   | tensor (shape : List Expr) (dtype : String)
   | name (id : String) (ctx : Ctx)
   | attr (value : Expr) (id : String) (ctx : Ctx)
@@ -110,8 +111,8 @@ inductive Stmt' where
   | pass
   | expr (e : Expr)
   | assert (e : Expr)
-  | ret (e: Expr)
-  | assign (xs: List Expr) (e: Expr)
+  | ret (e : Expr)
+  | assign (xs : List Expr) (e: Expr)
   | augAssign (x : Expr) (op : BinOp) (e : Expr)
   | annAssign (x : Expr) (annotation : Expr) (value : Option Expr)
   | ifStm (e : Expr) (thn els: List Stmt)
