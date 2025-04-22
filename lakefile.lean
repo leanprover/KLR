@@ -14,6 +14,9 @@ lean_exe "klr" where
 require Cli from git
   "https://github.com/leanprover/lean4-cli.git" @ "v4.18.0"
 
+require plausible from git
+  "https://github.com/leanprover-community/plausible" @ "v4.18.0"
+
 require TensorLib from git
   "https://github.com/leanprover/TensorLib.git" @ "v0.0.5"
 
