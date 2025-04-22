@@ -2,6 +2,7 @@ import KLR
 import KLR.BIR.Compile
 import Cli
 import KLR.Eval
+import KLR.NEFF
 import KLR.Util
 import TensorLib.Npy
 import TensorLib.Tensor
@@ -235,6 +236,12 @@ def parseBIR (p : Parsed) : IO UInt32 := do
   IO.println $ asString p bir
   return 0
 
+def neffInfo (p : Parsed) : IO UInt32 := do
+  let file := p.positionalArg! "file" |>.as! String
+  let neff <- NEFF.File.read file
+  IO.println (repr neff)
+  return 0
+
 def nkiToKLR (p : Parsed) : IO UInt32 := do
   let debug := p.hasFlag "debug"
   let file := p.positionalArg! "moduleFileName" |>.as! String
@@ -353,6 +360,14 @@ def parseBIRCmd := `[Cli|
     file : String; "File of BIR JSON"
 ]
 
+def neffInfoCmd := `[Cli|
+  "neff-info" VIA neffInfo;
+  "Parse a NEFF file"
+
+  ARGS:
+    file : String; "NEFF file"
+]
+
 def nkiToKLRCmd := `[Cli|
   "nki-to-klr" VIA nkiToKLR;
   "Compile NKI kernel to KLR"
@@ -393,6 +408,7 @@ def klrCmd : Cmd := `[Cli|
     compileCmd;
     evalKLRCmd;
     gatherCmd;
+    neffInfoCmd;
     nkiToKLRCmd;
     parseASTCmd;
     parseKLRCmd;

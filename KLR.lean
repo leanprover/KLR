@@ -6,6 +6,7 @@ Authors: Paul Govereau, Sean McLaughlin
 import KLR.BIR
 import KLR.Core
 import KLR.Eval
+import KLR.NEFF
 import KLR.NKI
 import KLR.Python
 import KLR.Trace
