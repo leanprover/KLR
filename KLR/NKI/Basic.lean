@@ -90,7 +90,7 @@ end
 
 structure Param where
   name : String
-  default : Option Expr
+  dflt : Option Expr
   deriving Repr
 
 structure Fun where
