@@ -5,6 +5,7 @@ Authors: Paul Govereau, Sean McLaughlin
 -/
 
 import KLR.Util.Base64
+import KLR.Util.Gzip
 import KLR.Util.SHA256
 
 namespace KLR

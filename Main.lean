@@ -4,6 +4,7 @@ import Cli
 import KLR.Eval
 import KLR.NEFF
 import KLR.Util
+import KLR.Util.Gzip
 import TensorLib.Npy
 import TensorLib.Tensor
 

@@ -3,6 +3,20 @@ open Lake DSL
 
 package "KLR" where
 
+def moreLinkArgs :=
+  let all := #["-lz"]
+  if System.Platform.isOSX then
+    all ++ #[
+      "-L/opt/homebrew/opt/zlib/lib",
+      "-L/usr/local/opt/zlib/lib"
+    ]
+  else
+    -- TODO: figure out how to properly compile/link with ssp turned on
+    all ++ #[
+      "-fno-stack-protector"
+    ]
+
+@[default_target]
 lean_lib "KLR" where
   defaultFacets := #[LeanLib.staticFacet]
 
@@ -10,9 +24,13 @@ lean_lib "KLR" where
 lean_exe "klr" where
   nativeFacets := fun _ => #[Module.oFacet]
   root := `Main
+  moreLinkArgs := moreLinkArgs
+  supportInterpreter := true
 
 require Cli from git
   "https://github.com/leanprover/lean4-cli.git" @ "v4.18.0"
+
+require Gzip from "KLR/Util/Gzip"
 
 require plausible from git
   "https://github.com/leanprover-community/plausible" @ "v4.18.0"
