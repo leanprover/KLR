@@ -9,7 +9,7 @@ PY_CFLAGS  := -I${PY_DIR}/include/python${PY_VER}
 PY_LDFLAGS := $(shell ${PY_CFG} --ldflags)
 PY_LIBS    := "-lpython${PY_VER}"
 
-C := region.c frontend.c
+C := region.c peg_parser.c gather.c frontend.c
 O := $(patsubst %.c,%.${PY_VER}.o,$C)
 
 .SUFFIXES:

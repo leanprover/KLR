@@ -4,10 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 */
 #include "frontend.h"
 
-// TODO: included just for testing...
-#include "ast_python_core.h"
-#include "ast_nki.h"
-
 // This file defines the frontend Python extension module and the
 // Kernel type contained therein.
 
@@ -34,12 +30,23 @@ static int kernel_init(struct kernel *self, PyObject *args, PyObject *kwds) {
   Py_INCREF(f);
   self->f = f;
   self->specialized = false;
+  self->region = NULL;
+  self->python_kernel = NULL;
+  self->nki_kernel = NULL;
+
+  if (!gather(self)) {
+    Py_DECREF(self->f);
+    return -1;
+  }
   return 0;
 }
 
 // Custom deallocator for Kernel type
 static void kernel_dealloc(struct kernel *self) {
+  if (!self) return;
   Py_XDECREF(self->f); // NULL is OK
+  if (self->region)
+    region_destroy(self->region);
   Py_TYPE(self)->tp_free((PyObject *) self);
 }
 
@@ -58,7 +65,7 @@ static PyObject* kernel_specialize(struct kernel *self, PyObject *args, PyObject
 static PyObject* kernel_serialize(struct kernel *self, PyObject *args) {
   (void)args;
   if (!self->specialized) {
-    PyErr_SetString(PyExc_Exception, "specialize must be called before serialize");
+    PyErr_SetString(PyExc_RuntimeError, "specialize must be called before serialize");
     return NULL;
   }
   return PyByteArray_FromStringAndSize("unimp", 5);
@@ -87,9 +94,28 @@ static PyObject* deserialize(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
-
 // ----------------------------------------------------------------------------
 // -- Module Definition
+
+// Internal Python utilities
+// These definitions are added to the frontend module and are called
+// during the gather step. No point in writing these in C as inspect
+// and textwrap are pure python anyway.
+// Note: C23 #embed would be nice here
+// Note: These will no longer be needed when we upgrade the parser.
+const char utils[] = "\
+import inspect\n\
+import textwrap\n\
+def _get_src(f):\n\
+  file = inspect.getsourcefile(f)\n\
+  src, line = inspect.getsourcelines(f)\n\
+  return file, line, textwrap.dedent(''.join(src))\n\
+def _bind_args(f, args, kwargs):\n\
+  s = inspect.signature(f)\n\
+  a = s.bind(*args, **kwargs)\n\
+  a.apply_defaults()\n\
+  return a.arguments\n\
+";
 
 static PyMethodDef KernelMethods[] = {
   { "specialize", (void*)kernel_specialize, METH_VARARGS|METH_KEYWORDS,
@@ -138,9 +164,27 @@ PyMODINIT_FUNC PyInit_frontend(void) {
   if (!m)
     return NULL;
 
-  if (PyModule_AddObject(m, "Kernel", (PyObject*) &KernelType) < 0) {
+  // This really can't fail, CPython will assert in debug builds
+  // and segfault in production builds if dict is NULL.
+  PyObject *dict = PyModule_GetDict(m);
+  if (!dict) {
+    PyErr_SetString(PyExc_SystemError, "frontend module has no dictionary");
+    return NULL;
+  }
+
+  // Add Kernel object, do not decrement reference
+  if (PyDict_SetItemString(dict, "Kernel", (PyObject*) &KernelType) < 0) {
     Py_DECREF(m);
     return NULL;
   }
+
+  // Add python utility functions
+  PyObject *res = PyRun_String(utils, Py_file_input, dict, dict);
+  Py_DECREF(dict);
+  if (!res) {
+    Py_DECREF(m);
+    return NULL;
+  }
+  Py_DECREF(res);
   return m;
 }

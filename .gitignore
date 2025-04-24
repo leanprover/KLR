@@ -1,5 +1,6 @@
 \.lake/
 __pycache__/
+*.o
 *.so
 *.dSYM
 .vscode/
