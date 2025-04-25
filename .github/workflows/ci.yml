@@ -31,13 +31,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install libz on Ubuntu
+      - name: Install C libraries on Ubuntu
         if: startsWith(matrix.os, 'ubuntu')
-        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev
+        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev libarchive-dev
 
-      - name: Install libz on macOS
+      - name: Install C libraries on macOS
         if: startsWith(matrix.os, 'macos')
-        run: brew install zlib
+        run: brew install zlib libarchive
 
       - uses: leanprover/lean-action@v1
         with:
