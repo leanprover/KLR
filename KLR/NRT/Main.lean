@@ -10,11 +10,18 @@ def runNeff (p : Parsed) : IO UInt32 := do
   let neff := p.positionalArg! "neffFile" |>.as! String
   let inputs := p.variableArgsAs! String
   if inputs.size % 2 != 0 then throw $ IO.userError "inputs must be in pairs name/file" else
-  let rec split (xs : List String) : List NRT.TensorFile := match xs with
-  | [] => []
-  | x :: y :: rest => NRT.TensorFile.mk x y :: split rest
+  let rec split (xs : List String) : IO (List NRT.TensorFile) := match xs with
+  | [] => return []
+  | name :: path :: rest => do
+    let fps <- split rest
+    if ! (<- System.FilePath.pathExists path) then
+      throw $ IO.userError s!"Path {path} doesn't exist"
+    else if name.contains '.' || name.contains '/' then
+      throw $ IO.userError s!"Name {name} shouldn't contain path-like symbols like '.' or '/'"
+    else
+      return NRT.TensorFile.mk name path :: fps
   | [_] => impossible
-  let inputs := split inputs.toList
+  let inputs <- split inputs.toList
   let mut res <- NRT.execute neff inputs.toArray
   if p.hasFlag "outdir" then
     let dir := p.flag! "outdir" |>.as! String
