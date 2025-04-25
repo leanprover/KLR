@@ -29,7 +29,7 @@ Authors: Paul Govereau, Sean McLaughlin
 #define DEBUG_ENABLED 0
 
 #if DEBUG_ENABLED
-#define DEBUG_PRINTF(...) fprintf(stderr, __VA_ARGS__)
+#define DEBUG_PRINTF(...) fprintf(stderr, __VA_ARGS__); fflush(stderr);
 #else
 #define DEBUG_PRINTF(...) ((void)0)
 #endif
@@ -99,25 +99,35 @@ LEAN_EXPORT lean_object *lean_nrt_execute(b_lean_obj_arg neff_file_name, b_lean_
   assert(lean_is_array(input_tensorfiles));
   lean_object* lean_result = NULL;
 
-  NRT_STATUS nrt_result;
-  bool error = false;
+  NRT_STATUS nrt_result = NRT_SUCCESS;
+
+  // Declare variables before any gotos. This was a source of undefined behavior in a previous revision.
+  nrt_model_t *model = NULL;
+  nrt_tensor_info_array_t *tensor_info_array = NULL;
+  nrt_tensor_set_t *input_tensor_set = NULL;
+  nrt_tensor_set_t *output_tensor_set = NULL;
+  input_tensor_info_array_t input_tensor_info_array = {0};
+  void *neff_data = NULL;
+  lean_object *output_tensorfiles;
 
   DEBUG_PRINTF("Mapping NEFF\n");
   size_t neff_size = -1;
   const char *c_neff_file_name = lean_string_cstr(neff_file_name);
   assert(c_neff_file_name != NULL);
-  void *neff_data = mmap_file(c_neff_file_name, &neff_size); // Needs munmap
-  if (neff_data == NULL) { 
-    lean_result = io_err("Unable to map NEFF file: %s", c_neff_file_name); 
+  neff_data = mmap_file(c_neff_file_name, &neff_size);
+  if (neff_data == NULL) {
+    lean_result = io_err("Unable to map NEFF file: %s", c_neff_file_name);
     goto cleanup;
   }
 
   DEBUG_PRINTF("Allocating tensors\n");
   size_t input_tensorfile_count = lean_array_size(input_tensorfiles);
-  input_tensor_info_array_t input_tensor_info_array = {0};
-  input_tensor_info_array.entries = malloc(input_tensorfile_count * sizeof(input_tensor_info_t)); // Needs free
-  if (input_tensor_info_array.entries == NULL) { 
-    lean_result = io_err("Can't malloc tensors"); 
+  input_tensor_info_array.entries = NULL;
+  input_tensor_info_array.entry_count = 0;
+
+  input_tensor_info_array.entries = malloc(input_tensorfile_count * sizeof(input_tensor_info_t));
+  if (input_tensor_info_array.entries == NULL) {
+    lean_result = io_err("Can't malloc tensors");
     goto cleanup;
   }
   input_tensor_info_array.entry_count = input_tensorfile_count;
@@ -125,11 +135,15 @@ LEAN_EXPORT lean_object *lean_nrt_execute(b_lean_obj_arg neff_file_name, b_lean_
   assert(input_tensorfile_array != NULL);
   for (int i = 0; i < input_tensorfile_count; i++) {
     input_tensor_info_t *current_input = &input_tensor_info_array.entries[i];
+    current_input->name = NULL;
+    current_input->size = 0;
+    current_input->data = NULL;
+
     lean_object *current_tensorfile = input_tensorfile_array[i];
     lean_object *current_name = lean_ctor_get(current_tensorfile, 0);
     lean_object *current_file = lean_ctor_get(current_tensorfile, 1);
     const char *c_current_file = lean_string_cstr(current_file);
-    void* input_data = mmap_file(c_current_file, &current_input->size); // Needs munmap
+    void* input_data = mmap_file(c_current_file, &current_input->size);
     if (input_data == NULL) {
       lean_result = io_err("Unable to mmap inputs file");
       goto cleanup;
@@ -139,22 +153,20 @@ LEAN_EXPORT lean_object *lean_nrt_execute(b_lean_obj_arg neff_file_name, b_lean_
   }
 
   DEBUG_PRINTF("Initializing runtime\n");
-  nrt_result = nrt_init(NRT_FRAMEWORK_TYPE_NO_FW, "", ""); // needs nrt_close
+  nrt_result = nrt_init(NRT_FRAMEWORK_TYPE_NO_FW, "", "");
   if (nrt_result != NRT_SUCCESS) {
     lean_result = io_err("Can't initialize runtime");
     goto cleanup;
-  } 
+  }
 
   DEBUG_PRINTF("Loading NEFF\n");
-  nrt_model_t *model = NULL;
-  nrt_result = nrt_load(neff_data, neff_size, -1, -1, &model); // Needs nrt_unload
+  nrt_result = nrt_load(neff_data, neff_size, -1, -1, &model);
   if (nrt_result != NRT_SUCCESS) {
     lean_result = io_err("Can't load NEFF");
     goto cleanup;
   }
 
   DEBUG_PRINTF("Getting IO tensor information\n");
-  nrt_tensor_info_array_t *tensor_info_array = NULL;
   nrt_result = nrt_get_model_tensor_info(model, &tensor_info_array);
   if (nrt_result != NRT_SUCCESS) {
     lean_result = io_err("Unable to get model tensor information\n");
@@ -164,8 +176,6 @@ LEAN_EXPORT lean_object *lean_nrt_execute(b_lean_obj_arg neff_file_name, b_lean_
   assert(tensor_info_array->tensor_array != NULL);
 
   DEBUG_PRINTF("Creating I/O data (%ld tensors)\n", tensor_info_array->tensor_count);
-  nrt_tensor_set_t *input_tensor_set = NULL;
-  nrt_tensor_set_t *output_tensor_set = NULL;
 
   nrt_result = nrt_allocate_tensor_set(&input_tensor_set);
   if (nrt_result != NRT_SUCCESS) {
@@ -212,7 +222,7 @@ LEAN_EXPORT lean_object *lean_nrt_execute(b_lean_obj_arg neff_file_name, b_lean_
         continue;
       }
       if (input_tensor.size != tensor_info->size) {
-        lean_result = io_err("Input file for tensor %s has incorrect size %lu, expected %lu", 
+        lean_result = io_err("Input file for tensor %s has incorrect size %lu, expected %lu",
           tensor_info->name, input_tensor_info_array.entries[j].size, tensor_info->size);
         goto cleanup;
       }
@@ -223,7 +233,7 @@ LEAN_EXPORT lean_object *lean_nrt_execute(b_lean_obj_arg neff_file_name, b_lean_
       }
       break; // we found the tensor we wanted
     }
-  }  
+  }
 
   DEBUG_PRINTF("Executing model\n");
   nrt_result = nrt_execute(model, input_tensor_set, output_tensor_set);
@@ -235,7 +245,6 @@ LEAN_EXPORT lean_object *lean_nrt_execute(b_lean_obj_arg neff_file_name, b_lean_
   }
 
   DEBUG_PRINTF("Saving outputs\n");
-  lean_object *output_tensorfiles;
   output_tensorfiles = lean_mk_empty_array();
   for (int i = 0; i < tensor_info_array->tensor_count; i++) {
     nrt_tensor_info_t *tensor_info = &tensor_info_array->tensor_array[i];
@@ -243,18 +252,18 @@ LEAN_EXPORT lean_object *lean_nrt_execute(b_lean_obj_arg neff_file_name, b_lean_
     nrt_tensor_t *tensor = NULL;
     if (tensor_info->usage != NRT_TENSOR_USAGE_OUTPUT) { continue; }
     void *tensor_data = malloc(tensor_info->size); // needs free
-    if (tensor_data == NULL) { 
-      lean_result = io_err("Can't malloc tensordata"); 
+    if (tensor_data == NULL) {
+      lean_result = io_err("Can't malloc tensordata");
       goto cleanup;
     }
     nrt_result = nrt_get_tensor_from_tensor_set(output_tensor_set, tensor_info->name, &tensor);
-    if (nrt_result != NRT_SUCCESS) { 
-      lean_result = io_err("Can't get tensor from set"); 
+    if (nrt_result != NRT_SUCCESS) {
+      lean_result = io_err("Can't get tensor from set");
       goto cleanup;
     }
     nrt_result = nrt_tensor_read(tensor, tensor_data, 0, tensor_info->size);
-    if (nrt_result != NRT_SUCCESS) { 
-      lean_result = io_err("Can't read tensor"); 
+    if (nrt_result != NRT_SUCCESS) {
+      lean_result = io_err("Can't read tensor");
       goto cleanup;
     }
     static char filename[FILENAME_MAX_LENGTH];
@@ -264,12 +273,12 @@ LEAN_EXPORT lean_object *lean_nrt_execute(b_lean_obj_arg neff_file_name, b_lean_
     lean_ctor_set(tensor_file, 1, lean_mk_string(filename));
     output_tensorfiles = lean_array_push(output_tensorfiles, tensor_file);
     int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (fd < 0) { 
+    if (fd < 0) {
       lean_result = io_err("Can't open output file");
       free(tensor_data);
       goto cleanup;
     }
-    if (write(fd, tensor_data, tensor_info->size) != tensor_info->size) { 
+    if (write(fd, tensor_data, tensor_info->size) != tensor_info->size) {
       lean_result = io_err("Can't write full output file");
       close(fd);
       free(tensor_data);
@@ -283,53 +292,83 @@ LEAN_EXPORT lean_object *lean_nrt_execute(b_lean_obj_arg neff_file_name, b_lean_
 
   cleanup:
 
-  DEBUG_PRINTF("Unloading model\n");
+  DEBUG_PRINTF("Cleanup starting\n");
+
   if (model != NULL) {
+    DEBUG_PRINTF("Unloading model\n");
     nrt_result = nrt_unload(model);
     if (nrt_result != NRT_SUCCESS) {
       P_ERR("Error unloading model\n");
     }
   }
-  if (tensor_info_array != NULL) {
+
+  if (tensor_info_array != NULL && tensor_info_array->tensor_array != NULL) {
     DEBUG_PRINTF("Freeing tensors\n");
     for (int i = 0; i < tensor_info_array->tensor_count; i++) {
       nrt_tensor_info_t *tensor_info = &tensor_info_array->tensor_array[i];
-      assert(tensor_info != NULL);
+      if (tensor_info == NULL) continue;
+
       nrt_tensor_t *tensor = NULL;
-      nrt_tensor_set_t *set = tensor_info->usage == NRT_TENSOR_USAGE_INPUT ? input_tensor_set : output_tensor_set;
-      nrt_result = nrt_get_tensor_from_tensor_set(set, tensor_info->name, &tensor);
-      if (nrt_result != NRT_SUCCESS) {
-        P_ERR("Unable to get tensor from set\n");
-      } else {
-        nrt_tensor_free(&tensor);
+      nrt_tensor_set_t *set = NULL;
+
+      if (tensor_info->usage == NRT_TENSOR_USAGE_INPUT) {
+        set = input_tensor_set;
+      } else if (tensor_info->usage == NRT_TENSOR_USAGE_OUTPUT) {
+        set = output_tensor_set;
+      }
+
+      if (set != NULL && tensor_info->name != NULL) {
+        nrt_result = nrt_get_tensor_from_tensor_set(set, tensor_info->name, &tensor);
+        if (nrt_result != NRT_SUCCESS) {
+          P_ERR("Unable to get tensor from set\n");
+        } else if (tensor != NULL) {
+          nrt_tensor_free(&tensor);
+        }
       }
     }
   }
+
   if (input_tensor_set != NULL) {
+    DEBUG_PRINTF("Destroying input tensor set\n");
     nrt_destroy_tensor_set(&input_tensor_set);
   }
   if (output_tensor_set != NULL) {
+    DEBUG_PRINTF("Destroying output tensor set\n");
     nrt_destroy_tensor_set(&output_tensor_set);
   }
+
   if (tensor_info_array != NULL) {
+    DEBUG_PRINTF("Freeing tensor info array\n");
     if (nrt_free_model_tensor_info(tensor_info_array) != NRT_SUCCESS) {
       P_ERR("Error freeing tensor info\n");
     }
   }
-  for (int i = 0; i < input_tensor_info_array.entry_count; i++) {
-    void* data = input_tensor_info_array.entries[i].data;
-    if (data != NULL) {
-      int n = munmap(data, input_tensor_info_array.entries[i].size);
-      if (n != 0) { P_ERR("Error freeing input tensor\n"); };
+
+  if (input_tensor_info_array.entries != NULL) {
+    DEBUG_PRINTF("Cleaning up input tensor info array\n");
+    for (int i = 0; i < input_tensor_info_array.entry_count; i++) {
+      void* data = input_tensor_info_array.entries[i].data;
+      if (data != NULL) {
+        int n = munmap(data, input_tensor_info_array.entries[i].size);
+        if (n != 0) {
+          P_ERR("Error freeing input tensor %d\n", i);
+        }
+      }
     }
+    free(input_tensor_info_array.entries);
+    input_tensor_info_array.entries = NULL;
   }
-  free(input_tensor_info_array.entries);
-  DEBUG_PRINTF("Cleaning up the runtime\n");
+
+  // TODO: For Lean, dealloc output_tensorfiles and all tensors inside
+
+  DEBUG_PRINTF("Closing runtime\n");
   nrt_close();
 
   if (neff_data != NULL) {
+    DEBUG_PRINTF("Unmapping NEFF data\n");
     munmap(neff_data, neff_size);
   }
 
+  DEBUG_PRINTF("Cleanup complete\n");
   return lean_result;
 }
