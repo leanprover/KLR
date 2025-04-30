@@ -5,12 +5,12 @@ Authors: Paul Govereau, Sean McLaughlin
 -/
 
 import KLR.Util.Base64
+import KLR.Util.ByteArray
 import KLR.Util.Gzip
 import KLR.Util.Json
 import KLR.Util.SHA256
 
 namespace KLR
-
 
 /-
 The default choice for an error monad is `Except String`, used for simple
@@ -26,9 +26,6 @@ instance [Monad m] [MonadExcept String m] : MonadLift Err m where
     | .ok x => return x
     | .error s => throw s
 
-/-
-The default choice for a state monad is `EStateM String`.
--/
 abbrev StM := EStateM String
 
 def impossible {a : Type} [h : Inhabited a] (msg : String := "") :=
@@ -39,6 +36,5 @@ def get! [Inhabited a] (x : Err a) : a := match x with
 | .ok x => x
 
 def natDivCeil (num denom : Nat) : Nat := (num + denom - 1) / denom
-
 
 end KLR
