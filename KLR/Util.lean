@@ -6,9 +6,11 @@ Authors: Paul Govereau, Sean McLaughlin
 
 import KLR.Util.Base64
 import KLR.Util.Gzip
+import KLR.Util.Json
 import KLR.Util.SHA256
 
 namespace KLR
+
 
 /-
 The default choice for an error monad is `Except String`, used for simple
@@ -37,3 +39,6 @@ def get! [Inhabited a] (x : Err a) : a := match x with
 | .ok x => x
 
 def natDivCeil (num denom : Nat) : Nat := (num + denom - 1) / denom
+
+
+end KLR
