@@ -42,5 +42,6 @@ def NKIEnv : List (Name × Term) :=
   , const_var (nl "hbm")
   , const_var (nl "sbuf")
   , const_var (nl "psum")
+  , (nl "mgrid", .mgrid)
   ]
   ++ NKIBuiltins.map fun (x,_) => (x, .builtin x (.obj x) none)
