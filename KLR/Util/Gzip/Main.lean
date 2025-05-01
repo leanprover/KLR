@@ -30,7 +30,7 @@ def hexToBytes (s : String) : Option ByteArray := Id.run do
   | [] | [_] => []
   | x0 :: x1 :: xs => (x0, x1) :: split xs
   let s := if s.length % 2 == 0 then s else "0" ++ s
-  let mut buf := ByteArray.mkEmpty (s.length / 2)
+  let mut buf := ByteArray.emptyWithCapacity (s.length / 2)
   for (lo, hi) in split s.data do
     match hexCharToUInt8 hi lo with
     | none => return none

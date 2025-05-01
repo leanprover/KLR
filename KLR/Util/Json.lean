@@ -44,7 +44,7 @@ instance HashMapFromJson [FromJson a] : FromJson (HashMap String a) where
     node.foldM (fun m k v => do
       let v <- fromJson? v
       return m.insert k v
-    ) HashMap.empty
+    ) HashMap.emptyWithCapacity
 
 instance HashMapToJson [ToJson a] : ToJson (HashMap String a) where
   toJson m := Json.mkObj $ m.toList.map fun (k, v) => (k, toJson v)

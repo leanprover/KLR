@@ -80,7 +80,7 @@ private def padMessage (message : Array UInt8) : Array UInt8 := Id.run do
   let paddingSize := 1 + k + 8
 
   -- Create padded message
-  let mut padded := Array.mkArray (msgLen + paddingSize) 0
+  let mut padded := Array.replicate (msgLen + paddingSize) 0
 
   -- Copy original message
   for i in [:msgLen] do
@@ -99,7 +99,7 @@ private def padMessage (message : Array UInt8) : Array UInt8 := Id.run do
 /-- Process a 64-byte block -/
 private def processBlock (block : Array UInt8) (hash : Array UInt32) : Array UInt32 := Id.run do
   -- Prepare message schedule
-  let mut w := Array.mkArray 64 (0 : UInt32)
+  let mut w := Array.replicate 64 (0 : UInt32)
 
   -- Copy block into first 16 words (32-bit big-endian integers)
   for i in [0:16] do
@@ -161,7 +161,7 @@ private def hash (message : Array UInt8) : Array UInt8 := Id.run do
   -- Process message in 64-byte blocks
   for blockStart in List.range (padded.size / 64) do
     let blockOffset := blockStart * 64
-    let mut block := Array.mkArray 64 (0 : UInt8)
+    let mut block := Array.replicate 64 (0 : UInt8)
 
     -- Extract current block
     for i in [0:64] do
@@ -171,7 +171,7 @@ private def hash (message : Array UInt8) : Array UInt8 := Id.run do
     hashValues := processBlock block hashValues
 
   -- Convert hash values to bytes
-  let mut result := Array.mkArray 32 (0 : UInt8)
+  let mut result := Array.replicate 32 (0 : UInt8)
   for i in [0:8] do
     let bytes := uint32ToBytes hashValues[i]!
     for j in [0:4] do

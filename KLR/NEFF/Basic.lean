@@ -116,7 +116,7 @@ def make
   if !header.validate then none else some header
 
 def serialize (header : Header) : ByteArray := Id.run do
-  let mut result := ByteArray.mkEmpty 1024
+  let mut result := ByteArray.emptyWithCapacity 1024
   result := result.appendUInt64 header.packaging_version
   result := result.appendUInt64 header.header_size
   result := result.appendUInt64 header.data_size
