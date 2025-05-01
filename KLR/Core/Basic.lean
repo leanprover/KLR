@@ -270,6 +270,45 @@ def freeByteOffset (ap : AccessPattern) : Err Nat := ap.withNoParents freeByteOf
 def freeElementOffset (ap : AccessPattern) : Err Nat := ap.withNoParents fun ap =>
   ap.freeByteOffset' / ap.tensor.dtype.size
 
+-- Add the offsets of two AccessPatterns ap1 and ap2. ap and ap2 must
+-- 1. point to the same tensor
+-- 2. has same number of variables in freePattern
+-- 3. has same parNum.
+def add (ap1: Core.AccessPattern) (ap2: Core.AccessPattern)
+    : Err Core.AccessPattern :=
+  if ap1.tensor.name ≠ ap2.tensor.name ∨ ap1.parNum ≠ ap2.parNum
+  then .error "tensor name or parNum mismatch"
+  else if List.length ap1.freePattern ≠ List.length ap2.freePattern
+  then .error "freePattern length mismatch"
+  else do
+    let fp <- List.mapM
+        (fun ((p1:Core.APPair),(p2:Core.APPair)) =>
+          if p1.num ≠ p2.num then
+            .error "APPair num mismatch"
+          else .ok {
+            step := p1.step + p2.step,
+            num := p1.num
+          })
+        (List.zip ap1.freePattern ap2.freePattern)
+    return {
+      tensor := ap1.tensor,
+      parNum := ap1.parNum,
+      freePattern := fp,
+      offset := ap1.offset + ap2.offset
+    }
+
+-- Multiply k to the offsets of ap.
+def multScalar (ap: Core.AccessPattern) (k:Nat)
+    : Core.AccessPattern :=
+  {
+    tensor := ap.tensor,
+    parNum := ap.parNum,
+    freePattern := List.map (fun (p:Core.APPair) =>
+        { step := p.step * k, num := p.num })
+      ap.freePattern,
+    offset := ap.offset * k
+  }
+
 end AccessPattern
 
 -- Tensor access: whole tensor (simple), basic indexing, or access pattern
