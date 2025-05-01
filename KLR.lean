@@ -9,5 +9,6 @@ import KLR.Eval
 import KLR.NEFF
 import KLR.NKI
 import KLR.Python
+import KLR.Serde
 import KLR.Trace
 import KLR.Util
