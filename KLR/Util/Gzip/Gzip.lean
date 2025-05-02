@@ -4,9 +4,9 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 -/
 
-namespace Util
+namespace KLR.Util.Gzip
 
 @[extern "lean_gzip"]
 opaque gzip (bytes : @&ByteArray) : ByteArray
 
-end Util
+end KLR.Util.Gzip

@@ -27,6 +27,8 @@ lean_exe "klr" where
   moreLinkArgs := moreLinkArgs
   supportInterpreter := true
 
+require Archive from "KLR/Util/Archive"
+
 require Cli from git
   "https://github.com/leanprover/lean4-cli.git" @ "v4.19.0"
 
