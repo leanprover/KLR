@@ -20,7 +20,7 @@ target leannrt.o pkg : FilePath := do
 extern_lib libleannrt pkg := do
   let ffiO ← leannrt.o.fetch
   let name := nameToStaticLib "leannrt"
-  buildStaticLib (pkg.nativeLibDir / name) #[ffiO]
+  buildStaticLib (pkg.staticLibDir / name) #[ffiO]
 
 require Cli from git
-  "https://github.com/leanprover/lean4-cli.git" @ "v4.18.0"
+  "https://github.com/leanprover/lean4-cli.git" @ "v4.19.0"

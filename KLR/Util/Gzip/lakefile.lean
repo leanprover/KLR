@@ -50,7 +50,7 @@ target lean_gzip.o pkg : FilePath := do
 extern_lib liblean_gzip pkg := do
   let ffiO ← lean_gzip.o.fetch
   let name := nameToStaticLib "lean_gzip"
-  buildStaticLib (pkg.nativeLibDir / name) #[ffiO]
+  buildStaticLib (pkg.staticLibDir / name) #[ffiO]
 
 require Cli from git
-  "https://github.com/leanprover/lean4-cli.git" @ "v4.18.0"
+  "https://github.com/leanprover/lean4-cli.git" @ "v4.19.0"

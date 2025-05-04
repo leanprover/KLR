@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 -/
 
-namespace Util
+namespace KLR.Util.Archive
 
 structure ArchiveEntry where
   filename : String
@@ -17,4 +17,4 @@ opaque createTar (entries : @&List ArchiveEntry) : ByteArray
 @[extern "lean_archive_extract_tar"]
 opaque extractTar (bytes : @&ByteArray) : List ArchiveEntry
 
-end Util
+end KLR.Util.Archive

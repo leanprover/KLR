@@ -2,6 +2,7 @@ import Cli
 import Gzip
 
 open Cli
+open KLR.Util.Gzip(gzip)
 
 private def bytesToHex (hash : ByteArray) : String := Id.run do
   let hexChars := "0123456789abcdef".toList
@@ -30,7 +31,7 @@ def hexToBytes (s : String) : Option ByteArray := Id.run do
   | [] | [_] => []
   | x0 :: x1 :: xs => (x0, x1) :: split xs
   let s := if s.length % 2 == 0 then s else "0" ++ s
-  let mut buf := ByteArray.mkEmpty (s.length / 2)
+  let mut buf := ByteArray.emptyWithCapacity (s.length / 2)
   for (lo, hi) in split s.data do
     match hexCharToUInt8 hi lo with
     | none => return none
@@ -43,11 +44,11 @@ def runGzip (p : Parsed) : IO UInt32 := do
   IO.println s!"Got (hex) bytes: {bytesToHex bytes}"
   if p.hasFlag "file" then
     let file := p.flag! "file" |>.as! String
-    let bytes' := Util.gzip bytes
+    let bytes' := gzip bytes
     IO.FS.writeBinFile file bytes'
     IO.println s!"Wrote {file}"
   else
-    let bytes' := Util.gzip bytes
+    let bytes' := gzip bytes
     IO.eprintln s!"Compressed {bytes.size} bytes to {bytes'.size}"
     IO.println s!"Zipped (hex) bytes: {bytesToHex bytes'}"
   return 0

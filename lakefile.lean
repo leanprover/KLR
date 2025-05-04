@@ -27,16 +27,18 @@ lean_exe "klr" where
   moreLinkArgs := moreLinkArgs
   supportInterpreter := true
 
+require Archive from "KLR/Util/Archive"
+
 require Cli from git
-  "https://github.com/leanprover/lean4-cli.git" @ "v4.18.0"
+  "https://github.com/leanprover/lean4-cli.git" @ "v4.19.0"
 
 require Gzip from "KLR/Util/Gzip"
 
 require plausible from git
-  "https://github.com/leanprover-community/plausible" @ "v4.18.0"
+  "https://github.com/leanprover-community/plausible" @ "v4.19.0"
 
 require TensorLib from git
-  "https://github.com/leanprover/TensorLib.git" @ "v0.0.5"
+  "https://github.com/leanprover/TensorLib.git" @ "v0.0.6"
 
 -- Comment the above and uncomment this for local development
 -- require TensorLib from "../TensorLib"
