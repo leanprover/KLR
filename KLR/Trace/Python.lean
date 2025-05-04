@@ -362,27 +362,25 @@ def access (t : Term) (i : Term) : Err Term := do
       -- mgrid semantics, whose return type (ndarray) is slightly different
       -- from NKI''s mgrid return type. The usages of NKI API are designed to be
       -- analogous to that of NumPy API anyway.
-      match TensorLib.mgrid slices with
-      | .error msg => throw msg
-      | .ok (res: TensorLib.Tensor) =>
-        -- Note: this does not support '.p' and '.x' in NKI because a generic
-        -- tensor does not have such fields.
-        return .tensor res
+      let res <- TensorLib.mgrid slices
+      -- Note: this does not support '.p' and '.x' in NKI because a generic
+      -- tensor does not have such fields.
+      return .tensor res
   | .expr .. => do
       let tensor : Core.TensorName <- fromNKI? t
       -- Try basic indexing first
-      match do
-        let indices <- termToIndex tensor.shape.toList i
-        Core.Access.mkBasic tensor indices with
-      | .ok access =>
-        let shape <- Tensor.inferShape access
-        return .expr (.value (.access access)) (.tensor tensor.dtype shape)
-      | .error _ =>
-        -- Try advanced indexing.
-        let ap <- advancedAccessPattern tensor i
-        let access := Core.Access.pattern ap
-        let shape <- Tensor.inferShape access
-        return .expr (.value (.access access)) (.tensor tensor.dtype shape)
+      tryCatch
+         (do
+          let indices <- termToIndex tensor.shape.toList i
+          let access <- Core.Access.mkBasic tensor indices
+          let shape <- Tensor.inferShape access
+          return .expr (.value (.access access)) (.tensor tensor.dtype shape))
+         (fun _ => do
+          -- Try advanced indexing
+          let ap <- advancedAccessPattern tensor i
+          let access := Core.Access.pattern ap
+          let shape <- Tensor.inferShape access
+          return .expr (.value (.access access)) (.tensor tensor.dtype shape))
 
 
 --
