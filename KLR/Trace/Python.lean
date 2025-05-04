@@ -231,7 +231,21 @@ where
       match accessPatterns with
       | pat1::pat' =>
         List.foldlM (fun ap1 ap2 => do
-          Core.AccessPattern.add ap1 ap2)
+          let fp <- List.mapM
+            (fun ((p1:Core.APPair),(p2:Core.APPair)) =>
+              if p1.num ≠ p2.num then
+                .error "APPair num mismatch"
+              else .ok {
+                step := p1.step + p2.step,
+                num := p1.num
+              })
+            (List.zip ap1.freePattern ap2.freePattern)
+          return {
+            tensor := ap1.tensor,
+            parNum := ap1.parNum,
+            freePattern := fp,
+            offset := ap1.offset
+          })
           pat1 pat'
       | [] => throw "empty indices"
 
