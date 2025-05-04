@@ -137,7 +137,7 @@ def decomposeLinearIntTensor (t:TensorLib.Tensor)
       List.map (fun (sz, step) => { step := step, num := sz : Core.APPair })
         (List.zip t.shape.val steps)
     ⟩
-  | _ => .error s!"supports uint64 or int64 only, but got {repr t.dtype}"
+  | _ => throw s!"supports uint64 or int64 only, but got {repr t.dtype}"
 where
   check (idx:List Nat) (cnt:Nat) (steps:List Int) (valAtZero:Int)
       : Err Bool := do
@@ -206,7 +206,7 @@ where
       -- result[i_1, ..., i_M] == x[ind_1[i_1, ..., i_M], ind_2[i_1, ..., i_M],
       --                        ..., ind_N[i_1, ..., i_M]]
       let tensorIndices : List TensorLib.Tensor <- List.mapM
-        (fun t => do match t with | .tensor t => return t | _ => .error "")
+        (fun t => do match t with | .tensor t => return t | _ => throw "")
         inds
       -- Create AccessPattern for each ind_j.
       let accessPatterns : List Core.AccessPattern <- List.mapM
@@ -234,7 +234,7 @@ where
           let fp <- List.mapM
             (fun ((p1:Core.APPair),(p2:Core.APPair)) =>
               if p1.num ≠ p2.num then
-                .error "APPair num mismatch"
+                throw "APPair num mismatch"
               else .ok {
                 step := p1.step + p2.step,
                 num := p1.num
@@ -354,7 +354,7 @@ def access (t : Term) (i : Term) : Err Term := do
       let slice_convert (s:Term): Err TensorLib.Slice :=
         match s with
         | .slice b e st => TensorLib.Slice.make b e st
-        | _ => .error "not .slice"
+        | _ => throw "not .slice"
       let slices : List TensorLib.Slice <-
         List.mapM slice_convert (match i with
         | .tuple l => l | t => [t])
@@ -363,7 +363,7 @@ def access (t : Term) (i : Term) : Err Term := do
       -- from NKI''s mgrid return type. The usages of NKI API are designed to be
       -- analogous to that of NumPy API anyway.
       match TensorLib.mgrid slices with
-      | .error msg => .error msg
+      | .error msg => throw msg
       | .ok (res: TensorLib.Tensor) =>
         -- Note: this does not support '.p' and '.x' in NKI because a generic
         -- tensor does not have such fields.
