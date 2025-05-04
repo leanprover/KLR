@@ -205,12 +205,11 @@ where
       -- The goal is to build AccessPattern that does the following:
       -- result[i_1, ..., i_M] == x[ind_1[i_1, ..., i_M], ind_2[i_1, ..., i_M],
       --                        ..., ind_N[i_1, ..., i_M]]
-      let tensorIndices : List TensorLib.Tensor <- List.mapM
-        (fun t => do match t with | .tensor t => return t | _ => throw "")
-        inds
-      -- Create AccessPattern for each ind_j.
-      let accessPatterns : List Core.AccessPattern <- List.mapM
-        (fun t => do
+      let mut accessPatterns : List Core.AccessPattern := []
+      for inds_i in inds do
+        match inds_i with
+        | .tensor t =>
+          -- Create AccessPattern for each ind_j.
           let (valAtZero, steps) <- decomposeLinearIntTensor t
           -- To create AccessPattern, freePattern's steps must be
           -- multiplied by the number of elements in the lower dimensions.
@@ -220,33 +219,33 @@ where
                 { step := ap.step * Int.ofNat (numElems.getD (i+1) 1),
                   num := ap.num })
             (steps.zip (List.range steps.length))
-          return {
+          accessPatterns := accessPatterns ++ [{
             tensor := tensor,
             parNum := 1, -- Q: is this right?
             freePattern := steps,
             offset := Int.toNat valAtZero
-          })
-        tensorIndices
+          }]
+        | _ => throw ""
       -- Accumulate AccessPattern of ind_js and create one large AccessPattern
       match accessPatterns with
       | pat1::pat' =>
-        List.foldlM (fun ap1 ap2 => do
-          let fp <- List.mapM
-            (fun ((p1:Core.APPair),(p2:Core.APPair)) =>
-              if p1.num ≠ p2.num then
-                throw "APPair num mismatch"
-              else .ok {
+        let mut res : Core.AccessPattern := pat1
+        for ap in pat' do
+          let mut fp: List Core.APPair := []
+          for (p1,p2) in (List.zip res.freePattern ap.freePattern) do
+            if p1.num ≠ p2.num then
+              throw "APPair num mismatch"
+            else
+              fp := fp ++ [{
                 step := p1.step + p2.step,
                 num := p1.num
-              })
-            (List.zip ap1.freePattern ap2.freePattern)
-          return {
-            tensor := ap1.tensor,
-            parNum := ap1.parNum,
+              }]
+          res := {
+            tensor := res.tensor,
+            parNum := res.parNum,
             freePattern := fp,
-            offset := ap1.offset
-          })
-          pat1 pat'
+            offset := res.offset }
+        return res
       | [] => throw "empty indices"
 
 
