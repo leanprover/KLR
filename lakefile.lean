@@ -34,6 +34,8 @@ require Cli from git
 
 require Gzip from "KLR/Util/Gzip"
 
+require NRT from "KLR/NRT"
+
 require plausible from git
   "https://github.com/leanprover-community/plausible" @ "v4.19.0"
 
