@@ -251,7 +251,6 @@ where
           }]
         | _ => throw "NKI doesn't allow mixing tensor index + basic index"
       -- Accumulate AccessPattern of ind_js and create one large AccessPattern
-      dbg_trace f!"{repr accessPatterns}"
       match accessPatterns with
       | pat1::pat' =>
         let mut res : Core.AccessPattern := pat1
@@ -308,7 +307,6 @@ where
       0,1,2,3, 0,1,2,3, 0,1,2,3,
     ])
     let res := advancedAccessPattern tensor (.tuple [a,b,c])
-    dbg_trace f!"{repr res}"
     res == .ok
       (Core.AccessPattern.mk tensor 2 [
         { step := 4, num := 3},
