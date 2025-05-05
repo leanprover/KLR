@@ -153,6 +153,28 @@ where
       return decide (lhs = valAtZero + dot)
 
 
+#guard match (decomposeLinearIntTensor
+    (TensorLib.Tensor.zeros TensorLib.Dtype.int64
+      { val := [10, 10] : TensorLib.Shape})) with
+      | .error _ => false
+      | .ok (valAtZero, steps) =>
+        valAtZero = 0 ∧
+        steps == [
+          { step := 0, num := 10 : Core.APPair },
+          { step := 0, num := 10 : Core.APPair }]
+
+#guard match (do
+      let tensor <- TensorLib.Tensor.ofIntList TensorLib.Dtype.int64
+        [10, 20, 30, 40, 50, 60]
+      let tensor2d <- tensor.reshape (TensorLib.Shape.mk [2, 3])
+      decomposeLinearIntTensor tensor2d) with
+      | .error _ => false
+      | .ok (valAtZero, steps) =>
+        valAtZero = 10 ∧ steps == [
+          { step := 30, num := 2 : Core.APPair },
+          { step := 10, num := 3 : Core.APPair }
+        ]
+
 /-
 # Implement Advanced tensor indexing.
 
@@ -196,6 +218,8 @@ where
     let sizes := tensor.shape.toList
     if sizes.length ≠ inds.length
     then throw "unimplemented: number of dimensions mismatch"
+    else if sizes.isEmpty
+    then throw "empty indices"
     else
       -- numElems[i] = sizes[i] * sizes[i+1] * ... * sizes[-1]
       -- numElems[sizes.length] = 1
@@ -218,15 +242,16 @@ where
             (fun (ap,i) =>
                 { step := ap.step * Int.ofNat (numElems.getD (i+1) 1),
                   num := ap.num })
-            (steps.zip (List.range steps.length))
+            (steps.zipIdx)
           accessPatterns := accessPatterns ++ [{
             tensor := tensor,
-            parNum := 1, -- Q: is this right?
+            parNum := 1, -- This will be filled later.
             freePattern := steps,
             offset := Int.toNat valAtZero
           }]
-        | _ => throw ""
+        | _ => throw "NKI doesn't allow mixing tensor index + basic index"
       -- Accumulate AccessPattern of ind_js and create one large AccessPattern
+      dbg_trace f!"{repr accessPatterns}"
       match accessPatterns with
       | pat1::pat' =>
         let mut res : Core.AccessPattern := pat1
@@ -245,9 +270,51 @@ where
             parNum := res.parNum,
             freePattern := fp,
             offset := res.offset }
-        return res
-      | [] => throw "empty indices"
+        -- Check the partition index & fill in the partition number
+        match res.freePattern with
+        | fp0::fp' =>
+          let numPartitions := fp0.num
+          if not (fp0.step = numElems.getD 1 0)
+          then throw "nontrivial step for partition index"
+          else return {
+            tensor := res.tensor,
+            parNum := numPartitions,
+            freePattern := fp',
+            offset := res.offset
+          }
+        | _ => throw "insufficient indices"
+      | _ => throw "insufficient indices"
 
+
+#guard
+  match do
+    let shape <- Core.Shape.fromList [/-parnum-/2,3,4]
+    Core.TensorName.make "x" Core.Dtype.int8 shape none with
+  | .ok (tensor:Core.TensorName) =>
+    let mk (ls:List Int): TensorLib.Tensor :=
+      let t := TensorLib.Tensor.ofIntList! TensorLib.Dtype.int64 ls
+      let t3d := t.reshape! (TensorLib.Shape.mk [2,3,4])
+      t3d
+    -- a,b,c = numpy.mgrid[0:2,0:3,0:4]
+    let a : Term := .tensor (mk [
+      0,0,0,0, 0,0,0,0, 0,0,0,0,
+      1,1,1,1, 1,1,1,1, 1,1,1,1])
+    let b : Term := .tensor (mk [
+      0,0,0,0, 1,1,1,1, 2,2,2,2,
+      0,0,0,0, 1,1,1,1, 2,2,2,2
+    ])
+    let c : Term := .tensor (mk [
+      0,1,2,3, 0,1,2,3, 0,1,2,3,
+      0,1,2,3, 0,1,2,3, 0,1,2,3,
+    ])
+    let res := advancedAccessPattern tensor (.tuple [a,b,c])
+    dbg_trace f!"{repr res}"
+    res == .ok
+      (Core.AccessPattern.mk tensor 2 [
+        { step := 4, num := 3},
+        { step := 1, num := 4},
+      ] 0)
+  | .error _ => false
 
 /-
 Access to pointer types (a.k.a. Address)
