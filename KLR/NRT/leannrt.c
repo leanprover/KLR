@@ -26,6 +26,8 @@ Authors: Paul Govereau, Sean McLaughlin
 #include <nrt/nrt.h>
 #include <nrt/nrt_experimental.h>
 
+#include "lean_util.h"
+
 #define DEBUG_ENABLED 0
 
 #if DEBUG_ENABLED
@@ -37,24 +39,6 @@ Authors: Paul Govereau, Sean McLaughlin
 #define P_ERR(...) fprintf(stderr, __VA_ARGS__)
 
 #define FILENAME_MAX_LENGTH 280
-
-lean_object* io_err(const char* fmt, ...) {
-  char* msg = NULL;
-  va_list args;
-  va_start(args, fmt);
-  const int bytes = vasprintf(&msg, fmt, args);
-  va_end(args);
-  lean_object *lean_msg;
-  if (bytes < 0) {
-    P_ERR("couldn't format error message: %s", fmt);
-    lean_msg = lean_mk_string(fmt);
-  } else {
-    P_ERR(msg);
-    lean_msg = lean_mk_string(msg); // copies
-    free(msg);
-  }
-  return lean_io_result_mk_error(lean_mk_io_user_error(lean_msg));
-}
 
 typedef struct {
   const char *name;

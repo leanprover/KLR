@@ -12,22 +12,7 @@ Authors: Paul Govereau, Sean McLaughlin
 #include <errno.h>
 #include <string.h>
 
-lean_object* io_err(const char* fmt, ...) {
-  char* msg = NULL;
-  va_list args;
-  va_start(args, fmt);
-  const int bytes = vasprintf(&msg, fmt, args);
-  va_end(args);
-  lean_object *lean_msg;
-  if (bytes < 0) {
-    fprintf(stderr, "couldn't format error message: %s", fmt);
-    lean_msg = lean_mk_string(fmt);
-  } else {
-    lean_msg = lean_mk_string(msg); // copies
-    free(msg);
-  }
-  return lean_io_result_mk_error(lean_mk_io_user_error(lean_msg));
-}
+#include "lean_util.h"
 
 LEAN_EXPORT lean_object* lean_gzip(b_lean_obj_arg input) {
   uint8_t *c_input = lean_sarray_cptr(input);
