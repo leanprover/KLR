@@ -6,7 +6,8 @@ package NRT where
 target leannrt.o pkg : FilePath := do
   let oFile := pkg.buildDir / "leannrt.o"
   let srcJob ← inputTextFile <| pkg.dir / "leannrt.c"
-  let weakArgs := #["-I", (← getLeanIncludeDir).toString, "-I", "/opt/aws/neuron/include"] -- TODO: better way to find neuron path
+  let ffiutil := pkg.dir / ".." / "FFIUtil" / "include"
+  let weakArgs := #["-I", ffiutil.toString, "-I", (← getLeanIncludeDir).toString, "-I", "/opt/aws/neuron/include"] -- TODO: better way to find neuron path
   buildO oFile srcJob weakArgs #["-std=c11", "-fPIC", "-Werror"] "cc" getLeanTrace
 
 target libleannrt pkg : FilePath := do
@@ -25,3 +26,5 @@ lean_exe nrt where
 
 require Cli from git
   "https://github.com/leanprover/lean4-cli.git" @ "v4.19.0"
+
+require FFIUtil from "../Util/FFIUtil"

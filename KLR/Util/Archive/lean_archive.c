@@ -12,22 +12,7 @@ Authors: Paul Govereau, Sean McLaughlin
 #include <archive.h>
 #include <archive_entry.h>
 
-lean_object* io_err(const char* fmt, ...) {
-  char* msg = NULL;
-  va_list args;
-  va_start(args, fmt);
-  const int bytes = vasprintf(&msg, fmt, args);
-  va_end(args);
-  lean_object *lean_msg;
-  if (bytes < 0) {
-    fprintf(stderr, "couldn't format error message: %s", fmt);
-    lean_msg = lean_mk_string(fmt);
-  } else {
-    lean_msg = lean_mk_string(msg); // copies
-    free(msg);
-  }
-  return lean_io_result_mk_error(lean_mk_io_user_error(lean_msg));
-}
+#include "lean_util.h"
 
 lean_object* create_archive_entry(const char* filename, uint8_t* data, size_t size) {
   lean_object* entry = lean_alloc_ctor(0, 2, 0);
