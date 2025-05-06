@@ -6,6 +6,7 @@ Authors: Paul Govereau, Sean McLaughlin
 
 import Util.Base64
 import Util.Gzip
+import Util.Hex
 import Util.Json
 import Util.SHA256
 
