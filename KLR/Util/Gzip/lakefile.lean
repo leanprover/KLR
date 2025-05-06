@@ -57,3 +57,4 @@ require Cli from git
   "https://github.com/leanprover/lean4-cli.git" @ "v4.19.0"
 
 require FFIUtil from "../FFIUtil"
+require Util from "../.."
