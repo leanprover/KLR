@@ -18,7 +18,7 @@ private def paddingChar : Char := '='
 
 /-- Create a decode table mapping each Base64 character to its 6-bit value -/
 private def decodeTable : Array UInt8 := Id.run do
-  let mut table := Array.mkArray 256 0
+  let mut table := Array.replicate 256 0
   let mut i := 0
   for c in encodeTable do
     table := table.set! c.toNat i
@@ -83,7 +83,7 @@ def decode (input : String) : Option ByteArray := Id.run do
   let paddingCount := cleanInput.data.count paddingChar
   let outputSize := cleanInput.length / 4 * 3 - paddingCount
 
-  let mut result := ByteArray.mkEmpty outputSize
+  let mut result := ByteArray.emptyWithCapacity outputSize
   let mut buffer : UInt32 := 0
   let mut bufferBits : UInt32 := 0
 

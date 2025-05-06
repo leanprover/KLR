@@ -8,8 +8,8 @@ import Archive
 import Cli
 
 open Cli
+open KLR.Util.Archive
 open System(FilePath)
-open Util
 
 def create (p : Parsed) : IO UInt32 := do
   let files := p.variableArgsAs! String

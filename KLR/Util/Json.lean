@@ -6,7 +6,7 @@ Authors: Paul Govereau, Sean McLaughlin
 import Lean
 import Std
 
-namespace KLR.Json
+namespace KLR.Util.Json
 
 open Lean(FromJson fromJson? Json ToJson toJson)
 open Std(HashMap)
@@ -26,12 +26,12 @@ def equalWithoutNullValues (j1 j2 : Json) : Bool :=
 
 #guard equalWithoutNullValues (json% {x: 5, y: null}) (json%{x: 5, z: null})
 
-def jsonRoundTripEq1 (a : Type)[BEq a][FromJson a][ToJson a] (j : Json) : Bool :=
+def jsonRoundTripEq1 (a : Type) [BEq a] [FromJson a] [ToJson a] (j : Json) : Bool :=
   match fromJson? j with
   | .error _ => false
   | .ok (x : a) => equalWithoutNullValues (toJson x) j
 
-def jsonRoundTripEq [BEq a][FromJson a][ToJson a] (x : a) : Bool :=
+def jsonRoundTripEq [BEq a] [FromJson a] [ToJson a] (x : a) : Bool :=
   let j := toJson x
   let x' := fromJson? j
   match x' with
@@ -44,7 +44,7 @@ instance HashMapFromJson [FromJson a] : FromJson (HashMap String a) where
     node.foldM (fun m k v => do
       let v <- fromJson? v
       return m.insert k v
-    ) HashMap.empty
+    ) HashMap.emptyWithCapacity
 
 instance HashMapToJson [ToJson a] : ToJson (HashMap String a) where
   toJson m := Json.mkObj $ m.toList.map fun (k, v) => (k, toJson v)
@@ -85,4 +85,11 @@ deriving BEq, FromJson, ToJson
 #guard jsonRoundTripEq1 Bar $ json%{x: "7"}
 #guard toJson (Bar.mk 7) == json%{x: "7"}
 
-end KLR.Json
+def swapKeys (j : Json) (old new : String) : Json :=
+  match j.getObj? with
+  | .error _ => j
+  | .ok obj => match obj.find compare old with
+    | .none => j
+    | .some v => (Json.obj (obj.del compare old)).setObjVal! new v
+
+end KLR.Util.Json
