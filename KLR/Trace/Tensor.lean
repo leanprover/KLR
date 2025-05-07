@@ -51,12 +51,8 @@ nki load (src : Access) (dtype : Dtype := .float32) := do
   let dst <- declare "load" dtype shape .sbuf
   return .store (.simple dst) .load [.access src]
 
-nki store (dst : Access) (value : Access) := do
-  let s1 <- dst.shape
-  let s2 <- value.shape
-  if s1 != s2 then
-    throw s!"incompatible shapes {s1} {s2}"
-  return Term.store dst .save [.access value]
+nki store (dst : Access) (value : Core.Value) := do
+  return Term.store dst .save [value]
 
 nki tensor_scalar (data : Access)
                   (op0 : AluOp)
