@@ -11,6 +11,9 @@ structure ArchiveEntry where
   content : ByteArray
   deriving Inhabited
 
+instance : Repr ArchiveEntry where
+  reprPrec e _ := repr e.filename
+
 @[extern "lean_archive_create_tar"]
 opaque createTar (entries : @&List ArchiveEntry) : ByteArray
 
