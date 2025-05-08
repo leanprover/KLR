@@ -9,4 +9,7 @@ namespace KLR.Util.Gzip
 @[extern "lean_gzip"]
 opaque gzip (bytes : @&ByteArray) : ByteArray
 
+@[extern "lean_gunzip"]
+opaque gunzip (bytes : @&ByteArray) : ByteArray
+
 end KLR.Util.Gzip
