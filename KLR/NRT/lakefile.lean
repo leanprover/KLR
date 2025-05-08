@@ -6,7 +6,7 @@ package NRT where
 target leannrt.o pkg : FilePath := do
   let oFile := pkg.buildDir / "leannrt.o"
   let srcJob ← inputTextFile <| pkg.dir / "leannrt.c"
-  let ffiutil := pkg.dir / ".." / "FFIUtil" / "include"
+  let ffiutil := pkg.dir / ".." / "Util" / "FFIUtil" / "include"
   let weakArgs := #["-I", ffiutil.toString, "-I", (← getLeanIncludeDir).toString, "-I", "/opt/aws/neuron/include"] -- TODO: better way to find neuron path
   buildO oFile srcJob weakArgs #["-std=c11", "-fPIC", "-Werror"] "cc" getLeanTrace
 
