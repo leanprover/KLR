@@ -5,6 +5,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 #include "region.h"
 #include "stdc.h"
 
+#include <stdio.h>
+
 struct block {
   size_t size;
   size_t offset;
@@ -51,7 +53,7 @@ void region_destroy(struct region *region) {
   }
 }
 
-void *region_alloc(struct region *region, size_t size) {
+void *region_try_alloc(struct region *region, size_t size) {
   if (unlikely(!region))
     return NULL;
 
@@ -77,4 +79,35 @@ void *region_alloc(struct region *region, size_t size) {
   void *p = b->buf + b->offset;
   b->offset += size;
   return p;
+}
+
+void *region_alloc(struct region *region, size_t size) {
+  void *p = region_try_alloc(region, size);
+  if (unlikely(!p)) {
+    fprintf(stderr, "Out Of Memory. NKI compiler will abort the program.\n");
+    abort();
+  }
+
+  return p;
+}
+
+char *region_strdup(struct region *region, const char *src) {
+  assert(src);
+  size_t size = strlen(src) + 1;
+  char *dst = region_alloc(region, size);
+  // copy everything, including null-terminator
+  memcpy(dst, src, size);
+  return dst;
+}
+
+char *region_strndup(struct region *region, const char *src, size_t len) {
+  assert(src);
+
+  // check for null-terminator earlier than `len`
+  len = strnlen(src, len);
+
+  char *dst = region_alloc(region, len + 1);
+  memcpy(dst, src, len);
+  dst[len] = 0; // add null-terminator
+  return dst;
 }
