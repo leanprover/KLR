@@ -20,6 +20,9 @@ partial def removeNullValues : Json -> Json
 | j => j
 
 #guard removeNullValues (json% {x: 5, y: null}) == json% {x: 5}
+#guard removeNullValues
+  (json% [{"output_names":["a_tensor"],"op":"null","name":"a_tensor","is_param":"0","inputs":[],"attrs":null}])
+   == (json% [{"output_names":["a_tensor"],"op":"null","name":"a_tensor","is_param":"0","inputs":[]}])
 
 def equalWithoutNullValues (j1 j2 : Json) : Bool :=
   BEq.beq (removeNullValues j1) (removeNullValues j2)
