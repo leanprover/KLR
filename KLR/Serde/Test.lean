@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 -/
 import KLR.Serde.Attr
-import Lean
+import KLR.Serde.Elab
 
 /-
 Tests for the serde attribute.
@@ -116,3 +116,35 @@ first argument of `lean_alloc_ctor` should be for the `Lean.Name` type.
   for (n,v) in <- serdeMap ``Lean.Name do
     let n := n.toString.replace "." "_"
     IO.println s!"#define {n} {v}"
+
+/-
+Deriving tests
+-/
+
+@[serde tag=7]
+inductive Z where
+  | a : Nat -> Z
+  | b : Bool -> Z
+  deriving ToCBOR
+
+#guard (toCBOR (Z.a 0)).data == #[0xd9, 7, 0, 0x81, 0]
+#guard (toCBOR (Z.b true)).data == #[0xd9, 7, 1, 0x81, 0xf5]
+
+mutual
+@[serde tag=1]
+structure X (a : Type u) where
+  i : a
+  b : Bool
+  deriving ToCBOR
+
+@[serde tag=2]
+inductive Y (a : Type u) where
+  | n : Nat -> Y a
+  | x : X a -> Y a
+  deriving ToCBOR
+end
+
+#guard (toCBOR (X.mk true false)).data == #[0xd9, 1, 0, 0x82, 0xf5, 0xf4]
+#guard (toCBOR (Y.n 7 : Y Bool)).data == #[0xd9, 2, 0, 0x81, 7]
+#guard (toCBOR (Y.x (X.mk true false))).data ==
+  #[0xd9, 2, 1, 0x81, 0xd9, 1, 0, 0x82, 0xf5, 0xf4]
