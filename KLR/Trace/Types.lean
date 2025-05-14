@@ -8,6 +8,8 @@ import KLR.Util
 import KLR.Core
 import KLR.Python
 
+import TensorLib
+
 /-
 # Basic types for tracing
 
@@ -112,6 +114,13 @@ In KLR, these stores must be lifted up to the statement level:
 
 The `store` term is an expression, and the tracing code will lift it
 up to a KLR statement in the `RValue` function.
+
+The tensor expression is a constant tensor that ephemerally appears during
+tracing, then disappears after tracing eventually. An example is the output
+of mgrid.
+
+The mgrid expression is the 'mgrid' object in numpy and NKI. Its subscripted
+form (with its indices) is represented using KLR.Python.Expr'.subscript .
 -/
 inductive Term where
   | module   : Name -> Term
@@ -119,6 +128,7 @@ inductive Term where
   | source   : Python.Fun -> Term
   | none     : Term
   | string   : String -> Term
+  | tensor   : TensorLib.Tensor -> Term
   | tuple    : List Term -> Term
   | list     : List Term -> Term
   | ellipsis : Term
@@ -126,6 +136,7 @@ inductive Term where
   | store    : Access -> Operator -> List Value -> Term
   | pointer  : Core.Address -> Term
   | expr     : Expr -> TermType -> Term
+  | mgrid    : Term
   deriving Repr, BEq
 
 instance : Inhabited Term where
@@ -137,10 +148,13 @@ namespace Term
 -- TODO: this is partial because of the use of flatMap
 -- the ▷ syntax in Util could be updated to handle this case.
 partial def tensor_list : Term -> List Core.TensorName
-  | .module _ | .builtin .. | .source _
+  | .module _ | .builtin .. | .source _ | .mgrid
   | .none | .string _
   | .ellipsis | .slice ..
   | .pointer .. => []
+  -- Constant tensors do not have its name. They will not reside in hardware
+  -- and must be fully removed after tracing. Therefore, do not call tensors.
+  | .tensor .. => []
   | .tuple l | .list l => (l.flatMap tensor_list).eraseDups
   | .store a _ v => (tensors a ++ tensors v).eraseDups
   | .expr e _ => tensors e

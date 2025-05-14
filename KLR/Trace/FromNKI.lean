@@ -45,6 +45,10 @@ instance : FromNKI Expr where
     | .module _    => err "module"
     | .builtin n .. => return .value (.var n.toString)
     | .source _    => err "function"
+    -- tensor and mgrid must not survive after tracing, thus there is no
+    -- corresponding expression in KLR.Core.Expr.
+    | .tensor _    => err "tensor"
+    | .mgrid       => err "mgrid"
     | .none        => err "none"
     | .string _    => err "string"
     | .tuple _     => err "tuple"
