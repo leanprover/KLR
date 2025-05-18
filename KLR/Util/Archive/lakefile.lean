@@ -8,7 +8,7 @@ import Lake
 open Lake DSL
 open System(FilePath)
 
-package Archive where
+package Archive
 
 def noStackProtector := "-fno-stack-protector"
 
@@ -26,7 +26,7 @@ def moreLinkArgs :=
     ]
 
 def moreWeakArgs :=
-  let all := #[]
+  let all := #["-I", "include"]
   if System.Platform.isOSX then
     all ++ #[
       "-I", "/opt/homebrew/opt/libarchive/include",
@@ -49,7 +49,8 @@ lean_exe archive where
 target lean_archive.o pkg : FilePath := do
   let oFile := pkg.buildDir / "lean_archive.o"
   let srcJob ← inputTextFile <| pkg.dir / "lean_archive.c"
-  let weakArgs := #["-I", (← getLeanIncludeDir).toString] ++ moreWeakArgs
+  let ffiutil := pkg.dir / ".." / "FFIUtil" / "include"
+  let weakArgs := #["-I", ffiutil.toString, "-I", (← getLeanIncludeDir).toString] ++ moreWeakArgs
   let compilerFlags := #["-fPIC", "-Werror"]
   buildO oFile srcJob weakArgs compilerFlags "cc" getLeanTrace
 
@@ -60,3 +61,5 @@ extern_lib liblean_archive pkg := do
 
 require Cli from git
   "https://github.com/leanprover/lean4-cli.git" @ "v4.19.0"
+
+require FFIUtil from "../FFIUtil"

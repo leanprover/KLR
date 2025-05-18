@@ -8,26 +8,12 @@ Authors: Paul Govereau, Sean McLaughlin
 
 #include <lean/lean.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <zlib.h>
 #include <errno.h>
 #include <string.h>
 
-lean_object* io_err(const char* fmt, ...) {
-  char* msg = NULL;
-  va_list args;
-  va_start(args, fmt);
-  const int bytes = vasprintf(&msg, fmt, args);
-  va_end(args);
-  lean_object *lean_msg;
-  if (bytes < 0) {
-    fprintf(stderr, "couldn't format error message: %s", fmt);
-    lean_msg = lean_mk_string(fmt);
-  } else {
-    lean_msg = lean_mk_string(msg); // copies
-    free(msg);
-  }
-  return lean_io_result_mk_error(lean_mk_io_user_error(lean_msg));
-}
+#include "lean_util.h"
 
 LEAN_EXPORT lean_object* lean_gzip(b_lean_obj_arg input) {
   uint8_t *c_input = lean_sarray_cptr(input);
@@ -89,6 +75,92 @@ LEAN_EXPORT lean_object* lean_gzip(b_lean_obj_arg input) {
 
   // Free the temporary buffer
   free(compressed_data);
+
+  return result_array;
+}
+
+LEAN_EXPORT lean_object* lean_gunzip(b_lean_obj_arg input) {
+  uint8_t *c_input = lean_sarray_cptr(input);
+  size_t input_len = lean_sarray_size(input);
+
+  // Initial output buffer size - we'll grow this if needed
+  size_t initial_output_size = input_len * 4; // Start with 4x the input size as an estimate
+  uint8_t* decompressed_data = (uint8_t*)malloc(initial_output_size);
+  if (!decompressed_data) {
+    return io_err("Failed to allocate memory for decompressed data");
+  }
+
+  // Initialize the z_stream structure for decompression
+  z_stream strm;
+  memset(&strm, 0, sizeof(strm));
+
+  // Initialize for gzip decompression
+  int ret = inflateInit2(&strm,
+                         31); // 15 for max window size + 16 for gzip encoding
+
+  if (ret != Z_OK) {
+    free(decompressed_data);
+    return io_err("Failed to initialize inflate: %s", zError(ret));
+  }
+
+  // Set input data
+  strm.next_in = c_input;
+  strm.avail_in = input_len;
+
+  // Set output buffer
+  strm.next_out = decompressed_data;
+  strm.avail_out = initial_output_size;
+
+  // Decompress the data
+  size_t total_out = 0;
+  do {
+    ret = inflate(&strm, Z_FINISH);
+
+    // If the output buffer is full but there's still more data to decompress
+    if (ret == Z_BUF_ERROR || (ret == Z_OK && strm.avail_out == 0)) {
+      // Calculate how much we've decompressed so far
+      total_out = initial_output_size - strm.avail_out;
+      // Double the buffer size
+      initial_output_size *= 2;
+      uint8_t* new_buffer = (uint8_t*)realloc(decompressed_data, initial_output_size);
+
+      if (!new_buffer) {
+        free(decompressed_data);
+        inflateEnd(&strm);
+        return io_err("Failed to reallocate memory for decompressed data");
+      }
+
+      decompressed_data = new_buffer;
+
+      // Update the stream to point to the new buffer position
+      strm.next_out = decompressed_data + total_out;
+      strm.avail_out = initial_output_size - total_out;
+
+      // Continue decompression
+      continue;
+    }
+    // Check for errors
+    if (ret != Z_STREAM_END && ret != Z_OK) {
+      free(decompressed_data);
+      inflateEnd(&strm);
+      return io_err("Decompression failed: %s", zError(ret));
+    }
+  } while (ret != Z_STREAM_END);
+
+  // Get the actual decompressed size
+  size_t decompressed_size = initial_output_size - strm.avail_out;
+
+  // Clean up the z_stream
+  inflateEnd(&strm);
+
+  // Create a Lean array to store the decompressed data
+  lean_object* result_array = lean_alloc_sarray(1, decompressed_size, decompressed_size);
+
+  // Copy the decompressed data to the Lean array
+  memcpy(lean_sarray_cptr(result_array), decompressed_data, decompressed_size);
+
+  // Free the temporary buffer
+  free(decompressed_data);
 
   return result_array;
 }

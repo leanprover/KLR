@@ -6,8 +6,7 @@ Authors: Paul Govereau, Sean McLaughlin
 
 import Plausible
 
-namespace Util
-namespace Base64
+namespace KLR.Util.Base64
 
 /-- The standard Base64 encoding alphabet -/
 private def encodeTable : Array Char :=
@@ -32,37 +31,37 @@ private def decodeTable : Array UInt8 := Id.run do
   according to the standard Base64 encoding (RFC 4648).
 -/
 def encode (input : ByteArray) : String := Id.run do
-if input.isEmpty then "" else
-let mut result := ""
-let len := input.size
-let fullGroups := len / 3
-let remainingBytes := len % 3
--- Process full 3-byte groups
-for i in [0:fullGroups] do
-  let idx := i * 3
-  let b1 := input.get! idx
-  let b2 := input.get! (idx + 1)
-  let b3 := input.get! (idx + 2)
-  -- Convert 3 bytes (24 bits) to 4 Base64 characters (6 bits each)
-  let c1 := encodeTable[(b1 >>> 2).toNat]!
-  let c2 := encodeTable[((b1 &&& 0x03) <<< 4 ||| (b2 >>> 4)).toNat]!
-  let c3 := encodeTable[((b2 &&& 0x0F) <<< 2 ||| (b3 >>> 6)).toNat]!
-  let c4 := encodeTable[(b3 &&& 0x3F).toNat]!
-  result := result.push c1 |>.push c2 |>.push c3 |>.push c4
--- Handle remaining bytes with padding
-if remainingBytes == 1 then
-  let b1 := input.get! (fullGroups * 3)
-  let c1 := encodeTable[(b1 >>> 2).toNat]!
-  let c2 := encodeTable[((b1 &&& 0x03) <<< 4).toNat]!
-  result := result.push c1 |>.push c2 |>.push paddingChar |>.push paddingChar
-else if remainingBytes == 2 then
-  let b1 := input.get! (fullGroups * 3)
-  let b2 := input.get! (fullGroups * 3 + 1)
-  let c1 := encodeTable[(b1 >>> 2).toNat]!
-  let c2 := encodeTable[((b1 &&& 0x03) <<< 4 ||| (b2 >>> 4)).toNat]!
-  let c3 := encodeTable[((b2 &&& 0x0F) <<< 2).toNat]!
-  result := result.push c1 |>.push c2 |>.push c3 |>.push paddingChar
-result
+  if input.isEmpty then "" else
+  let mut result := ""
+  let len := input.size
+  let fullGroups := len / 3
+  let remainingBytes := len % 3
+  -- Process full 3-byte groups
+  for i in [0:fullGroups] do
+    let idx := i * 3
+    let b1 := input.get! idx
+    let b2 := input.get! (idx + 1)
+    let b3 := input.get! (idx + 2)
+    -- Convert 3 bytes (24 bits) to 4 Base64 characters (6 bits each)
+    let c1 := encodeTable[(b1 >>> 2).toNat]!
+    let c2 := encodeTable[((b1 &&& 0x03) <<< 4 ||| (b2 >>> 4)).toNat]!
+    let c3 := encodeTable[((b2 &&& 0x0F) <<< 2 ||| (b3 >>> 6)).toNat]!
+    let c4 := encodeTable[(b3 &&& 0x3F).toNat]!
+    result := result.push c1 |>.push c2 |>.push c3 |>.push c4
+  -- Handle remaining bytes with padding
+  if remainingBytes == 1 then
+    let b1 := input.get! (fullGroups * 3)
+    let c1 := encodeTable[(b1 >>> 2).toNat]!
+    let c2 := encodeTable[((b1 &&& 0x03) <<< 4).toNat]!
+    result := result.push c1 |>.push c2 |>.push paddingChar |>.push paddingChar
+  else if remainingBytes == 2 then
+    let b1 := input.get! (fullGroups * 3)
+    let b2 := input.get! (fullGroups * 3 + 1)
+    let c1 := encodeTable[(b1 >>> 2).toNat]!
+    let c2 := encodeTable[((b1 &&& 0x03) <<< 4 ||| (b2 >>> 4)).toNat]!
+    let c3 := encodeTable[((b2 &&& 0x0F) <<< 2).toNat]!
+    result := result.push c1 |>.push c2 |>.push c3 |>.push paddingChar
+  result
 
 /--
   Decode a Base64 string to a ByteArray.
@@ -106,8 +105,7 @@ def decode (input : String) : Option ByteArray := Id.run do
 /--
   Encode a String to a Base64 string by first converting it to UTF-8 bytes.
 -/
-def encodeString (input : String) : String :=
-  encode (input.toUTF8)
+def encodeString (input : String) : String := encode input.toUTF8
 
 /--
   Decode a Base64 string to a String by interpreting the bytes as UTF-8.
@@ -149,16 +147,6 @@ private local instance : SampleableExt ByteArray :=
   let d := decodeString e
   s == some d
 
-private def plausibleDefaultConfig : Plausible.Configuration := {}
-
-/-
-This suppresses messages from Plausible on the commandline when building, such as
-    info: ././././TensorLib/Common.lean:37:0: Unable to find a counter-example
-If you want to see the counterexample in the IDE, you need to remove the configuration argument,
-but remember to add it back once you've fixed the bug.
--/
-private def cfg : Plausible.Configuration := plausibleDefaultConfig -- { plausibleDefaultConfig with quiet := true }
-
 /--
 info: Unable to find a counter-example
 ---
@@ -168,9 +156,7 @@ warning: declaration uses 'sorry'
 example (arr : ByteArray) :
   let s := encode arr
   let v := decode s
-  some arr == v := by
-  plausible (config := cfg)
+  some arr == v := by plausible
 
 end Test
-end Base64
-end Util
+end KLR.Util.Base64
