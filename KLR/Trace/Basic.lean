@@ -57,6 +57,7 @@ def Term.isTrue : Term -> Err Bool
   | .tuple []
   | .list []  => return false
   | .module _
+  | .mgrid
   | .builtin ..
   | .source _
   | .string _
@@ -67,6 +68,11 @@ def Term.isTrue : Term -> Err Bool
   | .store ..
   | .pointer .. => return true
   | .expr (.value v) _ => return v.isTrue
+  | .tensor _ =>
+      -- Using ndarray as bool in Python raises:
+      -- "ValueError: The truth value of an array with more than one element
+      --  is ambiguous. Use a.any() or a.all()"
+      throw "tensor cannot be evaluated as bool"
   | .expr _ _ => throw "non-constant expression"
 
 def Term.isFalse (t : Term) : Err Bool :=
