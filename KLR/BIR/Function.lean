@@ -113,7 +113,7 @@ structure MemoryLocation where
   dims : List Nat   -- num partitions, bytes per partition
   bank : Nat := 0   -- bank id
   base : Nat := 0   -- base partition (0, 32, 64)
-  allocated : Option Bool := some false
+  allocated : Bool := false
   pinned : Bool := false
   tensor_id : Option Nat := some 0
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
