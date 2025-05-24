@@ -56,8 +56,8 @@ Generate access patterns for tensor access expressions.
 -- e.g. t[:,:] or t[...] or similar
 def dimToAP (d1 d2 : Nat) : Compile PhysicalAccessPattern :=
   return {
-    ap := [ [ d2, d1 ], [ 1, d2 ] ]
-    dtype := "" -- filled in below
+    ap := [ { step := d2, num := d1 }, { step := 1, num := d2 } ]
+    dtype := Dtype.uint8 -- filled in below
     offset := 0
     memsetref := "" -- filled in below
     memref := "" -- filled in below
@@ -73,8 +73,8 @@ def slicesToAP (d1 d2 : Nat) : List Index -> Compile PhysicalAccessPattern
 
 def pairsToAP (offset : Nat) (aps : List APPair) : PhysicalAccessPattern :=
   {
-    ap := aps.map fun ap => [ap.step, ap.num]
-    dtype := "" -- filled in below
+    ap := aps
+    dtype := Dtype.uint8 -- filled in below
     offset := offset
     memsetref := "" -- filled in below
     memref := "" -- filled in below
@@ -82,7 +82,7 @@ def pairsToAP (offset : Nat) (aps : List APPair) : PhysicalAccessPattern :=
 
 private def setMemRef (t : TensorName) (ap : PhysicalAccessPattern) : PhysicalAccessPattern :=
   { ap with
-    dtype := toString (Std.format t.dtype)
+    dtype := t.dtype
     memsetref := t.name ++ "_set"
     memref := t.name
   }
