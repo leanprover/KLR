@@ -39,41 +39,41 @@ inductive InstSyncType where
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
 structure PhysicalAccessPattern where
-  ap : List (List Int)
-  dtype : String
+  ap : List Core.APPair
+  dtype : Dtype
   offset : Nat
   memsetref : String
   memref : String
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
 structure SymbolicAccessPattern where
-  ap : List (List Int)
-  dtype : String
+  ap : List Core.APPair
+  dtype : Dtype
   addrs : List QuasiAffineExpr
   access_shape : List Int
   memsetref : String
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
 structure RegisterAccessPattern where
-  ap : List (List Int)
-  dtype : String
+  ap : List Core.APPair
+  dtype : Dtype
   memsetref : String
   reg_ap_offset : String
   regref : String
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
 structure RegisterAccess where
-  dtype : String
+  dtype : Dtype
   regref : String
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
 structure ImmValue where
-  dtype : String
+  dtype : Dtype
   value : Core.Const
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
 structure ImmArray where
-  dtype : String
+  dtype : Dtype
   value_array : List Core.Const
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
 
@@ -81,7 +81,7 @@ structure ImmArray where
 -- default ToJson will be incorrect.
 -- Fix this or delete this type (we may not need it)
 structure SymbolicImmValue where
-  dtype : String
+  dtype : Dtype
   value_list : List Core.Const
   expr : QuasiAffineExpr
   deriving BEq, Repr, Lean.FromJson, Lean.ToJson
