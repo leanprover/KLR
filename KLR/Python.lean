@@ -67,7 +67,7 @@ inductive UnaryOp where
 inductive BinOp where
   | add | sub | mul | matmul | div | mod | pow
   | lshift | rshift | or | xor | and
-  | floor
+  | floor -- the '//' operator in Python
   deriving Repr
 
 mutual

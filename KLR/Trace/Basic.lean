@@ -122,6 +122,14 @@ private def valueOp : BinOp -> Value -> Value -> Trace Term
   | .sub, .int l, .int r => return int (l - r)
   | .mul, .int l, .int r => return int (l * r)
   | .div, .int l, .int r => return int (l / r)
+  | .floor, .int l, .int r =>
+    if r = 0 then throw "division by zero" else
+    let samesgn := (l < 0) ↔ (r < 0)
+    let (l,r) := (l.natAbs, r.natAbs)
+    let d := Int.ofNat (l / r)
+    return int (
+      if l % r = 0 then (if samesgn then id else Int.neg) d
+      else (if samesgn then d else Int.neg (d + 1)))
   | _,_,_ => throw "unimp"
 where
   int (i : Int) : Term := .expr (.value (.int i)) .int
@@ -264,6 +272,7 @@ def Term.attr : Term -> String -> Trace Term
   | .pointer addr, "view" => return memViewBuiltin addr
   | .expr _ (.tensor d _), "dtype" => return (dtype d)
   | .expr _ (.tensor _ s), "shape" => return (tuple $ s.toList.map some)
+  | .expr _ (.obj n), id => lookup (n.str id)
   | _, id => throw s!"unsupported attribute {id}"
 where
   dtype dty :=
