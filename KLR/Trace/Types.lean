@@ -179,6 +179,7 @@ structure State where
   locals : Env := ∅
   body : Array Stmt := #[]
   warnings : Array (Pos × String) := #[]
+deriving Repr
 
 instance : Inhabited State where
   default := {}

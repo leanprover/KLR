@@ -631,7 +631,7 @@ def termToIter : Term -> Err (List Term)
            then throw "range arg 3 must not be zero"
            else return (range s e t)
        | _ => throw "invalid argument to range"
-  | _ => throw "unsupported loop interator"
+  | _ => throw "unsupported loop iterator"
 
 /-
 # Expressions and Statements

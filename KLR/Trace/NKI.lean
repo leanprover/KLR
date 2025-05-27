@@ -37,6 +37,8 @@ def NKIEnv : List (Name × Term) :=
   , module nki_isa
   , module nki_lang
   , const_int (.str (nl "tile_size") "pmax") 128
+  , const_int (.str (nl "tile_size") "gemm_stationary_fmax") 128
+  , const_int (.str (nl "tile_size") "gemm_moving_fmax") 512
   , const_var (nl "shared_hbm")
   , const_var (nl "private_hbm")
   , const_var (nl "hbm")
