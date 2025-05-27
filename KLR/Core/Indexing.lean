@@ -104,12 +104,12 @@ theorem List.len_max_prefix_prefix_holds  {α : Type _} {L : List α} {P : α �
     exact Nat.lt_of_add_lt_add_left Hi
   · simp at Hi
 
-
-@[simp] def List.tails {α : Type _} (L : List α) : List (List α) :=
-  match L with | .nil => .nil | .cons _ L => L :: L.tails
-
-@[simp] theorem List.tails_length {α : Type _} (L : List α) : L.tails.length = L.length := by
-  induction L <;> simp; trivial
+-- In Batteries!
+-- @[simp] def List.tails {α : Type _} (L : List α) : List (List α) :=
+--   match L with | .nil => .nil | .cons _ L => L :: L.tails
+--
+-- @[simp] theorem List.tails_length {α : Type _} (L : List α) : L.tails.length = L.length := by
+--   induction L <;> simp; trivial
 
 def nat_list_prod (L : List Nat) : Nat := List.foldl (· * ·) 1 L
 
@@ -487,7 +487,7 @@ def CompileIndex.free_pairs (t : TensorName) (parNum : Nat) (l : Layout d) : Acc
 
 def Layout.RowMajorForm (s : Shape) : Layout s.fdim where
   offset := 0
-  steps := s.freeDims.tails.map <| Int.ofNat ∘ nat_list_prod
+  steps := sorry -- .freeDims.tails.map <| Int.ofNat ∘ nat_list_prod -- TODO: Change tails to use batteries
   nums := s.freeDims
   steps_dim := by
     sorry
