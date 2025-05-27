@@ -111,6 +111,7 @@ theorem List.len_max_prefix_prefix_holds  {α : Type _} {L : List α} {P : α �
 -- @[simp] theorem List.tails_length {α : Type _} (L : List α) : L.tails.length = L.length := by
 --   induction L <;> simp; trivial
 
+
 def nat_list_prod (L : List Nat) : Nat := List.foldl (· * ·) 1 L
 
 namespace KLR.Core
@@ -304,7 +305,7 @@ theorem get!_eq_comp : ∀ i : Int, start s1 s2 + step s1 s2 * i = s1.get! (s2.g
 end comp
 
 /-- Defines a clipped composition operator for IndexSpans -/
-def IndexSpan.clip_comp (s1 s2 : IndexSpan) : IndexSpan where
+def clip_comp (s1 s2 : IndexSpan) : IndexSpan where
   start := Int.toNat <| comp.start s1 s2
   step := comp.step s1 s2
   num := comp.num s1 s2
@@ -334,6 +335,16 @@ def IndexSpan.clip_comp (s1 s2 : IndexSpan) : IndexSpan where
       simp at H
       have Hnum := comp.start_neg_implies_num_zero (H := H)
       omega
+
+
+@[simp] def clip_comp.wf (s1 s2 : IndexSpan) : Prop := 0 ≤ comp.start s1 s2
+
+/-- As long as the composition is well-defined -/
+theorem clip_comp.get!_eq (s1 s2 : IndexSpan) {i} (Hwf : clip_comp.wf s1 s2) :
+    (clip_comp s1 s2).get! i = s1.get! (s2.get! i) := by
+  rw [← comp.get!_eq_comp]
+  simp [clip_comp]
+  exact Int.max_eq_left Hwf
 
 end IndexSpan
 
@@ -376,8 +387,7 @@ def span_layout_comp {d} (f : FreeSpans d) (l : Layout d) : Layout d where
     l.offset + (List.zipWith (fun i n => i * Int.ofNat n) l.steps (f.spans.map IndexSpan.start)).sum.toNat
   steps := List.zipWith (· * ·) (f.spans.map IndexSpan.step) l.steps
   nums  := sorry -- Bound; some kind of minimum, not really sure yet
-  steps_dim := by
-    sorry
+  steps_dim := by simp [FreeSpans.spans_dim, Layout.steps_dim, Nat.min_self]
   nums_dim := by
     sorry
 
@@ -395,7 +405,7 @@ def coord_toIndexSpan (x : Nat) : IndexSpan where
   step_nz := Int.zero_ne_one.symm
   get_nonneg := by simp; omega
 
-def Slice.toIndexSpan (s : Slice) (size : nat) : IndexSpan where
+def Slice.toIndexSpan (s : Slice) (size : Nat) : IndexSpan where
   start := s.l
   step := s.step
   num :=
