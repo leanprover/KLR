@@ -8,3 +8,4 @@ import KLR.Core.Basic
 --import KLR.Core.Encode
 import KLR.Core.FromToJson
 import KLR.Core.Pretty
+import KLR.Core.Indexing
