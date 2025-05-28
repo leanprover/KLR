@@ -5,8 +5,13 @@ Authors: Markus de Medeiros
 -/
 
 import KLR.Core.Basic
+import Init.Data.Int.DivMod
 
 -- TODO: All index expressions in a composition need to be of the same dimension, for now (ie. no contraction).
+
+section Lib
+
+-- TODO: Move this section somewhere else
 
 def List.forall {α : Type _} (L : List α) (P : α → Prop) : Prop :=
   match L with
@@ -104,22 +109,28 @@ theorem List.len_max_prefix_prefix_holds  {α : Type _} {L : List α} {P : α �
     exact Nat.lt_of_add_lt_add_left Hi
   · simp at Hi
 
--- In Batteries!
--- @[simp] def List.tails {α : Type _} (L : List α) : List (List α) :=
---   match L with | .nil => .nil | .cons _ L => L :: L.tails
---
--- @[simp] theorem List.tails_length {α : Type _} (L : List α) : L.tails.length = L.length := by
---   induction L <;> simp; trivial
+@[simp] def List.tails' {α : Type _} (L : List α) : List (List α) :=
+  match L with | .nil => .nil | .cons _ L => L :: L.tails'
 
+@[simp] theorem List.tails'_length {α : Type _} (L : List α) : L.tails'.length = L.length := by
+  induction L <;> simp; trivial
 
 def nat_list_prod (L : List Nat) : Nat := List.foldl (· * ·) 1 L
 
+def List.dot [Mul α] [Add α] [Zero α] (L1 L2 : List α) : α :=
+  (List.zipWith (· * ·) L1 L2).sum
+
+
+theorem List.Int_dot_comm (L1 L2 : List Int) : L1.dot L2 = L2.dot L1 := by
+  simp [List.dot]
+  congr 1
+  apply zipWith_comm_of_comm (Int.mul_comm · ·)
+
+end Lib
+
 namespace KLR.Core
 
-/- ## Lib
-
-TODO: Some of these defs should be moved.
--/
+-- TODO: Move some of these definitions to Basic
 
 -- TODO: AccessBasic.get_shape should just be fixed to not return an Err, there is no reason for it
 def AccessBasic.get_shape (a : AccessBasic) : Shape :=
@@ -242,7 +253,7 @@ def full (d : Nat) : IndexSpan := ⟨0, 1, d, Int.zero_ne_one.symm, by simp; exa
 
 /- ## Composition of two IndexSpans
 
-An IndexSpan `(s1.comp s2) [i] = s1(s2[i])`
+An IndexSpan `(s1.comp s2)[i] = s1(s2[i])`
 
 This composition uses clipping semantics, ie, it always returns an IndexSpan which
 does "as much of (s1.comp s2) as possible". If starting out of bounds, the resulting
@@ -252,11 +263,8 @@ namespace comp
 
 variable (s1 s2 : IndexSpan)
 
-def start : Int :=
-  s1.step * s2.start + s1.start
-
-def step : Int :=
-  s1.step * s2.step
+@[simp] def start : Int := s1.step * s2.start + s1.start
+@[simp] def step : Int := s1.step * s2.step
 
 /-- Means that `i.toNat` is an inbounds access of the IndexSpan `s`. -/
 def inbounds? (s : IndexSpan) (i : Int) : Bool := 0 ≤ i && i < s.num
@@ -363,38 +371,101 @@ structure Layout (dim : Nat) where
 
 /-- An element of ℕ^dim -/
 structure Coord (d : Nat) where
-  coords : List Nat
+  coords : List Int
   coords_dim : coords.length = d
 
 /-- Every element of a Coord is inside the bounds of a particular shape -/
-def Coord.inbounds (s : Shape) (c : Coord s.fdim) : Prop :=
-  (List.zip c.coords s.freeDims).forall Nat.lt.uncurry
+def Coord.inbounds? (s : Shape) (c : Coord s.fdim) : Prop :=
+  (List.zip c.coords s.freeDims).forall (fun (i, n) => 0 ≤ i ∧ i < n)
 
 /-- Look up a memory coordinate in a layout, without doing any bounds checks -/
-def Layout.get! d (l : Layout d) (c : Coord d) : Int :=
-  l.offset + (List.zipWith (fun i n => i * Int.ofNat n) l.steps c.coords).sum
+def Layout.get! {d} (l : Layout d) (c : Coord d) : Int := l.offset + l.steps.dot c.coords
 
 /-- A list of IndexSpans with a given dimension -/
 structure FreeSpans (d : Nat) where
   spans : List IndexSpan
   spans_dim : spans.length = d
 
+def FreeSpans.get! {d : Nat} (f : FreeSpans d) (c : Coord d) : Coord d where
+  coords := List.zipWith (IndexSpan.get! · ·) f.spans c.coords
+  coords_dim := by simp [FreeSpans.spans_dim, Coord.coords_dim, Nat.min_self]
+
 /- ## Composition -/
 
-/-- Precompose a list of FreeSpans with a layout to get another layout -/
-def span_layout_comp {d} (f : FreeSpans d) (l : Layout d) : Layout d where
-  offset  := -- Offset of l + Dot product of starts to each span and each layout
-    l.offset + (List.zipWith (fun i n => i * Int.ofNat n) l.steps (f.spans.map IndexSpan.start)).sum.toNat
-  steps := List.zipWith (· * ·) (f.spans.map IndexSpan.step) l.steps
-  nums  := sorry -- Bound; some kind of minimum, not really sure yet
-  steps_dim := by simp [FreeSpans.spans_dim, Layout.steps_dim, Nat.min_self]
-  nums_dim := by
-    sorry
+namespace lcomp
+
+def offset {d} (f : FreeSpans d) (l : Layout d) : Int :=
+  l.offset + l.steps.dot (f.spans.map (Int.ofNat ∘ IndexSpan.start))
+
+def steps {d} (f : FreeSpans d) (l : Layout d) : List Int :=
+  List.zipWith (· * ·) (f.spans.map IndexSpan.step) l.steps
+
+structure wf {d} (f : FreeSpans d) (l : Layout d) : Prop where
+  offset_nonneg : 0 ≤ offset f l
+
+def comp {d} (f : FreeSpans d) (l : Layout d) : Layout d where
+  offset := Int.toNat <| offset f l
+  steps := steps f l
+  nums  := l.nums
+  steps_dim := by simp [FreeSpans.spans_dim, Layout.steps_dim, Nat.min_self, steps]
+  nums_dim := l.nums_dim
+
+end lcomp
+
+/-- Correctness for span/layout composition
+Note that this one says nothing about staying inbounds -/
+theorem comp_get {d} (f : FreeSpans d) (l : Layout d) {c : Coord d} (Hwf : lcomp.wf f l):
+    (lcomp.comp f l).get! c = l.get! (f.get! c) := by
+  simp [lcomp.comp, Layout.get!, Int.max_eq_left Hwf.offset_nonneg]
+  unfold lcomp.offset
+  rw [Int.add_assoc]; congr 1
+  simp [FreeSpans.get!]
+  simp [lcomp.steps]
+  rcases f with ⟨L1, HL1⟩
+  rcases c with ⟨L2, HL2⟩
+  rcases l with ⟨L4, L3, L5, HL3, HL4⟩
+  simp_all
+  clear Hwf HL4 L4
+  revert L1 L3 d
+  induction L2
+  · simp
+    intro d L1 HL1 Hd L3 HL3; subst Hd
+    simp_all [List.dot]
+  · simp
+    rename_i l2 L2 IH
+    intro d L1 HL1 Hd L3 HL3; subst Hd
+    rcases L1 with _ | ⟨l1, L1⟩ ; simp at HL1
+    rcases L3 with _ | ⟨l3, L3⟩ ; simp at HL3
+    simp_all [List.dot]
+    -- Move non-recursive terms to the left
+    conv=>
+      lhs
+      rw [← Int.add_assoc]
+      enter [1]
+      rw [Int.add_assoc]
+      rw [Int.add_comm _ (_ * _ * _)]
+      rw [← Int.add_assoc]
+    conv=>
+      lhs
+      rw [Int.add_assoc]
+    -- Solve recursive and non-recursive case separately
+    congr 1
+    · rw [Int.mul_add]; congr 1
+      rw [← Int.mul_assoc, Int.mul_comm l3 _]
+    · exact IH L1 HL1 rfl _ HL3
 
 
-/-
-Span Semantics
--/
+/-- NOTE:
+A clipping semantics for pattern accesses is ambiguous. Suppose for example we have a
+2D tensor of shape (4, 4) and we're accessing it via the pattern [0, (1, 20), (1,20)].
+There are a total of 16 locations allocated in memory, we could choose to clip this
+resulting tensor to have shape (A, B) for any values of A, B with product at most 16 and
+it would make sense.
+
+For this reason, we impose an error semantics instead. -/
+
+
+/- ## Span Semantics -/
 
 abbrev LayoutMap d := Layout d → Layout d
 
@@ -405,14 +476,54 @@ def coord_toIndexSpan (x : Nat) : IndexSpan where
   step_nz := Int.zero_ne_one.symm
   get_nonneg := by simp; omega
 
+-- set_option pp.notation false
+-- set_option pp.coercions false
+
+-- theorem le_of_mul_le_mul_right {a b c : Int} (w : b * a ≤ c * a) (h : 0 < a) : b ≤ c := by
+--   rw [Int.mul_comm b, Int.mul_comm c] at w
+--   exact le_of_mul_le_mul_left w h
+--
+-- protected theorem ediv_le_of_le_mul {a b c : Int} (H : 0 < c) (H' : a ≤ b * c) : a / c ≤ b :=
+--   le_of_mul_le_mul_right (Int.le_trans (Int.ediv_mul_le _ (Int.ne_of_gt H)) H') H
+
+
 def Slice.toIndexSpan (s : Slice) (size : Nat) : IndexSpan where
   start := s.l
   step := s.step
-  num :=
-    -- Calculate the number of steps we can take with clipping
-    sorry
+  num := min size s.size
   step_nz := s.wf
-  get_nonneg := sorry
+  get_nonneg i := by
+    suffices 0 ≤ i → i < ↑s.size → 0 ≤ ↑s.l + s.step * i by
+      intro H1 H2; apply this H1
+      apply Int.lt_of_lt_of_le H2
+      apply Int.ofNat_le.mpr
+      exact Nat.min_le_right size s.size
+    simp [Slice.size]
+    split <;> intros Hlb Hub
+    · apply Int.le_add_of_neg_add_le_right
+      rw [Int.neg_mul_eq_neg_mul, Int.add_zero]
+      rw [← Int.toNat_of_nonneg Hlb] at Hub
+      rw [Int.mul_comm]
+      apply Int.mul_le_of_le_ediv; omega
+      rw [← Int.max_eq_left Hlb, ← Int.ofNat_toNat]
+      apply Int.le_trans (Int.le_of_lt Hub)
+      rw [Lean.Grind.natCast_div]
+      apply Int.le_ediv_of_mul_le; omega
+      have R1 : ↑s.step.natAbs = -s.step := by
+        apply Int.ofNat_natAbs_of_nonpos; omega
+      rw [R1]; clear R1
+      apply Int.le_trans
+      · apply Int.mul_le_mul_of_nonneg_right
+        · apply Int.ediv_le_ediv
+          · omega
+          · apply Int.ofNat_le.mpr
+            exact Nat.sub_le s.l s.u
+        · omega
+      apply Int.mul_le_of_le_ediv; omega
+      apply Int.le_refl
+    · rename_i h
+      apply Int.add_nonneg (Int.ofNat_zero_le s.l)
+      apply Int.mul_nonneg (Int.not_lt.mp h) Hlb
 
 def Index.toIndexSpan (i : Index) (size : Nat) : IndexSpan :=
   match i with
@@ -424,7 +535,7 @@ def simple_interp_par (t : TensorName) : IndexSpan :=
 
 def simple_interp_free (t : TensorName) : LayoutMap t.fdim :=
   let F : FreeSpans t.fdim := ⟨t.shape.freeDims.map .full, by simp⟩
-  span_layout_comp F
+  lcomp.comp F
 
 def basic_interp_par (b : AccessBasic) : IndexSpan :=
   b.par_index.toIndexSpan b.get_shape.parDim
@@ -432,28 +543,26 @@ def basic_interp_par (b : AccessBasic) : IndexSpan :=
 def basic_interp_free (b : AccessBasic) : LayoutMap b.fdim :=
   let F : FreeSpans b.fdim := FreeSpans.mk
     (List.zipWith (·.toIndexSpan ·) b.free_indices b.get_shape.freeDims)
-    (by -- Nuiscance
-      -- rw [List.length_map, ← AccessBasic.free_indices_length]
-      -- unfold AccessBasic.fdim
-      sorry)
-  span_layout_comp F
+    (by
+      rcases b with ⟨_, L, Hwf⟩
+      simp [AccessBasic.get_shape, AccessBasic.shape]
+      apply Nat.min_eq_right
+      cases L
+      · simp at Hwf
+      · simp)
+  lcomp.comp F
 
 def pattern_interp_par (p : AccessPattern) : IndexSpan :=
   .full p.parNum
 
 def pattern_interp_free (p : AccessPattern) : LayoutMap p.fdim := fun l =>
-  -- TODO: Check this again
   let coeff_sum : Int := (p.freePattern.map APPair.step).sum
-  sorry -- Refactor this
-  -- Layout.mk
-  --   (p.offset + coeff_sum * l.offset).toNat
-  --   (l.steps.map (coeff_sum * ·))
-  --   sorry -- List of bounds
-  --   (by -- Nuiscance
-  --     rw [List.length_map]
-  --     sorry)
-  --   (by -- Nuiscance
-  --     sorry)
+  Layout.mk
+    (p.offset + coeff_sum * l.offset).toNat
+    (l.steps.map (coeff_sum * ·))
+    (p.freePattern.map APPair.num)
+    (by rw [List.length_map]; exact l.steps_dim)
+    (by simp [List.length_map, AccessPattern.fdim, AccessPattern.shape])
 
 def Access.interp_par : Access → IndexSpan
 | .simple s => simple_interp_par s
@@ -497,13 +606,9 @@ def CompileIndex.free_pairs (t : TensorName) (parNum : Nat) (l : Layout d) : Acc
 
 def Layout.RowMajorForm (s : Shape) : Layout s.fdim where
   offset := 0
-  steps := sorry -- .freeDims.tails.map <| Int.ofNat ∘ nat_list_prod -- TODO: Change tails to use batteries
+  steps := s.freeDims.tails'.map <| Int.ofNat ∘ nat_list_prod
   nums := s.freeDims
-  steps_dim := by
-    sorry
-  nums_dim := by
-    sorry
-  -- get_nonneg :=
-  --   sorry
+  steps_dim := by simp
+  nums_dim := by simp
 
 end KLR.Core
