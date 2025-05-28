@@ -169,6 +169,7 @@ structure TensorScalarAddr where
 inductive Operator where
   | load : Operator
   | save : Operator
+  | const : Operator
   | tensorScalar : TensorScalar -> Operator
   | tensorScalarAddr : TensorScalarAddr -> Operator
   deriving Repr, BEq

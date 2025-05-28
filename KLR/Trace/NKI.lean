@@ -27,6 +27,7 @@ private def nisa : String -> Name := .str nki_isa
 def NKIBuiltins : List (Name × BuiltinFn) :=
   [ (nl "load", Tensor.load)
   , (nl "store", Tensor.store)
+  , (nl "zeros", Tensor.zeros)
   --, (nl "ndarray", Tensor.ndarray) see comment in Tensor.lean
   , (nisa "tensor_scalar", Tensor.tensor_scalar)
   ]
