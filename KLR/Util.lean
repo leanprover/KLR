@@ -6,6 +6,7 @@ Authors: Paul Govereau, Sean McLaughlin
 
 import Util.Base64
 import Util.Enum
+import Util.FromBytes
 import Util.Gzip
 import Util.Hex
 import Util.Json
