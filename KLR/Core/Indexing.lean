@@ -5,14 +5,91 @@ Authors: Markus de Medeiros
 -/
 
 import KLR.Core.Basic
-import Init.Data.Int.DivMod
+
+/- # Semantics of Indexing Operations (WIP)
+
+This file defines the interpretation of `Access` statements, and a technique for
+composing sequences of `Access` statements as well.
+
+## Semantics
+
+Every access statement has
+- A dimension
+- A shape
+
+When applied to a tensor of the same dimension, it represents a subtensor having the same
+dimension but with a different shape. In this file, shapes are free to have size zero
+along any access, and we do not contract dimensions with size 1 (as Numpy does in some cases
+but not others).
+
+There are two main variants of the semantics
+- A "clipping" semantics, where out-of-bounds accesses are ignored,
+- A "total" semantics, where out-of-bounds accesses are UB.
+Numpy uses a "clipping" semantics for some tensor accesses (like slices) and a "total" semantics
+for others (like slices of size 1). This file does not match Numpy exactly.
+
+Our model of an access uses these types:
+- An `IndexSpan`, which denotes a finite affine sequence of nonnegative integers
+- A `FreeSpans d`, which is a length-indexed list of `IndexSpan`s
+- A `Layout d`, denoting an affine function from `Int^d to Int`
+- A `LayoutMap d`, ie. a function `Layout d → Layout d`.
+
+The semantics for each access term is given in two parts
+- An `IndexSpan` describing the indices of the parallel dimension of the view as a function of
+  the parallel dimension of the initial tensor.
+  + See `Access.interp_par`
+- A `LayoutMap` describing where each free index of the view lives in memory, given an affine
+  layout of the initial tensor in memory.
+  + See `Access.interp_free`
+
+All of `IndexSpan`s, `FreeSpan`s, and `Layout`s have a `get!` function plus some notion of
+an input being "inbounds". The semantics of a list of Access operations is the composition of
+these `get!` functions is the composition of these `get!` functions if the output of each
+function is inbounds, or `UB` if out-of-bounds.
+
+
+## Composition
+
+The key insights are the following:
+- `IndexSpan`s and `Layout`s compose in the same way affine functions do.
+  + See `clip_comp` and `lcomp.comp` respectively
+- An access along the par dimension[^1] described by an `IndexSpan` can be realized by an `AccessBasic`
+  + See `CompileIndex.par`
+- An access along the free dimension described by a `Layout` can be realized by an `AccessPattern`
+  + See `CompileIndex.free_pairs`
+
+Hence, if we know the memory layout is a multi-affine function (for example, `Layout.RowMajorForm`),
+then we can compose the par and free dimensions for each access separately, leaving at most one `AccessBasic`
+and at most one `AccessPattern`. These could be further optimized out if either access is trivial.
+
+
+## Static Semantics
+
+For the simple and basic accesses, we use clipping semantics. That is, we define the bound on the input
+to be the greatest integer such that each access is inboubds. For example, the clipping semantics for a
+an access `A[2:25]` for a tensor `A` with shape `(10,)` would establish the input bounds to be `(8,)`.
+
+There is no analogue for access patterns, the clipping semantics for access patterns is ambiguous.
+Suppose for example we have a 2D tensor of shape (4, 4) and we're accessing it via the
+pattern [0, (1, 20), (1,20)]. There are a total of 16 locations allocated in memory, we could choose
+to clip this resulting tensor to have shape (A, B) for any values of A, B with product at most 16 and
+it would make sense. Hence, we use a total semantics for access patterns.
+
+Thus, the semantics of a sequence of accesses depend in general on the shape of the input tensor.
+
+## Footnotes
+
+[^1]: An access along the par dimension with negative stride whose last element is zero cannot
+be realized.
+
+-/
+
+
 
 -- TODO: All index expressions in a composition need to be of the same dimension, for now (ie. no contraction).
 
 section Lib
-
 -- TODO: Move this section somewhere else
-
 def List.forall {α : Type _} (L : List α) (P : α → Prop) : Prop :=
   match L with
   | .nil => True
@@ -119,7 +196,6 @@ def nat_list_prod (L : List Nat) : Nat := List.foldl (· * ·) 1 L
 
 def List.dot [Mul α] [Add α] [Zero α] (L1 L2 : List α) : α :=
   (List.zipWith (· * ·) L1 L2).sum
-
 
 theorem List.Int_dot_comm (L1 L2 : List Int) : L1.dot L2 = L2.dot L1 := by
   simp [List.dot]
@@ -361,7 +437,7 @@ end IndexSpan
 
 /- ## Layouts -/
 
-/-- Algebraic representation of an affine function taking Nat^dim to Z -/
+/-- Algebraic representation of an affine function taking Int^dim to Int -/
 structure Layout (dim : Nat) where
   offset  : Nat
   steps : List Int
@@ -456,11 +532,6 @@ theorem comp_get {d} (f : FreeSpans d) (l : Layout d) {c : Coord d} (Hwf : lcomp
 
 
 /-- NOTE:
-A clipping semantics for pattern accesses is ambiguous. Suppose for example we have a
-2D tensor of shape (4, 4) and we're accessing it via the pattern [0, (1, 20), (1,20)].
-There are a total of 16 locations allocated in memory, we could choose to clip this
-resulting tensor to have shape (A, B) for any values of A, B with product at most 16 and
-it would make sense.
 
 For this reason, we impose an error semantics instead. -/
 
