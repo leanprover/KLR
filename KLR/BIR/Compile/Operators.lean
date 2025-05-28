@@ -39,6 +39,6 @@ instance : ToInst Core.TensorScalarAddr where
 def translateOperator : Operator -> Compile Inst
   | .load => return .Load { }
   | .save => return .Save { }
+  | .const => throw "translateOperator: unimplemented: .const"
   | .tensorScalar ts => toInst ts
   | .tensorScalarAddr ts => toInst ts
-
