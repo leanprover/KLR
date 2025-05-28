@@ -77,16 +77,18 @@ it would make sense. Hence, we use a total semantics for access patterns.
 
 Thus, the semantics of a sequence of accesses depend in general on the shape of the input tensor.
 
+Furthermore, this file currently only supports compositions of equal-dimensioned tensors.
+In Numpy, some dimensions with size 1 are contracted, so for example an access `A[:,2,:][3:5, 4:2:-1]`
+would be legal because the `[:,2,:]` access results in a 2-dimensional view of the 3-dimensional tensor `A`.
+Numpy doesn't always contract such dimensions, for example it does not contract `A[:,2:3,:]` even though
+this view has the same elements as `[:,2,:]`. If we seek to support the same thing, we could make a pass
+through a list of indices to undo the contraction of all `.coord` slices.
+
 ## Footnotes
 
 [^1]: An access along the par dimension with negative stride whose last element is zero cannot
 be realized.
-
 -/
-
-
-
--- TODO: All index expressions in a composition need to be of the same dimension, for now (ie. no contraction).
 
 section Lib
 -- TODO: Move this section somewhere else
@@ -232,10 +234,7 @@ theorem AccessBasic.get_shape_length (a : AccessBasic) :
 @[simp] def AccessBasic.fdim (b : AccessBasic) : Nat := b.get_shape.fdim
 @[simp] def AccessPattern.fdim (p : AccessPattern) : Nat := p.shape.fdim
 
-/-- The number of free dimensions in an access.
-
-NOTE: For now, we are only composing equal-dimensioned tensors. It should be possible to
-preprocess a composition of indices into this form and it greatly simplifies the analysis. -/
+/-- The number of free dimensions in an access. -/
 def Access.fdim : Access → Nat
 | .simple s => s.fdim
 | .basic b => b.fdim
@@ -244,12 +243,13 @@ def Access.fdim : Access → Nat
 /-- The slice [0, s) -/
 def Slice.full (s : Nat) : Slice := ⟨0, s, 1, Int.zero_ne_one.symm⟩
 
-/-- An Index that -/
+/-- Obtain the first element of the .indexes field -/
 @[simp] def AccessBasic.par_index (b : AccessBasic) : Index :=
   match H : b.indexes with
   | .nil => (Nat.add_one_ne_zero _ (List.length_nil ▸ H ▸ b.lenWF)).elim
   | .cons P _ => P
 
+/-- Obtain all but the first element of the .indexes field -/
 @[simp] def AccessBasic.free_indices (b : AccessBasic) : List Index :=
   match H : b.indexes with
   | .nil => (Nat.add_one_ne_zero _ (List.length_nil ▸ H ▸ b.lenWF)).elim
@@ -275,23 +275,21 @@ structure IndexSpan where
 namespace IndexSpan
 
 /-- Get an index from the sequence without doing any bounds checks -/
-@[simp] def get! (s : IndexSpan) (i : Int) : Int :=
-  s.start + s.step * i
+@[simp] def get! (s : IndexSpan) (i : Int) : Int := s.start + s.step * i
 
 /-- First natural number that is outside the range in the direction of s.stride.
 The purpose of this function is to establish a slice bound for a given IndexSpan.
 
-NOTE: If the last step is on zero, this just doesn't work. OTOH, if the last
-step is greater than zero then anything between the last step (exclusive) and
-the (last + 1) step (inclusive) is a suitable bound. Since the last step is nonnegative,
+NOTE: If the last step is on zero and the stride is negative, this just doesn't work.
+OTOH, if the last step is greater than zero then anything between the last step (exclusive) and
+the (last + 1) step (inclusive), this is a suitable bound. Since the last step is nonnegative,
 min(0, (last + 1) step) works whenever the last step is nonzero and it is impossible
 if the last step is zero. -/
-def extreme (s : IndexSpan) : Nat :=
-  Int.toNat <| s.start + s.num * s.step
+def extreme (s : IndexSpan) : Nat := Int.toNat <| s.start + s.num * s.step
 
-/-- As long as the last inbounds step is nonzero, the minimum of the next step and 0
-(ie IndexSpan.extreme) will be outside of the range of the IndexSpan so can serve as a bound.
-The num=0 and num=1 cases will be handled separately so is excluded from regular spans. -/
+/-- Characterizes an IndexSpan can be converted into a slice, ie, when (ie IndexSpan.extreme)
+works as an ending bounds.  The num=0 and num=1 cases will be handled separately so they are
+excluded here. -/
 def is_regular (s : IndexSpan) : Bool := 1 < s.num && 0 < s.start + s.step * (s.num - 1)
 def regular_wf (s : IndexSpan) : Prop := s.is_regular
 
@@ -299,7 +297,7 @@ def regular_wf (s : IndexSpan) : Prop := s.is_regular
 def regular_toSlice (s : IndexSpan) : Slice :=
   ⟨s.start, s.extreme, s.step, s.step_nz⟩
 
--- A common case for regular slices
+/- A common family of cases for regular slices -/
 theorem pos_step_regular {s : IndexSpan} (Hstep : 0 < s.step) (Hnum : 1 < s.num) :
     s.is_regular := by
   simp [IndexSpan.is_regular]
@@ -317,7 +315,7 @@ def subsingleton_wf (s : IndexSpan) : Prop := s.is_subsingleton
 def subsingleton_toSlice (s : IndexSpan) : Slice :=
   ⟨s.start, s.start + s.num, 1, Int.zero_ne_one.symm⟩
 
-/-- Compile an IndexSpan to a slice. -/
+/-- Attempt to compile an IndexSpan to a slice. -/
 def toSlice (s : IndexSpan) : Err Slice :=
   if s.is_subsingleton then .ok s.subsingleton_toSlice else
   if s.is_regular then .ok s.regular_toSlice else
@@ -333,7 +331,7 @@ An IndexSpan `(s1.comp s2)[i] = s1(s2[i])`
 
 This composition uses clipping semantics, ie, it always returns an IndexSpan which
 does "as much of (s1.comp s2) as possible". If starting out of bounds, the resulting
-`num` field will be zero (not an error). -/
+`num` field will be zero. -/
 
 namespace comp
 
