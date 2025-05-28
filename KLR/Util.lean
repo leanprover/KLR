@@ -14,6 +14,8 @@ import Util.NumBytes
 import Util.NumBytesTest
 import Util.Plausible
 import Util.SHA256
+import Util.ToBytes
+import Util.ToBytesTest
 
 namespace KLR
 
