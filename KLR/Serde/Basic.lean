@@ -16,6 +16,8 @@ https://www.rfc-editor.org/rfc/rfc8949.html
 
 namespace KLR.Serde
 
+open TensorLib(toBEByteArray)
+
 class ToCBOR (a : Type u) where
   toCBOR : a -> ByteArray
 
@@ -208,7 +210,7 @@ instance : ToCBOR UInt16 where
   toCBOR x :=
     if x.toNat < UInt8.size
     then toCBOR x.toUInt8
-    else withTag 0x19 x.toBEByteArray
+    else withTag 0x19 (toBEByteArray x)
 
 instance : ToCBOR Int16 where
   toCBOR x :=
@@ -264,7 +266,7 @@ instance : ToCBOR UInt32 where
   toCBOR x :=
     if x.toNat < UInt16.size
     then toCBOR x.toUInt16
-    else withTag 0x1a x.toBEByteArray
+    else withTag 0x1a (toBEByteArray x)
 
 instance : ToCBOR Int32 where
   toCBOR x :=
@@ -320,7 +322,7 @@ instance : ToCBOR UInt64 where
   toCBOR x :=
     if x.toNat < UInt32.size
     then toCBOR x.toUInt32
-    else withTag 0x1b x.toBEByteArray
+    else withTag 0x1b (toBEByteArray x)
 
 instance : ToCBOR Int64 where
   toCBOR x :=
@@ -393,10 +395,10 @@ formats. This should be OK, it just wastes a few bytes.
 -/
 
 instance : ToCBOR Float32 where
-  toCBOR f := withTag 0xfa (f.toBits.toBEByteArray)
+  toCBOR f := withTag 0xfa (toBEByteArray f.toBits)
 
 instance : ToCBOR Float where
-  toCBOR f := withTag 0xfb (f.toBits.toBEByteArray)
+  toCBOR f := withTag 0xfb (toBEByteArray f.toBits)
 
 instance : FromCBOR Float32 where
   parse arr := do
