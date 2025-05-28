@@ -18,7 +18,7 @@ deriving Inhabited, NumBytes
 #guard NumBytes.numBytes (default:Foo) == 8
 
 /--
-error: deriving NumBytes does not work on mutually inductive types
+error: deriving NumBytes only works on single structures
 -/
 #guard_msgs in
 mutual
@@ -32,7 +32,7 @@ deriving NumBytes
 end
 
 /--
-error: deriving NumBytes does not work on mutually inductive types
+error: deriving NumBytes only works on single structures
 -/
 #guard_msgs in
 mutual
@@ -44,5 +44,14 @@ private structure Bar2 where
   x : Int8
 -- No deriving clause here
 end
+
+/--
+error: deriving NumBytes only works on single structures
+-/
+#guard_msgs in
+private inductive Baz where
+| x : Int -> Baz
+| y : Nat -> Baz
+deriving NumBytes
 
 end Test

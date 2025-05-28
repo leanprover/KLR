@@ -78,21 +78,19 @@ private def mkNumBytesInstance (declName : Name) : TermElabM (Array Command) := 
   let cmds := #[← mkNumBytesFunction ctx] ++ (← mkInstanceCmds ctx ``NumBytes #[declName])
   return cmds
 
+private def errMsg := "deriving NumBytes only works on single structures"
+
 def mkNumBytesInstanceHandler (declNames : Array Name) : CommandElabM Bool := match declNames with
 | #[] => impossible "Expected a type"
 | #[t] => do
-  if (<- Lean.getConstInfoInduct t).all.length == 1 then
-    if (← isInductive t) then
-      let cmds ← liftTermElabM <| mkNumBytesInstance t
-      cmds.forM elabCommand
-      return true
-    else
-      panic "problem handling NumBytes instance"
-      return false
+  if (Lean.isStructure (<- getEnv) t) && (<- Lean.getConstInfoInduct t).all.length == 1 then
+    let cmds ← liftTermElabM <| mkNumBytesInstance t
+    cmds.forM elabCommand
+    return true
   else
-    throwError "deriving NumBytes does not work on mutually inductive types"
+    throwError errMsg
     return false
-| _ => throwError "deriving NumBytes does not work on mutually inductive types"
+| _ => throwError errMsg
 
 initialize
   registerDerivingHandler ``NumBytes mkNumBytesInstanceHandler
