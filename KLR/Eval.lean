@@ -363,6 +363,7 @@ private def evalStmt (stmt : Core.Stmt) : WithEnv Unit := match stmt with
 | .store dst Operator.save [arg] => do
   let v <- evalValue arg
   modify fun env => env.insert dst.tensor.name v
+| .store _ Operator.const args => throw s!"Unimplemented: store const {repr args}"
 | .store _ (Operator.tensorScalar ts) _ => throw s!"Unimplemented: store tensorScalar {repr ts}"
 | .store _ (Operator.tensorScalarAddr ts) _ => throw s!"Unimplemented: store tensorScalarAddr {repr ts}"
 | .store _ Operator.save _ => do
