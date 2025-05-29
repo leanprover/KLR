@@ -41,8 +41,14 @@ instance : NumBytes Int32 where
 instance : NumBytes UInt32 where
   numBytes _ := 4
 
+instance : NumBytes UInt64 where
+  numBytes _ := 8
+
+instance : NumBytes Int64 where
+  numBytes _ := 8
+
 instance : NumBytes (BitVec n) where
-  numBytes _ := n
+  numBytes _ := (n + 7) / 8
 
 instance [NumBytes a][NumBytes b] : NumBytes (a × b) where
   numBytes := fun (x, y) => numBytes x + numBytes y

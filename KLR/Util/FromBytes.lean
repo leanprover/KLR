@@ -22,7 +22,7 @@ class FromBytes (a : Type) where
   fromBytesUnchecked : ByteArray -> Except String (a × ByteArray)
 
 -- TODO: not sure how to use this yet from the macros
-def fromBytes [H : Inhabited a] [NumBytes a] [FromBytes a] (arr : ByteArray) : Except String (a × ByteArray) :=
+def fromBytes (a : Type) [H : Inhabited a] [NumBytes a] [FromBytes a] (arr : ByteArray) : Except String (a × ByteArray) :=
   if arr.size < numBytes H.default then throw "Not enough bytes" else FromBytes.fromBytesUnchecked arr
 
 namespace FromBytes
@@ -36,6 +36,9 @@ instance : FromBytes UInt16 where
 instance : FromBytes UInt32 where
   fromBytesUnchecked arr := return ((arr.take 4).toUInt32LE!, arr.drop 4)
 
+instance : FromBytes UInt64 where
+  fromBytesUnchecked arr := return ((arr.take 8).toUInt64LE!, arr.drop 8)
+
 instance : FromBytes Int8 where
   fromBytesUnchecked arr := return (arr[0]!.toInt8, arr.drop 1)
 
@@ -45,11 +48,16 @@ instance : FromBytes Int16 where
 instance : FromBytes Int32 where
   fromBytesUnchecked arr := return ((arr.take 4).toUInt32LE!.toInt32, arr.drop 4)
 
+instance : FromBytes Int64 where
+  fromBytesUnchecked arr := return ((arr.take 8).toUInt64LE!.toInt64, arr.drop 8)
+
 instance [Enum a] : FromBytes a where
   fromBytesUnchecked arr := (Enum.fromUInt8 arr[0]!).map fun e => (e, arr.drop 1)
 
 instance : FromBytes (BitVec n) where
-  fromBytesUnchecked arr := return ((arr.take n).toBitVecLE n, arr.drop n)
+  fromBytesUnchecked arr :=
+    let k := (n + 7) / 8
+    return ((arr.take k).toBitVecLE n, arr.drop k)
 
 end FromBytes
 
