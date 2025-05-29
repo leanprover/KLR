@@ -16,6 +16,8 @@ https://www.rfc-editor.org/rfc/rfc8949.html
 
 namespace KLR.Serde
 
+open TensorLib(toBEByteArray)
+
 class ToCBOR (a : Type u) where
   toCBOR : a -> ByteArray
 
@@ -95,6 +97,23 @@ instance : FromCBOR Bool where
     throwError "CBOR Bool mismatch: true"
   if roundtrip false == false then
     throwError "CBOR Bool mismatch: false"
+
+-- ... or we could also just prove the theorem
+-- With some automation, may be able to prove all these theorems
+theorem rt_bool (b : Bool) :
+  .ok b = fromCBOR (toCBOR b) := by
+    unfold toCBOR fromCBOR
+    unfold parse
+    unfold instToCBORBool instFromCBORBool
+    unfold ByteArray.size Except.map Prod.snd
+    unfold getElem
+    unfold ByteArray.instGetElemNatUInt8LtSize
+    unfold ByteArray.get
+    unfold pure Applicative.toPure Monad.toApplicative
+    unfold Except.instMonad
+    unfold Except.pure
+    induction b <;> simp
+    done
 
 /-
 # 8-bit integers
@@ -208,7 +227,7 @@ instance : ToCBOR UInt16 where
   toCBOR x :=
     if x.toNat < UInt8.size
     then toCBOR x.toUInt8
-    else withTag 0x19 x.toBEByteArray
+    else withTag 0x19 (toBEByteArray x)
 
 instance : ToCBOR Int16 where
   toCBOR x :=
@@ -264,7 +283,7 @@ instance : ToCBOR UInt32 where
   toCBOR x :=
     if x.toNat < UInt16.size
     then toCBOR x.toUInt16
-    else withTag 0x1a x.toBEByteArray
+    else withTag 0x1a (toBEByteArray x)
 
 instance : ToCBOR Int32 where
   toCBOR x :=
@@ -320,7 +339,7 @@ instance : ToCBOR UInt64 where
   toCBOR x :=
     if x.toNat < UInt32.size
     then toCBOR x.toUInt32
-    else withTag 0x1b x.toBEByteArray
+    else withTag 0x1b (toBEByteArray x)
 
 instance : ToCBOR Int64 where
   toCBOR x :=
@@ -393,10 +412,10 @@ formats. This should be OK, it just wastes a few bytes.
 -/
 
 instance : ToCBOR Float32 where
-  toCBOR f := withTag 0xfa (f.toBits.toBEByteArray)
+  toCBOR f := withTag 0xfa (toBEByteArray f.toBits)
 
 instance : ToCBOR Float where
-  toCBOR f := withTag 0xfb (f.toBits.toBEByteArray)
+  toCBOR f := withTag 0xfb (toBEByteArray f.toBits)
 
 instance : FromCBOR Float32 where
   parse arr := do
@@ -596,3 +615,39 @@ warning: declaration uses 'sorry'
 #guard_msgs in
   example (x : List (Bool × List UInt8)) :
     roundtrip x == true := by plausible
+
+/-
+# Encoding of arbitrary inductive types
+
+Each inductive type (including structures) have a serde tag assigned to them,
+and each constructor also has a tag. We use the CBOR "tagged value" encoding
+for this. For each type, we use a 16-bit tag, the first half is the type tag
+and the second half is the constructor tag. Following the tag we have a tuple
+of the constructor arguments.
+
+The functions below are called by the derived instances to build and parse the
+tagged encoding. For simplicity we limit constructors to at most 24 arguments;
+this constraint can be lifted by modifying these functions.
+TODO: lift this constraint.
+-/
+
+def cborTag (typeTag valTag len : Nat) : ByteArray :=
+  assert! len < 0x18
+  let len := toCBOR len.toUInt64
+  let len := adjustTag 0x80 len
+  .mk #[ 0xd9, typeTag.toUInt8, valTag.toUInt8] ++ len
+
+def parseCBORTag (arr : ByteArray) : Err (Nat × Nat × Nat) := do
+  if h:arr.size > 4 then
+    if arr[0] != 0xd9 then
+      throw "expecting tagged value"
+    let typeTag := arr[1]
+    let valTag := arr[2]
+    let listTag := arr[3] >>> 5
+    let listSize := arr[3] &&& 0x1f
+    if listTag != 0x80 then
+      throw "expecting list after tagged value"
+    if listSize >= 0x18 then
+      throw "expecting small list after tagged value"
+    return (typeTag.toNat, valTag.toNat, listSize.toNat)
+  throw "expecting tagged value - array too small"

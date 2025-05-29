@@ -6,12 +6,17 @@ Authors: Paul Govereau, Sean McLaughlin
 
 import Util.Base64
 import Util.Enum
+import Util.FromBytes
 import Util.Gzip
 import Util.Hex
 import Util.Json
 import Util.ListJson
+import Util.NumBytes
+import Util.NumBytesTest
 import Util.Plausible
 import Util.SHA256
+import Util.ToBytes
+import Util.ToBytesTest
 
 namespace KLR
 

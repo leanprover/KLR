@@ -11,7 +11,7 @@ import TensorLib.Ufunc
 
 open Lean(AssocList)
 open StateT(lift)
-open TensorLib(Iterator Tensor)
+open TensorLib(Iterator Tensor toLEByteArray)
 open TensorLib.Iterator(IntIter BEList)
 open KLR.Core(AccessPattern Address AluOp APPair Operator Shape TensorName TensorScalar)
 
@@ -334,13 +334,13 @@ private def evalTensorScalar (ts : TensorScalar) (t: ByteArray) : Err ByteArray 
   | TensorScalar.mk op0 c0 rev0 op1 c1 rev1 =>
   let f0 <- evalAluOp op0
   let f1 <- evalAluOp op1
-  let c0 := c0.toLEByteArray
-  let c1 := c1.toLEByteArray
+  let c0 := toLEByteArray c0
+  let c1 := toLEByteArray c1
   apply2 f0 rev0 c0 f1 rev1 c1 t
 
 #guard
   let ts := TensorScalar.mk AluOp.add 1 false AluOp.bypass 0 false
-  let res := get! $ evalTensorScalar ts (1 : Float32).toLEByteArray
+  let res := get! $ evalTensorScalar ts (toLEByteArray (1 : Float32))
   TensorLib.Float32.ofLEByteArray! res == 2
 
 private def evalStmt (stmt : Core.Stmt) : WithEnv Unit := match stmt with
