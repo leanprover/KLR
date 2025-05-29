@@ -623,14 +623,19 @@ termination_by (stop - start).natAbs
 def termToIter : Term -> Err (List Term)
   | .tuple l | .list l => return l
   | .expr (.call "range" l _) _ =>
-       match l with
-       | [ .int e ] => return (range 0 e 1)
-       | [ .int s, .int e ] => return (range s e 1)
-       | [ .int s, .int e, .int t ] =>
-           if t == 0
-           then throw "range arg 3 must not be zero"
-           else return (range s e t)
-       | _ => throw "invalid argument to range"
+      match l with
+      | [ .int e ] => return (range 0 e 1)
+      | [ .int s, .int e ] => return (range s e 1)
+      | [ .int s, .int e, .int t ] =>
+          if t == 0
+          then throw "range arg 3 must not be zero"
+          else return (range s e t)
+      | _ => throw "invalid argument to range"
+  | .expr (.call "nki.language.affine_range" l _) _ =>
+      -- Must behave equally to the simple sequential loop.
+      match l with
+      | [ .int e ] => return (range 0 e 1)
+      | _ => throw "invalid argument to nki.language.affine_range"
   | _ => throw "unsupported loop iterator"
 
 /-
