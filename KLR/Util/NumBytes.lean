@@ -47,6 +47,12 @@ instance : NumBytes UInt64 where
 instance : NumBytes Int64 where
   numBytes _ := 8
 
+instance : NumBytes Float32 where
+  numBytes _ := 4
+
+instance : NumBytes Float where
+  numBytes _ := 8
+
 instance : NumBytes (BitVec n) where
   numBytes _ := (n + 7) / 8
 

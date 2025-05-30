@@ -51,6 +51,12 @@ instance : FromBytes Int32 where
 instance : FromBytes Int64 where
   fromBytesUnchecked arr := return ((arr.take 8).toUInt64LE!.toInt64, arr.drop 8)
 
+instance : FromBytes Float32 where
+  fromBytesUnchecked arr := return (Float32.ofBits (arr.take 4).toUInt32LE!, arr.drop 4)
+
+instance : FromBytes Float where
+  fromBytesUnchecked arr := return (Float.ofBits (arr.take 8).toUInt64LE!, arr.drop 8)
+
 instance [Enum a] : FromBytes a where
   fromBytesUnchecked arr := (Enum.fromUInt8 arr[0]!).map fun e => (e, arr.drop 1)
 
