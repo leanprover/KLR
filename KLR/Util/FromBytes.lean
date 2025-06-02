@@ -88,8 +88,6 @@ def mkFromBytesBody (e : Expr): TermElabM Term := do
 def mkFromBytesFunction (ctx : Context) : TermElabM Command := do
   let auxFunName := ctx.auxFunNames[0]!
   let header     ←  mkFromBytesHeader ctx.typeInfos[0]!
-  let binders    := header.binders
-  Lean.Elab.Term.elabBinders binders fun _ => do
   let type       ← Lean.Elab.Term.elabTerm header.targetType none
   let body   ← mkFromBytesBody type
   let indName := mkIdent type.getAppFn.constName!
