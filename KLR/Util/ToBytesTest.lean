@@ -18,7 +18,7 @@ deriving ToBytes
 #guard toBytes (Bar.mk (Foo.mk 0x0 0x1 0x2) 3) == ⟨ #[0, 1, 0, 2, 0, 0, 0, 3, 0, 0, 0] ⟩
 
 /--
-error: deriving ToBytes only works on single structures
+error: deriving ToBytes only works on single structures or inductives all of whose branches have a single ToBytes argument
 -/
 #guard_msgs in
 mutual
@@ -28,11 +28,11 @@ deriving ToBytes
 
 private structure Foo2 where
   x : Int8
-deriving NumBytes
+deriving ToBytes
 end
 
 /--
-error: deriving ToBytes only works on single structures
+error: deriving ToBytes only works on single structures or inductives all of whose branches have a single ToBytes argument
 -/
 #guard_msgs in
 mutual
@@ -45,11 +45,12 @@ private structure Bar2 where
 -- No deriving clause here
 end
 
-/--
-error: deriving ToBytes only works on single structures
--/
-#guard_msgs in
-private inductive Baz where
-| x : Int -> Baz
-| y : Nat -> Baz
+private inductive FooI where
+| X (x : Int8)
+| Y (y : Int16)
+| Z (z : Int32)
 deriving ToBytes
+
+#guard toBytes (FooI.X 0x2) == ⟨ #[2] ⟩
+#guard toBytes (FooI.Y 0x2) == ⟨ #[2, 0] ⟩
+#guard toBytes (FooI.Z 0x2) == ⟨ #[2, 0, 0, 0] ⟩
