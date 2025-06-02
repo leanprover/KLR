@@ -1,5 +1,5 @@
 {"version": "1.1.0",
  "packagesDir": ".lake/packages",
  "packages": [],
- "name": "ffi_util",
+ "name": "FFIUtil",
  "lakeDir": ".lake"}

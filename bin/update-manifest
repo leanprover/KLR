@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e -u -o pipefail
+trap "kill 0" SIGINT SIGTERM
+
+# Update all of the manifest files in the repo
+
+for f in `fd lake-manifest.json`
+do
+  d=`dirname $f`
+  echo $d
+  (cd $d; lake update)
+done

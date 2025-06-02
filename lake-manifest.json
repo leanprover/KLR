@@ -94,7 +94,7 @@
    "name": "FFIUtil",
    "manifestFile": "lake-manifest.json",
    "inherited": true,
-   "dir": "./KLR/Util/Gzip/./../FFIUtil",
+   "dir": "./KLR/NRT/./../Util/FFIUtil",
    "configFile": "lakefile.lean"}],
  "name": "KLR",
  "lakeDir": ".lake"}
