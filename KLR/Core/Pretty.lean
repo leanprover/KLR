@@ -78,7 +78,7 @@ instance : ToFormat Operator where
   format
   | .load => "load"
   | .save => "save"
-  | .const => "const"
+  | .memset x => f!"memset {x}"
   | .tensorScalar .. => "tensor_scalar{..}"
   | .tensorScalarAddr .. => "tensor_scalar_addr{..}"
 
