@@ -57,8 +57,7 @@ nki store (dst : Access) (value : Core.Value) := do
 nki zeros (shape : Shape) (dtype : Dtype) (buffer : Memory := .sbuf)
           (name : String := "") := do
   let dst <- declare ("zeros_" ++ name) dtype shape buffer
-  return .store (.simple dst) .const [
-      if dtype.isInt then .int 0 else .float 0.0]
+  return .store (.simple dst) (.memset 0) []
 
 nki tensor_scalar (data : Access)
                   (op0 : AluOp)

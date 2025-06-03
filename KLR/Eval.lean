@@ -363,7 +363,16 @@ private def evalStmt (stmt : Core.Stmt) : WithEnv Unit := match stmt with
 | .store dst Operator.save [arg] => do
   let v <- evalValue arg
   modify fun env => env.insert dst.tensor.name v
-| .store _ Operator.const args => throw s!"Unimplemented: store const {repr args}"
+| .store dst (Operator.memset elemval) [] => do
+  if elemval ≥ 2^32 then
+   throw  s!"store memset: the element must fit in 32 bits"
+  else if elemval = 0 then
+    let dty <- evalDtype dst.tensor.dtype
+    let shape := evalShape dst.tensor.shape
+    write dst (TensorLib.Tensor.zeros dty shape)
+  else
+   throw s!"Unimplemented: store memset: nonzero"
+| .store _ (Operator.memset _) _ => throw  s!"Unimplemented: store memset with args"
 | .store _ (Operator.tensorScalar ts) _ => throw s!"Unimplemented: store tensorScalar {repr ts}"
 | .store _ (Operator.tensorScalarAddr ts) _ => throw s!"Unimplemented: store tensorScalarAddr {repr ts}"
 | .store _ Operator.save _ => do
