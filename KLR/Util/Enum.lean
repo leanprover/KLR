@@ -103,7 +103,7 @@ where
     -- dbg_trace (<- liftTermElabM <| ppCommand valuesFun)
     elabCommand valuesFun
     let instances <- `(
-      deriving instance BEq, Inhabited, Repr for $name
+      deriving instance BEq, DecidableEq, Inhabited, Repr for $name
     )
     elabCommand instances
     let fromUInt8!Name : Lean.Ident := mkIdent (.str typeName "fromUInt8!")
@@ -115,12 +115,32 @@ where
       | .error msg => panic msg
     )
     elabCommand fromUInt8!
-    let inst <- `(
+    let enumInstance <- `(
       instance : Enum $name where
         toUInt8 := $toUInt8Name
         fromUInt8 := $fromUInt8Name
     )
-    elabCommand inst
+    elabCommand enumInstance
+    let ltInstance <- `(
+      instance : LT $name where
+        lt a b := a.toUInt8 < b.toUInt8
+    )
+    elabCommand ltInstance
+    let ltDecidableInstance <- `(
+      instance (a b : $name) : Decidable (a < b) :=
+        UInt8.decLt a.toUInt8 b.toUInt8
+    )
+    elabCommand ltDecidableInstance
+    let leInstance <- `(
+      instance : LE $name where
+        le a b := a.toUInt8 <= b.toUInt8
+    )
+    elabCommand leInstance
+    let leDecidableInstance <- `(
+      instance (a b : $name) : Decidable (a <= b) :=
+        UInt8.decLe a.toUInt8 b.toUInt8
+    )
+    elabCommand leDecidableInstance
 
 section Test
 
@@ -136,6 +156,8 @@ private enum Foo where
 #guard Foo.fromUInt8! Foo.x.toUInt8 == Foo.x
 #guard Foo.fromUInt8! Foo.m.toUInt8 == Foo.m
 #guard Foo.values == [.m, .q, .r, .x, .y, .z]
+#guard Foo.x < Foo.z
+#guard Foo.x <= Foo.z
 
 end Test
 
