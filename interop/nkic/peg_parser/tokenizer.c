@@ -769,34 +769,6 @@ _PyTokenizer_FromString(const char *str, int exec_input, int preserve_crlf) {
   return tok;
 }
 
-/* Set up tokenizer for UTF-8 string */
-
-static struct tok_state *_PyTokenizer_FromUTF8(const char *str, int exec_input,
-                                               int preserve_crlf) {
-  struct tok_state *tok = tok_new();
-  char *translated;
-  if (tok == NULL)
-    return NULL;
-  tok->input = translated =
-      translate_newlines(str, exec_input, preserve_crlf, tok);
-  if (translated == NULL) {
-    _PyTokenizer_Free(tok);
-    return NULL;
-  }
-  tok->decoding_state = STATE_NORMAL;
-  tok->enc = NULL;
-  tok->str = translated;
-  tok->encoding = new_string("utf-8", 5, tok);
-  if (!tok->encoding) {
-    _PyTokenizer_Free(tok);
-    return NULL;
-  }
-
-  tok->buf = tok->cur = tok->inp = translated;
-  tok->end = translated;
-  return tok;
-}
-
 static void _PyToken_Free(struct token *token) { Py_XDECREF(token->metadata); }
 
 static void _PyToken_Init(struct token *token) { token->metadata = NULL; }

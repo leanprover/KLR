@@ -144,7 +144,7 @@ struct Python_Expr_ {
     } unaryOp;
     struct Python_Expr_compare {
       struct Python_Expr *left;
-      enum Python_CmpOp_List *ops;
+      struct Python_CmpOp_List *ops;
       struct Python_Expr_List *comparators;
     } compare;
     struct Python_Expr_ifExp {
@@ -255,24 +255,34 @@ struct Python_Kernel {
   struct String_List *undefinedSymbols;
 };
 
+struct Python_CmpOp_List {
+  struct Python_CmpOp_List *next;
+  enum Python_CmpOp cmpop;
+};
+
+struct String_List {
+  struct String_List *next;
+  const char *string;
+};
+
 struct Python_Expr_List {
   struct Python_Expr_List *next;
-  struct Python_Expr Python_expr;
+  struct Python_Expr *expr;
 };
 
 struct Python_Keyword_List {
   struct Python_Keyword_List *next;
-  struct Python_Keyword Python_keyword;
+  struct Python_Keyword *keyword;
 };
 
 struct Python_Stmt_List {
   struct Python_Stmt_List *next;
-  struct Python_Stmt Python_stmt;
+  struct Python_Stmt *stmt;
 };
 
 struct Python_Fun_List {
   struct Python_Fun_List *next;
-  struct Python_Fun Python_fun;
+  struct Python_Fun *fun;
 };
 
 static inline struct Python_Expr *mkPython_Expr_const(struct Python_Const value,
@@ -412,7 +422,7 @@ mkPython_Expr_unaryOp(enum Python_UnaryOp op, struct Python_Expr *operand,
 }
 
 static inline struct Python_Expr *
-mkPython_Expr_compare(struct Python_Expr *left, enum Python_CmpOp_List *ops,
+mkPython_Expr_compare(struct Python_Expr *left, struct Python_CmpOp_List *ops,
                       struct Python_Expr_List *comparators,
                       struct region *region) {
   struct Python_Expr *res = region_alloc(region, sizeof(*res));

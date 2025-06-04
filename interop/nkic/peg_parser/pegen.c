@@ -1505,52 +1505,26 @@ static void *_PyPegen_run_parser(Parser *p) {
   return res;
 }
 
-static mod_ty _PyPegen_run_parser_from_string(const char *str, int start_rule,
+static mod_ty _PyPegen_run_parser_from_string(const char *str,
                                               PyObject *filename_ob,
-                                              PyCompilerFlags *flags,
                                               PyArena *arena) {
-  int exec_input = start_rule == Py_file_input;
-
-  printf("%d\n", __LINE__);
-  struct tok_state *tok;
-  if (flags != NULL && flags->cf_flags & PyCF_IGNORE_COOKIE) {
-    printf("%d\n", __LINE__);
-    tok = _PyTokenizer_FromUTF8(str, exec_input, 0);
-  } else {
-    printf("%d\n", __LINE__);
-    tok = _PyTokenizer_FromString(str, exec_input, 0);
-  }
-  printf("%d\n", __LINE__);
+  struct tok_state *tok = _PyTokenizer_FromString(str, 0, 0);
   if (tok == NULL) {
-    printf("%d\n", __LINE__);
     if (PyErr_Occurred()) {
-      printf("%d\n", __LINE__);
       _PyPegen_raise_tokenizer_init_error(filename_ob);
     }
     return NULL;
   }
   // This transfers the ownership to the tokenizer
-  printf("%d\n", __LINE__);
   tok->filename = Py_NewRef(filename_ob);
 
-  // We need to clear up from here on
-  printf("%d\n", __LINE__);
   mod_ty result = NULL;
-
-  int parser_flags = 0;
-  int feature_version = 12;
-  Parser *p = _PyPegen_Parser_New(tok, start_rule, parser_flags,
-                                  feature_version, NULL, arena);
-  if (p == NULL) {
-    goto error;
+  Parser *p = _PyPegen_Parser_New(tok, Py_single_input, 0, 13, NULL, arena);
+  if (p) {
+    result = _PyPegen_run_parser(p);
+    _PyPegen_Parser_Free(p);
   }
 
-  printf("%d\n", __LINE__);
-  result = _PyPegen_run_parser(p);
-  printf("%d\n", __LINE__);
-  _PyPegen_Parser_Free(p);
-
-error:
   _PyTokenizer_Free(tok);
   return result;
 }
