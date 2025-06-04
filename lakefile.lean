@@ -65,3 +65,6 @@ require SHerLOC from git
 -- require TensorLib from "../TensorLib"
 
 require Util from "KLR"
+
+require iris from git
+  "https://github.com/markusdemedeiros/iris-lean.git"
