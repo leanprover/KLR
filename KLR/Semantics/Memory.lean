@@ -58,6 +58,8 @@ abbrev UnboundedBank.inbounds (d : UnboundedBank α) (i : Nat) : Bool := i < d.s
 abbrev UnboundedBank.get (d : UnboundedBank α) (i : Nat) : LocalStore α := d[i]!
 abbrev UnboundedBank.set (d : UnboundedBank α) (i : Nat) (v : LocalStore α → LocalStore α) :
     UnboundedBank α := d.mapIdx (fun i' s => if i' == i then v s else s)
+abbrev UnboundedBank.push (d : UnboundedBank α) (l : LocalStore α) : UnboundedBank α :=
+  Array.push d l
 
 structure DualMemory (α : Type _) where
   bounded : PhyStore α
@@ -66,6 +68,7 @@ structure DualMemory (α : Type _) where
 inductive DualMemoryStoreIndex (α : Type _)
 | in_bounded
 | in_unbounded (i : Nat)
+  deriving Repr, BEq
 
 structure NeuronMemory where
   sbuf : DualMemory UInt8
