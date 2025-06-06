@@ -31,8 +31,6 @@ instance TensorLib.Iterator.WithEmptyIterator [TensorLib.Iterator I V] :
 -/
 
 
-def List.dot [Mul α] [Add α] [Zero α] (L1 L2 : List α) : α :=
-  (List.zipWith (· * ·) L1 L2).sum
 
 class Encodable (dsize : Nat) (α β : Type _) where
   read : Vector α dsize → Option β
@@ -51,25 +49,6 @@ def Dtype.interp {DataT : Type _} : KLR.Core.Dtype → Type
 | .int8     => Int8
 | .float16 | .float32r | .float32 | .float8e5 | .float8e4 | .float8e3 | .bfloat16 => DataT
 
-/-- A multiaffine equation describing an access into a free coordinate of an Address -/
-structure AffineMap where
-  free_offset : Int
-  free_strides : List Int
-  par_offset : Int
-  par_stride : Int
-  deriving Repr, BEq
-
-def AffineMap.par (a : AffineMap) (i : Int) : Int :=
-  a.par_offset + a.par_stride * i
-
-def AffineMap.free (a : AffineMap) (i : List Int) : Int :=
-  a.free_offset + List.dot a.free_strides i
-
-def AffineMap.is_trivial (a : AffineMap) : Prop :=
-  a.free_offset = 0 ∧
-  a.par_offset = 0 ∧
-  a.par_stride = 1 ∧
-  a.free_strides = a.free_strides.map (fun _ => 1)
 
 namespace NML
 
@@ -120,6 +99,7 @@ def TensorHandle.hbm_index? (r : @TensorHandle DataT) : Option Nat :=
 
 /-- NML values. These are fully-reduced expressions. -/
 inductive Value
+| unit
 | bool     (_ : Bool)
 | data     (_ : DataT)
 | int      (_ : Int)
@@ -134,6 +114,7 @@ inductive Expr
 | val     (_ : @Value DataT)
 | var     (_ : String)
 | load    (_ : AffineMap) (_ : Expr)
+| store   (src : Expr) (_ : AffineMap) (dst : Expr)
 
 /-- NML statements. Control flow lives here. -/
 inductive Stmt
@@ -181,6 +162,22 @@ For now, only support trivial indexing.
     ExprStep (.load asn e) s
       (.ptr {tensor with address.memory := .sbuf, index := .in_unbounded s'.sbuf.unbounded.size})
       { s' with sbuf.unbounded := s'.sbuf.unbounded.push s'.hbm[i] }
+/-- [Non-sized, full, store] Store a SBUF tile to HBM. Similar to nki.store. -/
+| store_full :
+    AffineMap.is_trivial asn →
+    ExprStep e1 s0 (.ptr sbuf_tensor) s1 →
+    sbuf_tensor.address.memory = KLR.Core.Memory.sbuf →
+    (H : DualMemory.in_memory s2.sbuf sbuf_tensor.index) →
+    ExprStep e2 ⟨s1, s0.locals⟩ (.ptr hbm_tensor) s2 →
+    hbm_tensor.address.memory = KLR.Core.Memory.hbm →
+    hbm_tensor.hbm_index? = .some raw_index →
+    (_ : i < s2.hbm.size) →
+    ExprStep (.store e1 asn e2) s0 .unit
+      { s2 with hbm[i] :=
+          ⟨ fun (p, f) =>
+              let L := (s2.sbuf.get_store sbuf_tensor.index H)
+              L.get (p + sbuf_tensor.address.partitionOffset.getD 0,
+                     f + sbuf_tensor.address.freeOffset.getD 0)⟩ }
 
 
 inductive MultiStep : List (@Stmt DataT) → @State DataT → @ExecState DataT → Type _ where

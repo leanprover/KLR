@@ -12,6 +12,9 @@ def List.forall {α : Type _} (L : List α) (P : α → Prop) : Prop :=
   | .nil => True
   | .cons l L => P l ∧ List.forall L P
 
+def List.dot [Mul α] [Add α] [Zero α] (L1 L2 : List α) : α :=
+  (List.zipWith (· * ·) L1 L2).sum
+
 namespace KLR.Core
 
 -- NTS: Err should be handled in the operational semantics
@@ -69,6 +72,35 @@ inductive DualMemoryStoreIndex (α : Type _)
 | in_bounded
 | in_unbounded (i : Nat)
   deriving Repr, BEq
+
+def DualMemory.in_memory {α} (d : DualMemory α) : DualMemoryStoreIndex α → Prop
+| .in_bounded => True
+| .in_unbounded i => i < d.unbounded.size
+
+def DualMemory.get_store {α} (d : DualMemory α) (ix : DualMemoryStoreIndex α) (_ : in_memory d ix) :
+    LocalStore α :=
+  match ix with | .in_bounded => d.bounded.toLocalStore | .in_unbounded i => d.unbounded[i]
+
+/-- A multiaffine equation describing an access into a free coordinate of an Address -/
+structure AffineMap where
+  free_offset : Int
+  free_strides : List Int
+  par_offset : Int
+  par_stride : Int
+  deriving Repr, BEq
+
+def AffineMap.par (a : AffineMap) (i : Int) : Int :=
+  a.par_offset + a.par_stride * i
+
+def AffineMap.free (a : AffineMap) (i : List Int) : Int :=
+  a.free_offset + List.dot a.free_strides i
+
+def AffineMap.is_trivial (a : AffineMap) : Prop :=
+  a.free_offset = 0 ∧
+  a.par_offset = 0 ∧
+  a.par_stride = 1 ∧
+  a.free_strides = a.free_strides.map (fun _ => 1)
+
 
 structure NeuronMemory where
   sbuf : DualMemory UInt8

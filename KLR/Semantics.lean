@@ -6,3 +6,4 @@ Authors: Markus de Medeiros
 import Semantics.Memory
 import Semantics.NML
 import Semantics.Float
+import Semantics.KLR
