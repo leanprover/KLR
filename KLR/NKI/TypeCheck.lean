@@ -13,9 +13,14 @@ Constraints for SNat variables.
 
 `none` means no constraint.
 
-`some n` means the given variable must be equal to `n`.
+`some (.const n)` means the given variable must be equal to constant `n`.
+`some (.param idx)` means the given variable must be equal to another parameter `idx`.
 -/
-def ShapeConstr (nnat : Nat) := Fin nnat → Option Nat
+inductive ShapeConstrVal (nnat : Nat)
+  | const : Nat → ShapeConstrVal nnat
+  | param : Fin nnat → ShapeConstrVal nnat
+
+def ShapeConstr (nnat : Nat) := Fin nnat → Option (ShapeConstrVal nnat)
 
 inductive ShapeIsType : List Nat → ShapeConstr nnat → List (SNat nnat) → Prop
   | nil {sc} : ShapeIsType [] sc []
@@ -23,7 +28,7 @@ inductive ShapeIsType : List Nat → ShapeConstr nnat → List (SNat nnat) → P
       ShapeIsType tl sc tl'
       → ShapeIsType (hd :: tl) sc (.const hd :: tl')
   | cons_param {sc tl tl' hd idx} :
-      sc idx = .some hd
+      sc idx = .some (.const hd)
       → ShapeIsType tl sc tl'
       → ShapeIsType (hd :: tl) sc (.param idx :: tl')
 
@@ -32,18 +37,21 @@ inductive ShapeCompat : ShapeConstr nnat → List (SNat nnat) → List (SNat nna
   | cons_const {sc n tl tl'} :
       ShapeCompat sc tl tl'
       → ShapeCompat sc (.const n :: tl) (.const n :: tl')
-  | cons_param_left {sc n idx tl tl'} :
-      sc idx = .some n
-      → ShapeCompat sc tl tl'
-      → ShapeCompat sc (.param idx :: tl) (.const n :: tl')
-  | cons_param_right {sc n idx tl tl'} :
-      sc idx = .some n
+  | cons_const_left {sc n idx tl tl'} :
+      sc idx = .some (.const n)
       → ShapeCompat sc tl tl'
       → ShapeCompat sc (.const n :: tl) (.param idx :: tl')
-  -- TODO: This is too strong, we need a way to constraint two parameters to be equal
-  | cons_param {sc idx tl tl'} :
+  | cons_const_right {sc n idx tl tl'} :
+      sc idx = .some (.const n)
+      → ShapeCompat sc tl tl'
+      → ShapeCompat sc (.param idx :: tl) (.const n :: tl')
+  | cons_param_same {sc idx tl tl'} :
       ShapeCompat sc tl tl'
       → ShapeCompat sc (.param idx :: tl) (.param idx :: tl')
+  | cons_param_diff {sc idx1 idx2 tl tl'} :
+      sc idx1 = .some (.param idx2) ∨ sc idx2 = .some (.param idx1)
+      → ShapeCompat sc tl tl'
+      → ShapeCompat sc (.param idx1 :: tl) (.param idx2 :: tl')
 
 /--
 Two types can be equivalent up to shape parameters (`Eutsp`).
