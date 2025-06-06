@@ -8,30 +8,6 @@ import KLR.Core
 import KLR.Semantics.Memory
 import TensorLib.Iterator
 
-/-
--- TensorLib iterators can't have empty iterators so this is a slight hack
--- Not using option to avoid TC clashes
-inductive WithEmpty (I : Type _) where
-| nonempty (_ : I)
-| empty
-
--- Probably want a better solution
-instance TensorLib.Iterator.WithEmptyIterator [TensorLib.Iterator I V] :
-    TensorLib.Iterator (WithEmpty I) (WithEmpty V) where
-  next
-  | .empty => .none
-  | .nonempty i => match @next I V _ i with | .some v => .some (.nonempty v) | .none => .some .empty
-  peek
-  | .empty => .empty
-  | .nonempty i => .nonempty <| peek i
-  size
-  | .empty => 0
-  | .nonempty i => @size I V _ i + 1
-  reset _ := .empty
--/
-
-
-
 class Encodable (dsize : Nat) (α β : Type _) where
   read : Vector α dsize → Option β
   write : β → Vector α dsize
@@ -120,7 +96,7 @@ inductive Expr
 inductive Stmt
 | ret     (_ : @Expr DataT)
 | assign  (_ : Option String) (_ : @Expr DataT)
-| loop    (I : Type _) [TensorLib.Iterator I (@Value DataT)] (_ : String) (_ : I) (body : List Stmt)
+| loop    (I : Type _) [TensorLib.Iterator I (@Value DataT)] (_ : String) (_ : Option I) (body : List Stmt)
 
 abbrev Locals := String → Option (@Value DataT)
 
@@ -195,23 +171,20 @@ inductive MultiStep : List (@Stmt DataT) → @State DataT → @ExecState DataT �
     ExprStep e s _ s' →
     MultiStep p ⟨s', s.locals⟩ r →
     MultiStep (.cons (.assign .none e) p) s r
-/-- [ Loop termination ] Loops continue onwards if their iterator's next is .none
-FIXME: TensorLib.Iterator is wrong for this, need empty iterators. -/
-| loop_exit {I : Type _} [TensorLib.Iterator I (@Value DataT)] (i : I) :
-    @TensorLib.Iterator.next I (@Value DataT) _ i = .none →
+/-- [ Loop termination ] Loops continue onwards if their iterator is done. -/
+| loop_exit {I : Type _} [TensorLib.Iterator I (@Value DataT)] :
     MultiStep p s r →
-    MultiStep (.cons (.loop I _ i _) p) s r
+    MultiStep (.cons (.loop I _ .none _) p) s r
 /-- [ Loop eary return ] If loop is not terminated, and body executes to .done, terminate. -/
 | loop_early {I : Type _} [TensorLib.Iterator I (@Value DataT)] (i i' : I) :
-    (@TensorLib.Iterator.next I (@Value DataT) _ i) = .some i' →
+    -- (@TensorLib.Iterator.next I (@Value DataT) _ i) = .some i' →
     MultiStep body ⟨s.memory, s.locals.bind x (@TensorLib.Iterator.peek I _ _ i)⟩ (.done r) →
-    MultiStep (.cons (.loop I x i body) p) s (.done r)
+    MultiStep (.cons (.loop I x (.some i) body) p) s (.done r)
 /-- [ Loop iterate ] If loop is not terminated, and body executes to a running state,
 the program setps to a loop with iterator.next (lexical scope + effects). -/
 | loop_continue {I : Type _} [TensorLib.Iterator I (@Value DataT)] (i i' : I) :
-    (@TensorLib.Iterator.next I (@Value DataT) _ i) = .some i' →
     MultiStep body ⟨s.memory, s.locals.bind x (@TensorLib.Iterator.peek I _ _ i)⟩ (.run [] s') →
-    MultiStep (.cons (.loop I x i' body) p) ⟨s'.memory, s.locals⟩ r →
+    MultiStep (.cons (.loop I x (@TensorLib.Iterator.next I (@Value DataT) _ i) body) p) ⟨s'.memory, s.locals⟩ r →
     MultiStep (.cons (.loop I x i body) p) s r
 
 end NML
