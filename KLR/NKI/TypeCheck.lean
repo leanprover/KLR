@@ -3,18 +3,10 @@ Copyright (c) 2025 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Mure
 -/
-import Mathlib.Logic.Function.Basic
 import KLR.NKI.Basic
 import KLR.NKI.Types
 
 namespace KLR.NKI
-
-/-!
-# Major Issue!!!
-Shape constraints are not properly propagated during backtracking
-Inductive definitions might not work here. We will need a state monad
-to keep track of growing shape constraints.
--/
 
 /--
 Constraints for SNat variables.
@@ -31,9 +23,9 @@ inductive ShapeIsType : List Nat → ShapeConstr nnat → List (SNat nnat) → P
       ShapeIsType tl sc tl'
       → ShapeIsType (hd :: tl) sc (.const hd :: tl')
   | cons_param {sc tl tl' hd idx} :
-      (sc idx = .none ∨ sc idx = .some hd)
+      sc idx = .some hd
       → ShapeIsType tl sc tl'
-      → ShapeIsType (hd :: tl) (Function.update sc idx (.some hd)) (.param idx :: tl')
+      → ShapeIsType (hd :: tl) sc (.param idx :: tl')
 
 inductive ShapeCompat : ShapeConstr nnat → List (SNat nnat) → List (SNat nnat) → Prop
   | nil {sc} : ShapeCompat sc [] []
@@ -41,13 +33,13 @@ inductive ShapeCompat : ShapeConstr nnat → List (SNat nnat) → List (SNat nna
       ShapeCompat sc tl tl'
       → ShapeCompat sc (.const n :: tl) (.const n :: tl')
   | cons_param_left {sc n idx tl tl'} :
-      (sc idx = .none ∨ sc idx = .some n)
+      sc idx = .some n
       → ShapeCompat sc tl tl'
-      → ShapeCompat (Function.update sc idx (.some n)) (.param idx :: tl) (.const n :: tl')
+      → ShapeCompat sc (.param idx :: tl) (.const n :: tl')
   | cons_param_right {sc n idx tl tl'} :
-      (sc idx = .none ∨ sc idx = .some n)
+      sc idx = .some n
       → ShapeCompat sc tl tl'
-      → ShapeCompat (Function.update sc idx (.some n)) (.const n :: tl) (.param idx :: tl')
+      → ShapeCompat sc (.const n :: tl) (.param idx :: tl')
   -- TODO: This is too strong, we need a way to constraint two parameters to be equal
   | cons_param {sc idx tl tl'} :
       ShapeCompat sc tl tl'
