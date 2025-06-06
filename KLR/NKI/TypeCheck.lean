@@ -20,7 +20,8 @@ inductive ShapeConstrVal (nnat : Nat)
   | const : Nat → ShapeConstrVal nnat
   | param : Fin nnat → ShapeConstrVal nnat
 
-def ShapeConstr (nnat : Nat) := Fin nnat → Option (ShapeConstrVal nnat)
+def ShapeConstr (nnat : Nat) :=
+  Fin nnat → Option (ShapeConstrVal nnat)
 
 inductive ShapeIsType : List Nat → ShapeConstr nnat → List (SNat nnat) → Prop
   | nil {sc} : ShapeIsType [] sc []
@@ -94,23 +95,36 @@ inductive BinOp.IsType {nnat ntyp : Nat} : BinOp → ShapeConstr nnat → STyp n
       Eutsp sc typ1 typ2 → BinOp.IsType .gt sc (.func (.tuple [typ1, typ2]) .bool)
   | ge {sc typ1 typ2} :
       Eutsp sc typ1 typ2 → BinOp.IsType .ge sc (.func (.tuple [typ1, typ2]) .bool)
+  -- TODO: is it ok to set the output to `typ` in these cases?
   -- arithmetic, treating all operations as element wise
   | add {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .add sc (.func (.tuple [typ1, typ2]) .bool)
+      Eutsp sc typ1 typ2 → BinOp.IsType .add sc (.func (.tuple [typ1, typ2]) typ1)
   | sub {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .sub sc (.func (.tuple [typ1, typ2]) .bool)
+      Eutsp sc typ1 typ2 → BinOp.IsType .sub sc (.func (.tuple [typ1, typ2]) typ1)
   | mul {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .mul sc (.func (.tuple [typ1, typ2]) .bool)
+      Eutsp sc typ1 typ2 → BinOp.IsType .mul sc (.func (.tuple [typ1, typ2]) typ1)
   | div {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .div sc (.func (.tuple [typ1, typ2]) .bool)
+      Eutsp sc typ1 typ2 → BinOp.IsType .div sc (.func (.tuple [typ1, typ2]) typ1)
   | mod {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .mod sc (.func (.tuple [typ1, typ2]) .bool)
+      Eutsp sc typ1 typ2 → BinOp.IsType .mod sc (.func (.tuple [typ1, typ2]) typ1)
   | pow {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .pow sc (.func (.tuple [typ1, typ2]) .bool)
+      Eutsp sc typ1 typ2 → BinOp.IsType .pow sc (.func (.tuple [typ1, typ2]) typ1)
   | floor {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .floor sc (.func (.tuple [typ1, typ2]) .bool)
-  -- TODO: broadcasting arithmetic
-  -- TODO: bitwise operations
+      Eutsp sc typ1 typ2 → BinOp.IsType .floor sc (.func (.tuple [typ1, typ2]) typ1)
+  -- bitwise operations
+  | or {sc typ1 typ2} :
+      Eutsp sc typ1 typ2 → BinOp.IsType .or sc (.func (.tuple [typ1, typ2]) typ1)
+  | xor {sc typ1 typ2} :
+      Eutsp sc typ1 typ2 → BinOp.IsType .xor sc (.func (.tuple [typ1, typ2]) typ1)
+  | and {sc typ1 typ2} :
+      Eutsp sc typ1 typ2 → BinOp.IsType .and sc (.func (.tuple [typ1, typ2]) typ1)
+  -- TODO: what should the rhs be for shift?
+  | lshift {sc typ1 typ2} :
+      Eutsp sc typ1 typ2 → BinOp.IsType .lshift sc (.func (.tuple [typ1, typ2]) typ1)
+  | rshift {sc typ1 typ2} :
+      Eutsp sc typ1 typ2 → BinOp.IsType .rshift sc (.func (.tuple [typ1, typ2]) typ1)
 
+inductive Expr'.IsType {nnat ntyp : Nat} : Expr' → ShapeConstr nnat → STyp nnat ntyp → Prop
+  | value {sc typ v} : v.IsType sc typ → Expr'.IsType v sc typ
 
 end KLR.NKI
