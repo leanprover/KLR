@@ -34,6 +34,9 @@ require Cli from git
 
 require Gzip from "KLR/Util/Gzip"
 
+require mathlib from git
+  "https://github.com/leanprover-community/mathlib4.git" @ "v4.19.0"
+
 require NRT from "KLR/NRT"
 
 require plausible from git
