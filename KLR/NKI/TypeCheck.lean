@@ -124,7 +124,14 @@ inductive BinOp.IsType {nnat ntyp : Nat} : BinOp → ShapeConstr nnat → STyp n
   | rshift {sc typ1 typ2} :
       Eutsp sc typ1 typ2 → BinOp.IsType .rshift sc (.func (.tuple [typ1, typ2]) typ1)
 
-inductive Expr'.IsType {nnat ntyp : Nat} : Expr' → ShapeConstr nnat → STyp nnat ntyp → Prop
-  | value {sc typ v} : v.IsType sc typ → Expr'.IsType v sc typ
+def VarEnv (nnat ntyp : Nat) := String → STyp nnat ntyp
+
+structure Env (nnat ntyp : Nat) where
+  sc : ShapeConstr nnat
+  var : VarEnv nnat ntyp
+
+inductive Expr'.IsType {nnat ntyp : Nat} : Expr' → Env nnat ntyp → STyp nnat ntyp → Prop
+  | value {env typ value} : value.IsType env.sc typ → Expr'.IsType (.value value) env typ
+  | var {env typ name} : env.var name = typ → Expr'.IsType (.var name) env typ
 
 end KLR.NKI
