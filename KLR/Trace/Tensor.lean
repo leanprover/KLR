@@ -34,11 +34,11 @@ return the same result.
 In the end we walk over the KLR kernel and collect all the TensorNames, and
 these represent the memory we need to allocate in the dram, sbuf, etc.
 -/
-def declare (tag : String)
+def declare (name : String)
             (dtype : Dtype) (shape : Shape) (memory : Memory)
             : Trace TensorName := do
   let pos := (<- get).pos
-  let tname := s!"{tag}.{pos.lineno}.{pos.col_offset}"
+  let tname := s!"{name}.{pos.lineno}.{pos.col_offset}"
   TensorName.make tname dtype shape $ some {
     memory := memory
     size   := Address.defaultSize shape dtype
