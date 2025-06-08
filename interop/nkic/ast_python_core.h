@@ -96,7 +96,7 @@ struct Python_Expr_ {
   } tag;
   union {
     struct Python_Expr_const {
-      struct Python_Const value;
+      struct Python_Const *value;
     } c;
     struct Python_Expr_tensor {
       struct Python_Expr_List *shape;
@@ -161,14 +161,14 @@ struct Python_Expr_ {
 };
 
 struct Python_Expr {
-  struct Python_Expr_ expr;
-  struct Python_Pos pos;
+  struct Python_Expr_ *expr;
+  struct Python_Pos *pos;
 };
 
 struct Python_Keyword {
   const char *id;
-  struct Python_Expr value;
-  struct Python_Pos pos;
+  struct Python_Expr *value;
+  struct Python_Pos *pos;
 };
 
 struct Python_Stmt_ {
@@ -187,36 +187,36 @@ struct Python_Stmt_ {
   } tag;
   union {
     struct Python_Stmt_expr {
-      struct Python_Expr e;
+      struct Python_Expr *e;
     } expr;
     struct Python_Stmt_assert {
-      struct Python_Expr e;
+      struct Python_Expr *e;
     } assert;
     struct Python_Stmt_ret {
-      struct Python_Expr e;
+      struct Python_Expr *e;
     } ret;
     struct Python_Stmt_assign {
       struct Python_Expr_List *xs;
-      struct Python_Expr e;
+      struct Python_Expr *e;
     } assign;
     struct Python_Stmt_augAssign {
-      struct Python_Expr x;
+      struct Python_Expr *x;
       enum Python_BinOp op;
-      struct Python_Expr e;
+      struct Python_Expr *e;
     } augAssign;
     struct Python_Stmt_annAssign {
-      struct Python_Expr x;
-      struct Python_Expr annotation;
+      struct Python_Expr *x;
+      struct Python_Expr *annotation;
       struct Python_Expr *value;
     } annAssign;
     struct Python_Stmt_ifStm {
-      struct Python_Expr e;
+      struct Python_Expr *e;
       struct Python_Stmt_List *thn;
       struct Python_Stmt_List *els;
     } ifStm;
     struct Python_Stmt_forLoop {
-      struct Python_Expr x;
-      struct Python_Expr iter;
+      struct Python_Expr *x;
+      struct Python_Expr *iter;
       struct Python_Stmt_List *body;
       struct Python_Stmt_List *orelse;
     } forLoop;
@@ -224,8 +224,8 @@ struct Python_Stmt_ {
 };
 
 struct Python_Stmt {
-  struct Python_Stmt_ stmt;
-  struct Python_Pos pos;
+  struct Python_Stmt_ *stmt;
+  struct Python_Pos *pos;
 };
 
 struct Python_Args {
@@ -242,7 +242,7 @@ struct Python_Fun {
   const char *name;
   u32 line;
   const char *source;
-  struct Python_Args args;
+  struct Python_Args *args;
   struct Python_Stmt_List *body;
 };
 
@@ -285,13 +285,13 @@ struct Python_Fun_List {
   struct Python_Fun *fun;
 };
 
-static inline struct Python_Expr *mkPython_Expr_const(struct Python_Const value,
-                                                      struct region *region) {
+static inline struct Python_Expr *
+mkPython_Expr_const(struct Python_Const *value, struct region *region) {
   struct Python_Expr *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->expr.tag = Python_Expr_CONST;
-  res->expr.c.value = value;
+  res->expr->tag = Python_Expr_CONST;
+  res->expr->c.value = value;
   return res;
 }
 
@@ -301,9 +301,9 @@ mkPython_Expr_tensor(struct Python_Expr_List *shape, const char *dtype,
   struct Python_Expr *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->expr.tag = Python_Expr_TENSOR;
-  res->expr.tensor.shape = shape;
-  res->expr.tensor.dtype = dtype;
+  res->expr->tag = Python_Expr_TENSOR;
+  res->expr->tensor.shape = shape;
+  res->expr->tensor.dtype = dtype;
   return res;
 }
 
@@ -312,9 +312,9 @@ mkPython_Expr_name(const char *id, enum Python_Ctx ctx, struct region *region) {
   struct Python_Expr *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->expr.tag = Python_Expr_NAME;
-  res->expr.name.id = id;
-  res->expr.name.ctx = ctx;
+  res->expr->tag = Python_Expr_NAME;
+  res->expr->name.id = id;
+  res->expr->name.ctx = ctx;
   return res;
 }
 
@@ -325,10 +325,10 @@ static inline struct Python_Expr *mkPython_Expr_attr(struct Python_Expr *value,
   struct Python_Expr *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->expr.tag = Python_Expr_ATTR;
-  res->expr.attr.value = value;
-  res->expr.attr.id = id;
-  res->expr.attr.ctx = ctx;
+  res->expr->tag = Python_Expr_ATTR;
+  res->expr->attr.value = value;
+  res->expr->attr.id = id;
+  res->expr->attr.ctx = ctx;
   return res;
 }
 
@@ -338,9 +338,9 @@ mkPython_Expr_tuple(struct Python_Expr_List *xs, enum Python_Ctx ctx,
   struct Python_Expr *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->expr.tag = Python_Expr_TUPLE;
-  res->expr.tuple.xs = xs;
-  res->expr.tuple.ctx = ctx;
+  res->expr->tag = Python_Expr_TUPLE;
+  res->expr->tuple.xs = xs;
+  res->expr->tuple.ctx = ctx;
   return res;
 }
 
@@ -350,9 +350,9 @@ mkPython_Expr_list(struct Python_Expr_List *xs, enum Python_Ctx ctx,
   struct Python_Expr *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->expr.tag = Python_Expr_LIST;
-  res->expr.list.xs = xs;
-  res->expr.list.ctx = ctx;
+  res->expr->tag = Python_Expr_LIST;
+  res->expr->list.xs = xs;
+  res->expr->list.ctx = ctx;
   return res;
 }
 
@@ -362,10 +362,10 @@ mkPython_Expr_subscript(struct Python_Expr *tensor, struct Python_Expr *index,
   struct Python_Expr *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->expr.tag = Python_Expr_SUBSCRIPT;
-  res->expr.subscript.tensor = tensor;
-  res->expr.subscript.index = index;
-  res->expr.subscript.ctx = ctx;
+  res->expr->tag = Python_Expr_SUBSCRIPT;
+  res->expr->subscript.tensor = tensor;
+  res->expr->subscript.index = index;
+  res->expr->subscript.ctx = ctx;
   return res;
 }
 
@@ -376,10 +376,10 @@ static inline struct Python_Expr *mkPython_Expr_slice(struct Python_Expr *l,
   struct Python_Expr *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->expr.tag = Python_Expr_SLICE;
-  res->expr.slice.l = l;
-  res->expr.slice.u = u;
-  res->expr.slice.step = step;
+  res->expr->tag = Python_Expr_SLICE;
+  res->expr->slice.l = l;
+  res->expr->slice.u = u;
+  res->expr->slice.step = step;
   return res;
 }
 
@@ -389,9 +389,9 @@ mkPython_Expr_boolOp(enum Python_BoolOp op, struct Python_Expr_List *values,
   struct Python_Expr *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->expr.tag = Python_Expr_BOOLOP;
-  res->expr.boolOp.op = op;
-  res->expr.boolOp.values = values;
+  res->expr->tag = Python_Expr_BOOLOP;
+  res->expr->boolOp.op = op;
+  res->expr->boolOp.values = values;
   return res;
 }
 
@@ -402,10 +402,10 @@ static inline struct Python_Expr *mkPython_Expr_binOp(enum Python_BinOp op,
   struct Python_Expr *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->expr.tag = Python_Expr_BINOP;
-  res->expr.binOp.op = op;
-  res->expr.binOp.left = left;
-  res->expr.binOp.right = right;
+  res->expr->tag = Python_Expr_BINOP;
+  res->expr->binOp.op = op;
+  res->expr->binOp.left = left;
+  res->expr->binOp.right = right;
   return res;
 }
 
@@ -415,9 +415,9 @@ mkPython_Expr_unaryOp(enum Python_UnaryOp op, struct Python_Expr *operand,
   struct Python_Expr *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->expr.tag = Python_Expr_UNARYOP;
-  res->expr.unaryOp.op = op;
-  res->expr.unaryOp.operand = operand;
+  res->expr->tag = Python_Expr_UNARYOP;
+  res->expr->unaryOp.op = op;
+  res->expr->unaryOp.operand = operand;
   return res;
 }
 
@@ -428,10 +428,10 @@ mkPython_Expr_compare(struct Python_Expr *left, struct Python_CmpOp_List *ops,
   struct Python_Expr *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->expr.tag = Python_Expr_COMPARE;
-  res->expr.compare.left = left;
-  res->expr.compare.ops = ops;
-  res->expr.compare.comparators = comparators;
+  res->expr->tag = Python_Expr_COMPARE;
+  res->expr->compare.left = left;
+  res->expr->compare.ops = ops;
+  res->expr->compare.comparators = comparators;
   return res;
 }
 
@@ -441,10 +441,10 @@ mkPython_Expr_ifExp(struct Python_Expr *test, struct Python_Expr *body,
   struct Python_Expr *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->expr.tag = Python_Expr_IFEXP;
-  res->expr.ifExp.test = test;
-  res->expr.ifExp.body = body;
-  res->expr.ifExp.orelse = orelse;
+  res->expr->tag = Python_Expr_IFEXP;
+  res->expr->ifExp.test = test;
+  res->expr->ifExp.body = body;
+  res->expr->ifExp.orelse = orelse;
   return res;
 }
 
@@ -455,10 +455,10 @@ mkPython_Expr_call(struct Python_Expr *f, struct Python_Expr_List *args,
   struct Python_Expr *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->expr.tag = Python_Expr_CALL;
-  res->expr.call.f = f;
-  res->expr.call.args = args;
-  res->expr.call.keywords = keywords;
+  res->expr->tag = Python_Expr_CALL;
+  res->expr->call.f = f;
+  res->expr->call.args = args;
+  res->expr->call.keywords = keywords;
   return res;
 }
 
@@ -466,103 +466,103 @@ static inline struct Python_Stmt *mkPython_Stmt_pass(struct region *region) {
   struct Python_Stmt *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->stmt.tag = Python_Stmt_PASS;
+  res->stmt->tag = Python_Stmt_PASS;
   return res;
 }
 
-static inline struct Python_Stmt *mkPython_Stmt_expr(struct Python_Expr e,
+static inline struct Python_Stmt *mkPython_Stmt_expr(struct Python_Expr *e,
                                                      struct region *region) {
   struct Python_Stmt *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->stmt.tag = Python_Stmt_EXPR;
-  res->stmt.expr.e = e;
+  res->stmt->tag = Python_Stmt_EXPR;
+  res->stmt->expr.e = e;
   return res;
 }
 
-static inline struct Python_Stmt *mkPython_Stmt_assert(struct Python_Expr e,
+static inline struct Python_Stmt *mkPython_Stmt_assert(struct Python_Expr *e,
                                                        struct region *region) {
   struct Python_Stmt *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->stmt.tag = Python_Stmt_ASSERT;
-  res->stmt.assert.e = e;
+  res->stmt->tag = Python_Stmt_ASSERT;
+  res->stmt->assert.e = e;
   return res;
 }
 
-static inline struct Python_Stmt *mkPython_Stmt_ret(struct Python_Expr e,
+static inline struct Python_Stmt *mkPython_Stmt_ret(struct Python_Expr *e,
                                                     struct region *region) {
   struct Python_Stmt *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->stmt.tag = Python_Stmt_RET;
-  res->stmt.ret.e = e;
+  res->stmt->tag = Python_Stmt_RET;
+  res->stmt->ret.e = e;
   return res;
 }
 
 static inline struct Python_Stmt *
-mkPython_Stmt_assign(struct Python_Expr_List *xs, struct Python_Expr e,
+mkPython_Stmt_assign(struct Python_Expr_List *xs, struct Python_Expr *e,
                      struct region *region) {
   struct Python_Stmt *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->stmt.tag = Python_Stmt_ASSIGN;
-  res->stmt.assign.xs = xs;
-  res->stmt.assign.e = e;
+  res->stmt->tag = Python_Stmt_ASSIGN;
+  res->stmt->assign.xs = xs;
+  res->stmt->assign.e = e;
   return res;
 }
 
 static inline struct Python_Stmt *
-mkPython_Stmt_augAssign(struct Python_Expr x, enum Python_BinOp op,
-                        struct Python_Expr e, struct region *region) {
+mkPython_Stmt_augAssign(struct Python_Expr *x, enum Python_BinOp op,
+                        struct Python_Expr *e, struct region *region) {
   struct Python_Stmt *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->stmt.tag = Python_Stmt_AUGASSIGN;
-  res->stmt.augAssign.x = x;
-  res->stmt.augAssign.op = op;
-  res->stmt.augAssign.e = e;
+  res->stmt->tag = Python_Stmt_AUGASSIGN;
+  res->stmt->augAssign.x = x;
+  res->stmt->augAssign.op = op;
+  res->stmt->augAssign.e = e;
   return res;
 }
 
 static inline struct Python_Stmt *
-mkPython_Stmt_annAssign(struct Python_Expr x, struct Python_Expr annotation,
+mkPython_Stmt_annAssign(struct Python_Expr *x, struct Python_Expr *annotation,
                         struct Python_Expr *value, struct region *region) {
   struct Python_Stmt *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->stmt.tag = Python_Stmt_ANNASSIGN;
-  res->stmt.annAssign.x = x;
-  res->stmt.annAssign.annotation = annotation;
-  res->stmt.annAssign.value = value;
+  res->stmt->tag = Python_Stmt_ANNASSIGN;
+  res->stmt->annAssign.x = x;
+  res->stmt->annAssign.annotation = annotation;
+  res->stmt->annAssign.value = value;
   return res;
 }
 
 static inline struct Python_Stmt *
-mkPython_Stmt_ifStm(struct Python_Expr e, struct Python_Stmt_List *thn,
+mkPython_Stmt_ifStm(struct Python_Expr *e, struct Python_Stmt_List *thn,
                     struct Python_Stmt_List *els, struct region *region) {
   struct Python_Stmt *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->stmt.tag = Python_Stmt_IFSTM;
-  res->stmt.ifStm.e = e;
-  res->stmt.ifStm.thn = thn;
-  res->stmt.ifStm.els = els;
+  res->stmt->tag = Python_Stmt_IFSTM;
+  res->stmt->ifStm.e = e;
+  res->stmt->ifStm.thn = thn;
+  res->stmt->ifStm.els = els;
   return res;
 }
 
 static inline struct Python_Stmt *
-mkPython_Stmt_forLoop(struct Python_Expr x, struct Python_Expr iter,
+mkPython_Stmt_forLoop(struct Python_Expr *x, struct Python_Expr *iter,
                       struct Python_Stmt_List *body,
                       struct Python_Stmt_List *orelse, struct region *region) {
   struct Python_Stmt *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->stmt.tag = Python_Stmt_FORLOOP;
-  res->stmt.forLoop.x = x;
-  res->stmt.forLoop.iter = iter;
-  res->stmt.forLoop.body = body;
-  res->stmt.forLoop.orelse = orelse;
+  res->stmt->tag = Python_Stmt_FORLOOP;
+  res->stmt->forLoop.x = x;
+  res->stmt->forLoop.iter = iter;
+  res->stmt->forLoop.body = body;
+  res->stmt->forLoop.orelse = orelse;
   return res;
 }
 
@@ -571,7 +571,7 @@ mkPython_Stmt_breakLoop(struct region *region) {
   struct Python_Stmt *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->stmt.tag = Python_Stmt_BREAKLOOP;
+  res->stmt->tag = Python_Stmt_BREAKLOOP;
   return res;
 }
 
@@ -580,6 +580,6 @@ mkPython_Stmt_continueLoop(struct region *region) {
   struct Python_Stmt *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->stmt.tag = Python_Stmt_CONTINUELOOP;
+  res->stmt->tag = Python_Stmt_CONTINUELOOP;
   return res;
 }

@@ -186,45 +186,67 @@ static void add_work(struct state *st, PyObject *f) {
 // more intelligent errors, so we can simply fail to add the reference.
 // See: KLR/Trace/Python.lean for more details.
 
-static bool value_(struct state *st, struct Python_Const *c, PyObject *obj);
-
+static struct Python_Const* value(struct state *st, PyObject *obj);
 static struct Python_Expr_List* const_exprs(struct state *st, PyObject *obj);
 
-static bool const_expr(struct state *st, struct Python_Expr *e, PyObject *obj) {
-  if (value_(st, &e->expr.c.value, obj)) {
-    e->expr.tag = Python_Expr_CONST;
-    return true;
+#define mkPos(p,a,b,c,d) { \
+  p = region_alloc(st->region, sizeof(*(p))); \
+  p->lineno = 0; \
+  p->end_lineno = 0; \
+  p->col_offset = 0; \
+  p->end_col_offset = 0; \
+  }
+#define Pos(p,obj) mkPos(p, \
+                         obj->lineno, obj->end_lineno, \
+                         obj->col_offset, obj->end_col_offset)
+
+static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
+  struct Python_Expr *e = region_alloc(st->region, sizeof(*e));
+  e->expr = region_alloc(st->region, sizeof(*e->expr));
+
+  mkPos(e->pos, 0, 0, 0, 0);
+
+  e->pos = region_alloc(st->region, sizeof(*e->pos));
+  e->pos->lineno = 0;
+  e->pos->end_lineno = 0;
+  e->pos->col_offset = 0;
+  e->pos->end_col_offset = 0;
+
+  e->expr->c.value = value(st, obj);
+  if (e->expr->c.value) {
+    e->expr->tag = Python_Expr_CONST;
+    return e;
   }
 
-  // value_ may have set an exception, clear it
+  // value may have set an exception, clear it
   PyErr_Clear();
 
   // Check for other types of supported global values
   if (PyTuple_Check(obj)) {
-    e->expr.tag = Python_Expr_TUPLE;
-    e->expr.tuple.xs = const_exprs(st, obj);
-    e->expr.tuple.ctx = Python_Ctx_Load;
-    return true;
+    e->expr->tag = Python_Expr_TUPLE;
+    e->expr->tuple.xs = const_exprs(st, obj);
+    e->expr->tuple.ctx = Python_Ctx_Load;
+    return e;
   }
   else if (PyList_Check(obj)) {
-    e->expr.tag = Python_Expr_LIST;
-    e->expr.list.xs = const_exprs(st, obj);
-    e->expr.list.ctx = Python_Ctx_Load;
-    return true;
+    e->expr->tag = Python_Expr_LIST;
+    e->expr->list.xs = const_exprs(st, obj);
+    e->expr->list.ctx = Python_Ctx_Load;
+    return e;
   }
   else if (PyModule_Check(obj)) {
     // TODO: can we just leave these undefined?
-    e->expr.tag = Python_Expr_CONST;
-    e->expr.c.value.tag = Python_Const_ELLIPSIS;
-    return true;
+    e->expr->tag = Python_Expr_CONST;
+    e->expr->c.value = NULL;
+    return e;
   }
   else
   {
     // TODO handle numpy tensors
-    return false;
+    return NULL;
   }
 
-  return false;
+  return NULL;
 }
 
 // Note: in case of errors we will return an empty list (NULL)
@@ -241,7 +263,6 @@ static struct Python_Expr_List* const_exprs(struct state *st, PyObject *obj) {
   struct Python_Expr_List *head = NULL, *current = NULL;
   for (Py_ssize_t i = 0; i < sz; i++) {
     struct Python_Expr_List *node = region_alloc(st->region, sizeof(*node));
-    struct Python_Expr *e = region_alloc(st->region, sizeof(*e));
 
     PyObject *key = PyLong_FromLong(i);
     if (!key) {
@@ -257,9 +278,9 @@ static struct Python_Expr_List* const_exprs(struct state *st, PyObject *obj) {
       return NULL;
     }
 
-    bool result = const_expr(st, e, item);
+    struct Python_Expr *e = const_expr(st, item);
     Py_DECREF(item);
-    if (!result)
+    if (!e)
       return NULL;
 
     node->next = NULL;
@@ -283,7 +304,8 @@ static void add_global(struct state *st, const char *name, PyObject *obj) {
 
   struct Python_Keyword_List *node = region_alloc(st->region, sizeof(*node));
   struct Python_Keyword *kw = region_alloc(st->region, sizeof(*kw));
-  if (const_expr(st, &kw->value, obj)) {
+  kw->value = const_expr(st, obj);
+  if (kw->value) {
     kw->id = name;
     node->next = st->globals;
     node->keyword = kw;
@@ -331,10 +353,10 @@ static struct ref reference(struct state *st, struct Python_Expr *e) {
   struct ref ref = { NULL, NULL };
   if (!e) return ref;
 
-  switch(e->expr.tag) {
+  switch(e->expr->tag) {
   case Python_Expr_NAME:
-    ref.name = (char*)e->expr.name.id;
-    ref.obj = lookup(st, e->expr.name.id);
+    ref.name = (char*)e->expr->name.id;
+    ref.obj = lookup(st, e->expr->name.id);
     if (!ref.obj) {
       ref.name = NULL;
       break;
@@ -342,15 +364,15 @@ static struct ref reference(struct state *st, struct Python_Expr *e) {
     break;
 
   case Python_Expr_ATTR:
-    ref = reference(st, e->expr.attr.value);
+    ref = reference(st, e->expr->attr.value);
     if (!ref.obj) {
       ref.name = NULL;
       break;
     }
 
-    if (PyObject_HasAttrString(ref.obj, e->expr.attr.id)) {
-      ref.obj = PyObject_GetAttrString(ref.obj, e->expr.attr.id);
-      ref.name = path_name(st, ref.name, e->expr.attr.id);
+    if (PyObject_HasAttrString(ref.obj, e->expr->attr.id)) {
+      ref.obj = PyObject_GetAttrString(ref.obj, e->expr->attr.id);
+      ref.name = path_name(st, ref.name, e->expr->attr.id);
     } else {
       Py_DECREF(ref.obj);
       ref.name = NULL;
@@ -379,9 +401,11 @@ static struct ref reference(struct state *st, struct Python_Expr *e) {
 // TODO: We are restricting int and float types very early, which is different
 // from how the Lean code works.
 
-static bool value_(struct state *st, struct Python_Const *c, PyObject *obj) {
-  if (!st || !c || !obj)
+static struct Python_Const* value(struct state *st, PyObject *obj) {
+  if (!st || !obj)
     return NULL;
+
+  struct Python_Const *c = region_alloc(st->region, sizeof(*c));
 
   if (Py_IsNone(obj)) {
     c->tag = Python_Const_NONE;
@@ -428,19 +452,6 @@ static bool value_(struct state *st, struct Python_Const *c, PyObject *obj) {
     return NULL;
   }
 
-  return c;
-}
-
-// Allocating version of above
-// Note: As with everything in this file, we leak memory, but this is OK
-// because we will clean up the region all at once, at the end.
-struct Python_Const* value(struct state *st, PyObject *obj) {
-  if (!st || !obj)
-    return NULL;
-
-  struct Python_Const *c = region_alloc(st->region, sizeof(*c));
-  if (!value_(st, c, obj))
-    c = NULL;
   return c;
 }
 
@@ -532,180 +543,164 @@ static struct Python_CmpOp_List* cmpops(struct state *st, asdl_int_seq *ops) {
   return head;
 }
 
-static struct Python_Expr* expr(struct state *st, struct _expr *python);
 static struct Python_Expr_List* exprs(struct state *st, asdl_expr_seq *python);
 static struct Python_Keyword_List* keywords(struct state *st, asdl_keyword_seq *python);
 
-static bool expr_(struct state *st, struct Python_Expr *core, struct _expr *python) {
-  if (!st || !core || !python)
-    return false;
+static struct Python_Expr* expr(struct state *st, struct _expr *python) {
+  if (!python)
+    return NULL;
 
-  bool result = true;
   struct pos old_pos = st->scope.pos;
   st->scope.pos.line = python->lineno;
   st->scope.pos.col = python->col_offset;
 
-  core->pos.lineno = python->lineno;
-  core->pos.col_offset = python->col_offset;
-  core->pos.end_lineno = python->end_lineno;
-  core->pos.end_col_offset = python->end_col_offset;
+  struct Python_Expr *res = region_alloc(st->region, sizeof(*res));
+  struct Python_Expr_ *e = res->expr = region_alloc(st->region, sizeof(*e));
+  Pos(res->pos, python);
 
   switch (python->kind) {
     case Constant_kind: {
-      core->expr.tag = Python_Expr_CONST;
-      result = value_(st, &core->expr.c.value, python->v.Constant.value);
+      e->tag = Python_Expr_CONST;
+      e->c.value = value(st, python->v.Constant.value);
+      if (!e->c.value)
+        res = NULL;
       break;
     }
     // Names and attributes may be references which we need to track
     // We rely on the ctx value for a small optimization: we only need
     // to consider Loads
     case Name_kind: {
-      core->expr.tag = Python_Expr_NAME;
-      core->expr.name.id = py_strdup(st, python->v.Name.id);
-      core->expr.name.ctx = context(python->v.Name.ctx);
-      if (!core->expr.name.id) {
-        result = false;
+      e->tag = Python_Expr_NAME;
+      e->name.id = py_strdup(st, python->v.Name.id);
+      e->name.ctx = context(python->v.Name.ctx);
+      if (!e->name.id) {
+        res = NULL;
         break;
       }
 
-      if (core->expr.name.ctx == Python_Ctx_Load)
-        reference(st, core);
+      if (e->name.ctx == Python_Ctx_Load)
+        reference(st, res);
       break;
     }
     case Attribute_kind: {
-      core->expr.tag = Python_Expr_ATTR;
-      core->expr.attr.value = expr(st, python->v.Attribute.value);
-      core->expr.attr.id = py_strdup(st, python->v.Attribute.attr);
-      core->expr.attr.ctx = context(python->v.Attribute.ctx);
-      if (!core->expr.attr.value || !core->expr.attr.id) {
-        result = false;
+      e->tag = Python_Expr_ATTR;
+      e->attr.value = expr(st, python->v.Attribute.value);
+      e->attr.id = py_strdup(st, python->v.Attribute.attr);
+      e->attr.ctx = context(python->v.Attribute.ctx);
+      if (!e->attr.value || !e->attr.id) {
+        res = NULL;
         break;
       }
 
-      if (core->expr.attr.ctx == Python_Ctx_Load)
-        reference(st, core);
+      if (e->attr.ctx == Python_Ctx_Load)
+        reference(st, res);
       break;
     }
 
     // Sequences: Tuple and List
     case Tuple_kind: {
-      core->expr.tag = Python_Expr_LIST;
-      core->expr.tuple.xs = exprs(st, python->v.Tuple.elts);
-      core->expr.tuple.ctx = context(python->v.Tuple.ctx);
-      result = core->expr.tuple.xs != NULL;
+      e->tag = Python_Expr_LIST;
+      e->tuple.xs = exprs(st, python->v.Tuple.elts);
+      e->tuple.ctx = context(python->v.Tuple.ctx);
+      if (!e->tuple.xs)
+        res = NULL;
       break;
     }
     case List_kind: {
-      core->expr.tag = Python_Expr_LIST;
-      core->expr.list.xs = exprs(st, python->v.List.elts);
-      core->expr.list.ctx = context(python->v.List.ctx);
-      result = core->expr.list.xs != NULL;
+      e->tag = Python_Expr_LIST;
+      e->list.xs = exprs(st, python->v.List.elts);
+      e->list.ctx = context(python->v.List.ctx);
+      if (!e->list.xs)
+        res = NULL;
       break;
     }
 
     // Index expressions
     case Subscript_kind: {
-      core->expr.tag = Python_Expr_SUBSCRIPT;
-      core->expr.subscript.tensor = expr(st, python->v.Subscript.value);
-      core->expr.subscript.index = expr(st, python->v.Subscript.slice);
-      core->expr.subscript.ctx = context(python->v.Subscript.ctx);
-      result =
-        core->expr.subscript.tensor != NULL &&
-        core->expr.subscript.index  != NULL;
+      e->tag = Python_Expr_SUBSCRIPT;
+      e->subscript.tensor = expr(st, python->v.Subscript.value);
+      e->subscript.index = expr(st, python->v.Subscript.slice);
+      e->subscript.ctx = context(python->v.Subscript.ctx);
+      if (!e->subscript.tensor || !e->subscript.index)
+        res = NULL;
       break;
     }
     case Slice_kind: {
-      core->expr.tag = Python_Expr_SLICE;
-      core->expr.slice.l = expr(st, python->v.Slice.lower);
-      core->expr.slice.u = expr(st, python->v.Slice.upper);
-      core->expr.slice.step = expr(st, python->v.Slice.step);
-      result =
-        core->expr.slice.l != NULL ||
-        core->expr.slice.u != NULL ||
-        core->expr.slice.step != NULL;
+      e->tag = Python_Expr_SLICE;
+      e->slice.l = expr(st, python->v.Slice.lower);
+      e->slice.u = expr(st, python->v.Slice.upper);
+      e->slice.step = expr(st, python->v.Slice.step);
+      if (!e->slice.l || !e->slice.u || !e->slice.step)
+        res = NULL;
       break;
     }
 
     // Operators
     case BoolOp_kind: {
-      core->expr.tag = Python_Expr_BOOLOP;
-      core->expr.boolOp.op = boolop(python->v.BoolOp.op);
-      core->expr.boolOp.values = exprs(st, python->v.BoolOp.values);
-      result =
-        core->expr.boolOp.op != (u32)-1 &&
-        core->expr.boolOp.values != NULL;
+      e->tag = Python_Expr_BOOLOP;
+      e->boolOp.op = boolop(python->v.BoolOp.op);
+      e->boolOp.values = exprs(st, python->v.BoolOp.values);
+      if (!e->boolOp.values)
+        res = NULL;
       break;
     }
     case BinOp_kind: {
-      core->expr.tag = Python_Expr_BINOP;
-      core->expr.binOp.op = binop(python->v.BinOp.op);
-      core->expr.binOp.left = expr(st, python->v.BinOp.left);
-      core->expr.binOp.right = expr(st, python->v.BinOp.right);
-      result =
-        core->expr.binOp.op != (u32)-1 &&
-        core->expr.binOp.left != NULL &&
-        core->expr.binOp.right != NULL;
+      e->tag = Python_Expr_BINOP;
+      e->binOp.op = binop(python->v.BinOp.op);
+      e->binOp.left = expr(st, python->v.BinOp.left);
+      e->binOp.right = expr(st, python->v.BinOp.right);
+      if (!e->binOp.left || !e->binOp.right)
+        res = NULL;
       break;
     }
     case UnaryOp_kind: {
-      core->expr.tag = Python_Expr_UNARYOP;
-      core->expr.unaryOp.op = unaryop(python->v.UnaryOp.op);
-      core->expr.unaryOp.operand = expr(st, python->v.UnaryOp.operand);
-      result =
-        core->expr.unaryOp.op != (u32)-1 &&
-        core->expr.unaryOp.operand != NULL;
+      e->tag = Python_Expr_UNARYOP;
+      e->unaryOp.op = unaryop(python->v.UnaryOp.op);
+      e->unaryOp.operand = expr(st, python->v.UnaryOp.operand);
+      if (!e->unaryOp.operand)
+        res = NULL;
       break;
     }
     case Compare_kind: {
-      core->expr.tag = Python_Expr_COMPARE;
-      core->expr.compare.left = expr(st, python->v.Compare.left);
-      core->expr.compare.ops = cmpops(st, python->v.Compare.ops);
-      core->expr.compare.comparators = exprs(st, python->v.Compare.comparators);
-      result =
-        core->expr.compare.left != NULL &&
-        core->expr.compare.ops != NULL &&
-        core->expr.compare.comparators != NULL;
+      e->tag = Python_Expr_COMPARE;
+      e->compare.left = expr(st, python->v.Compare.left);
+      e->compare.ops = cmpops(st, python->v.Compare.ops);
+      e->compare.comparators = exprs(st, python->v.Compare.comparators);
+      if (!e->compare.left || !e->compare.ops || !e->compare.comparators)
+        res = NULL;
       break;
     }
 
     // Condition expression
     case IfExp_kind: {
-      core->expr.tag = Python_Expr_IFEXP;
-      core->expr.ifExp.test = expr(st, python->v.IfExp.test);
-      core->expr.ifExp.body = expr(st, python->v.IfExp.body);
-      core->expr.ifExp.orelse = expr(st, python->v.IfExp.orelse);
-      result = core->expr.ifExp.test != NULL;
+      e->tag = Python_Expr_IFEXP;
+      e->ifExp.test = expr(st, python->v.IfExp.test);
+      e->ifExp.body = expr(st, python->v.IfExp.body);
+      e->ifExp.orelse = expr(st, python->v.IfExp.orelse);
+      if (!e->ifExp.test)
+        res = NULL;
       break;
     }
 
     // Function calls
     case Call_kind: {
-      core->expr.tag = Python_Expr_CALL;
-      core->expr.call.f = expr(st, python->v.Call.func);
-      core->expr.call.args = exprs(st, python->v.Call.args);
-      core->expr.call.keywords = keywords(st, python->v.Call.keywords);
-      result = core->expr.call.f != NULL;
+      e->tag = Python_Expr_CALL;
+      e->call.f = expr(st, python->v.Call.func);
+      e->call.args = exprs(st, python->v.Call.args);
+      e->call.keywords = keywords(st, python->v.Call.keywords);
+      if (!e->call.f)
+        res = NULL;
       break;
     }
 
     default:
       syntax_error(st, "unsupported expression");
-      result = false;
+      res = NULL;
       break;
   }
 
   st->scope.pos = old_pos;
-  return result;
-}
-
-static struct Python_Expr* expr(struct state *st, struct _expr *python) {
-  if (!python)
-    return NULL;
-
-  struct Python_Expr *e = region_alloc(st->region, sizeof(*e));
-  if (!expr_(st, e, python))
-    return NULL;
-  return e;
+  return res;
 }
 
 static struct Python_Expr_List *exprs(struct state *st, asdl_expr_seq *python) {
@@ -739,19 +734,14 @@ static struct Python_Keyword* keyword(struct state *st, keyword_ty python) {
     return NULL;
 
   // Note, we store the position, but do not update the context
-  // The next expression also has a position... not really sure why this
-  // is even in the AST.
+  // The next expression also has a position, and we do not check the
+  // keyword id
   struct Python_Keyword *kw = region_alloc(st->region, sizeof(*kw));
-  kw->pos.lineno = python->lineno;
-  kw->pos.col_offset = python->col_offset;
-  kw->pos.end_lineno = python->end_lineno;
-  kw->pos.end_col_offset = python->end_col_offset;
+  Pos(kw->pos, python);
 
   kw->id = py_strdup(st, python->arg);
-  if (!kw->id)
-    return NULL;
-
-  if (!expr_(st, &kw->value, python->value))
+  kw->value = expr(st, python->value);
+  if (!kw->id || !kw->value)
     return NULL;
 
   return kw;
@@ -839,101 +829,111 @@ static struct Python_Args* args(struct state *st, arguments_ty python) {
 // -----------------------------------------------------------------------------
 // -- Statements
 
-static struct Python_Stmt* stmt(struct state *st, struct _stmt *python);
 static struct Python_Stmt_List* stmts(struct state *st, asdl_stmt_seq *python);
 
-static bool stmt_( struct state *st, struct Python_Stmt *core, struct _stmt *python) {
-  bool result = true;
+static struct Python_Stmt* stmt(struct state *st, struct _stmt *python) {
+  if (!python)
+    return NULL;
+
   struct pos old_pos = st->scope.pos;
   st->scope.pos.line = python->lineno;
   st->scope.pos.col = python->col_offset;
 
-  core->pos.lineno = python->lineno;
-  core->pos.col_offset = python->col_offset;
-  core->pos.end_lineno = python->end_lineno;
-  core->pos.end_col_offset = python->end_col_offset;
+  struct Python_Stmt *res = region_alloc(st->region, sizeof(*res));
+  struct Python_Stmt_ *s = res->stmt = region_alloc(st->region, sizeof(*s));
+  Pos(res->pos, python);
 
   switch (python->kind) {
     case Pass_kind:
-      core->stmt.tag = Python_Stmt_PASS;
+      s->tag = Python_Stmt_PASS;
       break;
 
     // Simple expressions
     case Expr_kind: {
-      core->stmt.tag = Python_Stmt_EXPR;
-      result = expr_(st, &core->stmt.ret.e, python->v.Return.value);
+      s->tag = Python_Stmt_EXPR;
+      s->expr.e = expr(st, python->v.Return.value);
+      if (!s->expr.e)
+        res = NULL;
       break;
     }
     case Assert_kind: {
       // TODO capture message
-      core->stmt.tag = Python_Stmt_ASSERT;
-      result = expr_(st, &core->stmt.ret.e, python->v.Assert.test);
+      s->tag = Python_Stmt_ASSERT;
+      s->assert.e = expr(st, python->v.Assert.test);
+      if (!s->assert.e)
+        res = NULL;
       break;
     }
     case Return_kind: {
-      core->stmt.tag = Python_Stmt_RET;
-      result = expr_(st, &core->stmt.ret.e, python->v.Return.value);
+      s->tag = Python_Stmt_RET;
+      s->ret.e = expr(st, python->v.Return.value);
+      if (!s->ret.e)
+        res = NULL;
       break;
     }
 
     // Assignments
     case Assign_kind: {
-      core->stmt.tag = Python_Stmt_ASSIGN;
-      core->stmt.assign.xs = exprs(st, python->v.Assign.targets);
-      if (!core->stmt.assign.xs) {
-        result = false;
-      } else {
-        result = expr_(st, &core->stmt.assign.e, python->v.Assign.value);
-      }
+      s->tag = Python_Stmt_ASSIGN;
+      s->assign.xs = exprs(st, python->v.Assign.targets);
+      s->assign.e = expr(st, python->v.Assign.value);
+      if (!s->assign.xs || !s->assign.e)
+        res = NULL;
       break;
     }
     case AugAssign_kind: {
-      core->stmt.tag = Python_Stmt_AUGASSIGN;
-      core->stmt.augAssign.op = binop(python->v.AugAssign.op);
-      result = core->stmt.augAssign.op != (u32)-1; // impossible
-      result = result && expr_(st, &core->stmt.augAssign.x, python->v.AugAssign.target);
-      result = result && expr_(st, &core->stmt.augAssign.e, python->v.AugAssign.value);
+      s->tag = Python_Stmt_AUGASSIGN;
+      s->augAssign.op = binop(python->v.AugAssign.op);
+      s->augAssign.x = expr(st, python->v.AugAssign.target);
+      s->augAssign.e = expr(st, python->v.AugAssign.value);
+      if (!s->augAssign.x || !s->augAssign.e)
+        res = NULL;
       break;
     }
     case AnnAssign_kind: {
-      core->stmt.tag = Python_Stmt_ANNASSIGN;
-      result = expr_(st, &core->stmt.annAssign.x, python->v.AnnAssign.target);
-      result = result && expr_(st, &core->stmt.annAssign.annotation, python->v.AnnAssign.annotation);
-      if (result)
-        core->stmt.annAssign.value = expr(st, python->v.AnnAssign.value);
+      s->tag = Python_Stmt_ANNASSIGN;
+      s->annAssign.x = expr(st, python->v.AnnAssign.target);
+      s->annAssign.annotation = expr(st, python->v.AnnAssign.annotation);
+      s->annAssign.value = expr(st, python->v.AnnAssign.value);
+      if (!s->annAssign.x || !s->annAssign.annotation)
+        res = NULL;
       break;
     }
 
     // If statements
     case If_kind: {
-      core->stmt.tag = Python_Stmt_IFSTM;
-      result = expr_(st, &core->stmt.ifStm.e, python->v.If.test);
-      if (result) {
+      s->tag = Python_Stmt_IFSTM;
+      s->ifStm.e = expr(st, python->v.If.test);
+      if (s->ifStm.e) {
         // Note: we allow both to be empty
-        core->stmt.ifStm.thn = stmts(st, python->v.If.body);
-        core->stmt.ifStm.els = stmts(st, python->v.If.orelse);
+        s->ifStm.thn = stmts(st, python->v.If.body);
+        s->ifStm.els = stmts(st, python->v.If.orelse);
+      } else {
+        res = NULL;
       }
       break;
     }
 
     // For loops
     case For_kind: {
-      core->stmt.tag = Python_Stmt_FORLOOP;
-      result = expr_(st, &core->stmt.forLoop.x, python->v.For.target);
-      result = result && expr_(st, &core->stmt.forLoop.iter, python->v.For.iter);
-      if (result) {
+      s->tag = Python_Stmt_FORLOOP;
+      s->forLoop.x = expr(st, python->v.For.target);
+      s->forLoop.iter = expr(st, python->v.For.iter);
+      if (s->forLoop.x && s->forLoop.iter) {
         // Note: we allow both to be empty
-        core->stmt.forLoop.body = stmts(st, python->v.For.body);
-        core->stmt.forLoop.orelse = stmts(st, python->v.For.orelse);
+        s->forLoop.body = stmts(st, python->v.For.body);
+        s->forLoop.orelse = stmts(st, python->v.For.orelse);
+      } else {
+        res = NULL;
       }
       break;
     }
     case Break_kind: {
-      core->stmt.tag = Python_Stmt_BREAKLOOP;
+      s->tag = Python_Stmt_BREAKLOOP;
       break;
     }
     case Continue_kind: {
-      core->stmt.tag = Python_Stmt_CONTINUELOOP;
+      s->tag = Python_Stmt_CONTINUELOOP;
       break;
     }
 
@@ -942,21 +942,11 @@ static bool stmt_( struct state *st, struct Python_Stmt *core, struct _stmt *pyt
     case With_kind:
     default:
       syntax_error(st, "unsupported statement");
-      result = false;
+      res = NULL;
       break;
   }
   st->scope.pos = old_pos;
-  return result;
-}
-
-static struct Python_Stmt* stmt(struct state *st, struct _stmt *python) {
-  if (!python)
-    return NULL;
-
-  struct Python_Stmt *s = region_alloc(st->region, sizeof(*s));
-  if (!stmt_(st, s, python))
-    return NULL;
-  return s;
+  return res;
 }
 
 static struct Python_Stmt_List* stmts(struct state *st, asdl_stmt_seq *python) {
@@ -1076,7 +1066,7 @@ static struct Python_Fun* function(struct state *st, PyObject *f) {
     fn->line = st->scope.line_offset;
     fn->source = st->scope.src;
     fn->body = body;
-    fn->args = *as;  // TODO: eliminate copy
+    fn->args = as;
   }
 
   st->scope = old_scope;
@@ -1119,7 +1109,7 @@ bool gather(struct kernel *k) {
     printf("FUN name = %s (line %d)\n", f->name, f->line);
   }
   for (struct Python_Keyword_List *node = st.globals; node; node = node->next) {
-    printf("GLOBAL %s = %d\n", node->keyword->id, node->keyword->value.expr.tag);
+    printf("GLOBAL %s = %d\n", node->keyword->id, node->keyword->value->expr->tag);
   }
 
   // TODO: just for testing... need to return AST

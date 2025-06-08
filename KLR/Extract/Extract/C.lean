@@ -16,9 +16,17 @@ Note: not too worried about formatting; will run clang-format on result.
 namespace Extract.C
 open Lean Meta
 
-private def str : Name -> String
-  | .str _ s => s
+def varName : Name -> String
+  | .str _ s => renameVar s
   | _ => panic! "bad name"
+where
+  renameVar : String -> String
+  | "bool" => "b"
+  | "int" => "i"
+  | "float" => "f"
+  | "string" => "s"
+  | "const" => "c"
+  | s => s
 
 private def dropUnder (s : String) : String :=
   if s.endsWith "_" || s.endsWith "'" then s.dropRight 1 else s
@@ -36,51 +44,35 @@ private def CName (name : Name) (f : String -> String := id) : String :=
 
 instance : ToString Name where toString n := CName n
 
-private def genType (t : SimpleType)
-                    (indirect : List Name := [])
-                    : String :=
+private def genType (t : SimpleType) : String :=
   match t with
   | .bool => "bool"
   | .nat => "u32"
   | .int => "i32"
   | .float => "f32"
   | .string => "const char*"
-  | .const name => s!"struct {name}" ++ if indirect.contains name then "*" else ""
+  | .const name => s!"struct {name}*"
   | .enum name => s!"enum {name}"
-  | .option .string => genType .string
-  | .option t => genType t ++ "*"
+  | .option (.enum n) => genType (.enum n) ++ "*"
+  | .option t => genType t
+  | .list .bool => "struct Bool_List*"
   | .list .nat => "struct Nat_List*"
   | .list .int => "struct Int_List*"
+  | .list .float => "struct Float_List*"
   | .list .string => "struct String_List*"
+  | .list (.const n)
   | .list (.enum n) => s!"struct {n}_List*"
-  | .list t => s!"{genType t []}_List*"
+  | .list _ => panic! "unsupported list type"
 
-private def renameVar : String -> String
-  | "bool" => "b"
-  | "int" => "i"
-  | "float" => "f"
-  | "string" => "s"
-  | "const" => "c"
-  | s => s
-
-private def genStruct' (name : Name)
-                       (fields : List Field)
-                       (indirect : List Name := [])
-                       (var : String := "")
-                       : MetaM Unit := do
-  IO.println s!"struct {name} \{"
-  fields.forM fun f => do
-    let ty := genType f.type indirect
-    IO.println s!"  {ty} {f.name};"
-  IO.println s!"} {renameVar var};"
-
-private def genStruct (ty : LeanType)
-                      (indirect : List Name := [])
+private def genStruct (name : Name)
+                      (fields : List Field)
                       (var : String := "")
                       : MetaM Unit := do
-  match ty with
-  | .prod name variants => genStruct' name variants indirect var
-  | _ => throwError "Cannot gen struct for sum"
+  IO.println s!"struct {name} \{"
+  fields.forM fun f => do
+    let ty := genType f.type
+    IO.println s!"  {ty} {f.name};"
+  IO.println s!"} {var};"
 
 private def genEnum' (name : Name)
                      (variants : List LeanType)
@@ -98,37 +90,39 @@ private def genEnum : LeanType -> MetaM Unit
 
 private def genUnion (name : Name)
                      (variants : List LeanType)
-                     (indirect : List Name := [])
                      : MetaM Unit := do
   IO.println s!"struct {name} \{"
-  genEnum' (.str name "Tag") variants "tag" fun s => String.toUpper s
+  genEnum' (.str name "Tag") variants "tag" String.toUpper
   IO.println "union {"
   variants.forM fun t => do
-    if not t.singleton then genStruct t indirect (str t.name)
+    match t with
+    | .prod _ [] => pure ()
+    | .prod n fs => genStruct n fs (varName n)
+    | .sum .. => pure ()
   IO.println "};"
   IO.println "};"
 
-def genCType (ty : LeanType) (indirect : List Name := []) : MetaM Unit := do
+def genCType (ty : LeanType) : MetaM Unit := do
   IO.println ""
   match ty with
-  | .prod name fields => genStruct' name fields indirect
+  | .prod name fields => genStruct name fields
   | .sum name variants =>
     if ty.isEnum
     then genEnum (.sum name variants)
-    else genUnion name variants indirect
+    else genUnion name variants
 
 def genInitBody (retTy : Name) (t : LeanType) : MetaM Unit := do
   match t with
   | .prod name fields => do
-    let ptr := genType (.const retTy) [retTy]
-    let element1 := (str retTy).toLower
-    let element2 := renameVar (str name)
+    let ptr := genType (.const retTy)
+    let element1 := (varName retTy).toLower
+    let element2 := varName name
     IO.println "{"
     IO.println s!"  {ptr} res = region_alloc(region, sizeof(*res));"
     IO.println "  if (!res) return NULL;"
-    IO.println s!"  res->{element1}.tag = {CName name String.toUpper};"
+    IO.println s!"  res->{element1}->tag = {CName name String.toUpper};"
     for f in fields do
-      IO.println s!"  res->{element1}.{element2}.{f.name} = {f.name};"
+      IO.println s!"  res->{element1}->{element2}.{f.name} = {f.name};"
     IO.println "  return res;"
     IO.println "}"
   | _ => throwError "internal error"
@@ -137,8 +131,8 @@ def genMkFuns (retTy : Name) (t : LeanType) : MetaM Unit := do
   match t with
   | .prod name fields => do
     let fnName := "mk" ++ (toString name).capitalize
-    let ptr := genType (.const retTy) [retTy]
-    let args := fields.map fun f => genType f.type [retTy] ++" "++ f.name.toString
+    let ptr := genType (.const retTy)
+    let args := fields.map fun f => genType f.type ++" "++ f.name.toString
     let args := String.intercalate ", " args
     let args := if args != "" then args ++ "," else args
     IO.println ""
@@ -185,7 +179,7 @@ def nkiAST : MetaM (List LeanType) := do
     `KLR.NKI.Kernel,
   ]
 
-private def header :=
+def header :=
 "// This file is automatically generated from KLR.
 // Manual edits to this file will be overwritten.
 #include \"stdc.h\"
@@ -196,18 +190,12 @@ private def genList (name : Name) (ty : SimpleType) := do
   IO.println ""
   IO.println s!"struct {name}_List \{"
   IO.println s!"  struct {name}_List *next;"
-  IO.println s!"  {genType ty [name]} {String.toLower (str name)};"
+  IO.println s!"  {genType ty} {String.toLower (varName name)};"
   IO.println "};"
-
-private def genIndirect : Name -> List Name
-  | .str n s =>
-    if s.endsWith "'" then [.str n s, .str n (s.dropRight 1)]
-    else [.str n s]
-  | _ => []
 
 private def genTypes (tys : List LeanType) : MetaM Unit :=
   for ty in tys do
-    genCType ty (genIndirect ty.name)
+    genCType ty
 
 private def genAlloc (tys : List LeanType) (retTy name : Name) : MetaM Unit := do
   match tys.find? (fun t => t.name == name) with
