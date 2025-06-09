@@ -45,7 +45,7 @@ The language is parameterized by a type of floating point numbers, see `KLR/Sema
 
 variable {DataT : Type _}
 
-open KLR.Core
+open KLR.Core TensorLib
 
 def Dtype.interp : Dtype → Type _
 | .uint64   => UInt64
@@ -73,6 +73,35 @@ def TensorHandle.hbm_index? (r : @TensorHandle DataT) : Option Nat :=
   | .in_bounded => .none
   | .in_unbounded i => .some i
 
+-- DualMemory.in_memory
+def TensorHandle.get_store? (r : @TensorHandle DataT) (m : NeuronMemory) : Option (LocalStore UInt8) :=
+  match r.address.memory, r.index with
+  | .hbm, .in_bounded => .none
+  | .hbm, .in_unbounded i => m.hbm[i]?
+  | .sbuf, .in_bounded => .some m.sbuf.bounded.toLocalStore
+  | .sbuf, .in_unbounded i => m.sbuf.unbounded[i]?
+  | .pmem, _ => .none
+  | .reg, _ => .none
+
+
+def TensorHandle.upd_store? (r : @TensorHandle DataT) (m : NeuronMemory) (L : LocalStore UInt8 → LocalStore UInt8) :
+    Option NeuronMemory :=
+  match r.address.memory, r.index with
+  | .hbm, .in_bounded => .none
+  | .hbm, .in_unbounded i => do
+      let x ← m.hbm[i]?
+      return { m with hbm := m.hbm }
+  | .sbuf, .in_bounded =>
+      sorry
+      -- .some { m with sbuf := L m.sbuf.bounded.toLocalStore }
+  | .sbuf, .in_unbounded i =>
+      sorry -- m.sbuf.unbounded[i]?
+  | .pmem, _ => .none
+  | .reg, _ => .none
+
+
+
+
 /-- NML values. These are fully-reduced expressions. -/
 inductive Value
 | unit
@@ -87,16 +116,25 @@ def Value.as_handle? : @Value DataT → Option (@TensorHandle DataT) | .ptr t =>
 /-- NML expressions. These are terms which reduce to a value and possibly update the state.
 There is no control flow inside expressions. -/
 inductive Expr
-| val     (_ : @Value DataT)
-| var     (_ : String)
-| load    (_ : AffineMap) (_ : Expr)
-| store   (src : Expr) (_ : AffineMap) (dst : Expr)
+| val           (_ : @Value DataT)
+| var           (_ : String)
+| load          (_ : AffineMap) (_ : Expr)
+| store         (src : Expr) (_ : AffineMap) (dst : Expr)
+| unary_scalar  (_ : Expr) (_ : DataT → DataT)
+
+abbrev Expr.pure? : @Expr DataT → Prop
+| .val _ | .var _ => True
+| _ => False
+
+structure PureExpr where
+  expr : @Expr DataT
+  pure : Expr.pure? expr
 
 /-- NML statements. Control flow lives here. -/
 inductive Stmt
 | ret     (_ : @Expr DataT)
 | assign  (_ : Option String) (_ : @Expr DataT)
-| loop    (I : Type _) [TensorLib.Iterator I (@Value DataT)] (_ : String) (_ : Option I) (body : List Stmt)
+| loop    (I : Type _) [Iterator I (@Value DataT)] (_ : String) (_ : Option I) (body : List Stmt)
 
 abbrev Locals := String → Option (@Value DataT)
 
@@ -154,6 +192,13 @@ For now, only support trivial indexing.
               let L := (s2.sbuf.get_store sbuf_tensor.index H)
               L.get (p + sbuf_tensor.address.partitionOffset.getD 0,
                      f + sbuf_tensor.address.freeOffset.getD 0)⟩ }
+/-- [unary scalar] Idealized pure function application to a tensor, in-place.
+Returns the address of the tensor. -/
+| unary_scalar :
+    ExprStep e s0 (.ptr tensor) s1 →
+    -- tensor.get_store? s1 = .some L →
+    tensor.upd_store? s1 sorry = .some s2 →
+    ExprStep (.unary_scalar e f) s0 (.ptr tensor) s2
 
 
 inductive MultiStep : List (@Stmt DataT) → @State DataT → @ExecState DataT → Type _ where
@@ -172,19 +217,18 @@ inductive MultiStep : List (@Stmt DataT) → @State DataT → @ExecState DataT �
     MultiStep p ⟨s', s.locals⟩ r →
     MultiStep (.cons (.assign .none e) p) s r
 /-- [ Loop termination ] Loops continue onwards if their iterator is done. -/
-| loop_exit {I : Type _} [TensorLib.Iterator I (@Value DataT)] :
+| loop_exit {I : Type _} [Iterator I (@Value DataT)] :
     MultiStep p s r →
     MultiStep (.cons (.loop I _ .none _) p) s r
 /-- [ Loop eary return ] If loop is not terminated, and body executes to .done, terminate. -/
-| loop_early {I : Type _} [TensorLib.Iterator I (@Value DataT)] (i i' : I) :
-    -- (@TensorLib.Iterator.next I (@Value DataT) _ i) = .some i' →
-    MultiStep body ⟨s.memory, s.locals.bind x (@TensorLib.Iterator.peek I _ _ i)⟩ (.done r) →
+| loop_early {I : Type _} [Iterator I (@Value DataT)] (i i' : I) :
+    MultiStep body ⟨s.memory, s.locals.bind x (Iterator.peek i)⟩ (.done r) →
     MultiStep (.cons (.loop I x (.some i) body) p) s (.done r)
 /-- [ Loop iterate ] If loop is not terminated, and body executes to a running state,
 the program setps to a loop with iterator.next (lexical scope + effects). -/
-| loop_continue {I : Type _} [TensorLib.Iterator I (@Value DataT)] (i i' : I) :
-    MultiStep body ⟨s.memory, s.locals.bind x (@TensorLib.Iterator.peek I _ _ i)⟩ (.run [] s') →
-    MultiStep (.cons (.loop I x (@TensorLib.Iterator.next I (@Value DataT) _ i) body) p) ⟨s'.memory, s.locals⟩ r →
+| loop_continue {I : Type _} [Iterator I (@Value DataT)] (i i' : I) :
+    MultiStep body ⟨s.memory, s.locals.bind x (Iterator.peek i)⟩ (.run [] s') →
+    MultiStep (.cons (.loop I x (Iterator.next (@Value DataT) i) body) p) ⟨s'.memory, s.locals⟩ r →
     MultiStep (.cons (.loop I x i body) p) s r
 
 end NML
