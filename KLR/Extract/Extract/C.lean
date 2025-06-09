@@ -28,19 +28,18 @@ where
   | "const" => "c"
   | s => s
 
-private def dropUnder (s : String) : String :=
-  if s.endsWith "_" || s.endsWith "'" then s.dropRight 1 else s
-
-private def preFix (acc : String) : Name -> String
+private def CName (name : Name) : String :=
+  match name with
+  | .str n s => preFix "" n ++ s.replace "'" "_"
+  | _ => panic! "bad name"
+where
+  preFix (acc : String) : Name -> String
   | .str .anonymous "KLR" => acc
   | .str n s => preFix (dropUnder s ++ "_" ++ acc) n
   | .anonymous => ""
   | .num _ _ => panic! "numeric name"
-
-private def CName (name : Name) (f : String -> String := id) : String :=
-  match name with
-  | .str n s => preFix "" n ++ f (s.replace "'" "_")
-  | _ => panic! "bad name"
+  dropUnder (s : String) : String :=
+  if s.endsWith "_" || s.endsWith "'" then s.dropRight 1 else s
 
 instance : ToString Name where toString n := CName n
 
@@ -77,22 +76,19 @@ private def genStruct (name : Name)
 private def genEnum' (name : Name)
                      (variants : List LeanType)
                      (var : String := "")
-                     (f : String -> String := id)
                      : MetaM Unit := do
-  let names := variants.map fun v => CName v.name f
+  let names := variants.map fun v => CName v.name
   let rhs := String.intercalate ", " names
   IO.println s!"enum {name} \{ {rhs} } {var};"
   return ()
 
 private def genEnum : LeanType -> MetaM Unit
-  | .sum name variants => genEnum' name variants "" fun s => s.capitalize
+  | .sum name variants => genEnum' name variants ""
   | _ => throwError "Cannot gen enum for product"
 
-private def genUnion (name : Name)
-                     (variants : List LeanType)
-                     : MetaM Unit := do
+private def genUnion (name : Name) (variants : List LeanType) : MetaM Unit := do
   IO.println s!"struct {name} \{"
-  genEnum' (.str name "Tag") variants "tag" String.toUpper
+  genEnum' (.str name "Tag") variants "tag"
   IO.println "union {"
   variants.forM fun t => do
     match t with
@@ -120,7 +116,7 @@ def genInitBody (retTy : Name) (t : LeanType) : MetaM Unit := do
     IO.println "{"
     IO.println s!"  {ptr} res = region_alloc(region, sizeof(*res));"
     IO.println "  if (!res) return NULL;"
-    IO.println s!"  res->{element1}->tag = {CName name String.toUpper};"
+    IO.println s!"  res->{element1}->tag = {name};"
     for f in fields do
       IO.println s!"  res->{element1}->{element2}.{f.name} = {f.name};"
     IO.println "  return res;"

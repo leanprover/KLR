@@ -214,7 +214,7 @@ static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
 
   e->expr->c.value = value(st, obj);
   if (e->expr->c.value) {
-    e->expr->tag = Python_Expr_CONST;
+    e->expr->tag = Python_Expr_const;
     return e;
   }
 
@@ -223,20 +223,20 @@ static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
 
   // Check for other types of supported global values
   if (PyTuple_Check(obj)) {
-    e->expr->tag = Python_Expr_TUPLE;
+    e->expr->tag = Python_Expr_tuple;
     e->expr->tuple.xs = const_exprs(st, obj);
-    e->expr->tuple.ctx = Python_Ctx_Load;
+    e->expr->tuple.ctx = Python_Ctx_load;
     return e;
   }
   else if (PyList_Check(obj)) {
-    e->expr->tag = Python_Expr_LIST;
+    e->expr->tag = Python_Expr_list;
     e->expr->list.xs = const_exprs(st, obj);
-    e->expr->list.ctx = Python_Ctx_Load;
+    e->expr->list.ctx = Python_Ctx_load;
     return e;
   }
   else if (PyModule_Check(obj)) {
     // TODO: can we just leave these undefined?
-    e->expr->tag = Python_Expr_CONST;
+    e->expr->tag = Python_Expr_const;
     e->expr->c.value = NULL;
     return e;
   }
@@ -354,7 +354,7 @@ static struct ref reference(struct state *st, struct Python_Expr *e) {
   if (!e) return ref;
 
   switch(e->expr->tag) {
-  case Python_Expr_NAME:
+  case Python_Expr_name:
     ref.name = (char*)e->expr->name.id;
     ref.obj = lookup(st, e->expr->name.id);
     if (!ref.obj) {
@@ -363,7 +363,7 @@ static struct ref reference(struct state *st, struct Python_Expr *e) {
     }
     break;
 
-  case Python_Expr_ATTR:
+  case Python_Expr_attr:
     ref = reference(st, e->expr->attr.value);
     if (!ref.obj) {
       ref.name = NULL;
@@ -408,14 +408,14 @@ static struct Python_Const* value(struct state *st, PyObject *obj) {
   struct Python_Const *c = region_alloc(st->region, sizeof(*c));
 
   if (Py_IsNone(obj)) {
-    c->tag = Python_Const_NONE;
+    c->tag = Python_Const_none;
   }
   else if (PyBool_Check(obj)) {
-    c->tag = Python_Const_BOOL;
+    c->tag = Python_Const_bool;
     c->b.value = Py_IsTrue(obj) != 0;
   }
   else if (PyLong_Check(obj)) {
-    c->tag = Python_Const_INT;
+    c->tag = Python_Const_int;
     int overflow = 0;
     long value = PyLong_AsLongAndOverflow(obj, &overflow);
     if (value == -1 && PyErr_Occurred()) {
@@ -432,7 +432,7 @@ static struct Python_Const* value(struct state *st, PyObject *obj) {
     c->i.value = (i32)value;
   }
   else if (PyFloat_Check(obj)) {
-    c->tag = Python_Const_FLOAT;
+    c->tag = Python_Const_float;
     double d = PyFloat_AsDouble(obj);
     if (PyErr_Occurred())
       return NULL;
@@ -440,13 +440,13 @@ static struct Python_Const* value(struct state *st, PyObject *obj) {
     c->f.value = (float)d;
   }
   else if (PyUnicode_Check(obj)) {
-    c->tag = Python_Const_STRING;
+    c->tag = Python_Const_string;
     c->s.value = py_strdup(st, obj);
     if (!c->s.value)
       return NULL;
   }
   else if (Py_IS_TYPE(obj, &PyEllipsis_Type)) {
-    c->tag = Python_Const_ELLIPSIS;
+    c->tag = Python_Const_ellipsis;
   }
   else {
     return NULL;
@@ -460,62 +460,62 @@ static struct Python_Const* value(struct state *st, PyObject *obj) {
 
 static enum Python_Ctx context(expr_context_ty ctx) {
   switch (ctx) {
-  case Load: return Python_Ctx_Load;
-  case Store: return Python_Ctx_Store;
-  case Del: return Python_Ctx_Del;
-  default: return Python_Ctx_Load;  // impossible (safe default)
+  case Load: return Python_Ctx_load;
+  case Store: return Python_Ctx_store;
+  case Del: return Python_Ctx_del;
+  default: return Python_Ctx_load;  // impossible (safe default)
   }
 }
 
 static enum Python_BoolOp boolop(boolop_ty op) {
   switch (op) {
-  case And: return Python_BoolOp_Land;
-  case Or: return Python_BoolOp_Lor;
+  case And: return Python_BoolOp_land;
+  case Or: return Python_BoolOp_lor;
   default: return (u32)-1; // impossible
   }
 }
 
 static enum Python_UnaryOp unaryop(unaryop_ty op) {
   switch (op) {
-  case Invert: return Python_UnaryOp_Invert;
-  case Not: return Python_UnaryOp_Not;
-  case UAdd: return Python_UnaryOp_Uadd;
-  case USub: return Python_UnaryOp_Usub;
+  case Invert: return Python_UnaryOp_invert;
+  case Not: return Python_UnaryOp_not;
+  case UAdd: return Python_UnaryOp_uadd;
+  case USub: return Python_UnaryOp_usub;
   default: return (u32)-1; // impossible
   }
 }
 
 static enum Python_BinOp binop(operator_ty op) {
   switch (op) {
-  case Add: return Python_BinOp_Add;
-  case Sub: return Python_BinOp_Sub;
-  case Mult: return Python_BinOp_Mul;
-  case MatMult: return Python_BinOp_Matmul;
-  case Div: return Python_BinOp_Div;
-  case Mod: return Python_BinOp_Mod;
-  case Pow: return Python_BinOp_Pow;
-  case LShift: return Python_BinOp_Lshift;
-  case RShift: return Python_BinOp_Rshift;
-  case BitOr: return Python_BinOp_Or;
-  case BitXor: return Python_BinOp_Xor;
-  case BitAnd: return Python_BinOp_And;
-  case FloorDiv: return Python_BinOp_Floor;
+  case Add: return Python_BinOp_add;
+  case Sub: return Python_BinOp_sub;
+  case Mult: return Python_BinOp_mul;
+  case MatMult: return Python_BinOp_matmul;
+  case Div: return Python_BinOp_div;
+  case Mod: return Python_BinOp_mod;
+  case Pow: return Python_BinOp_pow;
+  case LShift: return Python_BinOp_lshift;
+  case RShift: return Python_BinOp_rshift;
+  case BitOr: return Python_BinOp_or;
+  case BitXor: return Python_BinOp_xor;
+  case BitAnd: return Python_BinOp_and;
+  case FloorDiv: return Python_BinOp_floor;
   default: return (u32)-1;  // impossible
   }
 }
 
 static enum Python_CmpOp cmpop(cmpop_ty op) {
   switch (op) {
-  case Eq: return Python_CmpOp_Eq;
-  case NotEq: return Python_CmpOp_Ne;
-  case Lt: return Python_CmpOp_Lt;
-  case LtE: return Python_CmpOp_Le;
-  case Gt: return Python_CmpOp_Gt;
-  case GtE: return Python_CmpOp_Ge;
-  case Is: return Python_CmpOp_Is;
-  case IsNot: return Python_CmpOp_IsNot;
-  case In: return Python_CmpOp_IsIn;
-  case NotIn: return Python_CmpOp_NotIn;
+  case Eq: return Python_CmpOp_eq;
+  case NotEq: return Python_CmpOp_ne;
+  case Lt: return Python_CmpOp_lt;
+  case LtE: return Python_CmpOp_le;
+  case Gt: return Python_CmpOp_gt;
+  case GtE: return Python_CmpOp_ge;
+  case Is: return Python_CmpOp_is;
+  case IsNot: return Python_CmpOp_isNot;
+  case In: return Python_CmpOp_isIn;
+  case NotIn: return Python_CmpOp_notIn;
   default: return (u32)-1; // impossible
   }
 }
@@ -560,7 +560,7 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
 
   switch (python->kind) {
     case Constant_kind: {
-      e->tag = Python_Expr_CONST;
+      e->tag = Python_Expr_const;
       e->c.value = value(st, python->v.Constant.value);
       if (!e->c.value)
         res = NULL;
@@ -570,7 +570,7 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
     // We rely on the ctx value for a small optimization: we only need
     // to consider Loads
     case Name_kind: {
-      e->tag = Python_Expr_NAME;
+      e->tag = Python_Expr_name;
       e->name.id = py_strdup(st, python->v.Name.id);
       e->name.ctx = context(python->v.Name.ctx);
       if (!e->name.id) {
@@ -578,12 +578,12 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
         break;
       }
 
-      if (e->name.ctx == Python_Ctx_Load)
+      if (e->name.ctx == Python_Ctx_load)
         reference(st, res);
       break;
     }
     case Attribute_kind: {
-      e->tag = Python_Expr_ATTR;
+      e->tag = Python_Expr_attr;
       e->attr.value = expr(st, python->v.Attribute.value);
       e->attr.id = py_strdup(st, python->v.Attribute.attr);
       e->attr.ctx = context(python->v.Attribute.ctx);
@@ -592,14 +592,14 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
         break;
       }
 
-      if (e->attr.ctx == Python_Ctx_Load)
+      if (e->attr.ctx == Python_Ctx_load)
         reference(st, res);
       break;
     }
 
     // Sequences: Tuple and List
     case Tuple_kind: {
-      e->tag = Python_Expr_LIST;
+      e->tag = Python_Expr_tuple;
       e->tuple.xs = exprs(st, python->v.Tuple.elts);
       e->tuple.ctx = context(python->v.Tuple.ctx);
       if (!e->tuple.xs)
@@ -607,7 +607,7 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
       break;
     }
     case List_kind: {
-      e->tag = Python_Expr_LIST;
+      e->tag = Python_Expr_list;
       e->list.xs = exprs(st, python->v.List.elts);
       e->list.ctx = context(python->v.List.ctx);
       if (!e->list.xs)
@@ -617,7 +617,7 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
 
     // Index expressions
     case Subscript_kind: {
-      e->tag = Python_Expr_SUBSCRIPT;
+      e->tag = Python_Expr_subscript;
       e->subscript.tensor = expr(st, python->v.Subscript.value);
       e->subscript.index = expr(st, python->v.Subscript.slice);
       e->subscript.ctx = context(python->v.Subscript.ctx);
@@ -626,7 +626,7 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
       break;
     }
     case Slice_kind: {
-      e->tag = Python_Expr_SLICE;
+      e->tag = Python_Expr_slice;
       e->slice.l = expr(st, python->v.Slice.lower);
       e->slice.u = expr(st, python->v.Slice.upper);
       e->slice.step = expr(st, python->v.Slice.step);
@@ -637,7 +637,7 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
 
     // Operators
     case BoolOp_kind: {
-      e->tag = Python_Expr_BOOLOP;
+      e->tag = Python_Expr_boolOp;
       e->boolOp.op = boolop(python->v.BoolOp.op);
       e->boolOp.values = exprs(st, python->v.BoolOp.values);
       if (!e->boolOp.values)
@@ -645,7 +645,7 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
       break;
     }
     case BinOp_kind: {
-      e->tag = Python_Expr_BINOP;
+      e->tag = Python_Expr_binOp;
       e->binOp.op = binop(python->v.BinOp.op);
       e->binOp.left = expr(st, python->v.BinOp.left);
       e->binOp.right = expr(st, python->v.BinOp.right);
@@ -654,7 +654,7 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
       break;
     }
     case UnaryOp_kind: {
-      e->tag = Python_Expr_UNARYOP;
+      e->tag = Python_Expr_unaryOp;
       e->unaryOp.op = unaryop(python->v.UnaryOp.op);
       e->unaryOp.operand = expr(st, python->v.UnaryOp.operand);
       if (!e->unaryOp.operand)
@@ -662,7 +662,7 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
       break;
     }
     case Compare_kind: {
-      e->tag = Python_Expr_COMPARE;
+      e->tag = Python_Expr_compare;
       e->compare.left = expr(st, python->v.Compare.left);
       e->compare.ops = cmpops(st, python->v.Compare.ops);
       e->compare.comparators = exprs(st, python->v.Compare.comparators);
@@ -673,7 +673,7 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
 
     // Condition expression
     case IfExp_kind: {
-      e->tag = Python_Expr_IFEXP;
+      e->tag = Python_Expr_ifExp;
       e->ifExp.test = expr(st, python->v.IfExp.test);
       e->ifExp.body = expr(st, python->v.IfExp.body);
       e->ifExp.orelse = expr(st, python->v.IfExp.orelse);
@@ -684,7 +684,7 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
 
     // Function calls
     case Call_kind: {
-      e->tag = Python_Expr_CALL;
+      e->tag = Python_Expr_call;
       e->call.f = expr(st, python->v.Call.func);
       e->call.args = exprs(st, python->v.Call.args);
       e->call.keywords = keywords(st, python->v.Call.keywords);
@@ -845,12 +845,12 @@ static struct Python_Stmt* stmt(struct state *st, struct _stmt *python) {
 
   switch (python->kind) {
     case Pass_kind:
-      s->tag = Python_Stmt_PASS;
+      s->tag = Python_Stmt_pass;
       break;
 
     // Simple expressions
     case Expr_kind: {
-      s->tag = Python_Stmt_EXPR;
+      s->tag = Python_Stmt_expr;
       s->expr.e = expr(st, python->v.Return.value);
       if (!s->expr.e)
         res = NULL;
@@ -858,14 +858,14 @@ static struct Python_Stmt* stmt(struct state *st, struct _stmt *python) {
     }
     case Assert_kind: {
       // TODO capture message
-      s->tag = Python_Stmt_ASSERT;
+      s->tag = Python_Stmt_assert;
       s->assert.e = expr(st, python->v.Assert.test);
       if (!s->assert.e)
         res = NULL;
       break;
     }
     case Return_kind: {
-      s->tag = Python_Stmt_RET;
+      s->tag = Python_Stmt_ret;
       s->ret.e = expr(st, python->v.Return.value);
       if (!s->ret.e)
         res = NULL;
@@ -874,7 +874,7 @@ static struct Python_Stmt* stmt(struct state *st, struct _stmt *python) {
 
     // Assignments
     case Assign_kind: {
-      s->tag = Python_Stmt_ASSIGN;
+      s->tag = Python_Stmt_assign;
       s->assign.xs = exprs(st, python->v.Assign.targets);
       s->assign.e = expr(st, python->v.Assign.value);
       if (!s->assign.xs || !s->assign.e)
@@ -882,7 +882,7 @@ static struct Python_Stmt* stmt(struct state *st, struct _stmt *python) {
       break;
     }
     case AugAssign_kind: {
-      s->tag = Python_Stmt_AUGASSIGN;
+      s->tag = Python_Stmt_augAssign;
       s->augAssign.op = binop(python->v.AugAssign.op);
       s->augAssign.x = expr(st, python->v.AugAssign.target);
       s->augAssign.e = expr(st, python->v.AugAssign.value);
@@ -891,7 +891,7 @@ static struct Python_Stmt* stmt(struct state *st, struct _stmt *python) {
       break;
     }
     case AnnAssign_kind: {
-      s->tag = Python_Stmt_ANNASSIGN;
+      s->tag = Python_Stmt_annAssign;
       s->annAssign.x = expr(st, python->v.AnnAssign.target);
       s->annAssign.annotation = expr(st, python->v.AnnAssign.annotation);
       s->annAssign.value = expr(st, python->v.AnnAssign.value);
@@ -902,7 +902,7 @@ static struct Python_Stmt* stmt(struct state *st, struct _stmt *python) {
 
     // If statements
     case If_kind: {
-      s->tag = Python_Stmt_IFSTM;
+      s->tag = Python_Stmt_ifStm;
       s->ifStm.e = expr(st, python->v.If.test);
       if (s->ifStm.e) {
         // Note: we allow both to be empty
@@ -916,7 +916,7 @@ static struct Python_Stmt* stmt(struct state *st, struct _stmt *python) {
 
     // For loops
     case For_kind: {
-      s->tag = Python_Stmt_FORLOOP;
+      s->tag = Python_Stmt_forLoop;
       s->forLoop.x = expr(st, python->v.For.target);
       s->forLoop.iter = expr(st, python->v.For.iter);
       if (s->forLoop.x && s->forLoop.iter) {
@@ -929,11 +929,11 @@ static struct Python_Stmt* stmt(struct state *st, struct _stmt *python) {
       break;
     }
     case Break_kind: {
-      s->tag = Python_Stmt_BREAKLOOP;
+      s->tag = Python_Stmt_breakLoop;
       break;
     }
     case Continue_kind: {
-      s->tag = Python_Stmt_CONTINUELOOP;
+      s->tag = Python_Stmt_continueLoop;
       break;
     }
 

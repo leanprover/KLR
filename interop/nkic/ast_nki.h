@@ -12,13 +12,13 @@ struct NKI_Pos {
 
 struct NKI_Value {
   enum NKI_Value_Tag {
-    NKI_Value_NONE,
-    NKI_Value_BOOL,
-    NKI_Value_INT,
-    NKI_Value_FLOAT,
-    NKI_Value_STRING,
-    NKI_Value_ELLIPSIS,
-    NKI_Value_TENSOR
+    NKI_Value_none,
+    NKI_Value_bool,
+    NKI_Value_int,
+    NKI_Value_float,
+    NKI_Value_string,
+    NKI_Value_ellipsis,
+    NKI_Value_tensor
   } tag;
   union {
     struct NKI_Value_bool {
@@ -41,38 +41,38 @@ struct NKI_Value {
 };
 
 enum NKI_BinOp {
-  NKI_BinOp_Land,
-  NKI_BinOp_Lor,
-  NKI_BinOp_Eq,
-  NKI_BinOp_Ne,
-  NKI_BinOp_Lt,
-  NKI_BinOp_Le,
-  NKI_BinOp_Gt,
-  NKI_BinOp_Ge,
-  NKI_BinOp_Add,
-  NKI_BinOp_Sub,
-  NKI_BinOp_Mul,
-  NKI_BinOp_Div,
-  NKI_BinOp_Mod,
-  NKI_BinOp_Pow,
-  NKI_BinOp_Floor,
-  NKI_BinOp_Lshift,
-  NKI_BinOp_Rshift,
-  NKI_BinOp_Or,
-  NKI_BinOp_Xor,
-  NKI_BinOp_And
+  NKI_BinOp_land,
+  NKI_BinOp_lor,
+  NKI_BinOp_eq,
+  NKI_BinOp_ne,
+  NKI_BinOp_lt,
+  NKI_BinOp_le,
+  NKI_BinOp_gt,
+  NKI_BinOp_ge,
+  NKI_BinOp_add,
+  NKI_BinOp_sub,
+  NKI_BinOp_mul,
+  NKI_BinOp_div,
+  NKI_BinOp_mod,
+  NKI_BinOp_pow,
+  NKI_BinOp_floor,
+  NKI_BinOp_lshift,
+  NKI_BinOp_rshift,
+  NKI_BinOp_or,
+  NKI_BinOp_xor,
+  NKI_BinOp_and
 };
 
 struct NKI_Expr_ {
   enum NKI_Expr_Tag {
-    NKI_Expr_VALUE,
-    NKI_Expr_VAR,
-    NKI_Expr_PROJ,
-    NKI_Expr_TUPLE,
-    NKI_Expr_ACCESS,
-    NKI_Expr_BINOP,
-    NKI_Expr_IFEXP,
-    NKI_Expr_CALL
+    NKI_Expr_value,
+    NKI_Expr_var,
+    NKI_Expr_proj,
+    NKI_Expr_tuple,
+    NKI_Expr_access,
+    NKI_Expr_binOp,
+    NKI_Expr_ifExp,
+    NKI_Expr_call
   } tag;
   union {
     struct NKI_Expr_value {
@@ -116,7 +116,7 @@ struct NKI_Expr {
 };
 
 struct NKI_Index {
-  enum NKI_Index_Tag { NKI_Index_COORD, NKI_Index_SLICE } tag;
+  enum NKI_Index_Tag { NKI_Index_coord, NKI_Index_slice } tag;
   union {
     struct NKI_Index_coord {
       struct NKI_Expr *i;
@@ -136,14 +136,14 @@ struct NKI_Keyword {
 
 struct NKI_Stmt_ {
   enum NKI_Stmt_Tag {
-    NKI_Stmt_EXPR,
-    NKI_Stmt_ASSERT,
-    NKI_Stmt_RET,
-    NKI_Stmt_ASSIGN,
-    NKI_Stmt_IFSTM,
-    NKI_Stmt_FORLOOP,
-    NKI_Stmt_BREAKLOOP,
-    NKI_Stmt_CONTINUELOOP
+    NKI_Stmt_expr,
+    NKI_Stmt_assert,
+    NKI_Stmt_ret,
+    NKI_Stmt_assign,
+    NKI_Stmt_ifStm,
+    NKI_Stmt_forLoop,
+    NKI_Stmt_breakLoop,
+    NKI_Stmt_continueLoop
   } tag;
   union {
     struct NKI_Stmt_expr {
@@ -238,7 +238,7 @@ static inline struct NKI_Expr *mkNKI_Expr_value(struct NKI_Value *value,
   struct NKI_Expr *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->expr->tag = NKI_Expr_VALUE;
+  res->expr->tag = NKI_Expr_value;
   res->expr->value.value = value;
   return res;
 }
@@ -248,7 +248,7 @@ static inline struct NKI_Expr *mkNKI_Expr_var(const char *name,
   struct NKI_Expr *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->expr->tag = NKI_Expr_VAR;
+  res->expr->tag = NKI_Expr_var;
   res->expr->var.name = name;
   return res;
 }
@@ -259,7 +259,7 @@ static inline struct NKI_Expr *mkNKI_Expr_proj(struct NKI_Expr *expr,
   struct NKI_Expr *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->expr->tag = NKI_Expr_PROJ;
+  res->expr->tag = NKI_Expr_proj;
   res->expr->proj.expr = expr;
   res->expr->proj.name = name;
   return res;
@@ -270,7 +270,7 @@ static inline struct NKI_Expr *mkNKI_Expr_tuple(struct NKI_Expr_List *elements,
   struct NKI_Expr *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->expr->tag = NKI_Expr_TUPLE;
+  res->expr->tag = NKI_Expr_tuple;
   res->expr->tuple.elements = elements;
   return res;
 }
@@ -281,7 +281,7 @@ static inline struct NKI_Expr *mkNKI_Expr_access(struct NKI_Expr *expr,
   struct NKI_Expr *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->expr->tag = NKI_Expr_ACCESS;
+  res->expr->tag = NKI_Expr_access;
   res->expr->access.expr = expr;
   res->expr->access.indices = indices;
   return res;
@@ -294,7 +294,7 @@ static inline struct NKI_Expr *mkNKI_Expr_binOp(enum NKI_BinOp op,
   struct NKI_Expr *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->expr->tag = NKI_Expr_BINOP;
+  res->expr->tag = NKI_Expr_binOp;
   res->expr->binOp.op = op;
   res->expr->binOp.left = left;
   res->expr->binOp.right = right;
@@ -308,7 +308,7 @@ static inline struct NKI_Expr *mkNKI_Expr_ifExp(struct NKI_Expr *test,
   struct NKI_Expr *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->expr->tag = NKI_Expr_IFEXP;
+  res->expr->tag = NKI_Expr_ifExp;
   res->expr->ifExp.test = test;
   res->expr->ifExp.body = body;
   res->expr->ifExp.orelse = orelse;
@@ -321,7 +321,7 @@ mkNKI_Expr_call(struct NKI_Expr *f, struct NKI_Expr_List *args,
   struct NKI_Expr *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->expr->tag = NKI_Expr_CALL;
+  res->expr->tag = NKI_Expr_call;
   res->expr->call.f = f;
   res->expr->call.args = args;
   res->expr->call.keywords = keywords;
@@ -333,7 +333,7 @@ static inline struct NKI_Stmt *mkNKI_Stmt_expr(struct NKI_Expr *e,
   struct NKI_Stmt *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->stmt->tag = NKI_Stmt_EXPR;
+  res->stmt->tag = NKI_Stmt_expr;
   res->stmt->expr.e = e;
   return res;
 }
@@ -343,7 +343,7 @@ static inline struct NKI_Stmt *mkNKI_Stmt_assert(struct NKI_Expr *e,
   struct NKI_Stmt *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->stmt->tag = NKI_Stmt_ASSERT;
+  res->stmt->tag = NKI_Stmt_assert;
   res->stmt->assert.e = e;
   return res;
 }
@@ -353,7 +353,7 @@ static inline struct NKI_Stmt *mkNKI_Stmt_ret(struct NKI_Expr *e,
   struct NKI_Stmt *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->stmt->tag = NKI_Stmt_RET;
+  res->stmt->tag = NKI_Stmt_ret;
   res->stmt->ret.e = e;
   return res;
 }
@@ -365,7 +365,7 @@ static inline struct NKI_Stmt *mkNKI_Stmt_assign(struct NKI_Expr *x,
   struct NKI_Stmt *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->stmt->tag = NKI_Stmt_ASSIGN;
+  res->stmt->tag = NKI_Stmt_assign;
   res->stmt->assign.x = x;
   res->stmt->assign.ty = ty;
   res->stmt->assign.e = e;
@@ -379,7 +379,7 @@ static inline struct NKI_Stmt *mkNKI_Stmt_ifStm(struct NKI_Expr *e,
   struct NKI_Stmt *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->stmt->tag = NKI_Stmt_IFSTM;
+  res->stmt->tag = NKI_Stmt_ifStm;
   res->stmt->ifStm.e = e;
   res->stmt->ifStm.thn = thn;
   res->stmt->ifStm.els = els;
@@ -393,7 +393,7 @@ static inline struct NKI_Stmt *mkNKI_Stmt_forLoop(struct NKI_Expr *x,
   struct NKI_Stmt *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->stmt->tag = NKI_Stmt_FORLOOP;
+  res->stmt->tag = NKI_Stmt_forLoop;
   res->stmt->forLoop.x = x;
   res->stmt->forLoop.iter = iter;
   res->stmt->forLoop.body = body;
@@ -404,7 +404,7 @@ static inline struct NKI_Stmt *mkNKI_Stmt_breakLoop(struct region *region) {
   struct NKI_Stmt *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->stmt->tag = NKI_Stmt_BREAKLOOP;
+  res->stmt->tag = NKI_Stmt_breakLoop;
   return res;
 }
 
@@ -412,6 +412,6 @@ static inline struct NKI_Stmt *mkNKI_Stmt_continueLoop(struct region *region) {
   struct NKI_Stmt *res = region_alloc(region, sizeof(*res));
   if (!res)
     return NULL;
-  res->stmt->tag = NKI_Stmt_CONTINUELOOP;
+  res->stmt->tag = NKI_Stmt_continueLoop;
   return res;
 }
