@@ -133,5 +133,23 @@ structure Env (nnat ntyp : Nat) where
 inductive Expr'.IsType {nnat ntyp : Nat} : Expr' → Env nnat ntyp → STyp nnat ntyp → Prop
   | value {env typ value} : value.IsType env.sc typ → Expr'.IsType (.value value) env typ
   | var {env typ name} : env.var name = typ → Expr'.IsType (.var name) env typ
+  -- NOTE: `proj` currently has no typing rule because we don't have a notion of structures.
+  | tuple {env elems typs} :
+      (∀ exprTyp ∈ (elems.zip typs), Expr'.IsType exprTyp.1.expr env exprTyp.2)
+      → Expr'.IsType (.tuple elems) env (.tuple typs)
+  -- TODO: access
+  | binOp {env op expL expR typL typR typRet} :
+      op.IsType env.sc (.func (.tuple [typL, typR]) typRet)
+      → Expr'.IsType expL.expr env typL
+      → Expr'.IsType expR.expr env typR
+      → Expr'.IsType (.binOp op expL expR) env typRet
+  | ifExp {env test body orelse} :
+      Expr'.IsType test.expr env .bool
+      → Expr'.IsType (.ifExp test body orelse) env .none
+  | call {env f args keywords typArgs typRet} :
+      -- TODO: kwargs and default values?
+      Expr'.IsType f.expr env (.func (.tuple typArgs) typRet)
+      → (∀ argTyp ∈ (args.zip typArgs), Expr'.IsType argTyp.1.expr env argTyp.2)
+      → Expr'.IsType (.call f args keywords) env typRet
 
 end KLR.NKI
