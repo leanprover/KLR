@@ -51,6 +51,9 @@ inductive STyp (nnat ntyp : Nat)
   | float
   | string
   | tuple (typs : List (STyp nnat ntyp))
+  -- This is needed for indexing into a tensor.
+  -- But currently impossible to construct directly in the AST.
+  | dtype (typ : Core.Dtype)
   | tensor (shape : List (SNat nnat)) (dtype : Core.Dtype)
   | func (dom ran : STyp nnat ntyp)
 
@@ -74,9 +77,10 @@ def STyp.toStringAux : STyp nnat ntyp → String
   | .tuple typs =>
     let typs := String.joinSep ", " (typs.map STyp.toStringAux)
     s!"tuple[{typs}]"
-  | .tensor shapes dtype =>
+  | .dtype typ => typ.toString
+  | .tensor shapes typ =>
     let shapes := String.joinSep ", " (shapes.map SNat.toString)
-    s!"tensor[{dtype}, ({shapes})]"
+    s!"tensor[{typ}, ({shapes})]"
   | .func dom ran => s!"{dom.toStringAux} → {ran.toStringAux}"
 
 def STyp.toString (t : STyp nnat ntyp) : String :=
@@ -116,6 +120,7 @@ namespace Nominal
     | float
     | string
     | tuple (typs : List STyp)
+    | dtype (dtype : Core.Dtype)
     | tensor (shape : List SNat) (dtype : Core.Dtype)
     | func (dom ran : STyp)
 
@@ -141,7 +146,7 @@ namespace Nominal
     | float : STyp.WellFormed ps .float
     | string : STyp.WellFormed ps .string
     | tuple : (∀ ty ∈ typs, STyp.WellFormed ps ty) → STyp.WellFormed ps (.tuple typs)
-    | tensor : (∀ s ∈ shape, s.WellFormed ps) → STyp.WellFormed ps (.tensor shape dtype)
+    | tensor : (∀ s ∈ shape, s.WellFormed ps) → STyp.WellFormed ps (.tensor shape typ)
     | func : STyp.WellFormed ps dom → STyp.WellFormed ps ran → STyp.WellFormed ps (.func dom ran)
 
   inductive Typ'.WellFormed : List TypParam → Typ' → Prop
@@ -179,9 +184,10 @@ namespace Nominal
     | .tuple typs => do
       let typs ← typs.mapM (Nominal.STyp.toDeBruijn natParams typParams)
       return .tuple typs
-    | .tensor shapes dtype => do
+    | .dtype typ => some (.dtype typ)
+    | .tensor shapes typ => do
       let shapes ← shapes.mapM (Nominal.SNat.toDeBruijn natParams)
-      return .tensor shapes dtype
+      return .tensor shapes typ
     | .func dom ran => do
       let dom ← dom.toDeBruijn natParams typParams
       let ran ← ran.toDeBruijn natParams typParams
@@ -222,7 +228,7 @@ namespace Nominal
         l
       else
         l.concat ⟨name, .styp⟩
-    | .none | .bool | .int | .float | .string => l
+    | .none | .bool | .int | .float | .string | .dtype _ => l
     | .tuple typs => l ++ (typs.map (STyp.inferBindersAux l)).flatten
     | .tensor shapes _ => shapes.foldl SNat.inferBinders l
     | .func dom ran => l ++ dom.inferBindersAux l ++ ran.inferBindersAux l

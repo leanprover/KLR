@@ -95,8 +95,9 @@ inductive BinOp.IsType {nnat ntyp : Nat} : ShapeConstr nnat → BinOp → STyp n
       Eutsp sc typ1 typ2 → BinOp.IsType sc .gt (.func (.tuple [typ1, typ2]) .bool)
   | ge {sc typ1 typ2} :
       Eutsp sc typ1 typ2 → BinOp.IsType sc .ge (.func (.tuple [typ1, typ2]) .bool)
-  -- TODO: is it ok to set the output to `typ` in these cases?
   -- arithmetic, treating all operations as element wise
+  -- TODO: is it ok to set the output to `typ` in these cases?
+  -- TODO: limit these to numeric types
   | add {sc typ1 typ2} :
       Eutsp sc typ1 typ2 → BinOp.IsType sc .add (.func (.tuple [typ1, typ2]) typ1)
   | sub {sc typ1 typ2} :
@@ -130,16 +131,54 @@ structure Env (nnat ntyp : Nat) where
   sc : ShapeConstr nnat
   var : VarEnv nnat ntyp
 
+inductive Index.STyp (nnat ntyp : Nat)
+  | coord (i : NKI.STyp nnat ntyp)
+  | slice (l u step : Option (NKI.STyp nnat ntyp))
+
+/--
+`AccessIsType tensorTyp idxTyps resTyp` means a tensor with type `tensorTyp`
+accessed by a list of indices with types `idxTyps` has type `resTyp`.
+-/
+inductive AccessIsType {nnat ntyp : Nat}
+  : STyp nnat ntyp → List (Index.STyp nnat ntyp) → STyp nnat ntyp → Prop
+  | coord_end {dim dtyp} : AccessIsType (.tensor [dim] dtyp) [.coord .int] (.dtype dtyp)
+  | coord_cons {shapeHd shapeTl dtyp idxTl} :
+      AccessIsType (.tensor shapeTl dtyp) idxTl resTyp
+      → AccessIsType (.tensor (shapeHd :: shapeTl) dtyp) (.coord .int :: idxTl) resTyp
+  -- TODO: `slice`
+
+inductive Option.Sim (R : α → β → Prop) : Option α → Option β → Prop
+  | some : R a b → Option.Sim R (.some a) (.some b)
+  | none : Option.Sim R .none .none
+
+mutual
+
+inductive Index.IsType {nnat ntyp : Nat} : Env nnat ntyp → Index → Index.STyp nnat ntyp → Prop
+  | coord {env i typ} : Expr'.IsType env i.expr typ → Index.IsType env (.coord i) (.coord typ)
+  | slice {env l u step lTyp uTyp stepTyp} :
+      Option.Sim (Expr'.IsType env) (l.map Expr.expr) lTyp
+      → Option.Sim (Expr'.IsType env) (u.map Expr.expr) uTyp
+      → Option.Sim (Expr'.IsType env) (step.map Expr.expr) stepTyp
+      → Index.IsType env (.slice l u step) (.slice lTyp uTyp stepTyp)
+
+/--
+NOTE: `proj` currently has no typing rule because we don't have a notion of structures.
+-/
 inductive Expr'.IsType {nnat ntyp : Nat} : Env nnat ntyp → Expr' → STyp nnat ntyp → Prop
   | value {env typ value} : value.IsType env.sc typ → Expr'.IsType env (.value value) typ
   | var {env typ name} : env.var name = typ → Expr'.IsType env (.var name) typ
-  -- NOTE: `proj` currently has no typing rule because we don't have a notion of structures.
   | tuple {env elems typs} :
-      -- Alternatively:
-      -- List.Forall₂ (Expr'.IsType env) (elems.map Expr.expr) typs
-      List.Forall₂ (λ elem typ => Expr'.IsType env elem.expr typ) elems typs
+      List.Forall₂ (Expr'.IsType env) (elems.map Expr.expr) typs
       → Expr'.IsType env (.tuple elems) (.tuple typs)
-  -- TODO: access
+  | access_tensor {env tensorExpr tensorTyp indices resTyp} :
+      (idxTyps : List (Index.STyp nnat ntyp))
+      -- First, the object being accessed should be a valid tensor
+      → Expr'.IsType env tensorExpr.expr tensorTyp
+      -- Then, indices should type check to something
+      → List.Forall₂ (Index.IsType env) indices idxTyps
+      -- Lastly, check what ever type the access is
+      → AccessIsType tensorTyp idxTyps resTyp
+      → Expr'.IsType env (.access tensorExpr indices) resTyp
   | binOp {env op expL expR typL typR typRet} :
       op.IsType env.sc (.func (.tuple [typL, typR]) typRet)
       → Expr'.IsType env expL.expr typL
@@ -151,7 +190,9 @@ inductive Expr'.IsType {nnat ntyp : Nat} : Env nnat ntyp → Expr' → STyp nnat
   | call {env f args keywords typArgs typRet} :
       -- Note: We expect kwargs and default to be turned into positional arguments already.
       Expr'.IsType env f.expr (.func (.tuple typArgs) typRet)
-      → List.Forall₂ (λ elem typ => Expr'.IsType env elem.expr typ) args typArgs
+      → List.Forall₂ (Expr'.IsType env) (args.map Expr.expr) typArgs
       → Expr'.IsType env (.call f args keywords) typRet
+
+end
 
 end KLR.NKI
