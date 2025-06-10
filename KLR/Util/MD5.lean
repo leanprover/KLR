@@ -4,7 +4,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin, Claude
 -/
 
+import TensorLib.ByteArray -- For BEq
+import Util.Hex
+
 namespace KLR.Util.MD5
+
+open TensorLib(get!)
 
 /-- Initial state values for MD5 algorithm -/
 private def initState : Array UInt32 := #[
@@ -102,7 +107,7 @@ private def padMessage (message : ByteArray) : ByteArray := Id.run do
 
   -- Add padding byte 0x80 followed by zeros
   result := result.push 0x80
-  for i in [1:padLength-8] do
+  for _i in [1:padLength-8] do
     result := result.push 0
 
   -- Add original length in bits as 64-bit little-endian integer
@@ -122,15 +127,8 @@ private def uint32ToBytes (x : UInt32) : Array UInt8 :=
     ((x >>> 24) &&& 0xFF).toUInt8
   ]
 
-/-- Convert a byte to its hexadecimal representation -/
-private def byteToHex (b : UInt8) : String :=
-  let digits := "0123456789abcdef"
-  let hi := (b >>> 4).toNat
-  let lo := (b &&& 0xF).toNat
-  String.mk [digits.get (String.Pos.mk hi), digits.get (String.Pos.mk lo)]
-
 /-- Compute MD5 hash of a ByteArray -/
-def md5 (data : ByteArray) : String := Id.run do
+def md5 (data : ByteArray) : ByteArray := Id.run do
   let padded := padMessage data
 
   -- Initialize hash state
@@ -144,17 +142,19 @@ def md5 (data : ByteArray) : String := Id.run do
     state := processChunk state chunk
 
   -- Convert hash to hex string
-  let mut result := ""
+  let mut result := #[]
   for i in [0:4] do
     let bytes := uint32ToBytes state[i]!
     for b in bytes do
-      result := result ++ byteToHex b
+      result := result.push b
 
-  result
+  ⟨ result ⟩
 
-def md5String (s : String) : String := md5 s.toUTF8
+def md5String (s : String) : String := Hex.encode (md5 s.toUTF8)
 
 #guard md5String "" == "d41d8cd98f00b204e9800998ecf8427e"
 #guard md5String "The quick brown fox jumps over the lazy dog" == "9e107d9d372bb6826bd81d3542a419d6"
+#guard md5 ByteArray.empty == get! (Hex.decode "d41d8cd98f00b204e9800998ecf8427e")
+#guard (md5 ByteArray.empty).size == 16
 
 end KLR.Util.MD5
