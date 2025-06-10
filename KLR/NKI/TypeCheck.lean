@@ -6,13 +6,6 @@ Authors: Paul Mure
 import KLR.NKI.Basic
 import KLR.NKI.Types
 
-inductive List.Sim (P : α → β → Prop) : List α → List β → Prop
-  | nil : List.Sim P [] []
-  | cons {a b as bs} : P a b → List.Sim P as bs → List.Sim P (a :: as) (b :: bs)
-notation:60 l₁:61 "∼"r:61"∼" l₂:61 => List.Sim r l₁ l₂
-
-#check [10, 2] ∼(fun a b => b = a + 1)∼ [11, 3]
-
 namespace KLR.NKI
 
 /--
@@ -143,8 +136,8 @@ inductive Expr'.IsType {nnat ntyp : Nat} : Env nnat ntyp → Expr' → STyp nnat
   -- NOTE: `proj` currently has no typing rule because we don't have a notion of structures.
   | tuple {env elems typs} :
       -- Alternatively:
-      -- `(elems.map Expr.expr) ∼(Expr'.IsType env)∼ typs`
-      elems ∼(λ elem typ => Expr'.IsType env elem.expr typ)∼ typs
+      -- List.Forall₂ (Expr'.IsType env) (elems.map Expr.expr) typs
+      List.Forall₂ (λ elem typ => Expr'.IsType env elem.expr typ) elems typs
       → Expr'.IsType env (.tuple elems) (.tuple typs)
   -- TODO: access
   | binOp {env op expL expR typL typR typRet} :
@@ -158,7 +151,7 @@ inductive Expr'.IsType {nnat ntyp : Nat} : Env nnat ntyp → Expr' → STyp nnat
   | call {env f args keywords typArgs typRet} :
       -- Note: We expect kwargs and default to be turned into positional arguments already.
       Expr'.IsType env f.expr (.func (.tuple typArgs) typRet)
-      → args ∼(λ elem typ => Expr'.IsType env elem.expr typ)∼ typArgs
+      → List.Forall₂ (λ elem typ => Expr'.IsType env elem.expr typ) args typArgs
       → Expr'.IsType env (.call f args keywords) typRet
 
 end KLR.NKI
