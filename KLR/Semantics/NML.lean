@@ -200,6 +200,12 @@ Returns the address of the tensor. -/
     tensor.upd_store? s1 sorry = .some s2 →
     ExprStep (.unary_scalar e f) s0 (.ptr tensor) s2
 
+-- TODO: Refactor this file to a proper small-step form
+-- TODO: Small step semantics with early return in loops? Model termination w/ ExecState (like a Monad)
+-- TODO: Write an interpreter and prove it correct. Use a nondeterminism monad.
+
+abbrev Pgm := List (@Stmt DataT)
+abbrev Cfg := @Pgm DataT × @State DataT
 
 inductive MultiStep : List (@Stmt DataT) → @State DataT → @ExecState DataT → Type _ where
 /-- [ Early return ] Step into the .done state using .ret at any time -/
