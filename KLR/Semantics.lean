@@ -7,3 +7,4 @@ import Semantics.Memory
 import Semantics.NML
 import Semantics.Float
 import Semantics.KLR
+import Semantics.Logic
