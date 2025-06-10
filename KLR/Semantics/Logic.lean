@@ -23,28 +23,28 @@ abbrev PROP := UPred Heap
 
 -- Agreement over the NKI heaps
 -- TODO:
-def state_interp : @State DataT × @State DataT → UPred Heap := sorry
+def state_interp : State × State → UPred Heap := sorry
 
 -- The relation that defines the product steps we can take
-def PREL : @Cfg DataT × @Cfg DataT → (@Cfg DataT × @Cfg DataT → UPred Heap) → UPred Heap :=
+def PREL : Cfg × Cfg → (Cfg × Cfg → UPred Heap) → UPred Heap :=
   sorry
 
 -- A standard Iris WP
 -- Note: Iris-lean → is Iris -d> by default
 -- TODO: Lift to products
-def wp_F (wp : @Pgm DataT × @Pgm DataT → (@Value DataT × @Value DataT → UPred Heap) → UPred Heap)
-    (p : @Pgm DataT × @Pgm DataT) (Φ : @Value DataT × @Value DataT → UPred Heap) : UPred Heap :=
-  «forall» fun sl : @State DataT =>
-  «forall» fun sr : @State DataT =>
+def wp_F (wp : Pgm × Pgm → (@Value DataT × @Value DataT → UPred Heap) → UPred Heap)
+    (p : Pgm × Pgm) (Φ : @Value DataT × @Value DataT → UPred Heap) : UPred Heap :=
+  «forall» fun sl : State =>
+  «forall» fun sr : State =>
   -- TODO: Merge update syntax into iris-lean main brainc
   iprop(state_interp (sl, sr) -∗ PREL ((p.1, sl), (p.2, sr))
     (fun ((pl', sl'), (pr', sr')) => iprop(▷ (state_interp (sl', sr') ∗ wp (pl', pr') Φ))))
 
-def wp (p : @Pgm DataT × @Pgm DataT) (Φ : @Value DataT × @Value DataT → UPred Heap) : UPred Heap :=
+def wp (p : Pgm × Pgm) (Φ : @Value DataT × @Value DataT → UPred Heap) : UPred Heap :=
   -- Port: The fixpoint theorem we skipped to close over wp_F
   sorry
 
-def triple (pre : UPred Heap) (p1 p2 : @Pgm DataT) (post : @Value DataT × @Value DataT → UPred Heap) :=
+def triple (pre : UPred Heap) (p1 p2 : Pgm) (post : @Value DataT × @Value DataT → UPred Heap) :=
   iprop(pre -∗ wp (p1, p2) post)
 
 macro "{{ " pre:term  " }} " p1:term " × " p2:term "{{ " x:ident  " => " post:term " }} " : term => do
