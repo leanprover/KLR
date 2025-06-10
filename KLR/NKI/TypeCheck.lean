@@ -6,6 +6,13 @@ Authors: Paul Mure
 import KLR.NKI.Basic
 import KLR.NKI.Types
 
+inductive List.Sim (P : α → β → Prop) : List α → List β → Prop
+  | nil : List.Sim P [] []
+  | cons {a b as bs} : P a b → List.Sim P as bs → List.Sim P (a :: as) (b :: bs)
+notation:60 l₁:61 "∼"r:61"∼" l₂:61 => List.Sim r l₁ l₂
+
+#check [10, 2] ∼(fun a b => b = a + 1)∼ [11, 3]
+
 namespace KLR.NKI
 
 /--
@@ -23,15 +30,15 @@ inductive ShapeConstrVal (nnat : Nat)
 def ShapeConstr (nnat : Nat) :=
   Fin nnat → Option (ShapeConstrVal nnat)
 
-inductive ShapeIsType : List Nat → ShapeConstr nnat → List (SNat nnat) → Prop
-  | nil {sc} : ShapeIsType [] sc []
+inductive ShapeIsType : ShapeConstr nnat → List Nat → List (SNat nnat) → Prop
+  | nil {sc} : ShapeIsType sc [] []
   | cons_const {sc tl tl' hd} :
-      ShapeIsType tl sc tl'
-      → ShapeIsType (hd :: tl) sc (.const hd :: tl')
+      ShapeIsType sc tl tl'
+      → ShapeIsType sc (hd :: tl) (.const hd :: tl')
   | cons_param {sc tl tl' hd idx} :
       sc idx = .some (.const hd)
-      → ShapeIsType tl sc tl'
-      → ShapeIsType (hd :: tl) sc (.param idx :: tl')
+      → ShapeIsType sc tl tl'
+      → ShapeIsType sc (hd :: tl) (.param idx :: tl')
 
 inductive ShapeCompat : ShapeConstr nnat → List (SNat nnat) → List (SNat nnat) → Prop
   | nil {sc} : ShapeCompat sc [] []
@@ -66,63 +73,63 @@ inductive Eutsp : ShapeConstr nnat → STyp nnat ntyp → STyp nnat ntyp → Pro
   | func {sc dom ran dom' ran'} :
       Eutsp sc dom dom' → Eutsp sc ran ran' → Eutsp sc (.func dom ran) (.func dom ran')
 
-inductive Value.IsType {nnat ntyp : Nat} : Value → ShapeConstr nnat → STyp nnat ntyp → Prop
-  | none {sc} : Value.IsType .none sc .none
-  | bool {sc b} : Value.IsType (.bool b) sc .bool
-  | int {sc n} : Value.IsType (.int n) sc .int
-  | float {sc n} : Value.IsType (.float n) sc .float
-  | string {sc s} : Value.IsType (.string s) sc .string
-  | ellipsis {sc t} : Value.IsType .ellipsis sc t
+inductive Value.IsType {nnat ntyp : Nat} : ShapeConstr nnat → Value → STyp nnat ntyp → Prop
+  | none {sc} : Value.IsType sc .none .none
+  | bool {sc b} : Value.IsType sc (.bool b) .bool
+  | int {sc n} : Value.IsType sc (.int n) .int
+  | float {sc n} : Value.IsType sc (.float n) .float
+  | string {sc s} : Value.IsType sc (.string s) .string
+  | ellipsis {sc t} : Value.IsType sc .ellipsis t
   | tensor {sc shape dtypeStr snat dtype} :
-      ShapeIsType shape sc snat
+      ShapeIsType sc shape snat
       → dtypeStr = dtype.toString
-      → Value.IsType (.tensor shape dtypeStr) sc (.tensor snat dtype)
+      → Value.IsType sc (.tensor shape dtypeStr) (.tensor snat dtype)
 
-inductive BinOp.IsType {nnat ntyp : Nat} : BinOp → ShapeConstr nnat → STyp nnat ntyp → Prop
+inductive BinOp.IsType {nnat ntyp : Nat} : ShapeConstr nnat → BinOp → STyp nnat ntyp → Prop
   -- logical
-  | land {sc} : BinOp.IsType .land sc (.func (.tuple [.bool, .bool]) .bool)
-  | lor {sc} : BinOp.IsType .lor sc (.func (.tuple [.bool, .bool]) .bool)
+  | land {sc} : BinOp.IsType sc .land (.func (.tuple [.bool, .bool]) .bool)
+  | lor {sc} : BinOp.IsType sc .lor (.func (.tuple [.bool, .bool]) .bool)
   -- comparison
   | eq {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .eq sc (.func (.tuple [typ1, typ2]) .bool)
+      Eutsp sc typ1 typ2 → BinOp.IsType sc .eq (.func (.tuple [typ1, typ2]) .bool)
   | ne {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .ne sc (.func (.tuple [typ1, typ2]) .bool)
+      Eutsp sc typ1 typ2 → BinOp.IsType sc .ne (.func (.tuple [typ1, typ2]) .bool)
   | lt {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .lt sc (.func (.tuple [typ1, typ2]) .bool)
+      Eutsp sc typ1 typ2 → BinOp.IsType sc .lt (.func (.tuple [typ1, typ2]) .bool)
   | le {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .le sc (.func (.tuple [typ1, typ2]) .bool)
+      Eutsp sc typ1 typ2 → BinOp.IsType sc .le (.func (.tuple [typ1, typ2]) .bool)
   | gt {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .gt sc (.func (.tuple [typ1, typ2]) .bool)
+      Eutsp sc typ1 typ2 → BinOp.IsType sc .gt (.func (.tuple [typ1, typ2]) .bool)
   | ge {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .ge sc (.func (.tuple [typ1, typ2]) .bool)
+      Eutsp sc typ1 typ2 → BinOp.IsType sc .ge (.func (.tuple [typ1, typ2]) .bool)
   -- TODO: is it ok to set the output to `typ` in these cases?
   -- arithmetic, treating all operations as element wise
   | add {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .add sc (.func (.tuple [typ1, typ2]) typ1)
+      Eutsp sc typ1 typ2 → BinOp.IsType sc .add (.func (.tuple [typ1, typ2]) typ1)
   | sub {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .sub sc (.func (.tuple [typ1, typ2]) typ1)
+      Eutsp sc typ1 typ2 → BinOp.IsType sc .sub (.func (.tuple [typ1, typ2]) typ1)
   | mul {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .mul sc (.func (.tuple [typ1, typ2]) typ1)
+      Eutsp sc typ1 typ2 → BinOp.IsType sc .mul (.func (.tuple [typ1, typ2]) typ1)
   | div {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .div sc (.func (.tuple [typ1, typ2]) typ1)
+      Eutsp sc typ1 typ2 → BinOp.IsType sc .div (.func (.tuple [typ1, typ2]) typ1)
   | mod {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .mod sc (.func (.tuple [typ1, typ2]) typ1)
+      Eutsp sc typ1 typ2 → BinOp.IsType sc .mod (.func (.tuple [typ1, typ2]) typ1)
   | pow {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .pow sc (.func (.tuple [typ1, typ2]) typ1)
+      Eutsp sc typ1 typ2 → BinOp.IsType sc .pow (.func (.tuple [typ1, typ2]) typ1)
   | floor {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .floor sc (.func (.tuple [typ1, typ2]) typ1)
+      Eutsp sc typ1 typ2 → BinOp.IsType sc .floor (.func (.tuple [typ1, typ2]) typ1)
   -- bitwise operations
   | or {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .or sc (.func (.tuple [typ1, typ2]) typ1)
+      Eutsp sc typ1 typ2 → BinOp.IsType sc .or (.func (.tuple [typ1, typ2]) typ1)
   | xor {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .xor sc (.func (.tuple [typ1, typ2]) typ1)
+      Eutsp sc typ1 typ2 → BinOp.IsType sc .xor (.func (.tuple [typ1, typ2]) typ1)
   | and {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .and sc (.func (.tuple [typ1, typ2]) typ1)
+      Eutsp sc typ1 typ2 → BinOp.IsType sc .and (.func (.tuple [typ1, typ2]) typ1)
   -- TODO: what should the rhs be for shift?
   | lshift {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .lshift sc (.func (.tuple [typ1, typ2]) typ1)
+      Eutsp sc typ1 typ2 → BinOp.IsType sc .lshift (.func (.tuple [typ1, typ2]) typ1)
   | rshift {sc typ1 typ2} :
-      Eutsp sc typ1 typ2 → BinOp.IsType .rshift sc (.func (.tuple [typ1, typ2]) typ1)
+      Eutsp sc typ1 typ2 → BinOp.IsType sc .rshift (.func (.tuple [typ1, typ2]) typ1)
 
 def VarEnv (nnat ntyp : Nat) := String → STyp nnat ntyp
 
@@ -130,26 +137,28 @@ structure Env (nnat ntyp : Nat) where
   sc : ShapeConstr nnat
   var : VarEnv nnat ntyp
 
-inductive Expr'.IsType {nnat ntyp : Nat} : Expr' → Env nnat ntyp → STyp nnat ntyp → Prop
-  | value {env typ value} : value.IsType env.sc typ → Expr'.IsType (.value value) env typ
-  | var {env typ name} : env.var name = typ → Expr'.IsType (.var name) env typ
+inductive Expr'.IsType {nnat ntyp : Nat} : Env nnat ntyp → Expr' → STyp nnat ntyp → Prop
+  | value {env typ value} : value.IsType env.sc typ → Expr'.IsType env (.value value) typ
+  | var {env typ name} : env.var name = typ → Expr'.IsType env (.var name) typ
   -- NOTE: `proj` currently has no typing rule because we don't have a notion of structures.
   | tuple {env elems typs} :
-      (∀ exprTyp ∈ (elems.zip typs), Expr'.IsType exprTyp.1.expr env exprTyp.2)
-      → Expr'.IsType (.tuple elems) env (.tuple typs)
+      -- Alternatively:
+      -- `(elems.map Expr.expr) ∼(Expr'.IsType env)∼ typs`
+      elems ∼(λ elem typ => Expr'.IsType env elem.expr typ)∼ typs
+      → Expr'.IsType env (.tuple elems) (.tuple typs)
   -- TODO: access
   | binOp {env op expL expR typL typR typRet} :
       op.IsType env.sc (.func (.tuple [typL, typR]) typRet)
-      → Expr'.IsType expL.expr env typL
-      → Expr'.IsType expR.expr env typR
-      → Expr'.IsType (.binOp op expL expR) env typRet
+      → Expr'.IsType env expL.expr typL
+      → Expr'.IsType env expR.expr typR
+      → Expr'.IsType env (.binOp op expL expR) typRet
   | ifExp {env test body orelse} :
-      Expr'.IsType test.expr env .bool
-      → Expr'.IsType (.ifExp test body orelse) env .none
+      Expr'.IsType env test.expr .bool
+      → Expr'.IsType env (.ifExp test body orelse) .none
   | call {env f args keywords typArgs typRet} :
-      -- TODO: kwargs and default values?
-      Expr'.IsType f.expr env (.func (.tuple typArgs) typRet)
-      → (∀ argTyp ∈ (args.zip typArgs), Expr'.IsType argTyp.1.expr env argTyp.2)
-      → Expr'.IsType (.call f args keywords) env typRet
+      -- Note: We expect kwargs and default to be turned into positional arguments already.
+      Expr'.IsType env f.expr (.func (.tuple typArgs) typRet)
+      → args ∼(λ elem typ => Expr'.IsType env elem.expr typ)∼ typArgs
+      → Expr'.IsType env (.call f args keywords) typRet
 
 end KLR.NKI
