@@ -30,3 +30,14 @@ bool cbor_decode_string(FILE *in, char **s, void*(alloc)(void*,size_t), void *ar
 bool cbor_decode_array_start(FILE *in, u64 *size);
 bool cbor_decode_tag(FILE *in, u8 *type, u8 *constructor, u8 *len);
 bool cbor_decode_option(FILE *in, bool *isSome);
+
+// Functions Lean for generated code
+static inline bool String_ser(FILE *out, const char *s) {
+  return cbor_encode_string(out, s, 0);
+}
+
+bool Bool_des(FILE *out, struct region *region, bool *x);
+bool Nat_des(FILE *out, struct region *region, u32 *x);
+bool Int_des(FILE *out, struct region *region, i32 *x);
+bool Float_des(FILE *out, struct region *region, float *x);
+bool String_des(FILE *out, struct region *region, char **s);

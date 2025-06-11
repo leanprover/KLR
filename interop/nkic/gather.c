@@ -45,8 +45,8 @@ struct state {
   // Current function scope
   struct scope {
     PyObject *f;       // python function we are working on
-    const char *src;   // source code of `f` (in region)
-    const char *file;  // filename where `f` lives (in region)
+    char *src;         // source code of `f` (in region)
+    char *file;        // filename where `f` lives (in region)
     u32 line_offset;   // line number in `file` where `f` lives
     u32 pad;
     // Current AST node location
@@ -296,7 +296,7 @@ static struct Python_Expr_List* const_exprs(struct state *st, PyObject *obj) {
   return head;
 }
 
-static void add_global(struct state *st, const char *name, PyObject *obj) {
+static void add_global(struct state *st, char *name, PyObject *obj) {
   if (!name || !obj)
     return;
 
@@ -774,10 +774,10 @@ static struct Python_Keyword_List* keywords(struct state *st, asdl_keyword_seq *
 // -----------------------------------------------------------------------------
 // -- Arguments
 
-static const char* arg(struct state *st, arg_ty python) {
+static char* arg(struct state *st, arg_ty python) {
   if (!python)
     return NULL;
-  const char *s = py_strdup(st, python->arg);
+  char *s = py_strdup(st, python->arg);
   if (!s)
     PyErr_Clear();
   return s;
@@ -790,12 +790,12 @@ static struct String_List* arg_list(struct state *st, asdl_arg_seq *python) {
   struct String_List *head = NULL, *current = NULL;
   for (int i = 0; i < python->size; i++) {
     struct String_List *node = region_alloc(st->region, sizeof(*node));
-    const char *str = arg(st, python->typed_elements[i]);
+    char *str = arg(st, python->typed_elements[i]);
     if (!str)
       return NULL;
 
     node->next = NULL;
-    node->string = str;
+    node->s = str;
     if (!head) {
       head = current = node;
     } else {
@@ -1014,8 +1014,8 @@ static struct _mod* parse_function(struct state *st, PyObject *f) {
       !src  || !PyUnicode_Check(src))
     goto done;
 
-  const char *file_str = py_strdup(st, file);
-  const char *src_str = py_strdup(st, src);
+  char *file_str = py_strdup(st, file);
+  char *src_str = py_strdup(st, src);
   if (!file_str || !src_str)
     goto done;
 
@@ -1059,7 +1059,7 @@ static struct Python_Fun* function(struct state *st, PyObject *f) {
   struct Python_Stmt_List *body = stmts(st, s->v.FunctionDef.body);
   free_python_ast(m);
 
-  const char *name = py_fun_name(st, f);
+  char *name = py_fun_name(st, f);
   struct Python_Fun *fn = NULL;
   if (as && body && name) {
     fn = region_alloc(st->region, sizeof(*f));

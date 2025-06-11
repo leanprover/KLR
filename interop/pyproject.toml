@@ -47,13 +47,14 @@ packages = ["klr"]
 [[tool.setuptools.ext-modules]]
 name = "klr.frontend"
 sources = [
-    "nkic/frontend.c"
+    "nkic/cbor.c"
+  , "nkic/frontend.c"
   , "nkic/gather.c"
   , "nkic/peg_parser.c"
   , "nkic/region.c"
-  #, "nkic/cbor.c"
-  #, "nkic/serde_python_core.c"
-  #, "nkic/serde_nki.c"
+  , "nkic/serde_common.c"
+  , "nkic/serde_nki.c"
+  , "nkic/serde_python_core.c"
   ]
 
 [tool.cibuildwheel]

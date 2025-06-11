@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin, Claude
 */
 #include "stdc.h"
+#include "region.h"
 #include "cbor.h"
 
 #include <stdio.h>
@@ -390,4 +391,40 @@ bool cbor_decode_option(FILE *in, bool *isSome) {
     return false;
   *isSome = bytes[2];
   return true;
+}
+
+// Functions Lean for generated code
+bool Bool_des(FILE *out, struct region *region, bool *x) {
+  (void)region;
+  return cbor_decode_bool(out, x);
+}
+
+bool Nat_des(FILE *out, struct region *region, u32 *x) {
+  (void)region;
+  u64 v = 0;
+  if (!cbor_decode_uint(out, &v) || v > UINT_MAX)
+    return false;
+  *x = (u32)v;
+  return true;
+}
+
+bool Int_des(FILE *out, struct region *region, i32 *x) {
+  (void)region;
+  i64 v = 0;
+  if (!cbor_decode_int(out, &v) || v > INT_MAX || v < INT_MIN)
+    return false;
+  *x = (i32)v;
+  return true;
+  (void)region;
+  return false;
+}
+
+bool Float_des(FILE *out, struct region *region, float *x) {
+  (void)region;
+  return cbor_decode_float(out, x);
+}
+
+bool String_des(FILE *out, struct region *region, char **s) {
+  (void)region;
+  return cbor_decode_string(out, s, (void*)region_alloc, region);
 }

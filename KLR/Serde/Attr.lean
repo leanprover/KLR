@@ -90,8 +90,10 @@ def serdeMap (name : Name) : MetaM (List (Name × Nat)) := do
         current := nextTag n
   checkDups res
 
+abbrev Tags := Nat × List (Name × Nat)
+
 -- Convenience function: serdeTag and serdeMap
-def serdeTags (name : Name) : MetaM (Nat × List (Name × Nat)) := do
+def serdeTags (name : Name) : MetaM Tags := do
   match <- serdeTag name with
   | none => throwError s!"No serde tags for {name}"
   | some t => return (t, <- serdeMap name)

@@ -40,6 +40,7 @@ private def under (s : String) : String :=
 
 private def genPyType (ty : LeanType) (pre : String := "") : MetaM Unit :=
   match ty with
+  | .simple _ => pure ()
   | .prod name fields => do
       IO.println ""
       IO.println s!"class {under pre}{name}(NamedTuple):"

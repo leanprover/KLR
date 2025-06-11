@@ -24,7 +24,38 @@ inductive SimpleType where
   | enum (name : Name)
   | option (elementType : SimpleType)
   | list (elementType : SimpleType)
-  deriving Repr
+  deriving Repr, BEq
+
+namespace SimpleType
+
+-- Usually we want to handle common types separately.
+-- For instance, placing them in a common, shared file.
+def isCommon : SimpleType -> Bool
+  | .bool | .nat | .int | .float | .string => true
+  | .const .. | .enum .. => false
+  | .option t | .list t => t.isCommon
+
+-- For languages like C, we use, e.g. Bool_List instead of List Bool
+def name : SimpleType -> Name
+  | .bool => `Bool
+  | .nat => `Nat
+  | .int => `Int
+  | .float => `Float
+  | .string => `String
+  | .const name
+  | .enum name => name
+  | .option t => .str t.name "Option"
+  | .list t => .str t.name "List"
+
+-- For languages like C we need to generate unique types for
+-- each instance of list and option. Ths function collects all of
+-- the additional types that need to be synthesized
+def containers : SimpleType -> List SimpleType
+  | .list t => .list t :: t.containers
+  | .option t => .option t :: t.containers
+  | _ => []
+
+end SimpleType
 
 structure Field where
   name : Name
@@ -32,6 +63,7 @@ structure Field where
   deriving Repr
 
 inductive LeanType where
+  | simple (ty : SimpleType)
   | prod (name : Name) (fields : List Field)
   | sum (name : Name) (variants : List LeanType)
   deriving Repr
@@ -39,16 +71,23 @@ inductive LeanType where
 namespace LeanType
 
 def name : LeanType -> Name
-  | prod n _ | sum n _ => n
+  | simple t => t.name
+  | prod n ..
+  | sum n .. => n
 
 def singleton : LeanType -> Bool
-  | prod _ [] => true | _ => false
+  | simple .. => false
+  | prod _ [] => true
+  | prod .. => false
+  | sum .. => false
 
 def isEnum : LeanType -> Bool
+  | simple .. => false
   | prod .. => false
   | sum _ vs => vs.all fun t => t.singleton
 
 def rewriteEnums (enums : List Name) : LeanType -> LeanType
+  | simple t => .simple (rewrite t)
   | prod n t => .prod n (t.map fun f => ⟨ f.name, rewrite f.type ⟩)
   | sum n vs => .sum n (vs.map (rewriteEnums enums))
 where
@@ -58,9 +97,15 @@ where
   | .list t => .list (rewrite t)
   | t => t
 
+-- return the Names of container types
+def containers : LeanType -> List SimpleType
+  | .simple .. => []
+  | .prod _ fs => fs.flatMap fun f => f.type.containers
+  | .sum _ ts => ts.flatMap fun t => t.containers
+
 end LeanType
 
-private def collectType : Expr -> MetaM SimpleType
+private def collectType [Monad m] [MonadError m] : Expr -> m SimpleType
   | .const `Bool [] => return .bool
   | .const `Nat [] => return .nat
   | .const `Int [] => return .int
@@ -116,3 +161,12 @@ def collectLeanTypes (names : List Name) : MetaM (List LeanType) := do
       enums := name :: enums
     res := ty :: res
   return res.reverse.map fun t => t.rewriteEnums enums
+
+def collectContainerTypes (l : List LeanType) : List SimpleType :=
+  (l.flatMap fun t => t.containers).eraseDups
+
+def collectTypes (names : List Name) : MetaM (List LeanType) := do
+  let ty <- collectLeanTypes names
+  let cty := collectContainerTypes ty
+  let cty := cty.filter fun t => not t.isCommon
+  return ty ++ cty.map .simple

@@ -6,6 +6,7 @@ Authors: Paul Govereau, Sean McLaughlin
 import Extract.Basic
 import KLR.NKI.Basic
 import KLR.Python
+import KLR.Serde
 import Lean
 
 /-
@@ -21,90 +22,98 @@ def varName : Name -> String
   | _ => panic! "bad name"
 where
   renameVar : String -> String
-  | "bool" => "b"
-  | "int" => "i"
-  | "float" => "f"
-  | "string" => "s"
-  | "const" => "c"
+  | "Bool" | "bool" => "b"
+  | "Int" | "int" => "i"
+  | "Float" | "float" => "f"
+  | "String" | "string" => "s"
+  | "Const" | "const" => "c"
   | s => s
 
-private def CName (name : Name) : String :=
+private def cName (name : Name) : String :=
   match name with
   | .str n s => preFix "" n ++ s.replace "'" "_"
-  | _ => panic! "bad name"
+  | .anonymous => ""
+  | .num n _ => preFix "" n
 where
   preFix (acc : String) : Name -> String
-  | .str .anonymous "KLR" => acc
-  | .str n s => preFix (dropUnder s ++ "_" ++ acc) n
-  | .anonymous => ""
-  | .num _ _ => panic! "numeric name"
+    | .str .anonymous "KLR" => acc
+    | .str n s => preFix (dropUnder s ++ "_" ++ acc) n
+    | .anonymous => acc
+    | .num n _ => preFix acc n
   dropUnder (s : String) : String :=
-  if s.endsWith "_" || s.endsWith "'" then s.dropRight 1 else s
+    if s.endsWith "_" || s.endsWith "'" then s.dropRight 1 else s
 
-instance : ToString Name where toString n := CName n
+instance : ToString Name where toString n := cName n
 
+-- Construct C type for a SimpleType.
+-- Note, in C we don't need separate option types: we use NULL (or zero).
 def genType (t : SimpleType) : String :=
   match t with
   | .bool => "bool"
   | .nat => "u32"
   | .int => "i32"
   | .float => "f32"
-  | .string => "const char*"
+  | .string => "char*"
   | .const name => s!"struct {name}*"
   | .enum name => s!"enum {name}"
-  | .option (.enum n) => genType (.enum n) ++ "*"
   | .option t => genType t
-  | .list .bool => "struct Bool_List*"
-  | .list .nat => "struct Nat_List*"
-  | .list .int => "struct Int_List*"
-  | .list .float => "struct Float_List*"
-  | .list .string => "struct String_List*"
-  | .list (.const n)
-  | .list (.enum n) => s!"struct {n}_List*"
-  | .list _ => panic! "unsupported list type"
+  | .list _ => s!"struct {t.name}*"
 
 private def genStruct (name : Name)
                       (fields : List Field)
-                      (var : String := "")
-                      : MetaM Unit := do
+                      (var : Option String := none)
+                      : IO Unit := do
   IO.println s!"struct {name} \{"
   fields.forM fun f => do
     let ty := genType f.type
     IO.println s!"  {ty} {f.name};"
-  IO.println s!"} {var};"
+  match var with
+  | some x => IO.println s!"} {x};"
+  | none => IO.println "};"
 
-private def genEnum' (name : Name)
-                     (variants : List LeanType)
-                     (var : String := "")
-                     : MetaM Unit := do
-  let names := variants.map fun v => CName v.name
-  let rhs := String.intercalate ", " names
-  IO.println s!"enum {name} \{ {rhs} } {var};"
-  return ()
-
-private def genEnum : LeanType -> MetaM Unit
-  | .sum name variants => genEnum' name variants ""
-  | _ => throwError "Cannot gen enum for product"
+private def genEnum (name : Name)
+                    (variants : List LeanType)
+                    (var : Option String := none)
+                    : IO Unit := do
+  IO.println s!"enum {name} \{"
+  match variants with
+  | [] => pure ()
+  | v :: rest => do
+    IO.println s!"{v.name} = 1,"
+    for v in rest do
+      IO.println s!"{v.name},"
+  match var with
+  | some x => IO.println s!"} {x};"
+  | none => IO.println "};"
 
 private def genUnion (name : Name) (variants : List LeanType) : MetaM Unit := do
   IO.println s!"struct {name} \{"
-  genEnum' (.str name "Tag") variants "tag"
+  genEnum (.str name "Tag") variants "tag"
   IO.println "union {"
-  variants.forM fun t => do
+  for t in variants do
     match t with
+    | .simple t => IO.println s!"{t.name} {varName t.name};"
     | .prod _ [] => pure ()
     | .prod n fs => genStruct n fs (varName n)
-    | .sum .. => pure ()
+    | .sum .. => throwError "unexpected union nesting"
   IO.println "};"
   IO.println "};"
+
+private def genList (ty : SimpleType) := do
+  let name := ty.list.name
+  let vname := Name.mkStr1 (varName ty.name).toLower
+  let fs : List Field := [ ⟨`next, ty.list⟩, ⟨vname, ty⟩ ]
+  genStruct name fs
 
 def genCType (ty : LeanType) : MetaM Unit := do
   IO.println ""
   match ty with
+  | .simple (.list t) => genList t
+  | .simple _ => pure ()
   | .prod name fields => genStruct name fields
   | .sum name variants =>
     if ty.isEnum
-    then genEnum (.sum name variants)
+    then genEnum name variants
     else genUnion name variants
 
 def genInitBody (retTy : Name) (t : LeanType) : MetaM Unit := do
@@ -115,7 +124,7 @@ def genInitBody (retTy : Name) (t : LeanType) : MetaM Unit := do
     let element2 := varName name
     IO.println "{"
     IO.println s!"  {ptr} res = region_alloc(region, sizeof(*res));"
-    IO.println "  if (!res) return NULL;"
+    IO.println s!"  res->{element1} = region_alloc(region, sizeof(*res->{element1}));"
     IO.println s!"  res->{element1}->tag = {name};"
     for f in fields do
       IO.println s!"  res->{element1}->{element2}.{f.name} = {f.name};"
@@ -125,6 +134,7 @@ def genInitBody (retTy : Name) (t : LeanType) : MetaM Unit := do
 
 def genMkFuns (retTy : Name) (t : LeanType) : MetaM Unit := do
   match t with
+  | .simple .. => return ()
   | .prod name fields => do
     let fnName := "mk" ++ (toString name).capitalize
     let ptr := genType (.const retTy)
@@ -139,8 +149,18 @@ def genMkFuns (retTy : Name) (t : LeanType) : MetaM Unit := do
     for v in variants do
       genMkFuns retTy v
 
+def commonAST : MetaM (List LeanType) := do
+  let atomic := [.bool, .nat, .int, .float, .string]
+  let lists := atomic.map fun t => .simple (.list t)
+  let options := atomic.map fun t => .simple (.option t)
+  let tys <- collectLeanTypes [
+    `KLR.Serde.KLRFile,
+    `KLR.Serde.KLRMetaData
+  ]
+  return lists ++ options ++ tys
+
 def pythonAST: MetaM (List LeanType) := do
-  collectLeanTypes [
+  collectTypes [
     `KLR.Python.Pos,
     `KLR.Python.Const,
     `KLR.Python.Ctx,
@@ -159,7 +179,7 @@ def pythonAST: MetaM (List LeanType) := do
    ]
 
 def nkiAST : MetaM (List LeanType) := do
-  collectLeanTypes [
+  collectTypes [
     `KLR.NKI.Pos,
     `KLR.NKI.Value,
     `KLR.NKI.BinOp,
@@ -175,26 +195,25 @@ def nkiAST : MetaM (List LeanType) := do
     `KLR.NKI.Kernel,
   ]
 
-def header :=
-"/*
+private def header (isH : Bool) (includes : List String := []) : String :=
+  let inc := includes.map fun file => s!"#include \"{file}\""
+  let inc := String.intercalate "\n" inc
+s!"/*
 Copyright (c) 2025 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 */
-
+{if isH then "#pragma once\n" else ""}
 // This file is automatically generated from KLR.
 // Manual edits to this file will be overwritten.
 
 #include \"stdc.h\"
 #include \"region.h\"
+{inc}
 "
 
-private def genList (name : Name) (ty : SimpleType) := do
-  IO.println ""
-  IO.println s!"struct {name}_List \{"
-  IO.println s!"  struct {name}_List *next;"
-  IO.println s!"  {genType ty} {String.toLower (varName name)};"
-  IO.println "};"
+def headerH (includes : List String := []) : String := header (isH := true) includes
+def headerC (includes : List String := []) : String := header (isH := false) includes
 
 private def genTypes (tys : List LeanType) : MetaM Unit :=
   for ty in tys do
@@ -205,27 +224,23 @@ private def genAlloc (tys : List LeanType) (retTy name : Name) : MetaM Unit := d
   | none => throwError s!"Type {name} not found"
   | some t => genMkFuns retTy t
 
+def generateCommonAST: MetaM Unit := do
+  IO.println headerH
+  IO.println "// KLR Common Abstract Syntax"
+  genTypes (<- commonAST)
+
 def generatePythonAST : MetaM Unit := do
   let tys <- pythonAST
-  IO.println header
+  IO.println (headerH ["ast_common.h"])
   IO.println "// KLR.Python Abstract Syntax"
   genTypes tys
-  genList `KLR.Python.CmpOp (.enum `KLR.Python.CmpOp)
-  genList `String .string
-  for n in ["Expr", "Keyword", "Stmt", "Fun"] do
-    let n := .str `KLR.Python n
-    genList n (.const n)
   genAlloc tys `KLR.Python.Expr `KLR.Python.Expr'
   genAlloc tys `KLR.Python.Stmt `KLR.Python.Stmt'
 
 def generateNkiAST : MetaM Unit := do
   let tys <- nkiAST
-  IO.println header
+  IO.println (headerH ["ast_common.h"])
   IO.println "// KLR.NKI Abstract Syntax"
   genTypes tys
-  genList `String .string
-  for n in ["Expr", "Index", "Keyword", "Stmt", "Fun"] do
-    let n := .str `KLR.NKI n
-    genList n (.const n)
   genAlloc tys `KLR.NKI.Expr `KLR.NKI.Expr'
   genAlloc tys `KLR.NKI.Stmt `KLR.NKI.Stmt'
