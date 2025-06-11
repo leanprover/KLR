@@ -203,29 +203,34 @@ struct NKI_Kernel {
   struct NKI_Arg_List *globals;
 };
 
+struct String_List {
+  struct String_List *next;
+  const char *string;
+};
+
 struct NKI_Expr_List {
   struct NKI_Expr_List *next;
-  struct NKI_Expr NKI_expr;
+  struct NKI_Expr *expr;
 };
 
 struct NKI_Index_List {
   struct NKI_Index_List *next;
-  struct NKI_Index NKI_index;
+  struct NKI_Index *index;
 };
 
 struct NKI_Keyword_List {
   struct NKI_Keyword_List *next;
-  struct NKI_Keyword NKI_keyword;
+  struct NKI_Keyword *keyword;
 };
 
 struct NKI_Stmt_List {
   struct NKI_Stmt_List *next;
-  struct NKI_Stmt NKI_stmt;
+  struct NKI_Stmt *stmt;
 };
 
 struct NKI_Fun_List {
   struct NKI_Fun_List *next;
-  struct NKI_Fun NKI_fun;
+  struct NKI_Fun *fun;
 };
 
 static inline struct NKI_Expr *mkNKI_Expr_value(struct NKI_Value value,

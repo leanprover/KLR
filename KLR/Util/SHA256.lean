@@ -1,12 +1,10 @@
 /-
 Copyright (c) 2024 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Paul Govereau, Sean McLaughlin
+Authors: Paul Govereau, Sean McLaughlin, Claude
 -/
 
--- SM: Thanks to Claude for most of this code.
-
-namespace SHA256
+namespace KLR.Util.SHA256
 
 /-- Initial hash values (first 32 bits of the fractional parts of the square roots of the first 8 primes) -/
 private def initHashValues : Array UInt32 := #[
@@ -71,7 +69,7 @@ private def uint32ToBytes (value : UInt32) : Array UInt8 :=
   ]
 
 /-- Pad message according to SHA-256 specification -/
-private def padMessage (message : Array UInt8) : Array UInt8 := Id.run do
+private def padMessage (message : ByteArray) : Array UInt8 := Id.run do
   let msgLen := message.size
   let bitLen : UInt64 := UInt64.ofNat (msgLen * 8)
 
@@ -154,7 +152,7 @@ private def processBlock (block : Array UInt8) (hash : Array UInt32) : Array UIn
   return newHash
 
 /-- Compute SHA-256 hash of a message -/
-private def hash (message : Array UInt8) : Array UInt8 := Id.run do
+def hash (message : ByteArray) : ByteArray := Id.run do
   let padded := padMessage message
   let mut hashValues := initHashValues
 
@@ -177,10 +175,10 @@ private def hash (message : Array UInt8) : Array UInt8 := Id.run do
     for j in [0:4] do
       result := result.set! (i * 4 + j) bytes[j]!
 
-  return result
+  return ByteArray.mk result
 
 /-- Convert hash to hex string -/
-private def toHexString (hash : Array UInt8) : String := Id.run do
+def byteArrayToHashString (hash : ByteArray) : String := Id.run do
   let hexChars := "0123456789abcdef".toList
   let mut result := ""
 
@@ -193,10 +191,7 @@ private def toHexString (hash : Array UInt8) : String := Id.run do
   return result
 
 /-- Compute SHA-256 hash of a string -/
-private def hashString (s : String) : String := Id.run do
-  let bytes := s.toUTF8
-  let hashBytes := hash bytes.data
-  return toHexString hashBytes
+def hashString (s : String) : String := byteArrayToHashString (hash s.toUTF8)
 
 -- echo -n 'Hello, world!' | sha256sum
 -- 315f5bdb76d078c43b8ac0064e4a0164612b1fce77c869345bfc94c75894edd3
@@ -210,4 +205,4 @@ private def hashString (s : String) : String := Id.run do
 -- 02920c55aca4f57f5c02ee91dc2f25293ad91ef899684d977a2eeb666e89cbfc
 #guard hashString "🏎️" == "02920c55aca4f57f5c02ee91dc2f25293ad91ef899684d977a2eeb666e89cbfc"
 
-end SHA256
+end KLR.Util.SHA256

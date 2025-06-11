@@ -14,6 +14,11 @@ static_assert(
     PY_MINOR_VERSION <= 12,
     "Unsupported Python Version");
 
+#if PY_MINOR_VERSION == 9
+#define Py_IsNone(x) ((x) == Py_None)
+#define Py_IsTrue(x) ((x) == Py_True)
+#endif
+
 // Front-end version (place holder)
 #define KLR_VERSION 1
 

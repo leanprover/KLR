@@ -30,7 +30,7 @@ struct _mod* parse_string(const char *str, PyObject* filename) {
   if (!arena)
     return NULL;
 
-  struct _mod *result = _PyPegen_run_parser_from_string(str, Py_single_input, filename, NULL, arena);
+  struct _mod *result = _PyPegen_run_parser_from_string(str, filename, arena);
   if (result)
     result->arena = arena;
   else

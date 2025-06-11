@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 -/
 import Lean
+import KLR.Serde.Attr
 import KLR.Util
 
 /-!
@@ -15,6 +16,7 @@ see: https://docs.python.org/3/library/ast.html
 
 namespace KLR.Python
 
+@[serde tag = 1]
 structure Pos where
   lineno : Nat := 0
   end_lineno : Nat := 0
@@ -22,6 +24,7 @@ structure Pos where
   end_col_offset : Nat := 0
   deriving Repr, BEq
 
+@[serde tag = 2]
 inductive Const where
   | none
   | bool (value : Bool)
@@ -44,26 +47,31 @@ simplicity: we do not try to resolve names that are being
 "stored" to.
 -/
 
+@[serde tag = 3]
 inductive Ctx where
   | load | store | del
   deriving Repr
 
 -- Python boolean (logical) operators
+@[serde tag = 4]
 inductive BoolOp where
   | land | lor
   deriving Repr
 
 -- Python comparison operators
+@[serde tag = 5]
 inductive CmpOp where
   | eq | ne | lt | le | gt | ge | is | isNot | isIn | notIn
   deriving Repr
 
 -- Python unary operators
+@[serde tag = 6]
 inductive UnaryOp where
   | invert | not | uadd | usub
   deriving Repr
 
 -- Python binary operators
+@[serde tag = 7]
 inductive BinOp where
   | add | sub | mul | matmul | div | mod | pow
   | lshift | rshift | or | xor | and
@@ -71,11 +79,13 @@ inductive BinOp where
   deriving Repr
 
 mutual
+@[serde tag = 8]
 structure Expr where
   expr : Expr'
   pos : Pos
   deriving Repr
 
+@[serde tag = 9]
 inductive Expr' where
   | const (value : Const)
     -- TODO we don't need tensor here, it can be NKI only
@@ -94,6 +104,7 @@ inductive Expr' where
   | call (f: Expr) (args: List Expr) (keywords : List Keyword)
   deriving Repr
 
+@[serde tag = 10]
 structure Keyword where
   id : String
   value : Expr
@@ -102,11 +113,13 @@ structure Keyword where
 end
 
 mutual
+@[serde tag = 11]
 structure Stmt where
   stmt : Stmt'
   pos : Pos
   deriving Repr
 
+@[serde tag = 12]
 inductive Stmt' where
   | pass
   | expr (e : Expr)
@@ -141,6 +154,7 @@ then the structure will be populated with:
 Note, this is slightly different from the official Python AST, which
 encodes the kw_defaults as a list with None for missing defaults.
 -/
+@[serde tag = 13]
 structure Args where
   posonlyargs : List String
   args : List String
@@ -165,6 +179,7 @@ def Args.all_defaults (args : Args) : List Keyword :=
   let dflt  := dflt.map fun (n, e) => .mk n e {}
   dflt ++ args.kw_defaults
 
+@[serde tag = 14]
 structure Fun where
   name : String
   line : Nat
@@ -195,6 +210,7 @@ An example of a global is:
 instance : Repr Lean.Json where
   reprPrec jsn _ := jsn.compress
 
+@[serde tag = 15]
 structure Kernel where
   entry : String
   funcs : List Fun

@@ -52,6 +52,7 @@ private def genType (t : SimpleType)
   | .list .nat => "struct Nat_List*"
   | .list .int => "struct Int_List*"
   | .list .string => "struct String_List*"
+  | .list (.enum n) => s!"struct {n}_List*"
   | .list t => s!"{genType t []}_List*"
 
 private def renameVar : String -> String
@@ -191,11 +192,11 @@ private def header :=
 #include \"region.h\"
 "
 
-def genList (name : Name) : MetaM Unit := do
+private def genList (name : Name) (ty : SimpleType) := do
   IO.println ""
   IO.println s!"struct {name}_List \{"
   IO.println s!"  struct {name}_List *next;"
-  IO.println s!"  struct {name} {CName name String.toLower};"
+  IO.println s!"  {genType ty [name]} {String.toLower (str name)};"
   IO.println "};"
 
 private def genIndirect : Name -> List Name
@@ -218,8 +219,11 @@ def generatePythonAST : MetaM Unit := do
   IO.println header
   IO.println "// KLR.Python Abstract Syntax"
   genTypes tys
+  genList `KLR.Python.CmpOp (.enum `KLR.Python.CmpOp)
+  genList `String .string
   for n in ["Expr", "Keyword", "Stmt", "Fun"] do
-    genList (.str `KLR.Python n)
+    let n := .str `KLR.Python n
+    genList n (.const n)
   genAlloc tys `KLR.Python.Expr `KLR.Python.Expr'
   genAlloc tys `KLR.Python.Stmt `KLR.Python.Stmt'
 
@@ -228,7 +232,9 @@ def generateNkiAST : MetaM Unit := do
   IO.println header
   IO.println "// KLR.NKI Abstract Syntax"
   genTypes tys
+  genList `String .string
   for n in ["Expr", "Index", "Keyword", "Stmt", "Fun"] do
-    genList (.str `KLR.NKI n)
+    let n := .str `KLR.NKI n
+    genList n (.const n)
   genAlloc tys `KLR.NKI.Expr `KLR.NKI.Expr'
   genAlloc tys `KLR.NKI.Stmt `KLR.NKI.Stmt'

@@ -3,6 +3,7 @@ Copyright (c) 2025 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 -/
+import KLR.Serde.Attr
 
 /-!
 # Abstract syntax of NKI functions
@@ -14,6 +15,7 @@ syntax of NKI.
 
 namespace KLR.NKI
 
+@[serde tag = 1]
 structure Pos where
   line : Nat
   column : Nat
@@ -21,6 +23,7 @@ structure Pos where
 
 -- Note: the python int and float types are compatible with Lean's types
 -- The str type may require conversion (to UTF8).
+@[serde tag = 2]
 inductive Value where
   | none
   | bool (value : Bool)
@@ -31,6 +34,7 @@ inductive Value where
   | tensor (shape : List Nat) (dtype : String)  -- TODO use Core Dtype
   deriving Repr
 
+@[serde tag = 3]
 inductive BinOp where
   -- logical
   | land | lor
@@ -43,11 +47,13 @@ inductive BinOp where
   deriving Repr
 
 mutual
+@[serde tag = 4]
 structure Expr where
   expr : Expr'
   pos : Pos
   deriving Repr
 
+@[serde tag = 5]
 inductive Expr' where
   | value (value : Value)
   | var (name : String)
@@ -59,11 +65,13 @@ inductive Expr' where
   | call (f: Expr) (args: List Expr) (keywords : List Keyword)
   deriving Repr
 
+@[serde tag = 6]
 inductive Index where
   | coord (i : Expr)
   | slice (l u step : Option Expr)
   deriving Repr
 
+@[serde tag = 7]
 structure Keyword where
   name : String
   expr : Expr
@@ -71,11 +79,13 @@ structure Keyword where
 end
 
 mutual
+@[serde tag = 8]
 structure Stmt where
   stmt : Stmt'
   pos : Pos
   deriving Repr
 
+@[serde tag = 9]
 inductive Stmt' where
   | expr (e : Expr)
   | assert (e : Expr)
@@ -88,11 +98,13 @@ inductive Stmt' where
   deriving Repr
 end
 
+@[serde tag = 10]
 structure Param where
   name : String
   dflt : Option Expr
   deriving Repr
 
+@[serde tag = 11]
 structure Fun where
   name : String
   file : String
@@ -101,11 +113,13 @@ structure Fun where
   args : List Param
   deriving Repr
 
+@[serde tag = 12]
 structure Arg where
   name : String
   value : Expr
   deriving Repr
 
+@[serde tag = 13]
 structure Kernel where
   entry : String
   funs : List Fun

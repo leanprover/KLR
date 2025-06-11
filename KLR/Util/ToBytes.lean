@@ -10,6 +10,8 @@ import TensorLib.ByteArray
 import TensorLib.Bytes
 
 open Lean(Command Expr InductiveVal Name Term getEnv isInductive mkIdent)
+open Lean.Parser.Term(matchAltExpr)
+open Lean.PrettyPrinter(ppCommand)
 open Lean.Elab(registerDerivingHandler)
 open Lean.Elab.Command(CommandElabM liftTermElabM elabCommand)
 open Lean.Elab.Deriving(Context Header mkContext mkHeader mkInstanceCmds)
@@ -61,41 +63,74 @@ end ToBytes
 def mkToBytesHeader (indVal : InductiveVal) : TermElabM Header := do
   mkHeader ``ToBytes 1 indVal
 
-def mkToBytesBody (header : Header) (e : Expr): TermElabM Term := do
+def mkToBytesStructureBody (header : Header) (e : Expr) : TermElabM Term := do
   let indName := e.getAppFn.constName!
-  let env <- getEnv
-  let fields := Lean.getStructureFieldsFlattened env indName (includeSubobjectFields := false)
+  let fields := Lean.getStructureFieldsFlattened (<- getEnv) indName (includeSubobjectFields := false)
   let target := mkIdent header.targetNames[0]!
   let apps : Array Term <- fields.mapM fun f => ``(ToBytes.toBytes ($target).$(mkIdent f))
   let body : Term <- `(combine #[ $apps,* ])
   return body
 
-def mkToBytesFunction (ctx : Context) : TermElabM Command := do
+def mkToBytesStructureFunction (ctx : Context) : TermElabM Command := do
   let auxFunName := ctx.auxFunNames[0]!
   let header <- mkToBytesHeader ctx.typeInfos[0]!
   let binders := header.binders
-  Lean.Elab.Term.elabBinders binders fun _ => do
   let type <- Lean.Elab.Term.elabTerm header.targetType none
-  let body <- mkToBytesBody header type
+  let body <- mkToBytesStructureBody header type
   `(private def $(mkIdent auxFunName):ident $binders:bracketedBinder* : ByteArray := $body:term)
 
-private def mkToBytesInstance (declName : Name) : TermElabM (Array Command) := do
+private def mkToBytesStructureInstance (declName : Name) : TermElabM (Array Command) := do
   let ctx ← mkContext "toBytes" declName
-  let cmds := #[<- mkToBytesFunction ctx] ++ (<- mkInstanceCmds ctx ``ToBytes #[declName])
+  let cmds := #[<- mkToBytesStructureFunction ctx] ++ (<- mkInstanceCmds ctx ``ToBytes #[declName])
   return cmds
 
-private def errMsg := "deriving ToBytes only works on single structures"
+def mkToBytesInductiveFunction (ctx : Context) : TermElabM Command := do
+  let auxFunName := ctx.auxFunNames[0]!
+  let indVal := ctx.typeInfos[0]!
+  let header <- mkToBytesHeader indVal
+  let mut cases /- : Array matchAltExpr -/ := #[]
+  for ctor in indVal.ctors do
+    let ctorInfo <- Lean.getConstInfoCtor ctor
+    let a := mkIdent (<- Lean.mkFreshUserName `a)
+    let stmt <- `(matchAltExpr| | $(mkIdent ctorInfo.name):ident $a:term => toBytes $a)
+    cases := cases.push stmt
+  let type <- Lean.Elab.Term.elabTerm header.targetType none
+  let indName := mkIdent type.getAppFn.constName!
+  let a := mkIdent (← Lean.mkFreshUserName `a)
+  `(private def $(mkIdent auxFunName):ident ($a : $indName) : ByteArray :=
+      match $a:ident with $cases:matchAlt*)
+
+private def mkToBytesInductiveInstance (declName : Name) : TermElabM (Array Command) := do
+  let ctx ← mkContext "toBytes" declName
+  let cmds := #[<- mkToBytesInductiveFunction ctx] ++ (<- mkInstanceCmds ctx ``ToBytes #[declName])
+  return cmds
+
+private def errMsg := "deriving ToBytes only works on single structures or inductives all of whose branches have a single ToBytes argument"
 
 def mkToBytesInstanceHandler (declNames : Array Name) : CommandElabM Bool := match declNames with
 | #[] => impossible "Expected a type"
 | #[t] => do
-  if (Lean.isStructure (<- getEnv) t) && (<- Lean.getConstInfoInduct t).all.length == 1 then
-    let cmds <- liftTermElabM <| mkToBytesInstance t
-    cmds.forM elabCommand
-    return true
+  if (<- Lean.getConstInfoInduct t).all.length == 1 then
+    -- single structure
+    if (Lean.isStructure (<- getEnv) t) then
+      let cmds <- liftTermElabM <| mkToBytesStructureInstance t
+      cmds.forM fun (cmd:Command) => do
+        elabCommand cmd
+        -- SM: Leave this in
+        -- dbg_trace (<- liftTermElabM <| ppCommand cmd)
+      return true
+    -- inductive where each branch is takes a single ToBytes argument
+    else if (<- Lean.isInductive t) then
+      let cmds <- liftTermElabM <| mkToBytesInductiveInstance t
+      cmds.forM fun (cmd:Command) => do
+        elabCommand cmd
+        -- SM: Leave this in
+        -- dbg_trace (<- liftTermElabM <| ppCommand cmd)
+      return true
+    else
+      throwError errMsg
   else
     throwError errMsg
-    return false
 | _ => throwError errMsg
 
 initialize

@@ -6,4 +6,5 @@ Authors: Paul Govereau, Sean McLaughlin
 import KLR.Serde.Attr
 import KLR.Serde.Basic
 import KLR.Serde.Elab
+import KLR.Serde.File
 import KLR.Serde.Test

@@ -5,47 +5,19 @@ Authors: Paul Govereau, Sean McLaughlin
 -/
 
 import Util.Base64
+import Util.BitVec
+import Util.Common
 import Util.Enum
 import Util.FromBytes
 import Util.Gzip
 import Util.Hex
 import Util.Json
 import Util.ListJson
+import Util.MD5
 import Util.NumBytes
 import Util.NumBytesTest
+import Util.Padding
 import Util.Plausible
 import Util.SHA256
 import Util.ToBytes
 import Util.ToBytesTest
-
-namespace KLR
-
-/-
-The default choice for an error monad is `Except String`, used for simple
-computations that can fail.
-
-Provide automatic lifting of Err to any monad that supports throwing strings
-as errors.
--/
-abbrev Err := Except String
-
-instance [Monad m] [MonadExcept String m] : MonadLift Err m where
-  monadLift
-    | .ok x => return x
-    | .error s => throw s
-
-/-
-The default choice for a state monad is `EStateM String`.
--/
-abbrev StM := EStateM String
-
-def impossible {a : Type} [h : Inhabited a] (msg : String := "") :=
-  @panic a h s!"Invariant violation: {msg}"
-
-def get! [Inhabited a] (x : Err a) : a := match x with
-| .error msg => impossible msg
-| .ok x => x
-
-def natDivCeil (num denom : Nat) : Nat := (num + denom - 1) / denom
-
-end KLR

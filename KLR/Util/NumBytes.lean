@@ -80,7 +80,6 @@ def mkNumBytesFunction (ctx : Context) : TermElabM Command := do
   let auxFunName := ctx.auxFunNames[0]!
   let header     ←  mkNumBytesHeader ctx.typeInfos[0]!
   let binders    := header.binders
-  Lean.Elab.Term.elabBinders binders fun _ => do
   let type       ← Lean.Elab.Term.elabTerm header.targetType none
   let body   ← mkNumBytesBody header type
   `(private def $(mkIdent auxFunName):ident $binders:bracketedBinder* : Nat := $body:term)
