@@ -5,10 +5,13 @@ Authors: Paul Mure
 -/
 import KLR.NKI.Basic
 import KLR.NKI.Types
+import Mathlib.Logic.Function.Basic
 
 namespace KLR.NKI
 
 /--
+TODO: properly handle updating environments in function calls and let-bindings
+
 Constraints for SNat variables.
 
 `none` means no constraint.
@@ -146,7 +149,7 @@ inductive TensorTyp (nnat : Nat)
 def TensorTyp.cons {nnat} (hd : SNat nnat) : TensorTyp nnat → TensorTyp nnat
   | .elem dtyp => .tensor [hd] dtyp
   | .tensor shape dtyp => .tensor (hd :: shape) dtyp
-infixr:60 " :: " => TensorTyp.cons
+infixr:60 " ::ₜ " => TensorTyp.cons
 
 /--
 `AccessIsType tensorTyp idxTyps resTyp` means a tensor with type `tensorTyp`
@@ -168,7 +171,7 @@ inductive AccessIsType {nnat ntyp : Nat}
       → AccessIsType
           (.tensor (inShapeHd :: inShapeTl) dtyp)
           (.slice l u step :: idxTl)
-          (outShapeHd :: tlTyp)
+          (outShapeHd ::ₜ tlTyp)
 
 /-!
 Mutual inductions are causing some pains here.
@@ -247,5 +250,93 @@ inductive Expr'.IsType {nnat ntyp : Nat} : Env nnat ntyp → Expr' → STyp nnat
       → Expr'.IsType env (.call f args keywords) typRet
 
 end
+
+def Env.addVar (env : Env nnat ntyp) (name : String) (typ : STyp nnat ntyp) : Env nnat ntyp :=
+  {env with var := Function.update env.var name typ}
+
+mutual
+
+inductive Stmt'.IsType {nnat ntyp : Nat} : Env nnat ntyp → Stmt' → STyp nnat ntyp → Prop
+  | expr {env e typ} :
+      Expr'.IsType env e.expr typ
+      → Stmt'.IsType env (.expr e) typ
+  | assert {env e} :
+      Expr'.IsType env e.expr .bool
+      -- Should this type to none?
+      → Stmt'.IsType env (.assert e) .none
+  | ret {env e typ} :
+      Expr'.IsType env e.expr typ
+      → Stmt'.IsType env (.ret e) typ
+  | assign_no_type {env x e typ} :
+      Expr'.IsType env e.expr typ
+      → Expr'.IsType env x.expr typ
+      → Stmt'.IsType env (.assign x .none (some e)) .none
+  | assign_decl {env x typ} :
+      Expr'.IsType env x.expr typ
+      → Stmt'.IsType env (.assign x .none .none) .none
+  | if_stmt {env e thn thnTyp els elsTyp} :
+      Expr'.IsType env e.expr .bool
+      → List.Stmt'IsType env thn thnTyp
+      → List.Stmt'IsType env els elsTyp
+      → Stmt'.IsType env (.ifStm e thn els) .none
+  -- TODO: for loops
+  | break_loop {env} :
+      Stmt'.IsType env .breakLoop .none
+  | continue_loop {env} :
+      Stmt'.IsType env .continueLoop .none
+
+-- Add typing rules for lists of statements
+inductive List.Stmt'IsType {nnat ntyp : Nat} : Env nnat ntyp → List Stmt → STyp nnat ntyp → Prop
+  | nil {env} : List.Stmt'IsType env [] .none
+  | singleton {env stmt typ} :
+      Stmt'.IsType env stmt.stmt typ
+      → List.Stmt'IsType env [stmt] typ
+  | cons {env stmt stmts hdTyp tlTyp} :
+      Stmt'.IsType env stmt.stmt hdTyp
+      → List.Stmt'IsType env stmts tlTyp
+      → List.Stmt'IsType env (stmt :: stmts) tlTyp
+
+end
+
+inductive List.ParamIsType {nnat ntyp : Nat} : Env nnat ntyp → List Param → List (STyp nnat ntyp) → Prop
+  | nil {env} : List.ParamIsType env [] []
+  | cons_none {env name params typ typs} :
+      List.ParamIsType env params typs
+      → List.ParamIsType env (⟨name, .none⟩ :: params) (typ :: typs)
+  | cons_some {env name param params typ typs} :
+      Expr'.IsType env param.expr typ
+      → List.ParamIsType env params typs
+      → List.ParamIsType env (⟨name, .some param⟩ :: params) (typ :: typs)
+
+def Env.addVars (env : Env nnat ntyp) (names : List String) (typs : List (STyp nnat ntyp)) : Env nnat ntyp :=
+  match names, typs with
+  | [], [] => env
+  | nameHd :: nameTl, typsHd :: typsTl => Env.addVars (env.addVar nameHd typsHd) nameTl typsTl
+  | _, _ => env
+
+inductive Fun.IsType {nnat ntyp : Nat} : Env nnat ntyp → Fun → STyp nnat ntyp → Prop
+  | mk {name file line body args argTyps retTyp} :
+      List.ParamIsType env args argTyps
+      → List.Stmt'IsType (env.addVars (args.map Param.name) argTyps) body retTyp
+      → Fun.IsType env ⟨name, file, line, body, args⟩ (.func (.tuple argTyps) retTyp)
+
+inductive Kernel.IsType' {nnat ntyp : Nat} : Env nnat ntyp → Kernel → STyp nnat ntyp → Prop
+  | mk {env entry funs args globals globalTyps funTyps entryFun argTyps retTyp newEnv} :
+      -- Type check the global vars first
+      List.Forall₂ (Expr'.IsType env) (globals.map (Expr.expr ∘ Arg.value)) globalTyps
+      -- Update the environment
+      → newEnv = env.addVars (globals.map Arg.name) globalTyps
+      -- Type check all functions
+      → List.Forall₂ (Fun.IsType newEnv) funs funTyps
+      -- Find the entry function
+      → funs.find? (·.name == entry) = .some entryFun
+      -- Type check entry function
+      → Fun.IsType newEnv entryFun (.func (.tuple argTyps) retTyp)
+      -- Type check arguments
+      → List.Forall₂ (Expr'.IsType newEnv) (args.map (Expr.expr ∘ Arg.value)) argTyps
+      → Kernel.IsType' env ⟨entry, funs, args, globals⟩ retTyp
+
+def Kernel.IsType {nnat ntyp : Nat} (k : Kernel) (typ : STyp nnat ntyp) : Prop :=
+  ∃ env, k.IsType' env typ
 
 end KLR.NKI
