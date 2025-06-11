@@ -223,6 +223,15 @@ inductive Expr'.IsType {nnat ntyp : Nat} : Env nnat ntyp → Expr' → STyp nnat
       -- Lastly, check what ever type the access is
       → AccessIsType tensorTyp idxTyps (.elem dtyp)
       → Expr'.IsType env (.access tensorExpr indices) (.dtype dtyp)
+  | access_tensor_tensor {env tensorExpr tensorTyp indices shape} :
+      (idxTyps : List (Index.STyp nnat ntyp))
+      -- First, the object being accessed should be a valid tensor
+      → Expr'.IsType env tensorExpr.expr tensorTyp
+      -- Then, indices should type check to something
+      → List.IndexIsType env indices idxTyps
+      -- Lastly, check what ever type the access is
+      → AccessIsType tensorTyp idxTyps (.tensor shape dtyp)
+      → Expr'.IsType env (.access tensorExpr indices) (.tensor shape dtyp)
   | binOp {env op expL expR typL typR typRet} :
       op.IsType env.sc (.func (.tuple [typL, typR]) typRet)
       → Expr'.IsType env expL.expr typL
