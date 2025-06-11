@@ -12,8 +12,10 @@ PY_LIBS    := "-lpython${PY_VER}"
 C := region.c peg_parser.c gather.c frontend.c
 O := $(patsubst %.c,%.${PY_VER}.o,$C)
 
+TESTS := cbor_test
+
 .SUFFIXES:
-.PHONY: all versions clean
+.PHONY: all versions test clean
 
 all: frontend${PY_EXT}
 
@@ -23,8 +25,11 @@ versions:
 	$(MAKE) PY_VER=3.11
 	$(MAKE) PY_VER=3.12
 
+test: ${TESTS}
+
 clean:
 	rm -f *.o *.so
+	rm -f ${TESTS}
 
 peg_parser.${PY_VER}.o: $(wildcard *.c)
 
@@ -33,3 +38,7 @@ peg_parser.${PY_VER}.o: $(wildcard *.c)
 
 frontend${PY_EXT}: $(O)
 	clang -std=c17 $^ -dynamiclib -o $@ ${PY_LDFLAGS} ${PY_LIBS}
+
+%_test: %_test.c %.c
+	clang -std=c17 -Wall -Wextra $< -o $@
+	./$@
