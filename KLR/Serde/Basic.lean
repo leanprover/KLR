@@ -651,3 +651,33 @@ def parseCBORTag (arr : ByteArray) : Err (Nat × Nat × Nat) := do
       throw "expecting small list after tagged value"
     return (typeTag.toNat, valTag.toNat, listSize.toNat)
   throw "expecting tagged value - array too small"
+
+/-
+# Options
+
+An option is just an inductive type and we encode it as a tagged value
+following the convention above.
+-/
+
+instance [ToCBOR a] : ToCBOR (Option a) where
+  toCBOR
+    | none   => .mk #[ 0xd9, 0xff, 0 ]
+    | some a => .mk #[ 0xd9, 0xff, 1 ] ++ toCBOR a
+
+instance [FromCBOR a] : FromCBOR (Option a) where
+  parse arr :=
+    match arr.data.take 3 with
+    | #[ 0xd9, 0xff, 0] => return (3, none)
+    | #[ 0xd9, 0xff, 1] => do
+      let (sz, v) <- parse (arr.drop 3)
+      return (sz + 3, some v)
+    | _ => throw "expecting option"
+
+/--
+info: Unable to find a counter-example
+---
+warning: declaration uses 'sorry'
+-/
+#guard_msgs in
+  example (x : Option Bool) :
+    roundtrip x == true := by plausible
