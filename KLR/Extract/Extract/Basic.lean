@@ -24,7 +24,35 @@ inductive SimpleType where
   | enum (name : Name)
   | option (elementType : SimpleType)
   | list (elementType : SimpleType)
-  deriving Repr
+  deriving Repr, BEq
+
+namespace SimpleType
+
+-- transform List T => T.List, convenient for external languages
+def name : SimpleType -> Name
+  | .bool => `Bool
+  | .nat => `Nat
+  | .int => `Int
+  | .float => `Float
+  | .string => `String
+  | .const name
+  | .enum name => name
+  | .option t => .str t.name "Option"
+  | .list t => .str t.name "List"
+
+-- Types appearing in lists
+def lists : SimpleType -> List SimpleType
+  | .list t => t :: t.lists
+  | .option t => t.lists
+  | _ => []
+
+-- Types appearing in options
+def options : SimpleType -> List SimpleType
+  | .list t => t.options
+  | .option t => t :: t.options
+  | _ => []
+
+end SimpleType
 
 structure Field where
   name : Name
@@ -57,6 +85,16 @@ where
   | .option t => .option (rewrite t)
   | .list t => .list (rewrite t)
   | t => t
+
+-- return the Names of types used in lists
+def lists : LeanType -> List SimpleType
+  | .prod _ fs => fs.flatMap fun f => f.type.lists
+  | .sum _ ts => ts.flatMap fun t => t.lists
+
+-- return the Names of types used in options
+def options : LeanType -> List SimpleType
+  | .prod _ fs => fs.flatMap fun f => f.type.options
+  | .sum _ ts => ts.flatMap fun t => t.options
 
 end LeanType
 
@@ -116,3 +154,9 @@ def collectLeanTypes (names : List Name) : MetaM (List LeanType) := do
       enums := name :: enums
     res := ty :: res
   return res.reverse.map fun t => t.rewriteEnums enums
+
+def collectListTypes (l : List LeanType) : List SimpleType :=
+  (l.flatMap fun t => t.lists).eraseDups
+
+def collectOptionTypes (l : List LeanType) : List SimpleType :=
+  (l.flatMap fun t => t.options).eraseDups
