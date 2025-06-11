@@ -135,30 +135,74 @@ inductive Index.STyp (nnat ntyp : Nat)
   | coord (i : NKI.STyp nnat ntyp)
   | slice (l u step : Option (NKI.STyp nnat ntyp))
 
+inductive Option.IsInt {nnat ntyp : Nat} : Option (STyp nnat ntyp) → Prop
+  | some : Option.IsInt (.some .int)
+  | none : Option.IsInt .none
+
+inductive TensorTyp (nnat : Nat)
+  | elem (dtyp : Core.Dtype)
+  | tensor (shape : List (SNat nnat)) (dtyp : Core.Dtype)
+
+def TensorTyp.cons {nnat} (hd : SNat nnat) : TensorTyp nnat → TensorTyp nnat
+  | .elem dtyp => .tensor [hd] dtyp
+  | .tensor shape dtyp => .tensor (hd :: shape) dtyp
+infixr:60 " :: " => TensorTyp.cons
+
 /--
 `AccessIsType tensorTyp idxTyps resTyp` means a tensor with type `tensorTyp`
 accessed by a list of indices with types `idxTyps` has type `resTyp`.
 -/
 inductive AccessIsType {nnat ntyp : Nat}
-  : STyp nnat ntyp → List (Index.STyp nnat ntyp) → STyp nnat ntyp → Prop
-  | coord_end {dim dtyp} : AccessIsType (.tensor [dim] dtyp) [.coord .int] (.dtype dtyp)
+  : STyp nnat ntyp → List (Index.STyp nnat ntyp) → TensorTyp nnat → Prop
+  | coord_end {dim dtyp} : AccessIsType (.tensor [dim] dtyp) [.coord .int] (.elem dtyp)
   | coord_cons {shapeHd shapeTl dtyp idxTl} :
       AccessIsType (.tensor shapeTl dtyp) idxTl resTyp
       → AccessIsType (.tensor (shapeHd :: shapeTl) dtyp) (.coord .int :: idxTl) resTyp
-  -- TODO: `slice`
+  -- TODO: how should we enforce the output dimension?
+  | slice_end {inDim outDim dtyp l u step} :
+      Option.IsInt l → Option.IsInt u → Option.IsInt step
+      → AccessIsType (.tensor [inDim] dtyp) [.slice l u step] (.tensor [outDim] dtyp)
+  | slice_cons {inShapeHd inShapeTl outShapeHd dtyp l u step idxTl tlTyp} :
+      Option.IsInt l → Option.IsInt u → Option.IsInt step
+      → AccessIsType (.tensor inShapeTl dtyp) idxTl tlTyp
+      → AccessIsType
+          (.tensor (inShapeHd :: inShapeTl) dtyp)
+          (.slice l u step :: idxTl)
+          (outShapeHd :: tlTyp)
 
-inductive Option.Sim (R : α → β → Prop) : Option α → Option β → Prop
-  | some : R a b → Option.Sim R (.some a) (.some b)
-  | none : Option.Sim R .none .none
+/-!
+Mutual inductions are causing some pains here.
+
+Forexample, we cannot just use `List.Forall₂` for reasons similar to
+[this](https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/.E2.9C.94.20requiring.20proofs.20on.20inductive.20constructors)
+-/
 
 mutual
+
+inductive List.IndexIsType {nnat ntyp : Nat} : Env nnat ntyp → List Index → List (Index.STyp nnat ntyp) → Prop
+  | nil {env} : List.IndexIsType env [] []
+  | cons {env idx typ idxes typs} :
+      Index.IsType env idx typ
+      → List.IndexIsType env idxes typs
+      → List.IndexIsType env (idx :: idxes) (typ :: typs)
+
+inductive List.Expr'IsType {nnat ntyp : Nat} : Env nnat ntyp → List Expr' → List (STyp nnat ntyp) → Prop
+  | nil {env} : List.Expr'IsType env [] []
+  | cons {env expr typ exprs typs} :
+      Expr'.IsType env expr typ
+      → List.Expr'IsType env idxes typs
+      → List.Expr'IsType env (expr :: exprs) (typ :: typs)
+
+inductive Option.Expr'IsType {nnat ntyp} : Env nnat ntyp → Option Expr' → Option (STyp nnat ntyp) → Prop
+  | some : Expr'.IsType env expr typ → Option.Expr'IsType env (.some expr) (.some typ)
+  | none : Option.Expr'IsType env .none .none
 
 inductive Index.IsType {nnat ntyp : Nat} : Env nnat ntyp → Index → Index.STyp nnat ntyp → Prop
   | coord {env i typ} : Expr'.IsType env i.expr typ → Index.IsType env (.coord i) (.coord typ)
   | slice {env l u step lTyp uTyp stepTyp} :
-      Option.Sim (Expr'.IsType env) (l.map Expr.expr) lTyp
-      → Option.Sim (Expr'.IsType env) (u.map Expr.expr) uTyp
-      → Option.Sim (Expr'.IsType env) (step.map Expr.expr) stepTyp
+      Option.Expr'IsType env (l.map Expr.expr) lTyp
+      → Option.Expr'IsType env (u.map Expr.expr) uTyp
+      → Option.Expr'IsType env (step.map Expr.expr) stepTyp
       → Index.IsType env (.slice l u step) (.slice lTyp uTyp stepTyp)
 
 /--
@@ -168,17 +212,17 @@ inductive Expr'.IsType {nnat ntyp : Nat} : Env nnat ntyp → Expr' → STyp nnat
   | value {env typ value} : value.IsType env.sc typ → Expr'.IsType env (.value value) typ
   | var {env typ name} : env.var name = typ → Expr'.IsType env (.var name) typ
   | tuple {env elems typs} :
-      List.Forall₂ (Expr'.IsType env) (elems.map Expr.expr) typs
+      List.Expr'IsType env (elems.map Expr.expr) typs
       → Expr'.IsType env (.tuple elems) (.tuple typs)
-  | access_tensor {env tensorExpr tensorTyp indices resTyp} :
+  | access_tensor_elem {env tensorExpr tensorTyp indices} :
       (idxTyps : List (Index.STyp nnat ntyp))
       -- First, the object being accessed should be a valid tensor
       → Expr'.IsType env tensorExpr.expr tensorTyp
       -- Then, indices should type check to something
-      → List.Forall₂ (Index.IsType env) indices idxTyps
+      → List.IndexIsType env indices idxTyps
       -- Lastly, check what ever type the access is
-      → AccessIsType tensorTyp idxTyps resTyp
-      → Expr'.IsType env (.access tensorExpr indices) resTyp
+      → AccessIsType tensorTyp idxTyps (.elem dtyp)
+      → Expr'.IsType env (.access tensorExpr indices) (.dtype dtyp)
   | binOp {env op expL expR typL typR typRet} :
       op.IsType env.sc (.func (.tuple [typL, typR]) typRet)
       → Expr'.IsType env expL.expr typL
@@ -190,7 +234,7 @@ inductive Expr'.IsType {nnat ntyp : Nat} : Env nnat ntyp → Expr' → STyp nnat
   | call {env f args keywords typArgs typRet} :
       -- Note: We expect kwargs and default to be turned into positional arguments already.
       Expr'.IsType env f.expr (.func (.tuple typArgs) typRet)
-      → List.Forall₂ (Expr'.IsType env) (args.map Expr.expr) typArgs
+      → List.Expr'IsType env (args.map Expr.expr) typArgs
       → Expr'.IsType env (.call f args keywords) typRet
 
 end
