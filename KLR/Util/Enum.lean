@@ -7,7 +7,7 @@ import Lean
 import Util.Hex
 
 open KLR.Util.Hex(encode)
-open Lean(Syntax TSyntax TSyntaxArray mkIdent)
+open Lean(Syntax TSyntax TSyntaxArray ToJson mkIdent)
 open Lean.Elab.Command(CommandElab elabCommand liftTermElabM)
 open Lean.Parser.Term(matchAltExpr)
 open Lean.PrettyPrinter(ppCommand ppExpr ppTerm)
@@ -103,7 +103,7 @@ where
     -- dbg_trace (<- liftTermElabM <| ppCommand valuesFun)
     elabCommand valuesFun
     let instances <- `(
-      deriving instance BEq, DecidableEq, Inhabited, Repr for $name
+      deriving instance BEq, DecidableEq, Inhabited, Repr, ToJson for $name
     )
     elabCommand instances
     let fromUInt8!Name : Lean.Ident := mkIdent (.str typeName "fromUInt8!")
@@ -141,6 +141,11 @@ where
         UInt8.decLe a.toUInt8 b.toUInt8
     )
     elabCommand leDecidableInstance
+    let toStringInstance <- `(
+      instance : ToString $name where
+        toString x := ((reprStr x).splitOn ".").reverse.head!
+    )
+    elabCommand toStringInstance
 
 section Test
 
@@ -158,6 +163,7 @@ private enum Foo where
 #guard Foo.values == [.m, .q, .r, .x, .y, .z]
 #guard Foo.x < Foo.z
 #guard Foo.x <= Foo.z
+#guard toString Foo.x == "x"
 
 end Test
 

@@ -4,6 +4,8 @@ import Util.ToBytes
 
 namespace KLR.Util
 
+open Lean(Json ToJson toJson)
+
 structure Padding (n : Nat) where
 
 deriving Inhabited
@@ -30,6 +32,9 @@ instance : FromBytes (Padding n) where
       if byte != 0 then throw s!"Nonzero padding at index {i}"
       i := i + 1
     return (⟨⟩, arr.drop n)
+
+instance : ToJson (Padding n) where
+  toJson _ := Json.str s!"Padding of size {n}"
 
 end Padding
 
