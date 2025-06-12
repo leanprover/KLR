@@ -6,14 +6,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "klr-lang"
-version = "0.0.9"
+version = "0.0.10"
 authors = [
   {name = "Paul Govereau", email = "govereau@amazon.com"},
   {name = "Sean McLaughlin", email = "seanmcl@amazon.com"},
 ]
 description = "Intermediate langauge for tensor compilers"
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "Apache-2.0"
 keywords = ["trainium", "tpu", "pallas", "triton", "gpu"]
 
 # Note, dependencies here are "abstract" while the same
@@ -25,7 +25,7 @@ keywords = ["trainium", "tpu", "pallas", "triton", "gpu"]
 dependencies = [
   "numpy",
 ]
-requires-python = ">= 3.8" # cibuildwheel can't seem to handle eariler versions
+requires-python = ">= 3.9, < 3.13"
 
 [project.urls]
 Repository = "https://github.com/leanprover/KLR"
@@ -37,15 +37,24 @@ testpaths = [
 ]
 
 [tool.setuptools]
-packages = ["nki", "bin", "klr"] # This field is required to have more than 1 top level packages (nki/klr). It's not beautiful but it works.
+packages = ["klr"]
+#packages = ["nki", "bin", "klr"] # This field is required to have more than 1 top level packages (nki/klr). It's not beautiful but it works.
 
 # Build a fake C file to trick the `build` command to make an arch-specific wheel
 # We need this because we hide our `klr` Lean binary in the wheel but Python tools
 # don't know about it. I couldn't find another way to stop Python from generating
 # a generic `any` wheel.
 [[tool.setuptools.ext-modules]]
-name = "noop"
-sources = ["noop.c"]
+name = "klr.frontend"
+sources = [
+    "nkic/frontend.c"
+  , "nkic/gather.c"
+  , "nkic/peg_parser.c"
+  , "nkic/region.c"
+  #, "nkic/cbor.c"
+  #, "nkic/serde_python_core.c"
+  #, "nkic/serde_nki.c"
+  ]
 
 [tool.cibuildwheel]
 # Skip unsupported python versions as well as 32-bit platforms, which are not supported anymore.

@@ -1,3 +1,6 @@
 # All files must be below the python project root
-include bin/klr
-include bin/gather
+#include bin/klr
+#include bin/gather
+include nkic/README.md
+include nkic/*.[ch]
+graft nkic/peg_parser
