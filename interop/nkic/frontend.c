@@ -69,7 +69,22 @@ static PyObject* kernel_serialize(struct kernel *self, PyObject *args) {
     PyErr_SetString(PyExc_RuntimeError, "specialize must be called before serialize");
     return NULL;
   }
-  return PyByteArray_FromStringAndSize("unimp", 5);
+  const char *file = NULL;
+  if (!PyArg_ParseTuple(args, "s", &file)) {
+    // Exception set by ParseTuple
+    return NULL;
+  }
+
+  // TODO: this is Python Core, should be NKI
+  struct SerResult res = serialize_python(file, self->python_kernel);
+  if (!res.ok) {
+    PyErr_SetString(PyExc_RuntimeError, res.err);
+    return NULL;
+  }
+
+  PyObject *arr = PyByteArray_FromStringAndSize((const char*)res.bytes, res.size);
+  free(res.bytes);
+  return arr;
 }
 
 // frontend.version
@@ -90,8 +105,12 @@ static PyObject* deserialize(PyObject *self, PyObject *args) {
   }
   ssize_t size = PyByteArray_Size(ba);
   const u8* buf = (u8*)PyByteArray_AsString(ba);
-  (void)size;
-  (void)buf;
+  struct DesResult res = deserialize_python(buf, size);
+  if (!res.ok) {
+    PyErr_SetString(PyExc_RuntimeError, res.err);
+    return NULL;
+  }
+  // TODO: build python version of AST
   return Py_None;
 }
 
@@ -104,7 +123,7 @@ static PyObject* deserialize(PyObject *self, PyObject *args) {
 // and textwrap are pure python anyway.
 // Note: C23 #embed would be nice here
 // Note: These will no longer be needed when we upgrade the parser.
-const char utils[] = "\
+static const char utils[] = "\
 import inspect\n\
 import textwrap\n\
 def _get_src(f):\n\

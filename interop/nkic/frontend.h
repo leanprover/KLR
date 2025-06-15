@@ -45,3 +45,27 @@ void free_python_ast(struct _mod *m);
 
 // gather.c
 bool gather(struct kernel *k);
+
+// serde.c
+struct SerResult {
+  bool ok;
+  const char *err;
+  u8* bytes;
+  u64 size;
+};
+struct DesResult {
+  bool ok;
+  bool isNki;
+  const char *err;
+  struct region *region;
+  union {
+    struct Python_Kernel *python;
+    struct NKI_Kernel *nki;
+  };
+};
+
+struct SerResult serialize_python(const char *file, const struct Python_Kernel *k);
+struct DesResult deserialize_python(const u8 *buf, u64 size);
+
+struct SerResult serialize_nki(const char *file, const struct NKI_Kernel *k);
+struct DesResult deserialize_nki(const u8 *buf, u64 size);
