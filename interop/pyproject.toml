@@ -55,6 +55,7 @@ sources = [
   , "nkic/serde_common.c"
   , "nkic/serde_nki.c"
   , "nkic/serde_python_core.c"
+  , "nkic/topy_nki.c"
   ]
 
 [tool.cibuildwheel]

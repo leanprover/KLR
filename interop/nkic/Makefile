@@ -10,6 +10,7 @@ PY_LDFLAGS := $(shell ${PY_CFG} --ldflags)
 PY_LIBS    := "-lpython${PY_VER}"
 
 C := cbor.c serde_common.c serde_python_core.c serde_nki.c serde.c
+C += topy_nki.c
 C += region.c peg_parser.c gather.c frontend.c
 O := $(patsubst %.c,%.${PY_VER}.o,$C)
 

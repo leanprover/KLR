@@ -7,6 +7,7 @@ import Extract.Basic
 import Extract.C
 import Extract.Python
 import Extract.Serde
+import Extract.ToPython
 import Lean
 
 namespace Extract
@@ -31,3 +32,5 @@ run_meta do
   withFile s!"{dirC}/serde_python_core.c" Serde.generatePythonC
   withFile s!"{dirC}/serde_nki.h" Serde.generateNkiH
   withFile s!"{dirC}/serde_nki.c" Serde.generateNkiC
+  withFile s!"{dirC}/topy_nki.h" ToPython.generateNkiH
+  withFile s!"{dirC}/topy_nki.c" ToPython.generateNkiC
