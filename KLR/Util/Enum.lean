@@ -4,15 +4,17 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 -/
 import Lean
+import TensorLib.Common
 import Util.Hex
 
 open KLR.Util.Hex(encode)
-open Lean(Syntax TSyntax TSyntaxArray ToJson mkIdent)
-open Lean.Elab.Command(CommandElab elabCommand liftTermElabM)
+open Lean(FromJson Json Syntax TSyntax TSyntaxArray ToJson mkIdent fromJson? toJson)
+open Lean.Elab.Command(CommandElab CommandElabM elabCommand liftTermElabM)
 open Lean.Parser.Term(matchAltExpr)
 open Lean.PrettyPrinter(ppCommand ppExpr ppTerm)
+open TensorLib(get!)
 
-syntax item := Lean.Parser.Command.ctor ":=" num
+syntax item := Lean.Parser.Command.ctor (":=" num)?
 syntax items := manyIndent(item)
 syntax (name := enumcmd) "private"? "enum" ident "where" items : command
 
@@ -33,19 +35,40 @@ private def u8ToHex (x : UInt8) : String := "0x" ++ (encode ⟨ #[x] ⟩).toUppe
 
 #guard u8ToHex 0xff == "0xFF"
 
+private partial def nextNat (nats : Array Nat) (current : Nat) : Array Nat × Nat :=
+  if nats.contains current
+  then nextNat nats (current + 1)
+  else (nats.push current, current)
+
 @[command_elab enumcmd]
 def elabEnum : CommandElab
-| `(enum $name where $items*) => doit false name items
-| `(private enum $name where $items*) => doit true name items
+| `(enum $name:ident where $items:item*) => doit false name items
+| `(private enum $name:ident where $items:item*) => doit true name items
 | _ => throwError "invalid enum syntax"
 where
-  doit (priv : Bool) (name : TSyntax `ident) (items : TSyntaxArray `item) := do
+  doit (priv : Bool) (name : TSyntax `ident) (items : TSyntaxArray `item) : CommandElabM Unit := do
     let mut values : List (TSyntax `Lean.Parser.Command.ctor × TSyntax `num) := []
     let mut ctors : Array (TSyntax `Lean.Parser.Command.ctor) := #[]
+    let mut numValues : Array Nat := #[]
+    let mut current : Nat := 0 -- The next value to use for an un-numbered constructor
     for item in items do
       match item with
-      | `(item| $id := $v) => do
+      | `(item| $_:ctor := $v:num) => do
+        numValues := numValues.push v.getNat
+      | _ => continue
+    -- dbg_trace "numValues: {numValues}"
+    for item in items do
+      match item with
+      | `(item| $id:ctor := $v:num) => do
         values := (id, v) :: values
+        ctors := ctors.push id
+      | `(item| $id:ctor) => do
+        let id := ⟨id⟩
+        let (numValues', current') := nextNat numValues current
+        numValues := numValues'
+        current := current'
+        values := (id, Syntax.mkNumLit (toString current)) :: values
+        current := current + 1
         ctors := ctors.push id
       | e => throwError s!"invalid enum item {e}"
     let nums := (values.map fun (_, n) => n.getNat)
@@ -68,6 +91,7 @@ where
     let toUInt8Name := mkIdent (.str typeName "toUInt8")
     let mut cases : Array (TSyntax `Lean.Parser.Term.matchAltExpr) := #[]
     let mut terms : Array (TSyntax `term) := #[]
+    -- let nums' : Array Nat := nums.map fun n => n.
     for (c, n) in values do
       -- TODO: How should I actually turn a ctor to a term?
       -- Sketchy to grab the 3rd field, but I saw this in dbg_trace:
@@ -103,7 +127,7 @@ where
     -- dbg_trace (<- liftTermElabM <| ppCommand valuesFun)
     elabCommand valuesFun
     let instances <- `(
-      deriving instance BEq, DecidableEq, Inhabited, Repr, ToJson for $name
+      deriving instance BEq, DecidableEq, FromJson, Inhabited, Repr, ToJson for $name
     )
     elabCommand instances
     let fromUInt8!Name : Lean.Ident := mkIdent (.str typeName "fromUInt8!")
@@ -150,20 +174,32 @@ where
 section Test
 
 private enum Foo where
-  | x := 4
-  | y := 6
+  | x
+  | y
   | z := 5
-  | q := 0
+  | q := 1
   | r := 9
   | m := 10
+  | n
 
-#guard Foo.x.toUInt8 == 4
+#guard Foo.x.toUInt8 == 0
+#guard Foo.y.toUInt8 == 2
+#guard Foo.n.toUInt8 == 3
 #guard Foo.fromUInt8! Foo.x.toUInt8 == Foo.x
 #guard Foo.fromUInt8! Foo.m.toUInt8 == Foo.m
-#guard Foo.values == [.m, .q, .r, .x, .y, .z]
+#guard Foo.values == [.m, .n, .q, .r, .x, .y, .z]
 #guard Foo.x < Foo.z
 #guard Foo.x <= Foo.z
 #guard toString Foo.x == "x"
+#guard toJson Foo.x == Json.str "x"
+#guard get! (fromJson? "x") == Foo.x
+
+private enum Bar where
+  | x
+  | y
+  | z
+
+#guard Bar.values == [.x, .y, .z]
 
 end Test
 
