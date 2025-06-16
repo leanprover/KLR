@@ -967,7 +967,7 @@ bool NKI_Expr_List_des(FILE *in, struct region *region,
   u64 count = 0;
   if (!cbor_decode_array_start(in, &count))
     return false;
-  struct NKI_Expr_List *current = NULL;
+  struct NKI_Expr_List *current = *x = NULL;
   for (; count > 0; count--) {
     struct NKI_Expr_List *node = region_alloc(region, sizeof(*node));
     node->next = NULL;
@@ -988,7 +988,7 @@ bool NKI_Index_List_des(FILE *in, struct region *region,
   u64 count = 0;
   if (!cbor_decode_array_start(in, &count))
     return false;
-  struct NKI_Index_List *current = NULL;
+  struct NKI_Index_List *current = *x = NULL;
   for (; count > 0; count--) {
     struct NKI_Index_List *node = region_alloc(region, sizeof(*node));
     node->next = NULL;
@@ -1009,7 +1009,7 @@ bool NKI_Keyword_List_des(FILE *in, struct region *region,
   u64 count = 0;
   if (!cbor_decode_array_start(in, &count))
     return false;
-  struct NKI_Keyword_List *current = NULL;
+  struct NKI_Keyword_List *current = *x = NULL;
   for (; count > 0; count--) {
     struct NKI_Keyword_List *node = region_alloc(region, sizeof(*node));
     node->next = NULL;
@@ -1041,7 +1041,7 @@ bool NKI_Stmt_List_des(FILE *in, struct region *region,
   u64 count = 0;
   if (!cbor_decode_array_start(in, &count))
     return false;
-  struct NKI_Stmt_List *current = NULL;
+  struct NKI_Stmt_List *current = *x = NULL;
   for (; count > 0; count--) {
     struct NKI_Stmt_List *node = region_alloc(region, sizeof(*node));
     node->next = NULL;
@@ -1062,7 +1062,7 @@ bool NKI_Param_List_des(FILE *in, struct region *region,
   u64 count = 0;
   if (!cbor_decode_array_start(in, &count))
     return false;
-  struct NKI_Param_List *current = NULL;
+  struct NKI_Param_List *current = *x = NULL;
   for (; count > 0; count--) {
     struct NKI_Param_List *node = region_alloc(region, sizeof(*node));
     node->next = NULL;
@@ -1083,7 +1083,7 @@ bool NKI_Fun_List_des(FILE *in, struct region *region,
   u64 count = 0;
   if (!cbor_decode_array_start(in, &count))
     return false;
-  struct NKI_Fun_List *current = NULL;
+  struct NKI_Fun_List *current = *x = NULL;
   for (; count > 0; count--) {
     struct NKI_Fun_List *node = region_alloc(region, sizeof(*node));
     node->next = NULL;
@@ -1104,7 +1104,7 @@ bool NKI_Arg_List_des(FILE *in, struct region *region,
   u64 count = 0;
   if (!cbor_decode_array_start(in, &count))
     return false;
-  struct NKI_Arg_List *current = NULL;
+  struct NKI_Arg_List *current = *x = NULL;
   for (; count > 0; count--) {
     struct NKI_Arg_List *node = region_alloc(region, sizeof(*node));
     node->next = NULL;

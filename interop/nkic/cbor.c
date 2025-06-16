@@ -349,13 +349,17 @@ bool cbor_decode_string(FILE *in, char **s, void*(alloc)(void*,size_t), void *ar
   if (!decode_uint(in, &len, &major) || major != CBOR_TEXTSTR)
     return false;
 
+  if (len > 0x10000)
+    return false;
+
   if (alloc == NULL)
-    *s = malloc(len);
+    *s = malloc(len+1);
   else
-    *s = alloc(arg, len);
+    *s = alloc(arg, len+1);
   if (!*s)
     return false;
 
+  (*s)[len] = 0;
   return read_bytes(in, (u8*)(*s), len);
 }
 

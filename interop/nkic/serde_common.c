@@ -142,7 +142,7 @@ bool Bool_List_des(FILE *in, struct region *region, struct Bool_List **x) {
   u64 count = 0;
   if (!cbor_decode_array_start(in, &count))
     return false;
-  struct Bool_List *current = NULL;
+  struct Bool_List *current = *x = NULL;
   for (; count > 0; count--) {
     struct Bool_List *node = region_alloc(region, sizeof(*node));
     node->next = NULL;
@@ -162,7 +162,7 @@ bool Nat_List_des(FILE *in, struct region *region, struct Nat_List **x) {
   u64 count = 0;
   if (!cbor_decode_array_start(in, &count))
     return false;
-  struct Nat_List *current = NULL;
+  struct Nat_List *current = *x = NULL;
   for (; count > 0; count--) {
     struct Nat_List *node = region_alloc(region, sizeof(*node));
     node->next = NULL;
@@ -182,7 +182,7 @@ bool Int_List_des(FILE *in, struct region *region, struct Int_List **x) {
   u64 count = 0;
   if (!cbor_decode_array_start(in, &count))
     return false;
-  struct Int_List *current = NULL;
+  struct Int_List *current = *x = NULL;
   for (; count > 0; count--) {
     struct Int_List *node = region_alloc(region, sizeof(*node));
     node->next = NULL;
@@ -202,7 +202,7 @@ bool Float_List_des(FILE *in, struct region *region, struct Float_List **x) {
   u64 count = 0;
   if (!cbor_decode_array_start(in, &count))
     return false;
-  struct Float_List *current = NULL;
+  struct Float_List *current = *x = NULL;
   for (; count > 0; count--) {
     struct Float_List *node = region_alloc(region, sizeof(*node));
     node->next = NULL;
@@ -222,7 +222,7 @@ bool String_List_des(FILE *in, struct region *region, struct String_List **x) {
   u64 count = 0;
   if (!cbor_decode_array_start(in, &count))
     return false;
-  struct String_List *current = NULL;
+  struct String_List *current = *x = NULL;
   for (; count > 0; count--) {
     struct String_List *node = region_alloc(region, sizeof(*node));
     node->next = NULL;

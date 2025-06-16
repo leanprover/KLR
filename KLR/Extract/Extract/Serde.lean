@@ -131,7 +131,7 @@ private def genListDes (ty : SimpleType) : MetaM Unit := do
   let vname := (C.varName ty.name).toLower
   IO.println s!"u64 count = 0;
     if (!cbor_decode_array_start(in, &count)) return false;
-    {tname} current = NULL;
+    {tname} current = *x = NULL;
     for (; count > 0; count--) \{
       {tname} node = region_alloc(region, sizeof(*node));
       node->next = NULL;

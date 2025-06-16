@@ -1259,7 +1259,7 @@ bool Python_Expr_List_des(FILE *in, struct region *region,
   u64 count = 0;
   if (!cbor_decode_array_start(in, &count))
     return false;
-  struct Python_Expr_List *current = NULL;
+  struct Python_Expr_List *current = *x = NULL;
   for (; count > 0; count--) {
     struct Python_Expr_List *node = region_alloc(region, sizeof(*node));
     node->next = NULL;
@@ -1292,7 +1292,7 @@ bool Python_CmpOp_List_des(FILE *in, struct region *region,
   u64 count = 0;
   if (!cbor_decode_array_start(in, &count))
     return false;
-  struct Python_CmpOp_List *current = NULL;
+  struct Python_CmpOp_List *current = *x = NULL;
   for (; count > 0; count--) {
     struct Python_CmpOp_List *node = region_alloc(region, sizeof(*node));
     node->next = NULL;
@@ -1313,7 +1313,7 @@ bool Python_Keyword_List_des(FILE *in, struct region *region,
   u64 count = 0;
   if (!cbor_decode_array_start(in, &count))
     return false;
-  struct Python_Keyword_List *current = NULL;
+  struct Python_Keyword_List *current = *x = NULL;
   for (; count > 0; count--) {
     struct Python_Keyword_List *node = region_alloc(region, sizeof(*node));
     node->next = NULL;
@@ -1334,7 +1334,7 @@ bool Python_Stmt_List_des(FILE *in, struct region *region,
   u64 count = 0;
   if (!cbor_decode_array_start(in, &count))
     return false;
-  struct Python_Stmt_List *current = NULL;
+  struct Python_Stmt_List *current = *x = NULL;
   for (; count > 0; count--) {
     struct Python_Stmt_List *node = region_alloc(region, sizeof(*node));
     node->next = NULL;
@@ -1355,7 +1355,7 @@ bool Python_Fun_List_des(FILE *in, struct region *region,
   u64 count = 0;
   if (!cbor_decode_array_start(in, &count))
     return false;
-  struct Python_Fun_List *current = NULL;
+  struct Python_Fun_List *current = *x = NULL;
   for (; count > 0; count--) {
     struct Python_Fun_List *node = region_alloc(region, sizeof(*node));
     node->next = NULL;

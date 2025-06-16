@@ -11,10 +11,10 @@ PY_LIBS    := "-lpython${PY_VER}"
 
 C := cbor.c serde_common.c serde_python_core.c serde_nki.c serde.c
 C += topy_nki.c
-C += region.c peg_parser.c gather.c frontend.c
+C += region.c peg_parser.c gather.c simplify.c frontend.c
 O := $(patsubst %.c,%.${PY_VER}.o,$C)
 
-TESTS := cbor_test
+TESTS := cbor_test simplify_test
 
 .SUFFIXES:
 .PHONY: all versions test clean
@@ -42,5 +42,5 @@ frontend${PY_EXT}: $(O)
 	clang -std=c17 $^ -dynamiclib -o $@ ${PY_LDFLAGS} ${PY_LIBS}
 
 %_test: %_test.c %.c
-	clang -std=c17 -Wall -Wextra $< -o $@
+	clang -std=c17 -Wall -Wextra ${PY_CFLAGS} $< -o $@
 	./$@

@@ -52,9 +52,11 @@ sources = [
   , "nkic/gather.c"
   , "nkic/peg_parser.c"
   , "nkic/region.c"
+  , "nkic/serde.c"
   , "nkic/serde_common.c"
   , "nkic/serde_nki.c"
   , "nkic/serde_python_core.c"
+  , "nkic/simplify.c"
   , "nkic/topy_nki.c"
   ]
 

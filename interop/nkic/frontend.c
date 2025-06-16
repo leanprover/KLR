@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 */
 #include "frontend.h"
+#include "topy_nki.h"
 
 // This file defines the frontend Python extension module and the
 // Kernel type contained therein.
@@ -31,12 +32,14 @@ static int kernel_init(struct kernel *self, PyObject *args, PyObject *kwds) {
   Py_INCREF(f);
   self->f = f;
   self->specialized = false;
-  self->region = NULL;
+  self->python_region = NULL;
   self->python_kernel = NULL;
+  self->nki_region = NULL;
   self->nki_kernel = NULL;
 
   if (!gather(self)) {
-    Py_DECREF(self->f);
+    if (!PyErr_Occurred())
+      PyErr_SetString(PyExc_RuntimeError, "Unable to fetch NKI function from Python Environment");
     return -1;
   }
   return 0;
@@ -46,8 +49,10 @@ static int kernel_init(struct kernel *self, PyObject *args, PyObject *kwds) {
 static void kernel_dealloc(struct kernel *self) {
   if (!self) return;
   Py_XDECREF(self->f); // NULL is OK
-  if (self->region)
-    region_destroy(self->region);
+  if (self->python_region)
+    region_destroy(self->python_region);
+  if (self->nki_region)
+    region_destroy(self->nki_region);
   Py_TYPE(self)->tp_free((PyObject *) self);
 }
 
@@ -58,6 +63,15 @@ static PyObject* kernel_specialize(struct kernel *self, PyObject *args, PyObject
     PyErr_BadArgument();
     return NULL;
   }
+
+  struct SimpResult res = simplify(self->python_kernel);
+  if (!res.ok) {
+    PyErr_SetString(PyExc_RuntimeError, res.err);
+    return NULL;
+  }
+
+  self->nki_region = res.region;
+  self->nki_kernel = res.kernel;
   self->specialized = true;
   return Py_None;
 }
@@ -65,7 +79,7 @@ static PyObject* kernel_specialize(struct kernel *self, PyObject *args, PyObject
 // frontend.Kernel.serialize
 static PyObject* kernel_serialize(struct kernel *self, PyObject *args) {
   (void)args;
-  if (!self->specialized) {
+  if (!self->specialized || !self->nki_kernel) {
     PyErr_SetString(PyExc_RuntimeError, "specialize must be called before serialize");
     return NULL;
   }
@@ -75,8 +89,7 @@ static PyObject* kernel_serialize(struct kernel *self, PyObject *args) {
     return NULL;
   }
 
-  // TODO: this is Python Core, should be NKI
-  struct SerResult res = serialize_python(file, self->python_kernel);
+  struct SerResult res = serialize_nki(file, self->nki_kernel);
   if (!res.ok) {
     PyErr_SetString(PyExc_RuntimeError, res.err);
     return NULL;
@@ -105,13 +118,16 @@ static PyObject* deserialize(PyObject *self, PyObject *args) {
   }
   ssize_t size = PyByteArray_Size(ba);
   const u8* buf = (u8*)PyByteArray_AsString(ba);
-  struct DesResult res = deserialize_python(buf, size);
+  struct DesResult res = deserialize_nki(buf, size);
   if (!res.ok) {
     PyErr_SetString(PyExc_RuntimeError, res.err);
     return NULL;
   }
-  // TODO: build python version of AST
-  return Py_None;
+
+  PyObject *obj = NKI_Kernel_topy(res.nki);
+  if (!obj)
+    PyErr_SetString(PyExc_RuntimeError, "Could not construct Python AST");
+  return obj;
 }
 
 // ----------------------------------------------------------------------------
@@ -140,7 +156,7 @@ def _bind_args(f, args, kwargs):\n\
 static PyMethodDef KernelMethods[] = {
   { "specialize", (void*)kernel_specialize, METH_VARARGS|METH_KEYWORDS,
     "Provide arguments for specializing kernel" },
-  { "serialize", (void*)kernel_serialize, METH_NOARGS,
+  { "serialize", (void*)kernel_serialize, METH_VARARGS,
     "Serialize a NKI Kernel to a ByteArray" },
   { NULL, NULL, 0, NULL }
 };

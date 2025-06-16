@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin, Claude
 */
 #include "stdc.h"
+#include "region.c"
 #include "cbor.c"
 #include <math.h>
 #include <stdio.h>

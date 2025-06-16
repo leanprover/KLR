@@ -45,9 +45,9 @@ write_file(
   if (!out)
     ERR("could not open output file for writing");
 
-  if (fwrite(out, sizeof(clsFile), 1, out) != 1)
+  if (!Serde_KLRFile_ser(out, &clsFile))
     ERR("error writing file header");
-  if (fwrite(out, sizeof(data), 1, out) != 1)
+  if (!Serde_KLRMetaData_ser(out, &data))
     ERR("error writing file meta-data");
   if (!f(out, value))
     ERR("error writing file data");
@@ -60,11 +60,11 @@ write_file(
   out = open_memstream(&buf, &size);
   if (!out)
     ERR("could not create call-site buffer");
-  if (fwrite(out, sizeof(clsFile), 1, out) != 1)
+  if (!Serde_KLRFile_ser(out, &clsFile))
     ERR("error writing call-site header");
-  if (fwrite(out, sizeof(data), 1, out) != 1)
+  if (!Serde_KLRMetaData_ser(out, &data))
     ERR("error writing call-site meta-data");
-  if (!String_ser(out, format))
+  if (!String_ser(out, file))
     ERR("Error writing call-site buffer");
   if (fclose(out))
     ERR("Error finalizing call-site buffer");
@@ -169,7 +169,7 @@ serialize_nki(const char *file, const struct NKI_Kernel *k) {
 
 struct DesResult
 deserialize_nki(const u8 *buf, u64 size) {
-  struct DesResult res = read_file(buf, size, "NKI", (des_fn)Python_Kernel_des);
+  struct DesResult res = read_file(buf, size, "NKI", (des_fn)NKI_Kernel_des);
   res.isNki = true;
   return res;
 }

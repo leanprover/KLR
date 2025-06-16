@@ -978,9 +978,16 @@ static struct Python_Stmt_List* stmts(struct state *st, asdl_stmt_seq *python) {
 
 static PyObject* get_util(const char *name) {
   PyObject *f = NULL;
-  PyObject *fe = PyUnicode_FromString("frontend");
+  PyObject *fe = PyUnicode_FromString("klr.frontend");
   if (fe) {
     PyObject *m = PyImport_GetModule(fe);
+    if (!m) {
+      // TODO this is a hack for testing
+      Py_DECREF(fe);
+      fe = PyUnicode_FromString("frontend");
+      if (fe)
+        m = PyImport_GetModule(fe);
+    }
     if (m) {
       f = PyObject_GetAttrString(m, name);
       Py_DECREF(m);
@@ -1040,7 +1047,6 @@ done:
 static struct Python_Fun* function(struct state *st, PyObject *f) {
   struct scope old_scope = st->scope;
   struct _mod *m = parse_function(st, f);
-  printf("got Python AST = %p\n", m);
 
   if (!m ||
       m->kind != Interactive_kind ||
@@ -1062,7 +1068,7 @@ static struct Python_Fun* function(struct state *st, PyObject *f) {
   char *name = py_fun_name(st, f);
   struct Python_Fun *fn = NULL;
   if (as && body && name) {
-    fn = region_alloc(st->region, sizeof(*f));
+    fn = region_alloc(st->region, sizeof(*fn));
     fn->name = name;
     fn->line = st->scope.line_offset;
     fn->source = st->scope.src;
@@ -1104,16 +1110,27 @@ bool gather(struct kernel *k) {
     st.funs = node;
   }
 
+  if (result) {
+    struct Python_Kernel *python = region_alloc(st.region, sizeof(*python));
+    python->entry = py_fun_name(&st, k->f);
+    python->funcs = st.funs;
+    python->args = NULL;
+    python->globals = st.globals;
+    python->undefinedSymbols = NULL;
+
+    k->python_kernel = python;
+  }
+
   // TODO: just for testing
+  /*
   for (struct Python_Fun_List *node = st.funs; node; node = node->next) {
     struct Python_Fun *f = node->fun;
-    printf("FUN name = %s (line %d)\n", f->name, f->line);
+    printf("FUN name = %s (line %d) %p %p\n", f->name, f->line, f, f->args);
   }
   for (struct Python_Keyword_List *node = st.globals; node; node = node->next) {
     printf("GLOBAL %s = %d\n", node->keyword->id, node->keyword->value->expr->tag);
   }
-
-  // TODO: just for testing... need to return AST
-  region_destroy(st.region);
+  */
+  //region_destroy(st.region);
   return result;
 }
