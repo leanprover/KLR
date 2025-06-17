@@ -17,20 +17,19 @@ private def withFile (file : String) (m : MetaM Unit) : MetaM Unit := do
   let h <- IO.FS.Handle.mk file IO.FS.Mode.write
   IO.withStdout (.ofHandle h) m
 
-private def dirC  := "../../interop/nkic"
-private def dirPy := "../../interop/klr"
+private def dir := "../../interop/klr"
 
 run_meta do
-  withFile s!"{dirC}/ast_common.h" C.generateCommonAST
-  withFile s!"{dirC}/ast_python_core.h" C.generatePythonAST
+  withFile s!"{dir}/ast_common.h" C.generateCommonAST
+  withFile s!"{dir}/ast_python_core.h" C.generatePythonAST
   --withFile s!"{dir}/ast_python_core.py" Python.generatePythonAST
-  withFile s!"{dirC}/ast_nki.h" C.generateNkiAST
-  withFile s!"{dirPy}/ast_nki.py" Python.generateNkiAST
-  withFile s!"{dirC}/serde_common.h" Serde.generateCommonH
-  withFile s!"{dirC}/serde_common.c" Serde.generateCommonC
-  withFile s!"{dirC}/serde_python_core.h" Serde.generatePythonH
-  withFile s!"{dirC}/serde_python_core.c" Serde.generatePythonC
-  withFile s!"{dirC}/serde_nki.h" Serde.generateNkiH
-  withFile s!"{dirC}/serde_nki.c" Serde.generateNkiC
-  withFile s!"{dirC}/topy_nki.h" ToPython.generateNkiH
-  withFile s!"{dirC}/topy_nki.c" ToPython.generateNkiC
+  withFile s!"{dir}/ast_nki.h" C.generateNkiAST
+  withFile s!"{dir}/ast_nki.py" Python.generateNkiAST
+  withFile s!"{dir}/serde_common.h" Serde.generateCommonH
+  withFile s!"{dir}/serde_common.c" Serde.generateCommonC
+  withFile s!"{dir}/serde_python_core.h" Serde.generatePythonH
+  withFile s!"{dir}/serde_python_core.c" Serde.generatePythonC
+  withFile s!"{dir}/serde_nki.h" Serde.generateNkiH
+  withFile s!"{dir}/serde_nki.c" Serde.generateNkiC
+  withFile s!"{dir}/topy_nki.h" ToPython.generateNkiH
+  withFile s!"{dir}/topy_nki.c" ToPython.generateNkiC

@@ -981,13 +981,6 @@ static PyObject* get_util(const char *name) {
   PyObject *fe = PyUnicode_FromString("klr.frontend");
   if (fe) {
     PyObject *m = PyImport_GetModule(fe);
-    if (!m) {
-      // TODO this is a hack for testing
-      Py_DECREF(fe);
-      fe = PyUnicode_FromString("frontend");
-      if (fe)
-        m = PyImport_GetModule(fe);
-    }
     if (m) {
       f = PyObject_GetAttrString(m, name);
       Py_DECREF(m);
