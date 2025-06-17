@@ -14,18 +14,34 @@ open Lean.Elab(registerDerivingHandler)
 open Lean.Elab.Command(CommandElabM liftTermElabM elabCommand)
 open Lean.Elab.Deriving(Context Header mkContext mkHeader mkInstanceCmds)
 open Lean.Elab.Term(TermElabM)
-open TensorLib(impossible)
+open TensorLib(Err impossible)
 
 namespace KLR.Util
 
 class FromBytes (a : Type) where
   fromBytesUnchecked : ByteArray -> Except String (a × ByteArray)
 
--- TODO: not sure how to use this yet from the macros
-def fromBytes (a : Type) [H : Inhabited a] [NumBytes a] [FromBytes a] (arr : ByteArray) : Except String (a × ByteArray) :=
+def fromBytes (a : Type) [H : Inhabited a] [NumBytes a] [FromBytes a] (arr : ByteArray) : Err (a × ByteArray) :=
   if arr.size < numBytes H.default then throw "Not enough bytes" else FromBytes.fromBytesUnchecked arr
 
 namespace FromBytes
+
+-- Ensure we consume the entire input
+def fromBytes' (a : Type) [H : Inhabited a] [NumBytes a] [FromBytes a] (arr : ByteArray) : Err a := do
+  let (x, arr) <- fromBytes a arr
+  if arr.size != 0 then throw "Unconsumed bytes" else return x
+
+-- Keep consuming until the input is exhausted
+def array (a : Type) [Inhabited a] [NumBytes a] [FromBytes a] (arr : ByteArray) : Err (Array a) := do
+  let size := numBytes (default:a)
+  if arr.size % size != 0 then throw "Array size not a multiple of element size" else
+  let mut res := #[]
+  let mut arr := arr
+  for _ in [0:arr.size / size] do
+    let (x, arr') <- fromBytes a arr
+    arr := arr'
+    res := res.push x
+  return res
 
 instance : FromBytes UInt8 where
   fromBytesUnchecked arr := return (arr[0]!, arr.drop 1)
