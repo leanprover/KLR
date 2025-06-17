@@ -64,6 +64,9 @@ static PyObject* kernel_specialize(struct kernel *self, PyObject *args, PyObject
     return NULL;
   }
 
+  if (!specialize(self, args, kws))
+    return NULL;
+
   struct SimpResult res = simplify(self->python_kernel);
   if (!res.ok) {
     PyErr_SetString(PyExc_RuntimeError, res.err);
@@ -76,9 +79,30 @@ static PyObject* kernel_specialize(struct kernel *self, PyObject *args, PyObject
   return Py_None;
 }
 
+// frontend.Kernel._serialize_python
+static PyObject* kernel_serialize_python(struct kernel *self, PyObject *args) {
+  if (!self->python_kernel) {
+    PyErr_SetString(PyExc_RuntimeError, "no python kernel available");
+    return NULL;
+  }
+  const char *file = NULL;
+  if (!PyArg_ParseTuple(args, "s", &file)) {
+    // Exception set by ParseTuple
+    return NULL;
+  }
+
+  struct SerResult res = serialize_python(file, self->python_kernel);
+  if (!res.ok) {
+    PyErr_SetString(PyExc_RuntimeError, res.err);
+    return NULL;
+  }
+
+  free(res.bytes);
+  return Py_None;
+}
+
 // frontend.Kernel.serialize
 static PyObject* kernel_serialize(struct kernel *self, PyObject *args) {
-  (void)args;
   if (!self->specialized || !self->nki_kernel) {
     PyErr_SetString(PyExc_RuntimeError, "specialize must be called before serialize");
     return NULL;
@@ -154,10 +178,12 @@ def _bind_args(f, args, kwargs):\n\
 ";
 
 static PyMethodDef KernelMethods[] = {
-  { "specialize", (void*)kernel_specialize, METH_VARARGS|METH_KEYWORDS,
-    "Provide arguments for specializing kernel" },
+  { "_serialize_python", (void*)kernel_serialize_python, METH_VARARGS,
+    "Serialize the intermediate Python Kernel to a ByteArray" },
   { "serialize", (void*)kernel_serialize, METH_VARARGS,
     "Serialize a NKI Kernel to a ByteArray" },
+  { "specialize", (void*)kernel_specialize, METH_VARARGS|METH_KEYWORDS,
+    "Provide arguments for specializing kernel" },
   { NULL, NULL, 0, NULL }
 };
 

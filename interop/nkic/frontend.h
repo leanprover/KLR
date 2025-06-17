@@ -46,6 +46,7 @@ void free_python_ast(struct _mod *m);
 
 // gather.c
 bool gather(struct kernel *k);
+bool specialize(struct kernel *k, PyObject *args, PyObject *kws);
 
 // simplify.c
 struct SimpResult {

@@ -1080,7 +1080,7 @@ static struct Python_Fun* function(struct state *st, PyObject *f) {
   return fn;
 }
 
-// -- Entry point
+// -- Entry points
 
 bool gather(struct kernel *k) {
   struct state st = {
@@ -1114,23 +1114,85 @@ bool gather(struct kernel *k) {
     struct Python_Kernel *python = region_alloc(st.region, sizeof(*python));
     python->entry = py_fun_name(&st, k->f);
     python->funcs = st.funs;
-    python->args = NULL;
+    python->args = NULL; // filled in by specialize
     python->globals = st.globals;
-    python->undefinedSymbols = NULL;
+    python->kwargs = NULL; // filled in by specialize
+    python->undefinedSymbols = NULL; // TODO
 
+    k->python_region = st.region;
     k->python_kernel = python;
   }
-
-  // TODO: just for testing
-  /*
-  for (struct Python_Fun_List *node = st.funs; node; node = node->next) {
-    struct Python_Fun *f = node->fun;
-    printf("FUN name = %s (line %d) %p %p\n", f->name, f->line, f, f->args);
-  }
-  for (struct Python_Keyword_List *node = st.globals; node; node = node->next) {
-    printf("GLOBAL %s = %d\n", node->keyword->id, node->keyword->value->expr->tag);
-  }
-  */
-  //region_destroy(st.region);
   return result;
+}
+
+bool specialize(struct kernel *k, PyObject *args, PyObject *kws) {
+  if (!k || !k->python_region) {
+    PyErr_SetString(PyExc_RuntimeError, "No valid kernel for specialize");
+    return false;
+  }
+
+  struct state st = {
+    .region = k->python_region,
+    .work = NULL,
+    .funs = NULL,
+    .globals = NULL,
+    .scope = { 0 }
+  };
+
+  if (args) {
+    if (!PyTuple_Check(args)) {
+      PyErr_SetString(PyExc_ValueError, "Invalid arguments: args is not a tuple");
+      return false;
+    }
+    struct Python_Expr_List **es = &k->python_kernel->args;
+    Py_ssize_t size = PyTuple_Size(args);
+    for (Py_ssize_t i = 0; i < size; i++) {
+      // Note PyTuple_GetItem returns a borrowed reference
+      PyObject *arg = PyTuple_GetItem(args, i);
+      struct Python_Expr *e = const_expr(&st, arg);
+      if (!e) {
+        PyErr_Format(PyExc_ValueError, "%S is not a supported NKI type", arg);
+        return false;
+      }
+      *es = region_alloc(st.region, sizeof(**es));
+      (*es)->expr = e;
+      (*es)->next = NULL;
+      es = &(*es)->next;
+    }
+  }
+
+  if (kws) {
+    if (!PyDict_Check(kws)) {
+      PyErr_SetString(PyExc_ValueError, "Invalid arguments: kwargs is not a dictionary");
+      return false;
+    }
+
+    struct Python_Keyword_List **kw = &k->python_kernel->kwargs;
+    Py_ssize_t pos = 0;
+    PyObject *key, *val;
+    while (PyDict_Next(kws, &pos, &key, &val)) {
+      char *s = py_strdup(&st, key);
+      if (!s)
+        return false;
+
+      struct Python_Expr *e = const_expr(&st, val);
+      if (!e) {
+        PyErr_Format(PyExc_ValueError, "%S is not a supported NKI type", val);
+        return NULL;
+      }
+
+      *kw = region_alloc(st.region, sizeof(**kw));
+      (*kw)->keyword = region_alloc(st.region, sizeof(struct Python_Keyword));
+      (*kw)->keyword->pos = region_alloc(st.region, sizeof(struct Python_Pos));
+      (*kw)->keyword->id = s;
+      (*kw)->keyword->value = e;
+      (*kw)->keyword->pos->lineno = 0;
+      (*kw)->keyword->pos->end_lineno = 0;
+      (*kw)->keyword->pos->col_offset = 0;
+      (*kw)->keyword->pos->end_col_offset = 0;
+      (*kw)->next = NULL;
+      kw = &(*kw)->next;
+    }
+  }
+  return true;
 }
