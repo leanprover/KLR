@@ -33,12 +33,10 @@ FLAGS:
     --version   Prints the version.
 
 SUBCOMMANDS:
-    compile     Compile Python to BIR
     gather      Gather Python sources into an AST file
     nki-to-klr  Compile NKI kernel to KLR
     parse-ast   Parse Python AST file
     parse-klr   Display information about a KLR file
-    parse-bir   Parse a BIR Json file
     trace       Trace Python to KLR
     trace-api   Trace Python to KLR (API version)
 ```
@@ -193,7 +191,6 @@ title: KLR Compilation Flow
 graph LR
   Python -- gather --> AST
   AST -- trace --> KLR
-  KLR -- compile --> BIR
 ```
 
 1. The **gather** step parses the Python kernel function, and recursively finds
@@ -274,15 +271,6 @@ The third command `klr compile` compiles a KLR file.
 # klr compile test_kernel.klr
 ```
 
-If successful, this command will produce a file called `test_kernel.bir`
-containing the result of compilation.
-
-Once generated, the BIR file can be examined with the `parse-bir` command.
-
-```
-# klr parse-bir test_kernel.bir
-```
-
 ## Overview of the Source Tree
 
 The high-level organization of the KLR source tree is:
@@ -291,5 +279,4 @@ The high-level organization of the KLR source tree is:
 - **KLR/Python** Lean representation of the Python AST
 - **KLR/Core** The definition of the KLR Core language
 - **KLR/Trace** Implementation of the trace step
-- **KLR/BIR** Implementation of the compile step
 - **Main.lean** The CLI driver
