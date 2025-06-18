@@ -360,6 +360,7 @@ def compileOp (o : StableHLO.Parsing.Operation) : Compile (List Statement) := do
     | .subtract =>  makeBinOp .sub
     | .exponential => makeUnOp .exp
     | .divide =>  makeBinOp .div
+    | .maximum =>  makeBinOp .max
     | .transpose => do
         log "transpose"
         let input := inputValues[0]!
