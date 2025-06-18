@@ -27,7 +27,7 @@ lean_exe "klr" where
   moreLinkArgs := moreLinkArgs
   supportInterpreter := true
 
-require Archive from "KLR/Util/Archive"
+--require Archive from "KLR/Util/Archive"
 
 require Cli from git
   "https://github.com/leanprover/lean4-cli.git" @ "v4.20.0"
@@ -41,6 +41,9 @@ require plausible from git
 
 require TensorLib from git
   "https://github.com/leanprover/TensorLib.git" @ "v0.0.11"
+
+require SHerLOC from git
+  "https://github.com/leanprover/SHerLOC.git" @ "main"
 
 -- Comment the above and uncomment this for local development
 -- require TensorLib from "../TensorLib"
