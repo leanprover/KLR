@@ -6,17 +6,15 @@ ROOT=$(dirname $(dirname $(readlink -f $0)))
 WHEEL_DIR=$ROOT/.wheel/
 PYTHON_DIR=$ROOT/interop
 rm -rf $WHEEL_DIR
-mkdir -p $WHEEL_DIR/{klr,bin}
+mkdir -p $WHEEL_DIR/klr
 lake build
-
-# Get klr binary
-cp $ROOT/.lake/build/bin/klr $WHEEL_DIR/bin
-# Get gather binary
-cp $ROOT/bin/gather $WHEEL_DIR/bin
 
 # Get Python packages
 cp -R $PYTHON_DIR/* $WHEEL_DIR
 cp $ROOT/LICENSE $WHEEL_DIR
+
+# Get klr binary
+cp $ROOT/.lake/build/bin/klr $WHEEL_DIR/klr/klr.bin
 
 cd $WHEEL_DIR
 

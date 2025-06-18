@@ -419,8 +419,6 @@ bool Int_des(FILE *out, struct region *region, i32 *x) {
     return false;
   *x = (i32)v;
   return true;
-  (void)region;
-  return false;
 }
 
 bool Float_des(FILE *out, struct region *region, float *x) {
