@@ -494,30 +494,18 @@ assignments. This is effectively a simple form of constant propagation and
 dead-code elimination for simple assignments.
 -/
 
--- Convert an expression in assignment context (an L-Value).
--- TODO: handle subscript
-partial def LValue (e : Expr) : Trace Term :=
-  withPos e.pos (lval e.expr)
-where
-  lval : Expr' -> Trace Term
-  | .name id .store => return .expr (.value $ .var id) (.obj "object".toName)
-  | .attr _ id .store => throw s!"cannot assign to attribute {id}"
-  | .tuple es .store => return .tuple (<- es.attach.mapM fun ⟨ e, _ ⟩ => LValue e)
-  | .list es .store => return .list (<- es.attach.mapM fun ⟨ e, _ ⟩ => LValue e)
-  | .subscript _ _ .store => throw "unimp subscript store"
-  | _ => throw "cannot assign to expression"
 
 -- Convert an R-Value to a pure expression, emitting
 -- additional assignments as needed.
-def RValue : Term -> Trace Term
+def toPureExpr : Term -> Trace Term
   | .module n => return .module n
   | .builtin n t s => return .builtin n t s
   | .source f => return .source f
   | .none => return .none
   | .string s => return .string s
   | .tensor t => return .tensor t
-  | .tuple es => return .tuple (<- es.attach.mapM fun ⟨ e, _ ⟩ => RValue e)
-  | .list es => return .tuple (<- es.attach.mapM fun ⟨ e, _ ⟩ => RValue e)
+  | .tuple es => return .tuple (<- es.attach.mapM fun ⟨ e, _ ⟩ => toPureExpr e)
+  | .list es => return .tuple (<- es.attach.mapM fun ⟨ e, _ ⟩ => toPureExpr e)
   | .ellipsis => return .ellipsis
   | .slice a b c => return .slice a b c
   | .store acc op args => do
@@ -535,13 +523,9 @@ def RValue : Term -> Trace Term
       -- without a subscript on the RHS of assignment...
       throw "unimplemented"
 
--- Create an assignment to a Core Expr, this must be a variable
-def assignExpr (e : Core.Expr) (t : Term) : Trace Unit := do
-  match e with
-  | .value (.var x) => extend x.toName t
-  | _ => throw s!"cannot assign to {repr e}"
-
--- Unpack an RValue, must be a list or tuple
+-- Unpack an RValue.
+-- If the input Trace.Term was tuple or list, this is an identity function.
+-- If it is a tensor, unpack it into a list of subtensors.
 def unpack : Term -> Trace (List Term)
   | .tuple l | .list  l => return l
   | .tensor t =>
@@ -570,7 +554,9 @@ def unpack : Term -> Trace (List Term)
 
   | t => throw s!"cannot unpack non-iterable object {repr t}"
 
--- Assign to a term, handling unpacking for tuples and lists
+-- Assign to a term x, handling unpacking for tuples and lists.
+-- The RHS (e) might not be in the RValue form yet, but it must have
+-- gone through evaluation (the 'expr' function).
 def assignTerm (x : Term) (e : Term) : Trace Unit := do
   match x with
   | .module name => throw s!"cannot assign to {name}"
@@ -586,7 +572,16 @@ def assignTerm (x : Term) (e : Term) : Trace Unit := do
   | .slice .. => throw "cannot assign to slice"
   | .store .. => throw "cannot assign to a store"
   | .pointer .. => throw "cannot assign to a pointer"
-  | .expr x _ => assignExpr x e
+  | .expr (.value (.var varname)) _ =>
+      let e' <- toPureExpr e
+      extend varname.toName e'
+  | .expr (.value (.access acc)) _ =>
+      match e with
+      | .store _ op args => do
+          add_stmt (.store acc op args)
+          return
+      | _ => throw "cannot assign non-store to an LValue that is .access value"
+  | _ => throw s!"cannot assign to {repr e}"
 where
   assignList : List Term -> List Term -> Trace Unit
   | [], [] => return ()
@@ -595,14 +590,6 @@ where
   | x::xs, t::ts => do
       assignTerm x t;
       assignList xs ts
-
--- Top-level assignment handling
--- e.g. x1 = x2 = e
-def assign (xs : List Expr) (e : Term) : Trace Unit := do
-  let xs <- xs.mapM LValue
-  let e <- RValue e
-  for x in xs do
-    assignTerm x e
 
 -- Translation of for-loop iterators
 
@@ -693,6 +680,33 @@ partial def expr' : Expr' -> Trace Term
           return .expr (.call f (<- args.mapM expr) (<- kws.mapM (keyword expr))) default
       | _ => throw "not a callable type"
 
+-- Convert an expression in assignment context (an L-Value).
+partial def LValue (e : Expr) : Trace Term :=
+  withPos e.pos (lval e.expr)
+where
+  lval : Expr' -> Trace Term
+  | .name id .store => return .expr (.value $ .var id) (.obj "object".toName)
+  | .attr _ id .store => throw s!"cannot assign to attribute {id}"
+  | .tuple es .store => return .tuple (<- es.attach.mapM fun ⟨ e, _ ⟩ => LValue e)
+  | .list es .store => return .list (<- es.attach.mapM fun ⟨ e, _ ⟩ => LValue e)
+  | .subscript t idx .store =>
+      /- Create an .access object (of course, the LHS could be a non-access,
+         such as x[i] for a Python list object x. This will make the expr'
+         invocation fail.)
+         Assignment to .access will be handled in assignTerm. In this case,
+         the RHS must have been evaluated to .store .
+      -/
+      expr' (.subscript t idx .store)
+  | _ => throw "cannot assign to expression"
+
+-- Top-level assignment handling
+-- e.g. x1 = x2 = e
+partial def assign (xs : List Expr) (e : Term) : Trace Unit := do
+  let xs <- xs.mapM LValue
+  for x in xs do
+    assignTerm x e
+
+
 partial def keyword (f : Expr -> Trace a) : Keyword -> Trace (String × a)
   | ⟨ id, e, p ⟩ => withPos p do return (id, (<- f e))
 
@@ -703,11 +717,11 @@ partial def stmt' : Stmt' -> Trace StmtResult
   | .pass => return .done
   | .ret e => do
       let t <- expr e
-      let t <- RValue t
+      let t <- toPureExpr t
       return .ret t
   | .expr e => do
       let t <- expr e
-      let _ <- RValue t
+      let _ <- toPureExpr t
       return .done
   | .assert e => do
       let t : Term <- expr e
