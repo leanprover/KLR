@@ -19,5 +19,7 @@ import Util.NumBytesTest
 import Util.Padding
 import Util.Plausible
 import Util.SHA256
+import Util.Sexp
+import Util.SexpTest
 import Util.ToBytes
 import Util.ToBytesTest
