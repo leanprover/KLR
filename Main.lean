@@ -1,8 +1,10 @@
-import KLR
+/-
+Copyright (c) 2025 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Paul Govereau, Sean McLaughlin
+-/
 import Cli
-import KLR.Eval
-import KLR.Util
-import KLR.Util.Gzip
+import KLR
 import TensorLib.Npy
 import TensorLib.Tensor
 
@@ -43,7 +45,7 @@ We have a mix of Python and Lean executables, so need to worry about
 PYTHONPATH. In the Bash/Python gather exe below, we expect input of the
 form
 
-    # bin/gather my_kernel_module.my_kernel_function
+    # bin/gather my_kernel_module my_kernel_function output_file
 
 It is natural to expect being able to pass a file name here, but that
 doesn't work; we expect the module's file to be on PYTHONPATH.
@@ -88,14 +90,22 @@ def pathToFile (parts : FileNameParts) : String :=
 
 end FileNameParts
 
-def gatherStr (moduleFileName kernelFunctionName : String) (klrPythonModuleDir : Option String) (debug : Bool) : IO String := do
+/-
+If we are in a python environment with a pip installed version of klr-lang,
+then we should have a program called klr-gather on the path; this script is
+installed in the python bin directory as part of the wheel installation. If we
+don't find the program on the PATH, then we try to use ./bin/gather, which will
+work for local developers using "lake exe klr".
+-/
+def gatherRun (moduleFileName kernelFunctionName outputFileName: String)
+              (klrPythonModuleDir : Option String) (debug : Bool) : IO Unit := do
   let dbg := eprintln debug
   let pypath <- IO.getEnv "PYTHONPATH"
   let pypath := pypath.getD ""
   let parts := FileNameParts.make moduleFileName
   dbg $ "parts: " ++ repr parts
-  let gather1 := (<- IO.appPath).parent.get!.join "gather"
-  let gather2 := (<- IO.currentDir).join "bin/gather"
+  let gather := FilePath.mk "klr-gather"
+  let localBin := (<- IO.currentDir).join "bin"
   -- The directory of the kernel file must be on PYTHONPATH
   let pypath := match parts.dirs with
   | [] => pypath
@@ -104,23 +114,37 @@ def gatherStr (moduleFileName kernelFunctionName : String) (klrPythonModuleDir :
   -- the path already without adding `interop`
   let klrDir := klrPythonModuleDir.getD "interop" -- interop is the project default
   let pypath := pypath ++ ":" ++ klrDir
-  let gatherArg := parts.fileNameNoExt ++ "." ++ kernelFunctionName
-  for exe in [gather1, gather2] do
+  dbg $ "pypath: " ++ pypath
+
+  let gatherArg := #[ parts.fileNameNoExt, kernelFunctionName, outputFileName ]
+  let path <- IO.getEnv "PATH"
+  let paths := path.get!.splitOn ":"
+  let paths := paths.map FilePath.mk ++ [localBin]
+  for p in paths do
+    let exe := p.join gather
     dbg $ "exe: " ++ exe.toString
     dbg $ "pypath: " ++ pypath
     if <- exe.pathExists then
       let output <- IO.Process.output {
         cmd := exe.toString
-        args := #[ gatherArg ]
+        args := gatherArg
         env := #[ ("PYTHONPATH", some pypath) ]
       }
       if output.exitCode != 0 then
         IO.println output.stderr
         IO.throwServerError "error gathering kernel"
-      dbg $ "stdout: " ++ output.stdout
       dbg $ "stderr: " ++ output.stderr
-      return output.stdout
-  IO.throwServerError "could not find gather program"
+      return ()
+  IO.throwServerError "could not execute gather program"
+
+def gatherTmp [KLR.File.FromContents a]
+    (moduleFileName kernelFunctionName : String)
+    (klrPythonModuleDir : Option String) (debug : Bool) : IO a :=
+  IO.FS.withTempFile fun _ tmpName => do
+    gatherRun moduleFileName kernelFunctionName tmpName.toString klrPythonModuleDir debug
+    let res <- KLR.File.readKLRFile tmpName .cbor
+    IO.FS.removeFile tmpName
+    return res
 
 private def evalKlrTensors
   (moduleFileName kernelFunctionName : String)
@@ -128,8 +152,7 @@ private def evalKlrTensors
   (debug : Bool)
   (npyInputFiles : List String)
    : IO (List (String × TensorLib.Tensor)) := do
-  let s <- gatherStr moduleFileName kernelFunctionName klrPythonModuleDir debug
-  let kernel <- KLR.Python.Parsing.parse s
+  let kernel : KLR.Python.Kernel <- gatherTmp moduleFileName kernelFunctionName klrPythonModuleDir debug
   let (k, warnings1) := kernel.inferArguments
   let (warnings, klr) <- KLR.Trace.runNKIKernel k
   dbg_trace s!"klr-inputs: {repr klr.inputs}"
@@ -139,24 +162,26 @@ private def evalKlrTensors
   let npys <- inputs.mapM TensorLib.Npy.parseFile
   let inputs <- npys.mapM fun npy => TensorLib.Tensor.ofNpy npy
   dbg_trace s!"npy-inputs: {repr inputs}"
-  KLR.Eval.eval klr inputs
+  let _ <- KLR.Eval.eval klr inputs
+  return []
 
 def gather (p : Parsed) : IO UInt32 := do
   let debug := p.hasFlag "debug"
   let file := p.positionalArg! "moduleFileName" |>.as! String
   let kernel := p.positionalArg! "kernelFunctionName" |>.as! String
   let dir := (p.flag? "klr-module-dir").map fun x => x.as! String
-  let output <- gatherStr file kernel dir debug
-  writeContent "ast" p output
+  let outFile := (p.flag? "outfile").map fun x => x.as! String
+  let outFile := outFile.getD (kernel ++ ".klr")
+  gatherRun file kernel outFile dir debug
   return 0
 
 private def parse (p : Parsed) : IO KLR.Python.Kernel := do
   let file := p.positionalArg! "file" |>.as! String
-  let s <- IO.FS.readFile file
-  KLR.Python.Parsing.parse s
+  KLR.File.readKLRFile file
 
 def parseAST (p : Parsed) : IO UInt32 := do
-  let kernel <- parse p
+  let file := p.positionalArg! "file" |>.as! String
+  let kernel : KLR.Python.Kernel <- KLR.File.readKLRFile file
   if p.hasFlag "verbose" then
     IO.println s!"{repr kernel}"
     return 0
@@ -166,6 +191,14 @@ def parseAST (p : Parsed) : IO UInt32 := do
   let gs := String.intercalate "," $ kernel.globals.map fun kw => kw.id
   IO.println s!"Globals: {gs}"
   IO.println s!"Undefined names {kernel.undefinedSymbols.mergeSort}"
+  return 0
+
+def typecheck (p : Parsed) : IO UInt32 := do
+  let file := p.positionalArg! "file" |>.as! String
+  let kernel : KLR.Python.Kernel <- KLR.File.readKLRFile file .cbor
+  let kernel : KLR.NKI.Kernel <- KLR.NKI.simplify kernel
+  -- TODO run the type checker
+  IO.println (reprStr kernel)
   return 0
 
 def trace (p : Parsed) : IO UInt32 := do
@@ -188,44 +221,12 @@ def parseKLR (p : Parsed) : IO UInt32 := do
   IO.println $ asString p klr
   return 0
 
-/-
-Generate a filename for this invocation of the kernel. The hash value is
-generated from the json string from gather. This may be different for
-equivalent invocations of the kernel, but this is OK: it is wasteful but not
-incorrect.
--/
-private def klrFilename (p : Parsed) (hash: UInt64) : FilePath :=
-  let hash := hash.toBitVec.toHex
-  let file := (FilePath.mk hash).withExtension "klr"
-  let dir :=
-    match p.flag? "dir" with
-    | none => FilePath.mk "."
-    | some d => FilePath.mk (d.as! String)
-  (dir / file).normalize
-
--- This is used by the python code
-def traceAPI (p : Parsed) : IO UInt32 := do
-  let file := p.positionalArg! "file" |>.as! String
-  let s <- IO.FS.readFile file
-  let outfile := klrFilename p s.hash
-  if <- outfile.pathExists then
-    IO.eprintln "file exists: tracing skipped"
-    IO.println outfile
-    return 0
-  let kernel <- KLR.Python.Parsing.parse s
-  let (warnings, klr) <- KLR.Trace.runNKIKernel kernel
-  IO.FS.writeFile outfile (toString $ Lean.toJson klr)
-  IO.eprintln warnings
-  IO.println outfile
-  return 0
-
 def nkiToKLR (p : Parsed) : IO UInt32 := do
   let debug := p.hasFlag "debug"
   let file := p.positionalArg! "moduleFileName" |>.as! String
   let kernel := p.positionalArg! "kernelFunctionName" |>.as! String
   let dir := (p.flag? "klr-module-dir").map fun x => x.as! String
-  let s <- gatherStr file kernel dir debug
-  let kernel <- KLR.Python.Parsing.parse s
+  let kernel : KLR.Python.Kernel <- gatherTmp file kernel dir debug
   let (k, warnings1) := kernel.inferArguments
   let (warnings, klr) <- KLR.Trace.runNKIKernel k
   writeContent "klr" p (asString p klr)
@@ -284,6 +285,14 @@ def parseASTCmd := `[Cli|
     file : String;      "File of gathered Python AST"
 ]
 
+def typecheckCmd := `[Cli|
+  "typecheck" VIA typecheck;
+  "Run the type checker on a Python AST file"
+
+  ARGS:
+    file : String; "File of Python AST printed as JSON"
+]
+
 def traceCmd := `[Cli|
   "trace" VIA trace;
   "Trace Python to KLR"
@@ -302,16 +311,6 @@ def parseKLRCmd := `[Cli|
   FLAGS:
     j, json; "Output Json format"
     p, pretty; "Output human-readable format (default)"
-  ARGS:
-    file : String; "File of Python AST printed as JSON"
-]
-
-def traceAPICmd := `[Cli|
-  "trace-api" VIA traceAPI;
-  "Trace Python to KLR (API version)"
-
-  FLAGS:
-    d, dir : String; "Directory to write KLR file to"
   ARGS:
     file : String; "File of Python AST printed as JSON"
 ]
@@ -359,7 +358,7 @@ def klrCmd : Cmd := `[Cli|
     parseASTCmd;
     parseKLRCmd;
     traceCmd;
-    traceAPICmd
+    typecheckCmd
 ]
 
 def main (args : List String) : IO UInt32 := do

@@ -40,8 +40,8 @@ testpaths = [
 packages = ["klr"]
 
 [project.scripts]
-klr = "klr:cli"
-klr-gather = "klr:gather"
+klr = "klr._cli:run_klr"
+klr-gather = "klr._cli:gather"
 
 # Note, because we are building an extension module, we will get arch specific wheels.
 # This is important because we are putting an arch-specific binary into the wheel

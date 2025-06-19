@@ -120,8 +120,9 @@ private def mkFromInstances (names : Array Name) : TermElabM (Array Command) := 
     let mut arms := #[]
     for (c, val) in constTags do
       let ps <- getParams c
+      -- 4 because parseCBORTag consumes 4 bytes
       let arm <- `(matchAltExpr| | $(lit val) => do
-                     let sz := 0
+                     let sz := 4
                      $[let (arr, sz, $ps) <- KLR.Serde.parseCBOR' arr sz]*
                      return (sz, $(mkIdent c) $ps*))
       arms := arms.push arm

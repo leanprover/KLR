@@ -24,7 +24,7 @@ typedef bool (*des_fn)(FILE*, struct region*, void**);
 static struct SerResult
 write_file(
   const char *file,
-  const char *format,
+  u8 format,
   ser_fn f,
   const void *value)
 {
@@ -38,7 +38,7 @@ write_file(
     .patch = 10,
   };
   struct Serde_KLRMetaData data = {
-    .format = (char*)format
+    .format = "KLR"
   };
 
   FILE *out = fopen(file, "wb");
@@ -49,6 +49,8 @@ write_file(
     ERR("error writing file header");
   if (!Serde_KLRMetaData_ser(out, &data))
     ERR("error writing file meta-data");
+  if (!cbor_encode_tag(out, 0xec, format, 1))
+    ERR("error writing Contents");
   if (!f(out, value))
     ERR("error writing file data");
   if (fclose(out))
@@ -64,6 +66,8 @@ write_file(
     ERR("error writing call-site header");
   if (!Serde_KLRMetaData_ser(out, &data))
     ERR("error writing call-site meta-data");
+  if (!cbor_encode_tag(out, 0xec, 3, 1))
+    ERR("error writing Contents");
   if (!String_ser(out, file))
     ERR("Error writing call-site buffer");
   if (fclose(out))
@@ -150,9 +154,14 @@ error:
   return res;
 }
 
+// This is a temporary hack for compatibility with Lean
+// Proper fixes in next PR
+#define Contents_python 0
+#define Contents_nki 1
+
 struct SerResult
 serialize_python(const char *file, const struct Python_Kernel *k) {
-  return write_file(file, "Python", (ser_fn)Python_Kernel_ser, k);
+  return write_file(file, Contents_python, (ser_fn)Python_Kernel_ser, k);
 }
 
 struct DesResult
@@ -164,7 +173,7 @@ deserialize_python(const u8 *buf, u64 size) {
 
 struct SerResult
 serialize_nki(const char *file, const struct NKI_Kernel *k) {
-  return write_file(file, "NKI", (ser_fn)NKI_Kernel_ser, k);
+  return write_file(file, Contents_nki, (ser_fn)NKI_Kernel_ser, k);
 }
 
 struct DesResult

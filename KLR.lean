@@ -5,6 +5,7 @@ Authors: Paul Govereau, Sean McLaughlin
 -/
 import KLR.Core
 import KLR.Eval
+import KLR.File
 import KLR.NKI
 import KLR.Python
 import KLR.Serde

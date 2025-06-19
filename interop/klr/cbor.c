@@ -193,10 +193,10 @@ bool cbor_encode_tag(FILE *out, u8 type, u8 constructor, u8 len) {
 }
 
 bool cbor_encode_option(FILE *out, bool isSome) {
-  u8 bytes[3] = {
-    0xd9, 0xff, isSome
+  u8 bytes[4] = {
+    0xd9, 0xff, isSome, 0x80 | isSome
   };
-  return write_bytes(out, bytes, 3);
+  return write_bytes(out, bytes, sizeof bytes);
 }
 
 

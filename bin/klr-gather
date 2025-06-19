@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# Run the NKI frontend's gather step from a local build
+#
+# In order for this to work, you must set PY_VER to a supported
+# python version, and you must have a executable named python${PY_VER}
+# pointing to that Python interpreter.
+# If you installed python through brew, then you should already have
+# this. The default is version 3.10, this choice is arbitrary.
+#
+# You must also have run make in the interop/klr directory for the
+# python version that you are using. For example:
+#
+#   cd interop/klr
+#   make PY_VER=3.10
+#
+# Will build the Python 3.10 version of the NKI frontend.
+
+set -e
+
+V=${PY_VER:-3.10}
+
+PYTHONPATH=interop:${PYTHONPATH} \
+  python${V} -c 'import klr._cli; klr._cli.gather()' $@
