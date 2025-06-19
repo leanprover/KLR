@@ -28,6 +28,11 @@ class FromCBOR (a : Type u) where
 
 open FromCBOR (parse)
 
+-- This is used by the derived instances
+def parseCBOR' [FromCBOR a] (arr : ByteArray) (size : Nat) : Err (ByteArray × Nat × a) :=
+  (parse arr).map fun (sz, x) =>
+    (.mk (arr.data.drop sz), sz + size, x)
+
 def parseCBOR [FromCBOR a] (arr : ByteArray) : Err (ByteArray × a) :=
   (parse arr).map fun (sz, x) =>
     (.mk (arr.data.drop sz), x)
@@ -68,7 +73,7 @@ local instance : Plausible.SampleableExt Float :=
     let f := Float.ofBits x.val.toUInt64
     return if f.isNaN then 0.0 else f
 
-private def roundtrip [BEq a] [ToCBOR a] [FromCBOR a] (x : a) : Bool :=
+def roundtrip [BEq a] [ToCBOR a] [FromCBOR a] (x : a) : Bool :=
   match fromCBOR (toCBOR x) with
   | .error _ => false
   | .ok y => x == y
@@ -633,23 +638,22 @@ TODO: lift this constraint.
 
 def cborTag (typeTag valTag len : Nat) : ByteArray :=
   assert! len < 0x18
-  let len := toCBOR len.toUInt64
-  let len := adjustTag 0x80 len
-  .mk #[ 0xd9, typeTag.toUInt8, valTag.toUInt8] ++ len
+  let len := 0x80 ||| len
+  .mk #[ 0xd9, typeTag.toUInt8, valTag.toUInt8, len]
 
-def parseCBORTag (arr : ByteArray) : Err (Nat × Nat × Nat) := do
+def parseCBORTag (arr : ByteArray) : Err (Nat × Nat × Nat × ByteArray) := do
   if h:arr.size > 4 then
     if arr[0] != 0xd9 then
       throw "expecting tagged value"
     let typeTag := arr[1]
     let valTag := arr[2]
-    let listTag := arr[3] >>> 5
+    let listTag := arr[3] &&& 0xe0
     let listSize := arr[3] &&& 0x1f
     if listTag != 0x80 then
-      throw "expecting list after tagged value"
+      throw s!"expecting list after tagged value; got {listTag}"
     if listSize >= 0x18 then
-      throw "expecting small list after tagged value"
-    return (typeTag.toNat, valTag.toNat, listSize.toNat)
+      throw s!"expecting small list after tagged value; got {listSize}"
+    return (typeTag.toNat, valTag.toNat, listSize.toNat, arr.drop 4)
   throw "expecting tagged value - array too small"
 
 /-
@@ -661,16 +665,16 @@ following the convention above.
 
 instance [ToCBOR a] : ToCBOR (Option a) where
   toCBOR
-    | none   => .mk #[ 0xd9, 0xff, 0 ]
-    | some a => .mk #[ 0xd9, 0xff, 1 ] ++ toCBOR a
+    | none   => .mk #[ 0xd9, 0xff, 0, 0x80 ]
+    | some a => .mk #[ 0xd9, 0xff, 1, 0x81 ] ++ toCBOR a
 
 instance [FromCBOR a] : FromCBOR (Option a) where
   parse arr :=
-    match arr.data.take 3 with
-    | #[ 0xd9, 0xff, 0] => return (3, none)
-    | #[ 0xd9, 0xff, 1] => do
-      let (sz, v) <- parse (arr.drop 3)
-      return (sz + 3, some v)
+    match arr.data.take 4 with
+    | #[ 0xd9, 0xff, 0, 0x80 ] => return (4, none)
+    | #[ 0xd9, 0xff, 1, 0x81 ] => do
+      let (sz, v) <- parse (arr.drop 4)
+      return (sz + 4, some v)
     | _ => throw "expecting option"
 
 /--

@@ -125,26 +125,33 @@ Deriving tests
 inductive Z where
   | a : Nat -> Z
   | b : Bool -> Z
-  deriving ToCBOR
+  deriving BEq, Repr, ToCBOR, FromCBOR
 
 #guard (toCBOR (Z.a 0)).data == #[0xd9, 7, 0, 0x81, 0]
 #guard (toCBOR (Z.b true)).data == #[0xd9, 7, 1, 0x81, 0xf5]
+
+#guard roundtrip (Z.a 280)
+#guard roundtrip (Z.b false)
 
 mutual
 @[serde tag=1]
 structure X (a : Type u) where
   i : a
   b : Bool
-  deriving ToCBOR
+  deriving BEq, Repr, ToCBOR, FromCBOR
 
 @[serde tag=2]
 inductive Y (a : Type u) where
   | n : Nat -> Y a
   | x : X a -> Y a
-  deriving ToCBOR
+  deriving BEq, Repr, ToCBOR, FromCBOR
 end
 
 #guard (toCBOR (X.mk true false)).data == #[0xd9, 1, 0, 0x82, 0xf5, 0xf4]
 #guard (toCBOR (Y.n 7 : Y Bool)).data == #[0xd9, 2, 0, 0x81, 7]
 #guard (toCBOR (Y.x (X.mk true false))).data ==
   #[0xd9, 2, 1, 0x81, 0xd9, 1, 0, 0x82, 0xf5, 0xf4]
+
+#guard roundtrip (X.mk true false)
+#guard roundtrip (Y.n 7 : Y Bool)
+#guard roundtrip (Y.x (X.mk true false))
