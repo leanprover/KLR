@@ -6,8 +6,10 @@ Authors: Paul Govereau, Sean McLaughlin
 import Lean
 import TensorLib.Common
 import Util.Hex
+import Util.Sexp
 
 open KLR.Util.Hex(encode)
+open KLR.Util.Sexp(FromSexp ToSexp)
 open Lean(FromJson Json Syntax TSyntax TSyntaxArray ToJson mkIdent fromJson? toJson)
 open Lean.Elab.Command(CommandElab CommandElabM elabCommand liftTermElabM)
 open Lean.Parser.Term(matchAltExpr)
@@ -127,7 +129,7 @@ where
     -- dbg_trace (<- liftTermElabM <| ppCommand valuesFun)
     elabCommand valuesFun
     let instances <- `(
-      deriving instance BEq, DecidableEq, FromJson, Inhabited, Repr, ToJson for $name
+      deriving instance BEq, DecidableEq, FromJson, FromSexp, Inhabited, Repr, ToJson, ToSexp for $name
     )
     elabCommand instances
     let fromUInt8!Name : Lean.Ident := mkIdent (.str typeName "fromUInt8!")
@@ -200,6 +202,8 @@ private enum Bar where
   | z
 
 #guard Bar.values == [.x, .y, .z]
+#guard Sexp.toSexp Bar.x == Sexp.atom "x"
+#guard Sexp.fromSexp Bar (Sexp.atom "x") == .ok Bar.x
 
 end Test
 
