@@ -52,13 +52,15 @@ structure KLRFile where
   major : Nat := 0  -- TODO come up with a way to manage versions
   minor : Nat := 0
   patch : Nat := 9
+  deriving BEq, Repr
 
 attribute [serde tag = 0xf7] KLRFile.mk
 
 deriving instance ToCBOR for KLRFile
+deriving instance FromCBOR for KLRFile
 
-#guard
-  (toCBOR { : KLRFile}).take 4 == .mk #[0xd9, 0xd9, 0xf7, 0x83]
+#guard (toCBOR { : KLRFile}).take 4 == .mk #[0xd9, 0xd9, 0xf7, 0x83]
+#guard (fromCBOR (toCBOR { : KLRFile }) : Err KLRFile) == .ok { : KLRFile }
 
 /-
 Immediately following the KLRFile structure we place a KLRMetaData structure.
@@ -74,4 +76,4 @@ worry about avoiding assigned tags on our other (internal) types.
 @[serde tag = 0xeb]
 structure KLRMetaData where
   format : String := "NKI"
-  deriving ToCBOR
+  deriving BEq, Repr, ToCBOR, FromCBOR
