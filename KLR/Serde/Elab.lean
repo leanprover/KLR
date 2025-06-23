@@ -39,7 +39,9 @@ private def fnIdent (name : Name) (s : String) : Ident :=
 -- Generate a name suitable for an extern (C) symbol
 private def cIdent (name : Name) (s : String) : Ident :=
   let name := rmKLR name
-  let cname := (name.toString ++ "_" ++ s).replace "." "_"
+  let cname := name.toString ++ "_" ++ s
+  let cname := cname.replace "." "_"
+  let cname := cname.replace "'" "_"
   mkIdent cname.toName
 
 -- Make a list of parameter names, e.g.: x0, x1, ...

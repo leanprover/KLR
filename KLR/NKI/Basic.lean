@@ -4,6 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 -/
 import KLR.Serde.Attr
+import KLR.Serde.Elab
+import KLR.Util
 
 /-!
 # Abstract syntax of NKI functions
@@ -14,12 +16,15 @@ syntax of NKI.
 -/
 
 namespace KLR.NKI
+open Lean (FromJson ToJson)
+open Serde (FromCBOR ToCBOR)
+open Util (FromSexp ToSexp)
 
 @[serde tag = 1]
 structure Pos where
   line : Nat
   column : Nat
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 -- Note: the python int and float types are compatible with Lean's types
 -- The str type may require conversion (to UTF8).
@@ -32,7 +37,7 @@ inductive Value where
   | string (value : String)
   | ellipsis
   | tensor (shape : List Nat) (dtype : String)  -- TODO use Core Dtype
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 3]
 inductive BinOp where
@@ -44,14 +49,14 @@ inductive BinOp where
   | add | sub | mul | div | mod | pow | floor
   -- bitwise
   | lshift | rshift | or | xor | and
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 mutual
 @[serde tag = 4]
 structure Expr where
   expr : Expr'
   pos : Pos
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 5]
 inductive Expr' where
@@ -63,19 +68,19 @@ inductive Expr' where
   | binOp (op : BinOp) (left right : Expr)
   | ifExp (test body orelse : Expr)
   | call (f: Expr) (args: List Expr) (keywords : List Keyword)
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 6]
 inductive Index where
   | coord (i : Expr)
   | slice (l u step : Option Expr)
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 7]
 structure Keyword where
   name : String
   expr : Expr
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 end
 
 mutual
@@ -83,7 +88,7 @@ mutual
 structure Stmt where
   stmt : Stmt'
   pos : Pos
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 9]
 inductive Stmt' where
@@ -95,14 +100,14 @@ inductive Stmt' where
   | forLoop (x : Expr) (iter: Expr) (body: List Stmt)
   | breakLoop
   | continueLoop
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 end
 
 @[serde tag = 10]
 structure Param where
   name : String
   dflt : Option Expr
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 11]
 structure Fun where
@@ -111,13 +116,13 @@ structure Fun where
   line : Nat
   body : List Stmt
   args : List Param
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 12]
 structure Arg where
   name : String
   value : Expr
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 13]
 structure Kernel where
@@ -125,4 +130,4 @@ structure Kernel where
   funs : List Fun
   args : List Arg
   globals : List Arg
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp

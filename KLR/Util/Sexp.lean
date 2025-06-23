@@ -7,6 +7,7 @@ This is copied and modified from FromToJson.lean in the Lean sources. The bigges
 supporting both positional and named arguments.
 -/
 import TensorLib
+import Util.Float
 
 open Lean(Command ConstructorVal CoreM Expr Ident InductiveVal Macro Name Syntax TSyntax Term getConstInfoCtor getConstInfoInduct getEnv getStructureFieldsFlattened isInductive isStructure mkIdent quote)
 open Lean.Core(mkFreshUserName)
@@ -51,11 +52,18 @@ namespace Sexp
 instance : ToSexp String where
   toSexp n := atom n
 
+instance : ToSexp Bool where
+  toSexp | true => atom "true"
+         | false => atom "false"
+
 instance : ToSexp Int where
   toSexp n := atom (toString n)
 
 instance : ToSexp Nat where
   toSexp n := toSexp (Int.ofNat n)
+
+instance : ToSexp Float where
+  toSexp f := atom f.toString
 
 instance [ToSexp a] : ToSexp (List a) where
   toSexp e := list (e.map toSexp)
@@ -112,6 +120,13 @@ instance : FromSexp String where
   | atom a => return a
   | list _ => throw "Expected Atom, got List"
 
+instance : FromSexp Bool where
+  fromSexp? s := do match s with
+  | atom "true" => return true
+  | atom "false" => return false
+  | atom a => throw s!"Can't parse {a} as an Bool"
+  | list _ => throw "Expected Atom, got List"
+
 instance : FromSexp Int where
   fromSexp? s := do match s with
   | atom a => match a.toInt? with
@@ -123,6 +138,11 @@ instance : FromSexp Nat where
   fromSexp? s := do
     let n <- @fromSexp? Int _ s
     return n.toNat
+
+instance : FromSexp Float where
+  fromSexp?
+  | atom s => return parseFloat s
+  | list _ => throw "Expected Atom, got List"
 
 instance [FromSexp a] : FromSexp (List a) where
   fromSexp?

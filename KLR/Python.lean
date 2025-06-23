@@ -5,6 +5,7 @@ Authors: Paul Govereau, Sean McLaughlin
 -/
 import Lean
 import KLR.Serde.Attr
+import KLR.Serde.Elab
 import KLR.Util
 
 /-!
@@ -15,6 +16,9 @@ see: https://docs.python.org/3/library/ast.html
 -/
 
 namespace KLR.Python
+open Lean (FromJson ToJson)
+open Serde (FromCBOR ToCBOR)
+open Util (FromSexp ToSexp)
 
 @[serde tag = 1]
 structure Pos where
@@ -22,7 +26,7 @@ structure Pos where
   end_lineno : Nat := 0
   col_offset : Nat := 0
   end_col_offset : Nat := 0
-  deriving Repr, BEq
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 2]
 inductive Const where
@@ -32,7 +36,7 @@ inductive Const where
   | float (value : Float)
   | string (value : String)
   | ellipsis
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /-
 This context comes from the Python AST. The different hints
@@ -50,25 +54,25 @@ simplicity: we do not try to resolve names that are being
 @[serde tag = 3]
 inductive Ctx where
   | load | store | del
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 -- Python boolean (logical) operators
 @[serde tag = 4]
 inductive BoolOp where
   | land | lor
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 -- Python comparison operators
 @[serde tag = 5]
 inductive CmpOp where
   | eq | ne | lt | le | gt | ge | is | isNot | isIn | notIn
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 -- Python unary operators
 @[serde tag = 6]
 inductive UnaryOp where
   | invert | not | uadd | usub
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 -- Python binary operators
 @[serde tag = 7]
@@ -76,14 +80,14 @@ inductive BinOp where
   | add | sub | mul | matmul | div | mod | pow
   | lshift | rshift | or | xor | and
   | floor -- the '//' operator in Python
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 mutual
 @[serde tag = 8]
 structure Expr where
   expr : Expr'
   pos : Pos
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 9]
 inductive Expr' where
@@ -102,14 +106,14 @@ inductive Expr' where
   | compare (left : Expr) (ops : List CmpOp) (comparators : List Expr)
   | ifExp (test body orelse : Expr)
   | call (f: Expr) (args: List Expr) (keywords : List Keyword)
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 10]
 structure Keyword where
   id : String
   value : Expr
   pos : Pos
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 end
 
 mutual
@@ -117,7 +121,7 @@ mutual
 structure Stmt where
   stmt : Stmt'
   pos : Pos
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 12]
 inductive Stmt' where
@@ -132,7 +136,7 @@ inductive Stmt' where
   | forLoop (x : Expr) (iter: Expr) (body: List Stmt) (orelse : List Stmt)
   | breakLoop
   | continueLoop
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 end
 
 /-
@@ -163,7 +167,7 @@ structure Args where
   kwonlyargs : List String
   kw_defaults: List Keyword
   kwarg : Option String
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 def Args.names (args : Args) : List String :=
   args.posonlyargs ++ args.args ++ args.kwonlyargs
@@ -186,7 +190,7 @@ structure Fun where
   source : String
   args : Args
   body: List Stmt
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /-
 A kernel is collection of:
@@ -207,9 +211,6 @@ An example of a global is:
     else:
       ...
 -/
-instance : Repr Lean.Json where
-  reprPrec jsn _ := jsn.compress
-
 @[serde tag = 15]
 structure Kernel where
   entry : String
@@ -218,7 +219,7 @@ structure Kernel where
   kwargs : List Keyword
   globals : List Keyword
   undefinedSymbols : List String
-  deriving Repr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /-
 POC: try to guess suitable arguments if none suplied (see bin/gather).

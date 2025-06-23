@@ -26,7 +26,20 @@ private def roundTrip [BEq a] [ToSexp a] [FromSexp a] (x : a) : Bool :=
   | .error _ => false
   | .ok z => x == z
 
+
 #guard roundTrip (HashMap.ofList [(1, 2), (3, 4)])
+
+#guard roundTrip true
+#guard roundTrip false
+
+#guard roundTrip 1.3
+#guard roundTrip (1.0 / 0.0)
+#guard roundTrip (-1.0 / 0.0)
+#guard toSexp (0.0 / 0.0) == atom "NaN"
+#guard
+  match @fromSexp? Float _ (atom "NaN") with
+  | .ok f => f.isNaN
+  | _ => false
 
 private structure Foo where
   x : Nat

@@ -8,6 +8,7 @@ import Util.Base64
 import Util.BitVec
 import Util.Common
 import Util.Enum
+import Util.Float
 import Util.FromBytes
 import Util.Gzip
 import Util.Hex
