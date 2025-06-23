@@ -9,7 +9,7 @@ import Util.Hex
 import Util.Sexp
 
 open KLR.Util.Hex(encode)
-open KLR.Util.Sexp(FromSexp ToSexp)
+open KLR.Util(FromSexp ToSexp)
 open Lean(FromJson Json Syntax TSyntax TSyntaxArray ToJson mkIdent fromJson? toJson)
 open Lean.Elab.Command(CommandElab CommandElabM elabCommand liftTermElabM)
 open Lean.Parser.Term(matchAltExpr)
@@ -202,8 +202,8 @@ private enum Bar where
   | z
 
 #guard Bar.values == [.x, .y, .z]
-#guard Sexp.toSexp Bar.x == Sexp.atom "x"
-#guard Sexp.fromSexp Bar (Sexp.atom "x") == .ok Bar.x
+#guard toSexp Bar.x == Sexp.atom "x"
+#guard fromSexp? (Sexp.atom "x") == .ok Bar.x
 
 end Test
 

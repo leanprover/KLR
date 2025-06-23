@@ -39,10 +39,14 @@ def lispString : Sexp -> String
 instance : ToString Sexp where
   toString := lispString
 
+end Sexp
+
 class ToSexp (a : Type) where
   toSexp : a -> Sexp
 
 export ToSexp(toSexp)
+
+namespace Sexp
 
 instance : ToSexp String where
   toSexp n := atom n
@@ -66,6 +70,9 @@ instance [ToSexp a] : ToSexp (Option a) where
   toSexp
   | none => list []
   | some x => list [toSexp x]
+
+instance [BEq a][Hashable a][ToSexp a][ToSexp b] : ToSexp (Std.HashMap a b) where
+  toSexp n := toSexp n.toList
 
 instance : ToSexp UInt8 where
   toSexp n := toSexp n.toNat
@@ -91,91 +98,100 @@ instance : ToSexp Int32 where
 instance : ToSexp Int64 where
   toSexp n := toSexp n.toInt
 
-class FromSexp (a : Type) where
-  fromSexp : Sexp -> Err a
+end Sexp
 
-def fromSexp (a : Type) [FromSexp a] (e : Sexp) : Err a :=
-  FromSexp.fromSexp e
+class FromSexp (a : Type) where
+  fromSexp? : Sexp -> Err a
+
+export FromSexp(fromSexp?)
+
+namespace Sexp
 
 instance : FromSexp String where
-  fromSexp s := do match s with
+  fromSexp? s := do match s with
   | atom a => return a
   | list _ => throw "Expected Atom, got List"
 
 instance : FromSexp Int where
-  fromSexp s := do match s with
+  fromSexp? s := do match s with
   | atom a => match a.toInt? with
     | some n => return n
     | none => throw s!"Can't parse {a} as an Int"
   | list _ => throw "Expected Atom, got List"
 
 instance : FromSexp Nat where
-  fromSexp s := do
-    let n <- fromSexp Int s
+  fromSexp? s := do
+    let n <- @fromSexp? Int _ s
     return n.toNat
 
 instance [FromSexp a] : FromSexp (List a) where
-  fromSexp
+  fromSexp?
   | atom a => throw s!"can't parse list from atom: {a}"
-  | list es => es.mapM (fromSexp a)
+  | list es => es.mapM (@fromSexp? a _)
 
 instance [FromSexp a] : FromSexp (Array a) where
-  fromSexp e := (fromSexp (List a) e).map fun a => a.toArray
+  fromSexp? e := (@fromSexp? (List a) _ e).map fun a => a.toArray
 
 instance [FromSexp a] [FromSexp b] : FromSexp (a × b) where
-  fromSexp s := match s with
+  fromSexp? s := match s with
   | atom a => throw s!"Can't parse pair from atom: {a}"
   | list [x, y] => do
-    let n <- fromSexp _ x
-    let m <- fromSexp _ y
+    let n <- fromSexp? x
+    let m <- fromSexp? y
     return (n, m)
   | xs => throw s!"Can't parse pair from non pair list: {xs}"
 
 instance [FromSexp a] : FromSexp (Option a) where
-  fromSexp
+  fromSexp?
   | atom a => throw s!"Can't parse option from atom: {a}"
   | list [] => return none
-  | list [x] => return some (<- fromSexp a x)
+  | list [x] => return some (<- fromSexp? x)
   | l => throw s!"Can't parse option from non-singleton list: {l}"
 
+instance [BEq a][Hashable a][FromSexp a][FromSexp b] : FromSexp (Std.HashMap a b) where
+  fromSexp? s := do return Std.HashMap.ofList (<- fromSexp? s)
+
+instance [BEq a][Hashable a][ToSexp a][ToSexp b] : ToSexp (Std.HashMap a b) where
+  toSexp n := toSexp n.toList
+
 instance : FromSexp UInt8 where
-  fromSexp s := do
-    let n <- fromSexp Nat s
+  fromSexp? s := do
+    let n <- @fromSexp? Nat _ s
     return n.toUInt8
 
 instance : FromSexp UInt16 where
-  fromSexp s := do
-    let n <- fromSexp Nat s
+  fromSexp? s := do
+    let n <- @fromSexp? Nat _ s
     return n.toUInt16
 
 instance : FromSexp UInt32 where
-  fromSexp s := do
-    let n <- fromSexp Nat s
+  fromSexp? s := do
+    let n <- @fromSexp? Nat _ s
     return n.toUInt32
 
 instance : FromSexp UInt64 where
-  fromSexp s := do
-    let n <- fromSexp Nat s
+  fromSexp? s := do
+    let n <- @fromSexp? Nat _ s
     return n.toUInt64
 
 instance : FromSexp Int8 where
-  fromSexp s := do
-    let n <- fromSexp Int s
+  fromSexp? s := do
+    let n <- @fromSexp? Int _ s
     return n.toInt8
 
 instance : FromSexp Int16 where
-  fromSexp s := do
-    let n <- fromSexp Int s
+  fromSexp? s := do
+    let n <- @fromSexp? Int _ s
     return n.toInt16
 
 instance : FromSexp Int32 where
-  fromSexp s := do
-    let n <- fromSexp Int s
+  fromSexp? s := do
+    let n <- @fromSexp? Int _ s
     return n.toInt32
 
 instance : FromSexp Int64 where
-  fromSexp s := do
-    let n <- fromSexp Int s
+  fromSexp? s := do
+    let n <- @fromSexp? Int _ s
     return n.toInt64
 
 def length? : Sexp -> Err Nat
@@ -191,7 +207,7 @@ private def assocRaw (sexp : Sexp) (x : String) : Option Sexp := match sexp with
 private def assoc (a : Type) [FromSexp a] (sexp : Sexp) (x : String) : Err a :=
   match sexp.assocRaw x with
   | none => throw "Can't find field: {x}"
-  | some e => fromSexp a e
+  | some e => fromSexp? e
 
 private def getIndexRaw (sexp : Sexp) (n : Nat) : Err Sexp :=
   match sexp, n with
@@ -202,7 +218,7 @@ private def getIndexRaw (sexp : Sexp) (n : Nat) : Err Sexp :=
 
 private def getIndex (a : Type) [FromSexp a] (sexp : Sexp) (n : Nat) : Err a := do
   let v <- sexp.getIndexRaw n
-  fromSexp a v
+  fromSexp? v
 
 -- Parses a sexp-encoded `structure` or `inductive` constructor. Used mostly by `deriving FromSexp`.
 private def parseTaggedAux
@@ -381,7 +397,7 @@ where
         -- NB: this captures the `sexps` variable, declared below.
         let mkFromSexp (idx : Nat) (type : Expr) : TermElabM (TSyntax ``doExpr) :=
           if type.isAppOf indVal.name then `(doExpr| $fromSexpFuncId:ident sexps[$(quote idx)]!)
-          else `(doExpr| fromSexp _ sexps[$(quote idx)]!)
+          else `(doExpr| fromSexp? sexps[$(quote idx)]!)
         let identNames := binders.map Prod.fst
         let fromSexps ← binders.mapIdxM fun idx (_, type) => mkFromSexp idx type
         let userNamesOpt ← if binders.size == userNames.size then
@@ -464,13 +480,11 @@ private def mkFromSexpMutualBlock (ctx : Context) : TermElabM Command := do
 private def mkToSexpInstance (declName : Name) : TermElabM (Array Command) := do
   let ctx ← mkContext "toSexp" declName
   let cmds := #[← mkToSexpMutualBlock ctx] ++ (← mkInstanceCmds ctx ``ToSexp #[declName])
-  trace[Elab.Deriving.toSexp] "\n{cmds}"
   return cmds
 
 private def mkFromSexpInstance (declName : Name) : TermElabM (Array Command) := do
-  let ctx ← mkContext "fromSexp" declName
+  let ctx ← mkContext "fromSexp?" declName
   let cmds := #[← mkFromSexpMutualBlock ctx] ++ (← mkInstanceCmds ctx ``FromSexp #[declName])
-  trace[Elab.Deriving.fromSexp] "\n{cmds}"
   return cmds
 
 -- TODO: These instance handlers are generating |mutual types| full mutual definitions, which

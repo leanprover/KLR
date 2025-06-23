@@ -6,17 +6,27 @@ Authors: Paul Govereau, Sean McLaughlin
 
 import Util.Sexp
 
+open Std(HashMap)
+
 namespace KLR.Util.Sexp
 
-#guard fromSexp UInt8 (atom "5") == .ok 5
-#guard fromSexp UInt8 (atom "5.5") == .error "Can't parse 5.5 as an Int"
+#guard @fromSexp? UInt8 _ (atom "5") == .ok 5
+#guard @fromSexp? UInt8 _ (atom "5.5") == .error "Can't parse 5.5 as an Int"
 #guard toSexp (5 : UInt8) == atom "5"
+
+instance : BEq (Std.HashMap Nat Nat) where
+  beq x y := x.toList == y.toList
+
+#guard toSexp (HashMap.ofList [(1, 2)]) == sexp%((1 2))
+#guard fromSexp? (sexp%((1 2))) == .ok (HashMap.ofList [(1, 2)])
 
 private def roundTrip [BEq a] [ToSexp a] [FromSexp a] (x : a) : Bool :=
   let y := toSexp x
-  match fromSexp a y with
+  match fromSexp? y with
   | .error _ => false
   | .ok z => x == z
+
+#guard roundTrip (HashMap.ofList [(1, 2), (3, 4)])
 
 private structure Foo where
   x : Nat
@@ -26,11 +36,11 @@ deriving BEq, FromSexp, Repr, ToSexp
 #guard toSexp (Foo.mk 5 19) == sexp% ((x 5) (y 19))
 #guard roundTrip (Foo.mk 5 19)
 -- non-named field syntax
-#guard fromSexp Foo (sexp% (5 7)) == .ok (Foo.mk 5 7)
-#guard !(fromSexp Foo (sexp% (5 7 8))).isOk
+#guard fromSexp? (sexp% (5 7)) == .ok (Foo.mk 5 7)
+#guard !(@fromSexp? Foo _ (sexp% (5 7 8))).isOk
 
 -- named field syntax
-#guard fromSexp Foo (sexp% ((x 5) (y 7))) == .ok (Foo.mk 5 7)
+#guard fromSexp? (sexp% ((x 5) (y 7))) == .ok (Foo.mk 5 7)
 
 private inductive E where
 | a
@@ -38,7 +48,7 @@ private inductive E where
 deriving BEq, FromSexp, Repr, ToSexp
 
 #guard toSexp E.a == sexp% a
-#guard fromSexp E (sexp% a) == .ok E.a
+#guard fromSexp? (sexp% a) == .ok E.a
 #guard roundTrip E.a
 
 private inductive A1 where
@@ -49,12 +59,12 @@ deriving BEq, FromSexp, ToSexp, Repr, Lean.ToJson, Lean.FromJson
 
 #guard toSexp (A1.x 5) == sexp% (x (n 5))
 #guard toSexp (A1.y 5) == sexp% (y 5)
-#guard fromSexp A1 (sexp% (y 5)) == .ok (A1.y 5)
+#guard fromSexp? (sexp% (y 5)) == .ok (A1.y 5)
 #guard toSexp (A1.z 5 6) == sexp% (z 5 6)
 #guard roundTrip (A1.x 5)
 #guard roundTrip (A1.y 5)
 #guard roundTrip (A1.z 5 6)
-#guard fromSexp A1 (sexp% (x (n 5))) == .ok (A1.x 5)
+#guard fromSexp? (sexp% (x (n 5))) == .ok (A1.x 5)
 
 private inductive A2 where
 | x : Nat -> A2
@@ -72,9 +82,9 @@ deriving BEq, FromSexp, Repr, ToSexp
 
 #guard toSexp (Bar.x 5 7) == sexp% (x (n 5) (k 7))
 #guard toSexp (Bar.y (Foo.mk 5 10)) == sexp% (y (m ((x 5) (y 10))))
-#guard fromSexp Bar (sexp% (x (n 5) (k 7))) == .ok (Bar.x 5 7)
+#guard fromSexp? (sexp% (x (n 5) (k 7))) == .ok (Bar.x 5 7)
 -- unnamed syntax
-#guard fromSexp Bar (sexp% (x 5 7)) == .ok (Bar.x 5 7)
+#guard fromSexp? (sexp% (x 5 7)) == .ok (Bar.x 5 7)
 #guard roundTrip (Bar.x 5 7)
 #guard roundTrip (Bar.y (Foo.mk 5 19))
 

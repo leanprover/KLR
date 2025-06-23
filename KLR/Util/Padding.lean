@@ -36,6 +36,12 @@ instance : FromBytes (Padding n) where
 instance : ToJson (Padding n) where
   toJson _ := Json.str s!"Padding of size {n}"
 
+instance : ToSexp (Padding n) where
+  toSexp _ := Sexp.atom s!"Padding of size {n}"
+
+instance : FromSexp (Padding n) where
+  fromSexp? _ := default
+
 end Padding
 
 end KLR.Util
