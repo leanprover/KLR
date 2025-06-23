@@ -283,7 +283,9 @@ def hloToHLR (p : Parsed) : IO UInt32 := do
   | .ok (hlo, _) =>
     let hlr := KLR.HLR.compile hlo
     match hlr with
-    | (.ok hlr, _) => IO.println s!"{hlr}"
+    | (.ok hlr, s) => do
+      IO.println s!"{hlr}"
+      writeContent "py" p (KLR.HLR.formatProgram s.program)
     | (.error e, s) => do
       IO.eprintln s!"Error compiling HLO to HLR: {e}"
       IO.eprintln s!"{repr s}"
@@ -406,6 +408,8 @@ def hloToHLRCmd := `[Cli|
   "hlo-to-hlr" VIA hloToHLR;
   "Compile HLO graph to HLR graph"
 
+  FLAGS:
+    o, outfile : String; "Name of output file"
   ARGS:
     file : String;      "File of HLO graph in .mlir format"
 ]
