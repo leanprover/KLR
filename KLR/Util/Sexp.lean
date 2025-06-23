@@ -218,76 +218,40 @@ def length? : Sexp -> Err Nat
 | atom _ => throw "calling length on atom"
 | list es => return es.length
 
+def tail : Sexp -> Err Sexp
+| list (_ :: xs) => return list xs
+| _ => throw "tail"
+
 -- For lists of the form ((x1 E1) (x2 E2) ...), getValue xi --> Ei
-private def assocRaw (sexp : Sexp) (x : String) : Option Sexp := match sexp with
+def assocRaw (sexp : Sexp) (x : String) : Option Sexp := match sexp with
 | list (list [atom y, e] :: rest) => if x == y then e else (list rest).assocRaw x
 | list (_ :: rest) => (list rest).assocRaw x
 | _ => none
 
-private def assoc (a : Type) [FromSexp a] (sexp : Sexp) (x : String) : Err a :=
+def assoc (a : Type) [FromSexp a] (sexp : Sexp) (x : String) : Err a :=
   match sexp.assocRaw x with
   | none => throw "Can't find field: {x}"
   | some e => fromSexp? e
 
-private def getIndexRaw (sexp : Sexp) (n : Nat) : Err Sexp :=
+def assocWithDefault (a : Type) [FromSexp a] (sexp : Sexp) (x : String) (default : a) : Err a :=
+  match sexp.assocRaw x with
+  | none => return default
+  | some e => fromSexp? e
+
+def getIndexRaw (sexp : Sexp) (n : Nat) : Err Sexp :=
   match sexp, n with
   | atom _, _ => throw "Can't getIndex of an atom"
   | list [], _ => throw "Not enough elements of sexp"
   | list (x :: _), 0 => return x
   | list (_ :: xs), n => getIndexRaw (list xs) (n - 1)
 
-private def getIndex (a : Type) [FromSexp a] (sexp : Sexp) (n : Nat) : Err a := do
+def getIndex (a : Type) [FromSexp a] (sexp : Sexp) (n : Nat) : Err a := do
   let v <- sexp.getIndexRaw n
   fromSexp? v
 
--- Parses a sexp-encoded `structure` or `inductive` constructor. Used mostly by `deriving FromSexp`.
-private def parseTaggedAux
-    (sexp : Sexp)
-    (tag : String)
-    (nFields : Nat)
-    (fieldNames? : Option (Array Name)) : Except String (Array Sexp) :=
-  if nFields == 0 then
-    match sexp with
-    | .atom s => if s == tag then Except.ok #[] else throw s!"incorrect tag: {s} ≟ {tag}"
-    | _ => Except.error s!"incorrect tagged union: {sexp}"
-  else
-    match fieldNames? with
-    | some fieldNames =>
-      do
-        let mut fields := #[]
-        for fieldName in fieldNames do
-          fields := fields.push (← sexp.assocRaw fieldName.getString!)
-        Except.ok fields
-    | none => match sexp with
-      | list (atom tag' :: fields) =>
-        if tag == tag' then
-          if fields.length == nFields then
-            Except.ok fields.toArray
-          else
-            Except.error s!"incorrect number of fields: {fields.length} ≟ {nFields}"
-        else
-          Except.error s!"tag mismatch: {tag} ≟ {tag'}"
-      | _ =>
-        Except.error s!"Expected structure/inductive sexp"
-
-/-
-`tag` is the name of the constructor, that becomes the first element of the sexp list. For example, in
-
-    inductive Foo where
-    | a (x : Nat)
-
-we'd get a Sexp representation of (a (x 5)) where "a" is the "tag".
--/
-private def parseTagged
-    (sexp : Sexp)
-    (tag : String)
-    (nFields : Nat)
-    (fieldNames? : Option (Array Name)) : Except String (Array Sexp) := do
-  try
-    parseTaggedAux sexp tag nFields fieldNames?
-  catch exn => match fieldNames? with
-    | none => throw exn
-    | _ => parseTaggedAux sexp tag nFields none -- Maybe the caller used the non-named syntax for an inductive with names
+def hasTag (sexp : Sexp) (tag : String) : Bool := match sexp with
+| list (atom tag' :: _) => tag == tag'
+| _ => false
 
 private def mkToSexpHeader (indVal : InductiveVal) : TermElabM Header := do
   mkHeader ``ToSexp 1 indVal
@@ -367,13 +331,26 @@ where
       return alts
 
 private def mkFromSexpBodyForStruct (indName : Name) : TermElabM Term := do
-  let fields := getStructureFieldsFlattened (← getEnv) indName (includeSubobjectFields := false)
-  let getters1 ← fields.mapM (fun field => do
-    let getter ← `(assoc _ sexp $(← mkSexpField field))
+  let env <- getEnv
+  let fields := getStructureFieldsFlattened env indName (includeSubobjectFields := false)
+  -- Handle named arguments
+  let getNamed ← fields.mapM (fun field => do
+    let default : TermElabM (Option Term) := match Lean.getDefaultFnForField? env indName field with
+    | none => return none
+    | some default => do
+      let constInfo ← Lean.getConstInfoDefn default
+      let v := constInfo.value
+      let syn <- Lean.PrettyPrinter.delab v
+      some syn
+    let default <- default
+    let getter ← match default with
+    | none => `(assoc _ sexp $(← mkSexpField field))
+    | some default => `(assocWithDefault _ sexp $(← mkSexpField field) $(default))
     let getter ← `(doElem| Except.mapError (fun s => (toString $(quote indName)) ++ "." ++ (toString $(quote field)) ++ ": " ++ s) <| $getter)
     return getter
   )
-  let getters2 <- fields.mapIdxM (fun i field => do
+  -- Handle positional arguments
+  let getPositional <- fields.mapIdxM (fun i field => do
       let getter ← `(getIndex _ sexp $(Syntax.mkNatLit i))
       let getter ← `(doElem| Except.mapError (fun s => (toString $(quote indName)) ++ "." ++ (toString $(quote field)) ++ ": " ++ s) <| $getter)
       return getter
@@ -381,16 +358,92 @@ private def mkFromSexpBodyForStruct (indName : Name) : TermElabM Term := do
   let fields := fields.map mkIdent
   `(do
       let n <- sexp.length?
-      if n != $(Syntax.mkNatLit fields.size) then throw "length mismatch for struct" else
+      if $(Syntax.mkNatLit fields.size) < n then throw "length mismatch for struct" else
       try
-        $[let $fields:ident ← $getters1]*
+        $[let $fields:ident ← $getNamed]*
         return { $[$fields:ident := $(id fields)],* }
       catch _ =>
-        $[let $fields:ident ← $getters2]*
+        $[let $fields:ident ← $getPositional]*
         return { $[$fields:ident := $(id fields)],* }
   )
 
-private def mkFromSexpBodyForInduct (ctx : Context) (indName : Name) : TermElabM Term := do
+/-
+Generating code for inductives is complicated by the fact that only some of the
+fields need be named, and that there is a tag we need to match. TagArgInfo and TagArg
+are used to simplify the logic
+-/
+structure TagArgInfo where
+  ident : Ident
+  type : Expr
+  username : Option Name
+  default : Option Term
+  index : Nat
+deriving Inhabited
+
+namespace TagArgInfo
+
+def nameToStringTerm (name : Name) : Term := Syntax.mkStrLit name.getString!
+
+-- Captures 'sexp'
+def rhsNamed (info : TagArgInfo) : TermElabM Term := match info.username, info.default with
+| some k, none => `(
+  <- sexp.assoc _ $(nameToStringTerm k)
+)
+| some k, some d => `(
+  <- sexp.assocWithDefault _ $(nameToStringTerm k) $(d)
+)
+| _, _ => impossible "invariant violation"
+
+-- Captures 'sexp'
+def rhsIndex (info : TagArgInfo) : TermElabM Term := `(
+  <- (<- sexp.tail).getIndex _ $(Syntax.mkNumLit (toString info.index)):num
+)
+
+end TagArgInfo
+
+structure TagInfo where
+  ctorName : Name
+  arr : Array TagArgInfo
+
+namespace TagInfo
+
+def usernameCount (tagInfo : TagInfo) : Nat := Id.run do
+  let mut n := 0
+  for i in [0:tagInfo.arr.size] do
+    if tagInfo.arr[i]!.username.isSome then n := n + 1
+  return n
+
+-- Use this to compare to the sexp atom appearing first in the list
+def ctorString (tagInfo : TagInfo) : String := tagInfo.ctorName.eraseMacroScopes.getString!
+
+def ctorIdent (tagInfo : TagInfo) : Ident := mkIdent tagInfo.ctorName
+
+def isNamed (tagInfo : TagInfo) : Bool := tagInfo.arr.all fun info => info.username.isSome
+
+def isEnum (tagInfo : TagInfo) : Bool := tagInfo.arr.size == 0
+
+def tag (tagInfo : TagInfo) : Term := quote tagInfo.ctorString
+
+-- Captures the name `sexp`
+def toSyntax (tagInfo : TagInfo) : TermElabM Term :=
+  if tagInfo.isEnum then `(
+    match sexp with
+    | .atom s => if s == $(tagInfo.tag) then return $(tagInfo.ctorIdent):ident else throw s!"incorrect tag"
+    | _ => Except.error s!"incorrect tagged union: {sexp}"
+  ) else if tagInfo.isNamed then do
+      let rhssNamed : Array Term <- tagInfo.arr.mapM fun info => info.rhsNamed
+      let rhssIndex : Array Term <- tagInfo.arr.mapM fun info => info.rhsIndex
+      `(if sexp.hasTag $(tagInfo.tag) then do
+          try return $(tagInfo.ctorIdent):ident $rhssNamed* catch _ => return $(tagInfo.ctorIdent):ident $rhssIndex*
+        else throw s!"incorrect tag")
+
+    else do
+      let rhss : Array Term <- tagInfo.arr.mapM fun info => info.rhsIndex
+      `(if sexp.hasTag $(tagInfo.tag) then do return $(tagInfo.ctorIdent):ident $rhss* else throw s!"incorrect tag")
+
+end TagInfo
+
+private def mkFromSexpBodyForInduct (indName : Name) : TermElabM Term := do
   let indVal ← getConstInfoInduct indName
   let alts ← mkAlts indVal
   let auxTerm ← alts.foldrM (fun xs x => `(Except.orElseLazy $xs (fun _ => $x))) (← `(Except.error "no inductive constructor matched"))
@@ -402,38 +455,28 @@ where
     let ctorInfo ← getConstInfoCtor ctorName
     let n := ctorInfo.numFields
     let alt ← do forallTelescopeReducing ctorInfo.type fun xs _ => do
-        let mut binders   := #[]
-        let mut userNames := #[]
-        for i in [:n] do
-          let x := xs[indVal.numParams + i]!
-          let localDecl ← x.fvarId!.getDecl
-          if !localDecl.userName.hasMacroScopes then
-            userNames := userNames.push localDecl.userName
-          let a := mkIdent (← mkFreshUserName `a)
-          binders := binders.push (a, localDecl.type)
-        let fromSexpFuncId := mkIdent ctx.auxFunNames[0]!
-        -- Return syntax to parse `id`, either via `FromSexp` or recursively
-        -- if `id`'s type is the type we're deriving for.
-        -- NB: this captures the `sexps` variable, declared below.
-        let mkFromSexp (idx : Nat) (type : Expr) : TermElabM (TSyntax ``doExpr) :=
-          if type.isAppOf indVal.name then `(doExpr| $fromSexpFuncId:ident sexps[$(quote idx)]!)
-          else `(doExpr| fromSexp? sexps[$(quote idx)]!)
-        let identNames := binders.map Prod.fst
-        let fromSexps ← binders.mapIdxM fun idx (_, type) => mkFromSexp idx type
-        let userNamesOpt ← if binders.size == userNames.size then
-          ``(some #[$[$(userNames.map quote)],*])
-        else
-          ``(none)
-        let stx ←
-          `(
-               ((Sexp.parseTagged sexp $(quote ctorName.eraseMacroScopes.getString!) $(quote ctorInfo.numFields) $(quote userNamesOpt)).bind
-                 (fun sexps => do
-                   $[let $identNames:ident ← $fromSexps:doExpr]*
-                   let res := $(mkIdent ctorName):ident $identNames*
-                   return res))
-          )
-        pure (stx, ctorInfo.numFields)
-      alts := alts.push alt
+      let mut infos : Array TagArgInfo := #[]
+      let mut binders   := #[]
+      let mut userNames := #[]
+      for i in [:n] do
+        let x := xs[indVal.numParams + i]!
+        let localDecl ← x.fvarId!.getDecl
+        let default <- match localDecl.type.getOptParamDefault? with
+        | none => pure none
+        | some d => do
+          let c <- Lean.PrettyPrinter.delab d
+          pure (some c)
+        let username := if !localDecl.userName.hasMacroScopes then some localDecl.userName else none
+        match username with
+        | some name => userNames := userNames.push name
+        | none => pure ()
+        let a := mkIdent (← mkFreshUserName `a)
+        binders := binders.push (a, localDecl.type)
+        infos := infos.push (TagArgInfo.mk a localDecl.type username default i)
+      let tagInfo := TagInfo.mk ctorName infos
+      let stx ← tagInfo.toSyntax
+      pure (stx, ctorInfo.numFields)
+    alts := alts.push alt
   -- the smaller cases, especially the ones without fields are likely faster
   let alts' := alts.qsort (fun (_, x) (_, y) => x < y)
   return alts'.map Prod.fst
@@ -459,12 +502,12 @@ private def mkToSexpAuxFunction (ctx : Context) (i : Nat) : TermElabM Command :=
   else
     `(private def $(mkIdent auxFunName):ident $binders:bracketedBinder* : Sexp := $body:term)
 
-private def mkFromSexpBody (ctx : Context) (e : Expr) : TermElabM Term := do
+private def mkFromSexpBody (e : Expr) : TermElabM Term := do
   let indName := e.getAppFn.constName!
   if isStructure (← getEnv) indName then
     mkFromSexpBodyForStruct indName
   else
-    mkFromSexpBodyForInduct ctx indName
+    mkFromSexpBodyForInduct indName
 
 private def mkFromSexpAuxFunction (ctx : Context) (i : Nat) : TermElabM Command := do
   let auxFunName := ctx.auxFunNames[i]!
@@ -473,7 +516,7 @@ private def mkFromSexpAuxFunction (ctx : Context) (i : Nat) : TermElabM Command 
   let binders    := header.binders
   elabBinders binders fun _ => do
   let type ← elabTerm header.targetType none
-  let mut body ← mkFromSexpBody ctx type
+  let mut body ← mkFromSexpBody type
   if ctx.usePartial || indval.isRec then
     let letDecls ← mkLocalInstanceLetDecls ctx ``FromSexp header.argNames
     body ← mkLet letDecls body

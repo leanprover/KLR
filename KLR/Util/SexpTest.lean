@@ -5,6 +5,10 @@ Authors: Paul Govereau, Sean McLaughlin
 -/
 
 import Util.Sexp
+import TensorLib
+
+open Std(HashMap)
+open TensorLib(Err)
 
 open Std(HashMap)
 
@@ -65,12 +69,12 @@ deriving BEq, FromSexp, Repr, ToSexp
 #guard roundTrip E.a
 
 private inductive A1 where
-| x (n : Nat)
+| x (n : Nat) (m : Nat := 7)
 | y : Nat -> A1
 | z (n : Nat) : Nat -> A1
 deriving BEq, FromSexp, ToSexp, Repr, Lean.ToJson, Lean.FromJson
 
-#guard toSexp (A1.x 5) == sexp% (x (n 5))
+#guard toSexp (A1.x 5 7) == sexp% (x (n 5) (m 7))
 #guard toSexp (A1.y 5) == sexp% (y 5)
 #guard fromSexp? (sexp% (y 5)) == .ok (A1.y 5)
 #guard toSexp (A1.z 5 6) == sexp% (z 5 6)
@@ -97,6 +101,7 @@ deriving BEq, FromSexp, Repr, ToSexp
 #guard toSexp (Bar.y (Foo.mk 5 10)) == sexp% (y (m ((x 5) (y 10))))
 #guard fromSexp? (sexp% (x (n 5) (k 7))) == .ok (Bar.x 5 7)
 -- unnamed syntax
+#guard fromSexp? (sexp% (x (n 5) (k 7))) == .ok (Bar.x 5 7)
 #guard fromSexp? (sexp% (x 5 7)) == .ok (Bar.x 5 7)
 #guard roundTrip (Bar.x 5 7)
 #guard roundTrip (Bar.y (Foo.mk 5 19))
@@ -117,3 +122,32 @@ end
   toSexp ex == sexp%((x 5) (y (((z ((x 7) (y ())))))))
 
 #guard roundTrip $ B.mk (A.mk 7 (some (B.mk (A.mk 8 none))))
+
+private structure Default1 where
+  x : Nat
+  y : Nat := 7
+deriving BEq, FromSexp
+
+#guard (@fromSexp? Default1 _ (sexp%((x 5)))) == .ok { x := 5, y := 7 }
+#guard (@fromSexp? Default1 _ (sexp%((x 5) (y 8)))) == .ok { x := 5, y := 8 }
+#guard !(@fromSexp? Default1 _ (sexp%((y 8)))).isOk
+
+private structure Default2 where
+  y : Nat := 7
+  z : Nat := 5
+  w : Nat := 10
+  x : Nat
+deriving BEq, FromSexp
+
+#guard (@fromSexp? Default2 _ (sexp%((x 5)))) == .ok { x := 5, y := 7, z := 5, w := 10 }
+#guard (@fromSexp? Default2 _ (sexp%((x 5) (w 8)))) == .ok { x := 5, y := 7, z := 5, w := 8 }
+#guard !(@fromSexp? Default2 _ (sexp%((y 8)))).isOk
+
+private inductive Default3 where
+| case1 (x : Nat) (y : Nat := 7)
+| case2 (x : Nat := 7) (y : Nat)
+deriving BEq, FromSexp, ToSexp
+
+#guard toSexp (Default3.case1 (x := 5) (y := 7)) == sexp%(case1 (x 5) (y 7))
+#guard @fromSexp? Default3 _ (sexp%(case2 (y 7))) == .ok (Default3.case2 7 7)
+#guard !(@fromSexp? Default3 _ (sexp%(case2 (x 2)))).isOk
