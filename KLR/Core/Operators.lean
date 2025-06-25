@@ -63,6 +63,24 @@ inductive Dtype where
 
   deriving Repr, BEq
 
+def Dtype.fromString : String → Option Dtype
+  | "bfloat16" => some .bfloat16
+  | "float8e3" => some .float8e3
+  | "float8e4" => some .float8e4
+  | "float8e5" => some .float8e5
+  | "float16" => some .float16
+  | "float32" => some .float32
+  | "float32r" => some .float32r
+  | "int8" => some .int8
+  | "int16" => some .int16
+  | "int64" => some .int64
+  | "int32" => some .int32
+  | "uint8" => some .uint8
+  | "uint16" => some .uint16
+  | "uint32" => some .uint32
+  | "uint64" => some .uint64
+  | _ => none
+
 /-
 ALU operations supported by the HW
 Only used by: TensorScalar, TensorScalarPtr, TensorReduce, TensorTensor
