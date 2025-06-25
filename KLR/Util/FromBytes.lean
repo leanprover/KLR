@@ -47,31 +47,47 @@ instance : FromBytes UInt8 where
   fromBytesUnchecked arr := return (arr[0]!, arr.drop 1)
 
 instance : FromBytes UInt16 where
-  fromBytesUnchecked arr := return ((arr.take 2).toUInt16LE!, arr.drop 2)
+  fromBytesUnchecked arr :=
+    let (l, r) := arr.splitAt 2
+    return (l.toUInt16LE!, r)
 
 instance : FromBytes UInt32 where
-  fromBytesUnchecked arr := return ((arr.take 4).toUInt32LE!, arr.drop 4)
+  fromBytesUnchecked arr :=
+    let (l, r) := arr.splitAt 4
+    return (l.toUInt32LE!, r)
 
 instance : FromBytes UInt64 where
-  fromBytesUnchecked arr := return ((arr.take 8).toUInt64LE!, arr.drop 8)
+  fromBytesUnchecked arr :=
+    let (l, r) := arr.splitAt 8
+    return (l.toUInt64LE!, r)
 
 instance : FromBytes Int8 where
   fromBytesUnchecked arr := return (arr[0]!.toInt8, arr.drop 1)
 
 instance : FromBytes Int16 where
-  fromBytesUnchecked arr := return ((arr.take 2).toUInt16LE!.toInt16, arr.drop 2)
+  fromBytesUnchecked arr :=
+    let (l, r) := arr.splitAt 2
+    return (l.toInt16LE!, r)
 
 instance : FromBytes Int32 where
-  fromBytesUnchecked arr := return ((arr.take 4).toUInt32LE!.toInt32, arr.drop 4)
+  fromBytesUnchecked arr :=
+    let (l, r) := arr.splitAt 4
+    return (l.toInt32LE!, r)
 
 instance : FromBytes Int64 where
-  fromBytesUnchecked arr := return ((arr.take 8).toUInt64LE!.toInt64, arr.drop 8)
+  fromBytesUnchecked arr :=
+    let (l, r) := arr.splitAt 8
+    return (l.toInt64LE!, r)
 
 instance : FromBytes Float32 where
-  fromBytesUnchecked arr := return (Float32.ofBits (arr.take 4).toUInt32LE!, arr.drop 4)
+  fromBytesUnchecked arr :=
+    let (l, r) := arr.splitAt 4
+    return (Float32.ofBits l.toUInt32LE!, r)
 
 instance : FromBytes Float where
-  fromBytesUnchecked arr := return (Float.ofBits (arr.take 8).toUInt64LE!, arr.drop 8)
+  fromBytesUnchecked arr :=
+    let (l, r) := arr.splitAt 8
+    return (Float.ofBits l.toUInt64LE!, r)
 
 instance [Enum a] : FromBytes a where
   fromBytesUnchecked arr := (Enum.fromUInt8 arr[0]!).map fun e => (e, arr.drop 1)
@@ -79,7 +95,8 @@ instance [Enum a] : FromBytes a where
 instance : FromBytes (BitVec n) where
   fromBytesUnchecked arr :=
     let k := (n + 7) / 8
-    return ((arr.take k).toBitVecLE n, arr.drop k)
+    let (l, r) := arr.splitAt k
+    return (l.toBitVecLE n, r)
 
 end FromBytes
 
