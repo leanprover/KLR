@@ -60,6 +60,18 @@ def parseFloat (s : String) : Float :=
     let f := Float.ofScientific m true d
     if sgn then f else -f
 
+-- I tried to extract the logic between parseFloat and parseFloat32 but
+-- the general form is more painful than the copying of 5 lines of code.
+def parseFloat32 (s : String) : Float32 :=
+  match s with
+  | "NaN" => 0.0 / 0.0
+  | "inf" => 1.0 / 0.0
+  | "-inf" => -1.0 / 0.0
+  | _ =>
+    let (sgn, m, d) := floatParts s.toList
+    let f := Float32.ofScientific m true d
+    if sgn then f else -f
+
 private def roundTrip (f : Float) : Bool :=
   let f' := parseFloat f.toString
   if f.isNaN then f'.isNaN
@@ -73,6 +85,20 @@ private def roundTrip (f : Float) : Bool :=
 #guard roundTrip (-0.0)
 #guard roundTrip (-34.55)
 #guard roundTrip 3.1415926
+
+private def roundTrip32 (f : Float32) : Bool :=
+  let f' := parseFloat32 f.toString
+  if f.isNaN then f'.isNaN
+  else if f.isInf then f == f'
+  else (f - f').abs < 0.000001
+
+#guard roundTrip32 (0.0 / 0.0)
+#guard roundTrip32 (1.0 / 0.0)
+#guard roundTrip32 (-1.0 / 0.0)
+#guard roundTrip32 0.0
+#guard roundTrip32 (-0.0)
+#guard roundTrip32 (-34.55)
+#guard roundTrip32 3.1415926
 
 /--
 info: Unable to find a counter-example

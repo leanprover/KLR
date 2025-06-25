@@ -8,6 +8,7 @@ supporting both positional and named arguments.
 -/
 import TensorLib
 import Util.Float
+import Util.Hex
 
 open Lean(Command ConstructorVal CoreM Expr Ident InductiveVal Macro Name Syntax TSyntax Term getConstInfoCtor getConstInfoInduct getEnv getStructureFieldsFlattened isInductive isStructure mkIdent quote)
 open Lean.Core(mkFreshUserName)
@@ -18,7 +19,7 @@ open Lean.Elab.Term(TermElabM elabBinders elabTerm)
 open Lean.Meta(forallTelescopeReducing mkListLit)
 open Lean.Parser.Term(bracketedBinderF doExpr matchAlt matchAltExpr)
 open Lean.PrettyPrinter(ppCommand)
-open TensorLib(Err impossible)
+open TensorLib(Err impossible toLEByteArray)
 
 namespace KLR.Util
 
@@ -62,6 +63,9 @@ instance : ToSexp Int where
 instance : ToSexp Nat where
   toSexp n := toSexp (Int.ofNat n)
 
+instance : ToSexp Float32 where
+  toSexp f := atom f.toString
+
 instance : ToSexp Float where
   toSexp f := atom f.toString
 
@@ -81,6 +85,12 @@ instance [ToSexp a] : ToSexp (Option a) where
 
 instance [BEq a][Hashable a][ToSexp a][ToSexp b] : ToSexp (Std.HashMap a b) where
   toSexp n := toSexp n.toList
+
+instance : ToSexp ByteArray where
+  toSexp arr := .atom (Hex.encode arr)
+
+instance : ToSexp (BitVec n) where
+  toSexp vec := toSexp (toLEByteArray vec)
 
 instance : ToSexp UInt8 where
   toSexp n := toSexp n.toNat
@@ -139,6 +149,11 @@ instance : FromSexp Nat where
     let n <- @fromSexp? Int _ s
     return n.toNat
 
+instance : FromSexp Float32 where
+  fromSexp?
+  | atom s => return parseFloat32 s
+  | list _ => throw "Expected Atom, got List"
+
 instance : FromSexp Float where
   fromSexp?
   | atom s => return parseFloat s
@@ -173,6 +188,16 @@ instance [BEq a][Hashable a][FromSexp a][FromSexp b] : FromSexp (Std.HashMap a b
 
 instance [BEq a][Hashable a][ToSexp a][ToSexp b] : ToSexp (Std.HashMap a b) where
   toSexp n := toSexp n.toList
+
+instance : FromSexp ByteArray where
+  fromSexp?
+  | .atom s => liftM (Hex.decode s)
+  | .list _ => throw "not a hex-encoded byte array"
+
+instance : FromSexp (BitVec n) where
+  fromSexp? s := do
+    let arr <- @fromSexp? ByteArray _ s
+    return arr.toBitVecLE n
 
 instance : FromSexp UInt8 where
   fromSexp? s := do
