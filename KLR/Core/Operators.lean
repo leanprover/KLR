@@ -1,7 +1,7 @@
 /-
 Copyright (c) 2025 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Paul Govereau, Sean McLaughlin
+Authors: Paul Govereau, Paul Mure, Sean McLaughlin
 -/
 
 /-
@@ -61,7 +61,45 @@ inductive Dtype where
     | .uint8 | .uint16 | .uint32 | .uint64 => true
     | _ => false
 
-  deriving Repr, BEq
+  deriving Repr, BEq, DecidableEq
+
+def Dtype.fromString : String → Option Dtype
+  | "bfloat16" => some .bfloat16
+  | "float8e3" => some .float8e3
+  | "float8e4" => some .float8e4
+  | "float8e5" => some .float8e5
+  | "float16" => some .float16
+  | "float32" => some .float32
+  | "float32r" => some .float32r
+  | "int8" => some .int8
+  | "int16" => some .int16
+  | "int64" => some .int64
+  | "int32" => some .int32
+  | "uint8" => some .uint8
+  | "uint16" => some .uint16
+  | "uint32" => some .uint32
+  | "uint64" => some .uint64
+  | _ => none
+
+def Dtype.toString : Dtype → String
+  | .bfloat16 => "bfloat16"
+  | .float8e3 => "float8e3"
+  | .float8e4 => "float8e4"
+  | .float8e5 => "float8e5"
+  | .float16 => "float16"
+  | .float32 => "float32"
+  | .float32r => "float32r"
+  | .int8 => "int8"
+  | .int16 => "int16"
+  | .int64 => "int64"
+  | .int32 => "int32"
+  | .uint8 => "uint8"
+  | .uint16 => "uint16"
+  | .uint32 => "uint32"
+  | .uint64 => "uint64"
+
+instance Dtype.instToString : ToString Dtype where
+  toString := Dtype.toString
 
 /-
 ALU operations supported by the HW
