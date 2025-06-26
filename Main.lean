@@ -7,6 +7,8 @@ import KLR.Util.Gzip
 import TensorLib.Npy
 import TensorLib.Tensor
 import SHerLOC
+import KLR.HLR
+import SHerLOC.Analysis.Graph
 
 open Cli
 open KLR
@@ -285,7 +287,11 @@ def hloToHLR (p : Parsed) : IO UInt32 := do
     match hlr with
     | (.ok hlr, s) => do
       IO.println s!"{hlr}"
-      writeContent "py" p (KLR.HLR.formatProgram s.program)
+      --writeContent "py" p (KLR.HLR.formatProgram s.program)
+      let function := s.program.functions.head!
+      let folded := KLR.HLR.constFold function
+      let g := KLR.HLR.hlrToGraph folded |>toString
+      writeContent "dot" p g
     | (.error e, s) => do
       IO.eprintln s!"Error compiling HLO to HLR: {e}"
       IO.eprintln s!"{repr s}"
