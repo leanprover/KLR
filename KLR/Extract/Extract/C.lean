@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 -/
 import Extract.Basic
+import KLR.File
 import KLR.NKI.Basic
 import KLR.Python
 import KLR.Serde
@@ -153,11 +154,16 @@ def commonAST : MetaM (List LeanType) := do
   let atomic := [.bool, .nat, .int, .float, .string]
   let lists := atomic.map fun t => .simple (.list t)
   let options := atomic.map fun t => .simple (.option t)
+  return lists ++ options
+
+def fileAST : MetaM (List LeanType) := do
   let tys <- collectLeanTypes [
     `KLR.Serde.KLRFile,
-    `KLR.Serde.KLRMetaData
+    `KLR.Serde.KLRMetaData,
+    `KLR.File.Contents
   ]
-  return lists ++ options ++ tys
+  return tys
+
 
 def pythonAST: MetaM (List LeanType) := do
   collectTypes [
@@ -228,6 +234,11 @@ def generateCommonAST: MetaM Unit := do
   IO.println headerH
   IO.println "// KLR Common Abstract Syntax"
   genTypes (<- commonAST)
+
+def generateFileAST: MetaM Unit := do
+  IO.println (headerH ["ast_common.h", "ast_python_core.h", "ast_nki.h"])
+  IO.println "// KLR File Formats"
+  genTypes (<- fileAST)
 
 def generatePythonAST : MetaM Unit := do
   let tys <- pythonAST

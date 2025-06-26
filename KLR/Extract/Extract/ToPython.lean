@@ -16,7 +16,7 @@ private def pyName : Name -> String
   | _ => panic! "bad python name"
 
 private def pyName2 (n1 n2 : Name) : String :=
-  under (pyName n1) ++ (pyName n2).toLower
+  under (pyName n1) ++ (pyName n2)
 where
   under | "" => ""
         | s => if s.endsWith "_" then s else s ++ "_"
@@ -49,7 +49,7 @@ private def genFields (name var : String) (fs : List Field) : MetaM Unit := do
     IO.println s!"if (!obj || PyTuple_SetItem(tup, {n}, obj) == -1) return NULL;"
     IO.println "}"
     n := n + 1
-  IO.println s!"PyObject *res = construct(\"{name}\", tup);"
+  IO.println s!"PyObject *res = construct(\"{name.replace "'" ""}\", tup);"
   IO.println "Py_DECREF(tup);"
   IO.println "return res;"
 
@@ -60,7 +60,7 @@ private def genListSer (ty : SimpleType) : MetaM Unit := do
   IO.println s!"PyObject *list = PyList_New(0);
   if (!list) return NULL;
   for ({tname} node = x; node; node = node->next) \{
-    PyObject *obj = {fnName ty}(x->{vname});
+    PyObject *obj = {fnName ty}(node->{vname});
     if (!obj || PyList_Append(list, obj) == -1) return NULL;
     Py_DECREF(obj);
   }

@@ -22,10 +22,12 @@ The following files have been generated from Lean sources.
 | C File | Lean Source | Method |
 |-|-|-|
 | ast_common.h           | KLR/Serde/File.lean  | KLR/Extract/C |
+| ast_file.h             | KLR/File.lean        | KLR/Extract/C |
 | ast_python_core.h      | KLR/Python.lean      | KLR/Extract/C |
 | ast_nki.h              | KLR/NKI/Basic.lean   | KLR/Extract/C |
 | ast_nki.py             | KLR/NKI/Basic.lean   | KLR/Extract/Python |
 | serde_common.[hc]      | KLR/Serde/File.lean  | KLR/Extract/Serde |
+| serde_file.[hc]        | KLR/File.lean        | KLR/Extract/Serde |
 | serde_python_core.[hc] | KLR/Python.lean      | KLR/Extract/Serde |
 | serde_nki.[hc]         | KLR/NKI/Basic.lean   | KLR/Extract/Serde |
 
