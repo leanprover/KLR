@@ -6,12 +6,9 @@ Authors: Paul Govereau, Sean McLaughlin
 #include "stdc.h"
 #include "region.h"
 #include "cbor.h"
-#include "ast_common.h"
-#include "ast_python_core.h"
-#include "ast_nki.h"
-#include "serde_common.h"
 #include "serde_python_core.h"
 #include "serde_nki.h"
+#include "serde_file.h"
 #include "frontend.h"
 
 #include <stdio.h>
@@ -22,12 +19,7 @@ typedef bool (*des_fn)(FILE*, struct region*, void**);
 #define ERR(s) { res.err = s; goto error; }
 
 static struct SerResult
-write_file(
-  const char *file,
-  u8 format,
-  ser_fn f,
-  const void *value)
-{
+write_file(const char *file, struct File_Contents *contents) {
   struct SerResult res = { .ok = false };
 
   // TODO copy these from Lean defaults
@@ -49,14 +41,15 @@ write_file(
     ERR("error writing file header");
   if (!Serde_KLRMetaData_ser(out, &data))
     ERR("error writing file meta-data");
-  if (!cbor_encode_tag(out, 0xec, format, 1))
-    ERR("error writing Contents");
-  if (!f(out, value))
-    ERR("error writing file data");
+  if (!File_Contents_ser(out, contents))
+    ERR("error writing file contents");
   if (fclose(out))
     ERR("error closing KLR data file");
 
-  data.format = "CALL";
+  struct File_Contents call = {
+    .tag = File_Contents_hlo,
+    .hlo = { .name = (char*)file }
+  };
   char *buf = NULL;
   size_t size = 0;
   out = open_memstream(&buf, &size);
@@ -66,15 +59,13 @@ write_file(
     ERR("error writing call-site header");
   if (!Serde_KLRMetaData_ser(out, &data))
     ERR("error writing call-site meta-data");
-  if (!cbor_encode_tag(out, 0xec, 3, 1))
-    ERR("error writing Contents");
-  if (!String_ser(out, file))
-    ERR("Error writing call-site buffer");
+  if (!File_Contents_ser(out, &call))
+    ERR("error writing call-site contents");
   if (fclose(out))
-    ERR("Error finalizing call-site buffer");
+    ERR("error finalizing call-site buffer");
   if (!buf || size <= 0) {
     if (buf) free(buf);
-    ERR("Error creating call-site buffer");
+    ERR("error creating call-site buffer");
   }
 
   res.ok = true;
@@ -91,17 +82,13 @@ error:
 }
 
 static struct DesResult
-read_file(
-  const u8 *buf,
-  u64 size,
-  const char *format,
-  des_fn f)
-{
+read_file(const u8 *buf, u64 size, enum File_Contents_Tag tag) {
   // TODO: current deserializers are unsafe, to be fixed in code generator
   (void)size;
   struct DesResult res = { .ok = false };
   struct Serde_KLRFile *file = NULL;
   struct Serde_KLRMetaData *data = NULL;
+  struct File_Contents *contents = NULL;
 
   FILE *in = NULL;
   res.region = region_create();
@@ -117,16 +104,14 @@ read_file(
     ERR("KLR version mismatch");
   if (!Serde_KLRMetaData_des(in, res.region, &data))
     ERR("could not read call-site meta-data");
-  if (strcmp(data->format, "CALL"))
-    ERR("Invalid call-site format");
-
-  char *kernel_file = NULL;
-  if (!String_des(in, res.region, &kernel_file))
-    ERR("could not read call site archive file");
+  if (!File_Contents_des(in, res.region, &contents))
+    ERR("could not read call-site contents");
+  if (contents->tag != File_Contents_hlo)
+    ERR("invalid call-site contents");
   if (fclose(in))
     ERR("error completing call-site read");
 
-  in = fopen(kernel_file, "r");
+  in = fopen(contents->hlo.name, "r");
   if (!in)
     ERR("could not read kernel file");
   if (!Serde_KLRFile_des(in, res.region, &file))
@@ -135,10 +120,24 @@ read_file(
     ERR("KLR version mismatch");
   if (!Serde_KLRMetaData_des(in, res.region, &data))
     ERR("could not read kernel meta-data");
-  if (strcmp(data->format, format))
-    ERR("Invalid call-site format");
-  if (!f(in, res.region, (void**)&res.python))
-    ERR("could not parse KLR file");
+  if (!File_Contents_des(in, res.region, &contents))
+    ERR("could not read kernel contents");
+  if (fclose(in))
+    ERR("error completing kernel read");
+
+  if (contents->tag != tag)
+    ERR("invalid kernel contents");
+
+  switch (tag) {
+  case File_Contents_python:
+    res.python = contents->python.kernel;
+    break;
+  case File_Contents_nki:
+    res.nki = contents->nki.kernel;
+    break;
+  default:
+    ERR("unsupported kernel contents");
+  }
 
   res.ok = true;
   res.err = NULL;
@@ -160,25 +159,33 @@ error:
 #define Contents_nki 1
 
 struct SerResult
-serialize_python(const char *file, const struct Python_Kernel *k) {
-  return write_file(file, Contents_python, (ser_fn)Python_Kernel_ser, k);
+serialize_python(const char *file, struct Python_Kernel *k) {
+  struct File_Contents contents = {
+    .tag = File_Contents_python,
+    .python = { .kernel = k }
+  };
+  return write_file(file, &contents);
 }
 
 struct DesResult
 deserialize_python(const u8 *buf, u64 size) {
-  struct DesResult res = read_file(buf, size, "Python", (des_fn)Python_Kernel_des);
+  struct DesResult res = read_file(buf, size, File_Contents_python);
   res.isNki = false;
   return res;
 }
 
 struct SerResult
-serialize_nki(const char *file, const struct NKI_Kernel *k) {
-  return write_file(file, Contents_nki, (ser_fn)NKI_Kernel_ser, k);
+serialize_nki(const char *file, struct NKI_Kernel *k) {
+  struct File_Contents contents = {
+    .tag = File_Contents_nki,
+    .nki = { .kernel = k }
+  };
+  return write_file(file, &contents);
 }
 
 struct DesResult
 deserialize_nki(const u8 *buf, u64 size) {
-  struct DesResult res = read_file(buf, size, "NKI", (des_fn)NKI_Kernel_des);
+  struct DesResult res = read_file(buf, size, File_Contents_nki);
   res.isNki = true;
   return res;
 }

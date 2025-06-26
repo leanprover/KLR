@@ -36,13 +36,20 @@ open Lean (FromJson ToJson)
 open Serde (FromCBOR ToCBOR parseCBOR fromCBOR toCBOR)
 open Util (FromSexp ToSexp toSexp)
 
--- Note: this serde tag can be anything we want, but I am choosing
--- something that external tools will not recognize, just in case.
+/-
+Note: this serde tag can be anything we want, but I am choosing
+something that external tools will not recognize, just in case.
+
+The hlo variant is for the call-site data we embed into the HLO
+custom call nodes. For now this is just a string, but will change
+once the design is finalized
+-/
 
 @[serde tag = 0xec]
 inductive Contents where
   | python (kernel : Python.Kernel)
   | nki (kernel : KLR.NKI.Kernel)
+  | hlo (name : String)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 inductive Format where

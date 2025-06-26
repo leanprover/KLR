@@ -54,6 +54,27 @@ class BinOp(Enum):
   Xor = auto()
   And = auto()
 
+def BinOp_land(): return BinOp.Land
+def BinOp_lor(): return BinOp.Lor
+def BinOp_eq(): return BinOp.Eq
+def BinOp_ne(): return BinOp.Ne
+def BinOp_lt(): return BinOp.Lt
+def BinOp_le(): return BinOp.Le
+def BinOp_gt(): return BinOp.Gt
+def BinOp_ge(): return BinOp.Ge
+def BinOp_add(): return BinOp.Add
+def BinOp_sub(): return BinOp.Sub
+def BinOp_mul(): return BinOp.Mul
+def BinOp_div(): return BinOp.Div
+def BinOp_mod(): return BinOp.Mod
+def BinOp_pow(): return BinOp.Pow
+def BinOp_floor(): return BinOp.Floor
+def BinOp_lshift(): return BinOp.Lshift
+def BinOp_rshift(): return BinOp.Rshift
+def BinOp_or(): return BinOp.Or
+def BinOp_xor(): return BinOp.Xor
+def BinOp_and(): return BinOp.And
+
 class Expr_value(NamedTuple):
   value : "Value"
 

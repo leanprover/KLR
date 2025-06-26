@@ -10,7 +10,6 @@ Authors: Paul Govereau, Sean McLaughlin
 #include "stdc.h"
 #include "region.h"
 #include "cbor.h"
-#include "ast_common.h"
 #include "serde_common.h"
 
 bool Bool_List_ser(FILE *out, struct Bool_List *x) {
@@ -20,7 +19,7 @@ bool Bool_List_ser(FILE *out, struct Bool_List *x) {
   if (!cbor_encode_array_start(out, count))
     return false;
   for (struct Bool_List *node = x; node; node = node->next)
-    if (!cbor_encode_bool(out, x->b))
+    if (!cbor_encode_bool(out, node->b))
       return false;
   return true;
 }
@@ -32,7 +31,7 @@ bool Nat_List_ser(FILE *out, struct Nat_List *x) {
   if (!cbor_encode_array_start(out, count))
     return false;
   for (struct Nat_List *node = x; node; node = node->next)
-    if (!cbor_encode_uint(out, x->nat))
+    if (!cbor_encode_uint(out, node->nat))
       return false;
   return true;
 }
@@ -44,7 +43,7 @@ bool Int_List_ser(FILE *out, struct Int_List *x) {
   if (!cbor_encode_array_start(out, count))
     return false;
   for (struct Int_List *node = x; node; node = node->next)
-    if (!cbor_encode_int(out, x->i))
+    if (!cbor_encode_int(out, node->i))
       return false;
   return true;
 }
@@ -56,7 +55,7 @@ bool Float_List_ser(FILE *out, struct Float_List *x) {
   if (!cbor_encode_array_start(out, count))
     return false;
   for (struct Float_List *node = x; node; node = node->next)
-    if (!cbor_encode_float(out, x->f))
+    if (!cbor_encode_float(out, node->f))
       return false;
   return true;
 }
@@ -68,7 +67,7 @@ bool String_List_ser(FILE *out, struct String_List *x) {
   if (!cbor_encode_array_start(out, count))
     return false;
   for (struct String_List *node = x; node; node = node->next)
-    if (!String_ser(out, x->s))
+    if (!String_ser(out, node->s))
       return false;
   return true;
 }
@@ -115,26 +114,6 @@ bool String_Option_ser(FILE *out, char *x) {
   } else {
     return cbor_encode_option(out, true) && String_ser(out, x);
   }
-  return true;
-}
-
-bool Serde_KLRFile_ser(FILE *out, struct Serde_KLRFile *x) {
-  if (!cbor_encode_tag(out, 217, 247, 3))
-    return false;
-  if (!cbor_encode_uint(out, x->major))
-    return false;
-  if (!cbor_encode_uint(out, x->minor))
-    return false;
-  if (!cbor_encode_uint(out, x->patch))
-    return false;
-  return true;
-}
-
-bool Serde_KLRMetaData_ser(FILE *out, struct Serde_KLRMetaData *x) {
-  if (!cbor_encode_tag(out, 235, 0, 1))
-    return false;
-  if (!String_ser(out, x->format))
-    return false;
   return true;
 }
 
@@ -290,35 +269,5 @@ bool String_Option_des(FILE *in, struct region *region, char **x) {
     *x = 0;
   else
     return String_des(in, region, x);
-  return true;
-}
-
-bool Serde_KLRFile_des(FILE *in, struct region *region,
-                       struct Serde_KLRFile **x) {
-  u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
-    return false;
-  if (t != 217 || c != 247 || l != 3)
-    return false;
-  *x = region_alloc(region, sizeof(**x));
-  if (!Nat_des(in, region, &(*x)->major))
-    return false;
-  if (!Nat_des(in, region, &(*x)->minor))
-    return false;
-  if (!Nat_des(in, region, &(*x)->patch))
-    return false;
-  return true;
-}
-
-bool Serde_KLRMetaData_des(FILE *in, struct region *region,
-                           struct Serde_KLRMetaData **x) {
-  u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
-    return false;
-  if (t != 235 || c != 0 || l != 1)
-    return false;
-  *x = region_alloc(region, sizeof(**x));
-  if (!String_des(in, region, &(*x)->format))
-    return false;
   return true;
 }

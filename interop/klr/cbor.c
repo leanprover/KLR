@@ -388,10 +388,10 @@ bool cbor_decode_tag(FILE *in, u8 *type, u8 *constructor, u8 *len) {
 }
 
 bool cbor_decode_option(FILE *in, bool *isSome) {
-  u8 bytes[3];
-  if (!read_bytes(in, bytes, 3))
+  u8 bytes[4];
+  if (!read_bytes(in, bytes, 4))
     return false;
-  if (bytes[0] != 0xd9 || bytes[1] != 0xff)
+  if (bytes[0] != 0xd9 || bytes[1] != 0xff || (bytes[3] & 0xfe) != 0x80)
     return false;
   *isSome = bytes[2];
   return true;

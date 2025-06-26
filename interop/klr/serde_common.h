@@ -22,8 +22,6 @@ bool Nat_Option_ser(FILE *out, u32 x);
 bool Int_Option_ser(FILE *out, i32 x);
 bool Float_Option_ser(FILE *out, f32 x);
 bool String_Option_ser(FILE *out, char *x);
-bool Serde_KLRFile_ser(FILE *out, struct Serde_KLRFile *x);
-bool Serde_KLRMetaData_ser(FILE *out, struct Serde_KLRMetaData *x);
 
 bool Bool_List_des(FILE *in, struct region *region, struct Bool_List **x);
 bool Nat_List_des(FILE *in, struct region *region, struct Nat_List **x);
@@ -35,7 +33,3 @@ bool Nat_Option_des(FILE *in, struct region *region, u32 *x);
 bool Int_Option_des(FILE *in, struct region *region, i32 *x);
 bool Float_Option_des(FILE *in, struct region *region, f32 *x);
 bool String_Option_des(FILE *in, struct region *region, char **x);
-bool Serde_KLRFile_des(FILE *in, struct region *region,
-                       struct Serde_KLRFile **x);
-bool Serde_KLRMetaData_des(FILE *in, struct region *region,
-                           struct Serde_KLRMetaData **x);

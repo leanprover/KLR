@@ -163,6 +163,11 @@ static void add_work(struct state *st, PyObject *f) {
   if (!name)
     return;
 
+  // skip nki functions (for now)
+  // TODO: remove once we have our own namespace
+  if (strncmp("nki", name, 3) == 0)
+    return;
+
   if (have_fun(st, name))
     return;
 
@@ -236,9 +241,14 @@ static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
     return e;
   }
   else if (PyModule_Check(obj)) {
-    // TODO: can we just leave these undefined?
-    e->expr->tag = Python_Expr_const;
-    e->expr->c.value = NULL;
+    const char *name = PyModule_GetName(obj);
+    if (!name) {
+      PyErr_Clear();
+      return NULL;
+    }
+    e->expr->tag = Python_Expr_name;
+    e->expr->name.id = region_strdup(st->region, name);
+    e->expr->name.ctx = Python_Ctx_load;
     return e;
   }
   else
@@ -631,8 +641,6 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
       e->slice.l = expr(st, python->v.Slice.lower);
       e->slice.u = expr(st, python->v.Slice.upper);
       e->slice.step = expr(st, python->v.Slice.step);
-      if (!e->slice.l || !e->slice.u || !e->slice.step)
-        res = NULL;
       break;
     }
 

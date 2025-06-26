@@ -75,8 +75,8 @@ struct DesResult {
   };
 };
 
-struct SerResult serialize_python(const char *file, const struct Python_Kernel *k);
+struct SerResult serialize_python(const char *file, struct Python_Kernel *k);
 struct DesResult deserialize_python(const u8 *buf, u64 size);
 
-struct SerResult serialize_nki(const char *file, const struct NKI_Kernel *k);
+struct SerResult serialize_nki(const char *file, struct NKI_Kernel *k);
 struct DesResult deserialize_nki(const u8 *buf, u64 size);

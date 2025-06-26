@@ -10,8 +10,6 @@ Authors: Paul Govereau, Sean McLaughlin
 #include "stdc.h"
 #include "region.h"
 #include "cbor.h"
-#include "ast_common.h"
-#include "ast_python_core.h"
 #include "serde_common.h"
 #include "serde_python_core.h"
 
@@ -550,7 +548,7 @@ bool Python_Expr_List_ser(FILE *out, struct Python_Expr_List *x) {
   if (!cbor_encode_array_start(out, count))
     return false;
   for (struct Python_Expr_List *node = x; node; node = node->next)
-    if (!Python_Expr_ser(out, x->expr))
+    if (!Python_Expr_ser(out, node->expr))
       return false;
   return true;
 }
@@ -571,7 +569,7 @@ bool Python_CmpOp_List_ser(FILE *out, struct Python_CmpOp_List *x) {
   if (!cbor_encode_array_start(out, count))
     return false;
   for (struct Python_CmpOp_List *node = x; node; node = node->next)
-    if (!Python_CmpOp_ser(out, x->cmpop))
+    if (!Python_CmpOp_ser(out, node->cmpop))
       return false;
   return true;
 }
@@ -583,7 +581,7 @@ bool Python_Keyword_List_ser(FILE *out, struct Python_Keyword_List *x) {
   if (!cbor_encode_array_start(out, count))
     return false;
   for (struct Python_Keyword_List *node = x; node; node = node->next)
-    if (!Python_Keyword_ser(out, x->keyword))
+    if (!Python_Keyword_ser(out, node->keyword))
       return false;
   return true;
 }
@@ -595,7 +593,7 @@ bool Python_Stmt_List_ser(FILE *out, struct Python_Stmt_List *x) {
   if (!cbor_encode_array_start(out, count))
     return false;
   for (struct Python_Stmt_List *node = x; node; node = node->next)
-    if (!Python_Stmt_ser(out, x->stmt))
+    if (!Python_Stmt_ser(out, node->stmt))
       return false;
   return true;
 }
@@ -607,7 +605,7 @@ bool Python_Fun_List_ser(FILE *out, struct Python_Fun_List *x) {
   if (!cbor_encode_array_start(out, count))
     return false;
   for (struct Python_Fun_List *node = x; node; node = node->next)
-    if (!Python_Fun_ser(out, x->fun))
+    if (!Python_Fun_ser(out, node->fun))
       return false;
   return true;
 }
@@ -642,34 +640,40 @@ bool Python_Const_des(FILE *in, struct region *region,
   case 0:
     if (l != 0)
       return false;
+    (*x)->tag = Python_Const_none;
     break;
   case 1:
     if (l != 1)
       return false;
     if (!Bool_des(in, region, &(*x)->b.value))
       return false;
+    (*x)->tag = Python_Const_bool;
     break;
   case 2:
     if (l != 1)
       return false;
     if (!Int_des(in, region, &(*x)->i.value))
       return false;
+    (*x)->tag = Python_Const_int;
     break;
   case 3:
     if (l != 1)
       return false;
     if (!Float_des(in, region, &(*x)->f.value))
       return false;
+    (*x)->tag = Python_Const_float;
     break;
   case 4:
     if (l != 1)
       return false;
     if (!String_des(in, region, &(*x)->s.value))
       return false;
+    (*x)->tag = Python_Const_string;
     break;
   case 5:
     if (l != 0)
       return false;
+    (*x)->tag = Python_Const_ellipsis;
     break;
   default:
     return false;
@@ -922,6 +926,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     if (!Python_Const_des(in, region, &(*x)->c.value))
       return false;
+    (*x)->tag = Python_Expr_const;
     break;
   case 1:
     if (l != 2)
@@ -930,6 +935,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     if (!String_des(in, region, &(*x)->tensor.dtype))
       return false;
+    (*x)->tag = Python_Expr_tensor;
     break;
   case 2:
     if (l != 2)
@@ -938,6 +944,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     if (!Python_Ctx_des(in, region, &(*x)->name.ctx))
       return false;
+    (*x)->tag = Python_Expr_name;
     break;
   case 3:
     if (l != 3)
@@ -948,6 +955,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     if (!Python_Ctx_des(in, region, &(*x)->attr.ctx))
       return false;
+    (*x)->tag = Python_Expr_attr;
     break;
   case 4:
     if (l != 2)
@@ -956,6 +964,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     if (!Python_Ctx_des(in, region, &(*x)->tuple.ctx))
       return false;
+    (*x)->tag = Python_Expr_tuple;
     break;
   case 5:
     if (l != 2)
@@ -964,6 +973,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     if (!Python_Ctx_des(in, region, &(*x)->list.ctx))
       return false;
+    (*x)->tag = Python_Expr_list;
     break;
   case 6:
     if (l != 3)
@@ -974,6 +984,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     if (!Python_Ctx_des(in, region, &(*x)->subscript.ctx))
       return false;
+    (*x)->tag = Python_Expr_subscript;
     break;
   case 7:
     if (l != 3)
@@ -984,6 +995,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     if (!Python_Expr_Option_des(in, region, &(*x)->slice.step))
       return false;
+    (*x)->tag = Python_Expr_slice;
     break;
   case 8:
     if (l != 2)
@@ -992,6 +1004,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     if (!Python_Expr_List_des(in, region, &(*x)->boolOp.values))
       return false;
+    (*x)->tag = Python_Expr_boolOp;
     break;
   case 9:
     if (l != 3)
@@ -1002,6 +1015,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     if (!Python_Expr_des(in, region, &(*x)->binOp.right))
       return false;
+    (*x)->tag = Python_Expr_binOp;
     break;
   case 10:
     if (l != 2)
@@ -1010,6 +1024,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     if (!Python_Expr_des(in, region, &(*x)->unaryOp.operand))
       return false;
+    (*x)->tag = Python_Expr_unaryOp;
     break;
   case 11:
     if (l != 3)
@@ -1020,6 +1035,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     if (!Python_Expr_List_des(in, region, &(*x)->compare.comparators))
       return false;
+    (*x)->tag = Python_Expr_compare;
     break;
   case 12:
     if (l != 3)
@@ -1030,6 +1046,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     if (!Python_Expr_des(in, region, &(*x)->ifExp.orelse))
       return false;
+    (*x)->tag = Python_Expr_ifExp;
     break;
   case 13:
     if (l != 3)
@@ -1040,6 +1057,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     if (!Python_Keyword_List_des(in, region, &(*x)->call.keywords))
       return false;
+    (*x)->tag = Python_Expr_call;
     break;
   default:
     return false;
@@ -1090,24 +1108,28 @@ bool Python_Stmt__des(FILE *in, struct region *region,
   case 0:
     if (l != 0)
       return false;
+    (*x)->tag = Python_Stmt_pass;
     break;
   case 1:
     if (l != 1)
       return false;
     if (!Python_Expr_des(in, region, &(*x)->expr.e))
       return false;
+    (*x)->tag = Python_Stmt_expr;
     break;
   case 2:
     if (l != 1)
       return false;
     if (!Python_Expr_des(in, region, &(*x)->assert.e))
       return false;
+    (*x)->tag = Python_Stmt_assert;
     break;
   case 3:
     if (l != 1)
       return false;
     if (!Python_Expr_des(in, region, &(*x)->ret.e))
       return false;
+    (*x)->tag = Python_Stmt_ret;
     break;
   case 4:
     if (l != 2)
@@ -1116,6 +1138,7 @@ bool Python_Stmt__des(FILE *in, struct region *region,
       return false;
     if (!Python_Expr_des(in, region, &(*x)->assign.e))
       return false;
+    (*x)->tag = Python_Stmt_assign;
     break;
   case 5:
     if (l != 3)
@@ -1126,6 +1149,7 @@ bool Python_Stmt__des(FILE *in, struct region *region,
       return false;
     if (!Python_Expr_des(in, region, &(*x)->augAssign.e))
       return false;
+    (*x)->tag = Python_Stmt_augAssign;
     break;
   case 6:
     if (l != 3)
@@ -1136,6 +1160,7 @@ bool Python_Stmt__des(FILE *in, struct region *region,
       return false;
     if (!Python_Expr_Option_des(in, region, &(*x)->annAssign.value))
       return false;
+    (*x)->tag = Python_Stmt_annAssign;
     break;
   case 7:
     if (l != 3)
@@ -1146,6 +1171,7 @@ bool Python_Stmt__des(FILE *in, struct region *region,
       return false;
     if (!Python_Stmt_List_des(in, region, &(*x)->ifStm.els))
       return false;
+    (*x)->tag = Python_Stmt_ifStm;
     break;
   case 8:
     if (l != 4)
@@ -1158,14 +1184,17 @@ bool Python_Stmt__des(FILE *in, struct region *region,
       return false;
     if (!Python_Stmt_List_des(in, region, &(*x)->forLoop.orelse))
       return false;
+    (*x)->tag = Python_Stmt_forLoop;
     break;
   case 9:
     if (l != 0)
       return false;
+    (*x)->tag = Python_Stmt_breakLoop;
     break;
   case 10:
     if (l != 0)
       return false;
+    (*x)->tag = Python_Stmt_continueLoop;
     break;
   default:
     return false;

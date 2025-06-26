@@ -90,6 +90,11 @@ static struct NKI_Value *value_convert(struct Python_Const *c,
   if (!result)
     return NULL;
 
+  if (!c) {
+    result->tag = NKI_Value_none;
+    return result;
+  }
+
   switch (c->tag) {
   case Python_Const_none:
     result->tag = NKI_Value_none;
@@ -675,28 +680,21 @@ static struct SimplifyResult indexes_convert(struct Python_Expr *e,
                                          ? e->expr->tuple.xs
                                          : e->expr->list.xs;
 
-    struct SimplifyResult exprs_result = exprs_convert(exprs, region);
-    if (!exprs_result.success) {
-      return exprs_result;
-    }
-
     // Convert each expression to a coordinate index
-    struct NKI_Expr_List *expr_list = exprs_result.value.expr_list;
     struct NKI_Index_List *index_list = NULL;
     struct NKI_Index_List **tail = &index_list;
 
-    while (expr_list) {
-      struct NKI_Index *coord_index = region_alloc(region, sizeof(*coord_index));
-      coord_index->tag = NKI_Index_coord;
-      coord_index->coord.i = expr_list->expr;
+    while (exprs) {
+      struct SimplifyResult expr_result = indexes_convert(exprs->expr, region);
+      if (!expr_result.success) {
+        return expr_result;
+      }
 
-      struct NKI_Index_List *node = region_alloc(region, sizeof(*node));
-      node->index = coord_index;
-      node->next = NULL;
+      *tail = expr_result.value.index_list;
+      while (*tail)
+        tail = &(*tail)->next;
 
-      *tail = node;
-      tail = &node->next;
-      expr_list = expr_list->next;
+      exprs = exprs->next;
     }
 
     result_list = index_list;
@@ -781,9 +779,10 @@ static struct SimplifyResult var_convert(struct Python_Expr *x,
     return expr_result;
   }
 
-  if (expr_result.value.expr->expr->tag != NKI_Expr_var) {
-    return make_error("cannot assign to expression", NULL);
-  }
+  // TODO we may want this restriction in future
+  //if (expr_result.value.expr->expr->tag != NKI_Expr_var) {
+  //  return make_error("cannot assign to expression", NULL);
+  //}
 
   return expr_result;
 }

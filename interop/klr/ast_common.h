@@ -37,13 +37,3 @@ struct String_List {
   struct String_List *next;
   char *s;
 };
-
-struct Serde_KLRFile {
-  u32 major;
-  u32 minor;
-  u32 patch;
-};
-
-struct Serde_KLRMetaData {
-  char *format;
-};
