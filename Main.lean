@@ -179,18 +179,39 @@ private def parse (p : Parsed) : IO KLR.Python.Kernel := do
   let file := p.positionalArg! "file" |>.as! String
   KLR.File.readKLRFile file
 
-def parseAST (p : Parsed) : IO UInt32 := do
+def info (p : Parsed) : IO UInt32 := do
   let file := p.positionalArg! "file" |>.as! String
-  let kernel : KLR.Python.Kernel <- KLR.File.readKLRFile file
-  if p.hasFlag "verbose" then
-    IO.println s!"{repr kernel}"
+  let dump := p.flag? "dump"
+  let arr <- IO.FS.readBinFile file
+  let contents <- KLR.File.parseBytes arr .any
+
+  -- handle content dump
+  if let some format := dump then
+    match format.as? String with
+    | some "json" => IO.println <| Lean.toJson contents
+    | some "nki" => throw (.userError "NKI prettry printing not yet implemented")
+    | some "repr" => IO.println <| reprStr contents
+    | some "sexp" => IO.println <| KLR.Util.toSexp contents
+    | some format => throw (.userError s!"unsupported format {format}")
+    | none => throw (.userError "expecting format argument")
     return 0
-  IO.println s!"AST summary for kernel {kernel.entry}"
-  let fs := String.intercalate "," $ kernel.funcs.map fun f => f.name
-  IO.println s!"Source Functions: {fs}"
-  let gs := String.intercalate "," $ kernel.globals.map fun kw => kw.id
-  IO.println s!"Globals: {gs}"
-  IO.println s!"Undefined names {kernel.undefinedSymbols.mergeSort}"
+
+  -- handle summmary
+  match contents with
+  | .python kernel =>
+    IO.println s!"AST summary for Python Core kernel {kernel.entry}"
+    let fs := String.intercalate "," $ kernel.funcs.map fun f => f.name
+    IO.println s!"Source Functions: {fs}"
+    let gs := String.intercalate "," $ kernel.globals.map fun kw => kw.id
+    IO.println s!"Globals: {gs}"
+    IO.println s!"Undefined names {kernel.undefinedSymbols.mergeSort}"
+  | .nki kernel =>
+    IO.println s!"AST summary for NKI kernel {kernel.entry}"
+    let fs := String.intercalate "," $ kernel.funs.map fun f => f.name
+    IO.println s!"Source Functions: {fs}"
+    let gs := String.intercalate "," $ kernel.globals.map fun kw => kw.name
+    IO.println s!"Globals: {gs}"
+    pure ()
   return 0
 
 def typecheck (p : Parsed) : IO UInt32 := do
@@ -208,17 +229,6 @@ def trace (p : Parsed) : IO UInt32 := do
   if !warnings.isEmpty then IO.eprintln warnings
   if !warnings1.isEmpty then IO.eprintln warnings1
   writeContent "klr" p (asString p klr)
-  return 0
-
-def parseKLR (p : Parsed) : IO UInt32 := do
-  let file := p.positionalArg! "file" |>.as! String
-  let s <- IO.FS.readFile file
-  let json <- Lean.Json.parse s
-  if p.hasFlag "json" then
-    IO.println json
-    return 0
-  let klr : Core.Kernel <- Lean.fromJson? (<- Lean.Json.parse s)
-  IO.println $ asString p klr
   return 0
 
 def nkiToKLR (p : Parsed) : IO UInt32 := do
@@ -275,14 +285,14 @@ def gatherCmd := `[Cli|
     kernelFunctionName : String; "Name of the kernel function"
 ]
 
-def parseASTCmd := `[Cli|
-  "parse-ast" VIA parseAST;
-  "Parse Python AST file"
+def infoCmd := `[Cli|
+  "info" VIA info;
+  "Display information about a KLR file"
 
   FLAGS:
-    v, verbose; "Output complete AST information"
+    d, dump : String; "Output entire contents, format: json, nki, repr, sexp"
   ARGS:
-    file : String;      "File of gathered Python AST"
+    file : String; "KLR format input file"
 ]
 
 def typecheckCmd := `[Cli|
@@ -300,17 +310,6 @@ def traceCmd := `[Cli|
   FLAGS:
     o, outfile : String; "Name of output file"
     p, pretty; "Output human-readable format (do not generate output file)"
-  ARGS:
-    file : String; "File of Python AST printed as JSON"
-]
-
-def parseKLRCmd := `[Cli|
-  "parse-klr" VIA parseKLR;
-  "Display information about a KLR file"
-
-  FLAGS:
-    j, json; "Output Json format"
-    p, pretty; "Output human-readable format (default)"
   ARGS:
     file : String; "File of Python AST printed as JSON"
 ]
@@ -354,9 +353,8 @@ def klrCmd : Cmd := `[Cli|
   SUBCOMMANDS:
     evalKLRCmd;
     gatherCmd;
+    infoCmd;
     nkiToKLRCmd;
-    parseASTCmd;
-    parseKLRCmd;
     traceCmd;
     typecheckCmd
 ]
