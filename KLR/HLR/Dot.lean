@@ -27,7 +27,7 @@ def makeOpNode (op : Operator) (output : String) : Vertex :=
       ("fillcolor", "lightgreen"),
       ("color", "green")
     ]
-  | .batchMatmul _ _ _ => [
+  | .batchMatmul _ _ => [
       ("style", "filled"),
       ("fillcolor", "lightpink"),
       ("color", "red")
@@ -65,7 +65,7 @@ def hlrToGraph (f : HLR.Function) : Graph := Id.run do
   let mut vertices := []
   let mut edges := []
   let mut consts := f.statements.filterMap (fun s => match s with
-    | .assign v (.const _ _) _ => .some v
+    | .assign v (.const _ _ _) _ => .some v
     | _ => .none)
   let (makeEdges : List String → String → (List Vertex) × (List Edge)) := (fun inputs output =>
     inputs.map (fun input =>
@@ -79,7 +79,7 @@ def hlrToGraph (f : HLR.Function) : Graph := Id.run do
 
   for s in f.statements do
     match s with
-    | .assign _ (.const _ _) _ => ()
+    | .assign _ (.const _ _ _) _ => ()
     | .assign v op _ =>
       vertices := makeOpNode op v :: vertices
       let (newVertices, newEdges) := makeEdges (dependencies op) v

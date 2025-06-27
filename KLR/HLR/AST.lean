@@ -9,11 +9,19 @@ import KLR.Util
 import SHerLOC
 import TensorLib.Shape
 import TensorLib.Slice
+import TensorLib.Dtype
 
 namespace KLR.HLR
+
 abbrev Shape := TensorLib.Shape
+structure TensorTy where
+  shape : TensorLib.Shape
+  dtype : TensorLib.Dtype
+deriving Inhabited, Repr, Nonempty
+
 abbrev Var := String
 
+-- scalar-scalar binary operators
 inductive BinaryOp where
   | mul
   | max
@@ -24,6 +32,7 @@ inductive BinaryOp where
   | and
 deriving Inhabited, Repr
 
+-- scalar unary operators
 inductive UnaryOp where
   | exp
   | sqrt
@@ -31,48 +40,80 @@ inductive UnaryOp where
   | convert
 deriving Inhabited, Repr
 
-inductive Value where
-  | todo
-deriving Inhabited, Repr
-
+-- Operators in the HLR (High-Level Representation) of KLR.
 inductive Operator where
+  -- An argument to the function, identified by its index.
   | arg (index : Nat)
 
+  -- apply a binary operator element-wise to two tensors
   | binaryOp (op : BinaryOp) (a b : Var)
+  -- apply a unary operator element-wise to a tensor
   | unaryOp (op : UnaryOp) (a : Var)
+  -- apply a reduction operation to a tensor, reducing it along the specified dimensions
   | reductionOp (op : BinaryOp) (a b : Var) (dim : List Nat)
 
-  | batchMatmul (a b : Var) (batchDims : Nat)
+  -- perform a batch matrix multiplication on two tensors.
+  -- Specifically, computes the einsum bij,bkj->bik
+  | batchMatmul (a b : Var)
+  -- create a tensor with a range of values within the given limits and with the specified stride
   | arange (start : Nat) (stop : Nat) (step : Nat) (shape : Shape)
+  -- concatenate a list of tensors along the specified dimension
   | concat (tensors : List Var) (dim : Nat)
+  -- select elements from two tensors based on a condition tensor
   | select (cond a b : Var)
+  -- create a tensor filled with a specific value, with the given shape
   | full (value : StableHLO.Parsing.FloatLiteral) (shape : Shape)
+  -- transpose a tensor with the provided permutation of dimensions
   | transpose (a : Var) (dims : List Nat)
+  -- unused
   | split_with_sizes (a : Var) (sizes : List Nat) -- ??
+  -- reshape a tensor to the specified shape
   | reshape (a : Var) (shape : Shape)
+  -- broadcast a tensor to the specified shape
   | broadcast (a : Var) (shape : Shape)
-  | const (values : StableHLO.Parsing.DenseLiteral) (shape : Shape)
+  -- create a constant tensor with the given values and shape
+  | const (values : StableHLO.Parsing.DenseLiteral) (shape : Shape) (dtype : TensorLib.Dtype)
+  -- gather elements from a tensor using the provided indices and offset dimensions
   | gather (input indices : Var) (offsetDims collapsedSliceDims startIndexMap : List Nat) (indexVectorDim : Nat)
+  -- slice a tensor along specified dimensions, with start, limit, and stride
   | slice (a : Var) (start limit stride : List Nat)
-  | call (callee : String) (inputValues : List Var) (outputs : List Var)
+  -- call another function, passing input values and receiving outputs
+  | call (callee : String) (inputValues : List Var)
 deriving Inhabited, Repr
 
+-- A statement in the HLR, which can be a comment, an assignment, or a return statement.
+-- In SSA form, so each variable is assigned exactly once.
 inductive Statement where
+  -- a comment in the code, for documentation purposes
   | comment (msg : String)
-  | assign (dest : Var) (op : Operator) (shape : Shape)
+  -- assign the result of an operator to a fresh variable, with the specified shape
+  | assign (dest : Var) (op : Operator) (shape : TensorTy)
+  -- return a variable from the function
   | ret (name : Var)
 deriving Inhabited, Repr
 
+-- A function in the HLR, which consists of a name, input shapes, output shapes, and a list of statements.
 structure Function where
   name : String
-  inputs : List Shape
-  outputs : List Shape
+  inputs : List TensorTy
+  outputs : List TensorTy
   statements : List Statement
 deriving Inhabited, Repr, Nonempty
 
 structure Program where
   functions : List Function
 deriving Inhabited, Repr, Nonempty
+
+instance : Coe StableHLO.Parsing.TensorType TensorTy where
+  coe (t : StableHLO.Parsing.TensorType) :=
+    let (shape : Shape) := t.shape.map (fun dim => match dim with
+      | .known d =>  d
+      | .unknown => panic! "Can't support tensors with unkown shape") |> .mk
+    let (dtype : TensorLib.Dtype) := match t.tensorElementTypeGen with
+      | .classic (.floatType .f32) => TensorLib.Dtype.float32
+      | _ => panic! s!"Unsupported tensor element type: {repr t.tensorElementTypeGen}"
+    .mk shape dtype
+
 
 instance : ToString BinaryOp where
   toString op :=
@@ -91,59 +132,66 @@ instance : ToString UnaryOp where
     | .sqrt => "sqrt"
     | .neg => "neg"
     | .convert => "convert"
+instance : ToString TensorTy where
+  toString (t : TensorTy) : String :=
+    s!"{t.shape}x{t.dtype}"
 
 def opName (op : Operator) : String :=
   match op with
   | .arg _ => s!"arg"
-  | .binaryOp binOp _ _ => s!"{binOp}"
-  | .unaryOp unOp _ => s!"{unOp}"
-  | .reductionOp redOp _ _ _ => s!"{redOp}"
-  | .batchMatmul _ _ _ => s!"batchMatmul"
-  | .arange _ _ _ _ => s!"arange"
-  | .concat _ _ => s!"concat"
-  | .select _ _ _ => s!"select"
-  | .full _ _ => s!"full"
-  | .transpose _ _ => s!"transpose"
-  | .split_with_sizes _ _ => s!"split_with_sizes"
-  | .reshape _ _ => s!"reshape"
-  | .broadcast _ _ => s!"broadcast"
-  | .const _ _ => s!"const"
-  | .gather _ _ _ _ _ _ => s!"gather"
-  | .slice _ _ _ _ => s!"slice"
-  | .call callee _ _ => s!"call {callee}"
+  | .binaryOp binOp .. => s!"{binOp}"
+  | .unaryOp unOp .. => s!"{unOp}"
+  | .reductionOp redOp .. => s!"{redOp}"
+  | .batchMatmul .. => s!"batchMatmul"
+  | .arange .. => s!"arange"
+  | .concat .. => s!"concat"
+  | .select .. => s!"select"
+  | .full .. => s!"full"
+  | .transpose .. => s!"transpose"
+  | .split_with_sizes .. => s!"split_with_sizes"
+  | .reshape .. => s!"reshape"
+  | .broadcast .. => s!"broadcast"
+  | .const .. => s!"const"
+  | .gather .. => s!"gather"
+  | .slice .. => s!"slice"
+  | .call callee .. => s!"call {callee}"
 
+-- Returns the list of variables that this operator immediately depends on.
 def dependencies (op : Operator) : List Var :=
   match op with
   | .arg _ => []
   | .binaryOp _ a b => [a, b]
   | .unaryOp _ a => [a]
   | .reductionOp _ a b _ => [a, b]
-  | .batchMatmul a b _ => [a, b]
-  | .arange _ _ _ _ => []
+  | .batchMatmul a b => [a, b]
+  | .arange .. => []
   | .concat tensors _ => tensors
   | .select cond a b => [cond, a, b]
-  | .full _ _ => []
+  | .full .. => []
   | .transpose a _ => [a]
   | .split_with_sizes a _ => [a]
   | .reshape a _ => [a]
   | .broadcast a _ => [a]
-  | .const _ _ => []
-  | .gather a i _ _ _ _ => [a, i]
-  | .slice a _ _ _ => [a]
-  | .call _ inputs outputs => inputs ++ outputs
+  | .const .. => []
+  | .gather a i .. => [a, i]
+  | .slice a .. => [a]
+  | .call _ inputs => inputs
 
+-- Returns the list of all variables in this function.
 def vars (f : Function) : List Var :=
   f.statements.filterMap (fun stmt =>
     match stmt with
-    | .assign dest _ _ => .some dest
+    | .assign dest .. => .some dest
     | _ => .none)
 
+-- Finds the operator that assigns to a variable in the function.
 def findVar (f : Function) (v : Var) : Option Operator :=
   f.statements.findSome? (fun stmt =>
     match stmt with
     | .assign dest op _ => if dest == v then .some op else .none
     | _ => .none)
 
+-- Finds the statement that assigns to a variable in the function.
 def transitiveDependencies (f : Function) (v : Var) : List Var := Id.run do
   let mut deps := [v]
   repeat
@@ -173,7 +221,7 @@ def topoSort (f : Function) : List Var := Id.run do
   -- nodes with no incoming edges
   let mut queue := vars f |> .filter (fun v =>
     match findVar f v with
-    | .some (.arg _) | .some (.const _ _) => true
+    | .some (.arg _) | .some (.const _ _ _) => true
     | _ => false)
   let mut forwardEdges := forwardEdges f
   while ! queue.isEmpty do

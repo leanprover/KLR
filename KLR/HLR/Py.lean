@@ -93,7 +93,7 @@ def opToPy (op : Operator) : String :=
   | .binaryOp binOp a b => s!"np.{binOpToPy binOp}({varToPy a}, {varToPy b})"
   | .unaryOp unOp a => s!"np.{unaryOpToPy unOp}({varToPy a})"
   | .reductionOp redOp a b dim => s!"np.{reduceOpToPy redOp}({varToPy a}, initial={varToPy b}, axis={dim[0]!})"
-  | .batchMatmul a b _ => s!"np.einsum(\"bij,bkj->bik\", {varToPy a}, {varToPy b})"
+  | .batchMatmul a b => s!"np.einsum(\"bij,bkj->bik\", {varToPy a}, {varToPy b})"
   | .arange start stop step shape => s!"np.arange({start}, {stop}, {step}).reshape({shapeToPy shape})"
   | .concat tensors dim =>
     let tensorsStr := String.intercalate "," (tensors.map (fun t => s!"{t}"))
@@ -109,7 +109,7 @@ def opToPy (op : Operator) : String :=
   | .const _ shape => s!"np.full(({shapeToPy shape}), 0, dtype=np.float32)" -- TODO: make this use actual const
   | .gather _ _ _ _ _ _ => panic! s!"Gather operation not implemented in Python translation"
   | .slice _ _ _ _ => panic! s!"Slice operation not implemented in Python translation"
-  | .call _ _ _ =>
+  | .call _ _ =>
     panic! s!"Can't translate call operators to Python"
 
 

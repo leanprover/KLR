@@ -52,7 +52,7 @@ instance : FindShape (List Statement) where
   findShape statements var := do
     let found := statements.findSome? (fun x =>
       match x with
-      | .assign v _ shape => if v == var then .some shape else .none
+      | .assign v _ ty => if v == var then .some ty.shape else .none
       | _ => .none)
     match found with
     | some shape => pure shape
@@ -84,8 +84,21 @@ instance : ToString TensorLib.Slice where
     s!"{start}:{stop}:{step}"
 
 instance : ToString TensorLib.Shape where
-  toString (s : Shape) : String :=
+  toString (s : TensorLib.Shape) : String :=
     s.val.map toString |> fun x => "[" ++ "x".intercalate x ++ "]"
+instance : ToString TensorLib.Dtype where
+  toString d := match d with
+    | .bool => "bool"
+    | .int8 => "int8"
+    | .int16 => "int16"
+    | .int32 => "int32"
+    | .int64 => "int64"
+    | .uint8 => "uint8"
+    | .uint16 => "uint16"
+    | .uint32 => "uint32"
+    | .uint64 => "uint64"
+    | .float32 => "float32"
+    | .float64 => "float64"
 
 instance : ToString Operator where
   toString (op : Operator) : String :=
@@ -94,7 +107,7 @@ instance : ToString Operator where
     | .binaryOp binOp a b => s!"{repr binOp}({a}, {b})"
     | .unaryOp unOp a => s!"{repr unOp}({a})"
     | .reductionOp redOp a b dim => s!"reduce-{repr redOp}({a}, {b}, dim={dim})"
-    | .batchMatmul a b batchDims => s!"matmul({a}, {b}, batchDims={batchDims})"
+    | .batchMatmul a b => s!"matmul({a}, {b})"
     | .arange start stop step shape => s!"arange({start}, {stop}, {step}, shape={shape})"
     | .concat tensors dim => s!"concat({", ".intercalate tensors}, dim={dim})"
     | .select cond a b => s!"select({cond}, {a}, {b})"
@@ -103,14 +116,13 @@ instance : ToString Operator where
     | .split_with_sizes a sizes => s!"split_with_sizes({a}, sizes={sizes})"
     | .reshape a shape => s!"reshape({a}, shape={shape})"
     | .broadcast a shape => s!"broadcast({a}, shape={shape})"
-    | .const _ shape => s!"const(..., shape={shape})"
+    | .const _ shape dtype => s!"const(..., shape={shape}, dtype={dtype})"
     | .gather a indices offsetDims collapsedSliceDims startIndexMap indexVectorDim
       => s!" gather({a}, indices={indices}, offsetDims={offsetDims}, collapsedSliceDims={collapsedSliceDims}, startIndexMap={startIndexMap}, indexVectorDim={indexVectorDim})"
     | .slice a start limit stride => s!"slice({a}, start={start}, limit={limit}, stride={stride})"
-    | .call callee inputValues outputs =>
+    | .call callee inputValues =>
       let inputsStr := inputValues.map toString |> ", ".intercalate
-      let outputsStr := outputs.map toString |> ", ".intercalate
-      s!"call({callee}, inputs=[{inputsStr}], outputs=[{outputsStr}])"
+      s!"call({callee}, inputs=[{inputsStr}])"
 
 def functionToString (f : Function) : Compile String := do
   let rec statementToString : Statement → Compile String := fun s => do
@@ -134,25 +146,20 @@ def programToString (p : Program) : Compile String := do
   let functionsStr := (← p.functions.mapM functionToString)
   pure s!"# Program\n{functionsStr}"
 
-instance : Coe StableHLO.Parsing.TensorType Shape where
-  coe t := t.shape.map (fun dim => match dim with
-    | .known d =>  d
-    | .unknown => panic! "Can't support tensors with unkown shape") |> .mk
-
 def getOutputName (outputs : List StableHLO.Parsing.ValueId) : Compile Var :=
   match outputs with
   | [output] => pure output
   | _ => .error "Function signature must have a single tensor output."
 
-def getTensorInputType (sig : List StableHLO.Parsing.ValueType) (n : Nat): Compile Shape :=
+def getTensorInputType (sig : List StableHLO.Parsing.ValueType) (n : Nat): Compile TensorTy :=
   match sig[n]? with
-  | .some (.tensorType t) => pure t
+  | .some (.tensorType t) => pure (Coe.coe t)
   | .some _ => .error s!"Function input {n} must have a tensor type."
   | _ => .error s!"Function signature must have at least {n + 1} tensor inputs. Instead, got  {repr sig}"
-def getSingleTensorOutputType (sig : List StableHLO.Parsing.ValueType) : Compile Shape :=
+def getSingleTensorOutputType (sig : List StableHLO.Parsing.ValueType) : Compile TensorTy :=
   match sig with
   | [output] => match output with
-    | .tensorType t => pure t
+    | .tensorType t => pure (Coe.coe t)
     | _ => .error "Function signature must have a single tensor output."
   | _ => .error "Function signature must have a single tensor output."
 
@@ -200,9 +207,9 @@ def extractDimensionNumbers (attrs : List StableHLO.Parsing.Attribute) : Compile
 
 def reduceFunctionToReduceOp (f : StableHLO.Parsing.InputFunc) : Compile (BinaryOp) := do
   match f with
-  | .mk _ [.stablehlo .maximum _ _ _ _ _, .return _ _] => pure .max
-  | .mk _ [.stablehlo .add _ _ _ _ _, .return _ _] => pure .add
-  | .mk _ [.stablehlo .and _ _ _ _ _, .return _ _] => pure .and
+  | .mk _ [.stablehlo .maximum .., .return ..] => pure .max
+  | .mk _ [.stablehlo .add .., .return ..] => pure .add
+  | .mk _ [.stablehlo .and .., .return ..] => pure .and
   | op => .error (s!"Unable to match reduction function {repr op} to a reduce operation." ++
     "Need to implement more cases or function calling.")
 
@@ -212,85 +219,86 @@ def compileOp (o : StableHLO.Parsing.Operation) : Compile (List Statement) := do
     let makeUnOp := fun (op : UnaryOp) => do
       let a := inputValues[0]!
       let output ←  getOutputName outputs
-      let shape ← getSingleTensorOutputType signature.range
-      pure [.assign output (.unaryOp op a) shape]
+      let ty ← getSingleTensorOutputType signature.range
+      pure [.assign output (.unaryOp op a) ty]
     let makeBinOp := fun (op : BinaryOp) => do
       let a := inputValues[0]!
       let b := inputValues[1]!
       let output ←  getOutputName outputs
-      let outputShape ←
+      let outputTy ←
         getSingleTensorOutputType signature.range
-      pure [.assign output (.binaryOp op a b) outputShape]
+      pure [.assign output (.binaryOp op a b) outputTy]
     match opCode with
     | .constant =>  do
         log "constant"
         let valueAttr ← getAttribute inputAttributes "value"
         match valueAttr with
         | .mk _ (.mk (.tensor (.denseElements [(.floatLiteral f)]))  _) =>
-          let shape ← getSingleTensorOutputType signature.range
+          let ty ← getSingleTensorOutputType signature.range
           let outputName ← getOutputName outputs
-          pure [.assign outputName (.full f shape) shape]
+          pure [.assign outputName (.full f ty.shape) ty]
         | .mk _ (.mk (.tensor lit)  _) =>
-          let shape ← getSingleTensorOutputType signature.range
+          let ty ← getSingleTensorOutputType signature.range
           let outputName ← getOutputName outputs
-          pure [.assign outputName (.const lit shape) shape]
+          pure [.assign outputName (.const lit ty.shape ty.dtype) ty]
         | .mk _ (.mk _ _) => .error "Constant operation requires a 'value' attribute with tensor literal."
     | .dotGeneral => do
         let (lhsBatchingDims, lhsContractingDims, rhsBatchingDims, rhsContractingDims) ←
           extractDotDimensionNumbers inputAttributes
         let lhs := inputValues[0]!
         let rhs := inputValues[1]!
-        let lhsShape ← getTensorInputType signature.domain 0
-        let rhsShape ← getTensorInputType signature.domain 1
+        let lhsType ← getTensorInputType signature.domain 0
+        let rhsType ← getTensorInputType signature.domain 1
+        let dtype := lhsType.dtype
+        let lhsShape := lhsType.shape
+        let rhsShape := rhsType.shape
         let outputName ← getOutputName outputs
-        let outputShape ← getSingleTensorOutputType signature.range
+        let outputTy ← getSingleTensorOutputType signature.range
         let lhsDims :=  List.range (TensorLib.Shape.ndim lhsShape)
         let rhsDims :=  List.range (TensorLib.Shape.ndim rhsShape)
         let lhsResultDims := lhsDims.filter (fun i => !lhsBatchingDims.contains i && !lhsContractingDims.contains i)
         let rhsResultDims := rhsDims.filter (fun i => !rhsBatchingDims.contains i && !rhsContractingDims.contains i)
         let lhsTransposePerm := lhsBatchingDims ++ lhsResultDims ++ lhsContractingDims
         let rhsTransposePerm := rhsBatchingDims ++ rhsResultDims ++ rhsContractingDims
-        let lhsTransposedShape := permute lhsShape.val lhsTransposePerm
-        let rhsTransposedShape := permute rhsShape.val rhsTransposePerm
-        match (lhsTransposedShape, rhsTransposedShape) with
-        | (.some lhsTransposedShape, .some rhsTransposedShape) =>
-          let batchShape := lhsTransposedShape.take lhsBatchingDims.length
-          let lhsResultShape := lhsTransposedShape.drop lhsBatchingDims.length |>.take lhsResultDims.length
-          let rhsResultShape := rhsTransposedShape.drop rhsBatchingDims.length |>.take rhsResultDims.length
-          let contractingShape := lhsTransposedShape.drop (lhsBatchingDims.length + lhsResultDims.length) |>
-            List.take (lhsTransposedShape.length - (lhsBatchingDims.length + lhsResultDims.length))
-          let batchSize := if batchShape.isEmpty then 1 else batchShape.foldl (fun acc d => acc * d) 1
-          let resultShape := batchShape ++ lhsResultShape ++ rhsResultShape
-          let lhsResultSize := if lhsResultShape.isEmpty then 1 else lhsResultShape.foldl (fun acc d => acc * d) (1 : Nat)
-          let rhsResultSize := if rhsResultShape.isEmpty then 1 else rhsResultShape.foldl (fun acc d => acc * d) (1 : Nat)
-          let contractingSize := if contractingShape.isEmpty then 1 else contractingShape.foldl (fun acc d => acc * d) 1
-          --
-          let lhsTransposedName := lhs ++ "_transposed"
-          let lhsTransposedShape ← (permute lhsShape.val lhsTransposePerm)
-          let rhsTransposedName := rhs ++ "_transposed"
-          let rhsTransposedShape ← (permute rhsShape.val rhsTransposePerm)
-          let lhsReshapedName := lhs ++ "_reshaped"
-          let lhsReshapedShape := [batchSize, lhsResultSize, contractingSize]
-          let rhsReshapedName := rhs ++ "_reshaped"
-          let rhsReshapedShape := [batchSize, rhsResultSize, contractingSize]
-          let resultReshapedName := outputName ++ "_reshaped"
-          let resultReshapedShape := [batchSize, lhsResultSize, rhsResultSize]
-          pure ([
-            .comment "Dot General Operation",
-            .assign lhsTransposedName (.transpose lhs lhsTransposePerm) (.mk lhsTransposedShape),
-            .assign rhsTransposedName (.transpose rhs rhsTransposePerm) (.mk rhsTransposedShape),
-            .assign lhsReshapedName (.reshape lhsTransposedName (.mk lhsReshapedShape)) (.mk lhsReshapedShape),
-            .assign rhsReshapedName (.reshape rhsTransposedName (.mk rhsReshapedShape)) (.mk rhsReshapedShape),
-            .assign resultReshapedName (.batchMatmul lhsReshapedName rhsReshapedName batchShape.length) (.mk resultReshapedShape),
-            .assign outputName (.reshape resultReshapedName (.mk resultShape)) outputShape,
-          ])
-        | _ => .error "Invalid transposition permutations for dotGeneral operation."
+        let lhsTransposedShape := permute lhsShape.val lhsTransposePerm |>.get!
+        let rhsTransposedShape := permute rhsShape.val rhsTransposePerm |>.get!
+        let batchShape := lhsTransposedShape.take lhsBatchingDims.length
+        let lhsResultShape := lhsTransposedShape.drop lhsBatchingDims.length |>.take lhsResultDims.length
+        let rhsResultShape := rhsTransposedShape.drop rhsBatchingDims.length |>.take rhsResultDims.length
+        let contractingShape := lhsTransposedShape.drop (lhsBatchingDims.length + lhsResultDims.length) |>
+          List.take (lhsTransposedShape.length - (lhsBatchingDims.length + lhsResultDims.length))
+        let batchSize := if batchShape.isEmpty then 1 else batchShape.foldl (fun acc d => acc * d) 1
+        let resultShape := batchShape ++ lhsResultShape ++ rhsResultShape
+        let lhsResultSize := if lhsResultShape.isEmpty then 1 else lhsResultShape.foldl (fun acc d => acc * d) (1 : Nat)
+        let rhsResultSize := if rhsResultShape.isEmpty then 1 else rhsResultShape.foldl (fun acc d => acc * d) (1 : Nat)
+        let contractingSize := if contractingShape.isEmpty then 1 else contractingShape.foldl (fun acc d => acc * d) 1
+        --
+        let lhsTransposedName := lhs ++ "_transposed"
+        let rhsTransposedName := rhs ++ "_transposed"
+        let lhsReshapedName := lhs ++ "_reshaped"
+        let lhsReshapedShape := [batchSize, lhsResultSize, contractingSize]
+        let lhsReshapedTy := TensorTy.mk (.mk lhsReshapedShape) dtype
+        let rhsReshapedName := rhs ++ "_reshaped"
+        let rhsReshapedShape := [batchSize, rhsResultSize, contractingSize]
+        let rhsReshapedTy := TensorTy.mk (.mk rhsReshapedShape) dtype
+        let resultReshapedName := outputName ++ "_reshaped"
+        let resultReshapedShape := [batchSize, lhsResultSize, rhsResultSize]
+        let resultReshapedType := TensorTy.mk (.mk resultReshapedShape) dtype
+        pure ([
+          .comment "Dot General Operation",
+          .assign lhsTransposedName (.transpose lhs lhsTransposePerm) (.mk (.mk lhsTransposedShape) dtype),
+          .assign rhsTransposedName (.transpose rhs rhsTransposePerm) (.mk (.mk rhsTransposedShape) dtype),
+          .assign lhsReshapedName (.reshape lhsTransposedName lhsReshapedTy.shape) lhsReshapedTy,
+          .assign rhsReshapedName (.reshape rhsTransposedName rhsReshapedTy.shape) rhsReshapedTy,
+          .assign resultReshapedName (.batchMatmul lhsReshapedName rhsReshapedName) resultReshapedType,
+          .assign outputName (.reshape resultReshapedName (.mk resultShape)) outputTy,
+        ])
     | .reshape => do
         log "reshape"
         let input := inputValues[0]!
         let output ← getOutputName outputs
-        let outputShape ← getSingleTensorOutputType signature.range
-        pure [.assign output (.reshape input outputShape) outputShape]
+        let outputTy ← getSingleTensorOutputType signature.range
+        pure [.assign output (.reshape input outputTy.shape) outputTy]
     | .sqrt => makeUnOp .sqrt
     | .negate => makeUnOp .neg
     | .exponential => makeUnOp .exp
@@ -353,8 +361,8 @@ def compileOp (o : StableHLO.Parsing.Operation) : Compile (List Statement) := do
         log "broadcast"
         let input := inputValues[0]!
         let output ← getOutputName outputs
-        let outputShape ←  getSingleTensorOutputType signature.range
-        pure [.assign output (.broadcast input outputShape) outputShape]
+        let outputTy ←  getSingleTensorOutputType signature.range
+        pure [.assign output (.broadcast input outputTy.shape) outputTy]
     | .transpose => do
         log "transpose"
         let input := inputValues[0]!
@@ -373,7 +381,7 @@ def compileOp (o : StableHLO.Parsing.Operation) : Compile (List Statement) := do
   | .call callee inputValues outputs signature =>
     log "call"
     pure [Statement.assign (← getOutputName outputs)
-      (.call callee inputValues outputs)
+      (.call callee inputValues)
       (← getSingleTensorOutputType signature.range)]
 
   | s => .error s!"Unsupported operation type {repr s}"
@@ -391,7 +399,7 @@ def compileFunc (f : StableHLO.Parsing.Function) : Compile Unit :=
         pure (.assign name (.arg i) t)
       | _ => .error s!"Function input {name} must have a tensor type.")
     let statements ← body.flatMapM compileOp
-    let (outputs : List Shape) ← f.funcType.range.mapM (fun typ => do
+    let (outputs : List TensorTy) ← f.funcType.range.mapM (fun typ => do
       match typ with
       | .tensorType t => pure t
       | _ => .error "Function output must be a tensor type.")

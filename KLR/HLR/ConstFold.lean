@@ -7,7 +7,7 @@ def constFold (f : Function) : Function := Id.run do
   let mut newStatements := []
   for s in source do
     match s with
-    | .assign v _ shape =>
+    | .assign v _ ty =>
       let deps := transitiveDependencies f v
       let hasNonConstDeps := deps.any (fun dep =>
         match findVar f dep with
@@ -22,7 +22,7 @@ def constFold (f : Function) : Function := Id.run do
           | _ => true)
         -- replace the variable with a constant
         newStatements :=
-          (.assign v (.const (.denseElements []) shape) shape) :: newStatements -- TODO: replace with the actual constant value
+          (.assign v (.const (.denseElements []) ty.shape ty.dtype) ty) :: newStatements -- TODO: replace with the actual constant value
     | _ => newStatements := s :: newStatements
   return {f with statements := newStatements.reverse }
 
