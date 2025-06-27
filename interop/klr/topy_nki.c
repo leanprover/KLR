@@ -43,7 +43,7 @@ PyObject *Bool_List_topy(struct Bool_List *x) {
   if (!list)
     return NULL;
   for (struct Bool_List *node = x; node; node = node->next) {
-    PyObject *obj = Bool_topy(x->b);
+    PyObject *obj = Bool_topy(node->b);
     if (!obj || PyList_Append(list, obj) == -1)
       return NULL;
     Py_DECREF(obj);
@@ -56,7 +56,7 @@ PyObject *Nat_List_topy(struct Nat_List *x) {
   if (!list)
     return NULL;
   for (struct Nat_List *node = x; node; node = node->next) {
-    PyObject *obj = Nat_topy(x->nat);
+    PyObject *obj = Nat_topy(node->nat);
     if (!obj || PyList_Append(list, obj) == -1)
       return NULL;
     Py_DECREF(obj);
@@ -69,7 +69,7 @@ PyObject *Int_List_topy(struct Int_List *x) {
   if (!list)
     return NULL;
   for (struct Int_List *node = x; node; node = node->next) {
-    PyObject *obj = Int_topy(x->i);
+    PyObject *obj = Int_topy(node->i);
     if (!obj || PyList_Append(list, obj) == -1)
       return NULL;
     Py_DECREF(obj);
@@ -82,7 +82,7 @@ PyObject *Float_List_topy(struct Float_List *x) {
   if (!list)
     return NULL;
   for (struct Float_List *node = x; node; node = node->next) {
-    PyObject *obj = Float_topy(x->f);
+    PyObject *obj = Float_topy(node->f);
     if (!obj || PyList_Append(list, obj) == -1)
       return NULL;
     Py_DECREF(obj);
@@ -95,7 +95,7 @@ PyObject *String_List_topy(struct String_List *x) {
   if (!list)
     return NULL;
   for (struct String_List *node = x; node; node = node->next) {
-    PyObject *obj = String_topy(x->s);
+    PyObject *obj = String_topy(node->s);
     if (!obj || PyList_Append(list, obj) == -1)
       return NULL;
     Py_DECREF(obj);
@@ -141,44 +141,6 @@ PyObject *String_Option_topy(char *x) {
   } else {
     return String_topy(x);
   }
-}
-
-PyObject *Serde_KLRFile_topy(struct Serde_KLRFile *x) {
-  PyObject *tup = PyTuple_New(3);
-  if (!tup)
-    return NULL;
-  {
-    PyObject *obj = Nat_topy(x->major);
-    if (!obj || PyTuple_SetItem(tup, 0, obj) == -1)
-      return NULL;
-  }
-  {
-    PyObject *obj = Nat_topy(x->minor);
-    if (!obj || PyTuple_SetItem(tup, 1, obj) == -1)
-      return NULL;
-  }
-  {
-    PyObject *obj = Nat_topy(x->patch);
-    if (!obj || PyTuple_SetItem(tup, 2, obj) == -1)
-      return NULL;
-  }
-  PyObject *res = construct("KLRFile", tup);
-  Py_DECREF(tup);
-  return res;
-}
-
-PyObject *Serde_KLRMetaData_topy(struct Serde_KLRMetaData *x) {
-  PyObject *tup = PyTuple_New(1);
-  if (!tup)
-    return NULL;
-  {
-    PyObject *obj = String_topy(x->format);
-    if (!obj || PyTuple_SetItem(tup, 0, obj) == -1)
-      return NULL;
-  }
-  PyObject *res = construct("KLRMetaData", tup);
-  Py_DECREF(tup);
-  return res;
 }
 
 PyObject *NKI_Pos_topy(struct NKI_Pos *x) {
@@ -498,7 +460,7 @@ PyObject *NKI_Expr__topy(struct NKI_Expr_ *x) {
       if (!obj || PyTuple_SetItem(tup, 0, obj) == -1)
         return NULL;
     }
-    PyObject *res = construct("Expr'_value", tup);
+    PyObject *res = construct("Expr_value", tup);
     Py_DECREF(tup);
     return res;
     break;
@@ -512,7 +474,7 @@ PyObject *NKI_Expr__topy(struct NKI_Expr_ *x) {
       if (!obj || PyTuple_SetItem(tup, 0, obj) == -1)
         return NULL;
     }
-    PyObject *res = construct("Expr'_var", tup);
+    PyObject *res = construct("Expr_var", tup);
     Py_DECREF(tup);
     return res;
     break;
@@ -531,7 +493,7 @@ PyObject *NKI_Expr__topy(struct NKI_Expr_ *x) {
       if (!obj || PyTuple_SetItem(tup, 1, obj) == -1)
         return NULL;
     }
-    PyObject *res = construct("Expr'_proj", tup);
+    PyObject *res = construct("Expr_proj", tup);
     Py_DECREF(tup);
     return res;
     break;
@@ -545,7 +507,7 @@ PyObject *NKI_Expr__topy(struct NKI_Expr_ *x) {
       if (!obj || PyTuple_SetItem(tup, 0, obj) == -1)
         return NULL;
     }
-    PyObject *res = construct("Expr'_tuple", tup);
+    PyObject *res = construct("Expr_tuple", tup);
     Py_DECREF(tup);
     return res;
     break;
@@ -564,7 +526,7 @@ PyObject *NKI_Expr__topy(struct NKI_Expr_ *x) {
       if (!obj || PyTuple_SetItem(tup, 1, obj) == -1)
         return NULL;
     }
-    PyObject *res = construct("Expr'_access", tup);
+    PyObject *res = construct("Expr_access", tup);
     Py_DECREF(tup);
     return res;
     break;
@@ -588,7 +550,7 @@ PyObject *NKI_Expr__topy(struct NKI_Expr_ *x) {
       if (!obj || PyTuple_SetItem(tup, 2, obj) == -1)
         return NULL;
     }
-    PyObject *res = construct("Expr'_binop", tup);
+    PyObject *res = construct("Expr_binOp", tup);
     Py_DECREF(tup);
     return res;
     break;
@@ -612,7 +574,7 @@ PyObject *NKI_Expr__topy(struct NKI_Expr_ *x) {
       if (!obj || PyTuple_SetItem(tup, 2, obj) == -1)
         return NULL;
     }
-    PyObject *res = construct("Expr'_ifexp", tup);
+    PyObject *res = construct("Expr_ifExp", tup);
     Py_DECREF(tup);
     return res;
     break;
@@ -636,7 +598,7 @@ PyObject *NKI_Expr__topy(struct NKI_Expr_ *x) {
       if (!obj || PyTuple_SetItem(tup, 2, obj) == -1)
         return NULL;
     }
-    PyObject *res = construct("Expr'_call", tup);
+    PyObject *res = construct("Expr_call", tup);
     Py_DECREF(tup);
     return res;
     break;
@@ -740,7 +702,7 @@ PyObject *NKI_Stmt__topy(struct NKI_Stmt_ *x) {
       if (!obj || PyTuple_SetItem(tup, 0, obj) == -1)
         return NULL;
     }
-    PyObject *res = construct("Stmt'_expr", tup);
+    PyObject *res = construct("Stmt_expr", tup);
     Py_DECREF(tup);
     return res;
     break;
@@ -754,7 +716,7 @@ PyObject *NKI_Stmt__topy(struct NKI_Stmt_ *x) {
       if (!obj || PyTuple_SetItem(tup, 0, obj) == -1)
         return NULL;
     }
-    PyObject *res = construct("Stmt'_assert", tup);
+    PyObject *res = construct("Stmt_assert", tup);
     Py_DECREF(tup);
     return res;
     break;
@@ -768,7 +730,7 @@ PyObject *NKI_Stmt__topy(struct NKI_Stmt_ *x) {
       if (!obj || PyTuple_SetItem(tup, 0, obj) == -1)
         return NULL;
     }
-    PyObject *res = construct("Stmt'_ret", tup);
+    PyObject *res = construct("Stmt_ret", tup);
     Py_DECREF(tup);
     return res;
     break;
@@ -792,7 +754,7 @@ PyObject *NKI_Stmt__topy(struct NKI_Stmt_ *x) {
       if (!obj || PyTuple_SetItem(tup, 2, obj) == -1)
         return NULL;
     }
-    PyObject *res = construct("Stmt'_assign", tup);
+    PyObject *res = construct("Stmt_assign", tup);
     Py_DECREF(tup);
     return res;
     break;
@@ -816,7 +778,7 @@ PyObject *NKI_Stmt__topy(struct NKI_Stmt_ *x) {
       if (!obj || PyTuple_SetItem(tup, 2, obj) == -1)
         return NULL;
     }
-    PyObject *res = construct("Stmt'_ifstm", tup);
+    PyObject *res = construct("Stmt_ifStm", tup);
     Py_DECREF(tup);
     return res;
     break;
@@ -840,7 +802,7 @@ PyObject *NKI_Stmt__topy(struct NKI_Stmt_ *x) {
       if (!obj || PyTuple_SetItem(tup, 2, obj) == -1)
         return NULL;
     }
-    PyObject *res = construct("Stmt'_forloop", tup);
+    PyObject *res = construct("Stmt_forLoop", tup);
     Py_DECREF(tup);
     return res;
     break;
@@ -849,7 +811,7 @@ PyObject *NKI_Stmt__topy(struct NKI_Stmt_ *x) {
     PyObject *tup = PyTuple_New(0);
     if (!tup)
       return NULL;
-    PyObject *res = construct("Stmt'_breakloop", tup);
+    PyObject *res = construct("Stmt_breakLoop", tup);
     Py_DECREF(tup);
     return res;
     break;
@@ -858,7 +820,7 @@ PyObject *NKI_Stmt__topy(struct NKI_Stmt_ *x) {
     PyObject *tup = PyTuple_New(0);
     if (!tup)
       return NULL;
-    PyObject *res = construct("Stmt'_continueloop", tup);
+    PyObject *res = construct("Stmt_continueLoop", tup);
     Py_DECREF(tup);
     return res;
     break;
@@ -993,7 +955,7 @@ PyObject *NKI_Expr_List_topy(struct NKI_Expr_List *x) {
   if (!list)
     return NULL;
   for (struct NKI_Expr_List *node = x; node; node = node->next) {
-    PyObject *obj = NKI_Expr_topy(x->expr);
+    PyObject *obj = NKI_Expr_topy(node->expr);
     if (!obj || PyList_Append(list, obj) == -1)
       return NULL;
     Py_DECREF(obj);
@@ -1006,7 +968,7 @@ PyObject *NKI_Index_List_topy(struct NKI_Index_List *x) {
   if (!list)
     return NULL;
   for (struct NKI_Index_List *node = x; node; node = node->next) {
-    PyObject *obj = NKI_Index_topy(x->index);
+    PyObject *obj = NKI_Index_topy(node->index);
     if (!obj || PyList_Append(list, obj) == -1)
       return NULL;
     Py_DECREF(obj);
@@ -1019,7 +981,7 @@ PyObject *NKI_Keyword_List_topy(struct NKI_Keyword_List *x) {
   if (!list)
     return NULL;
   for (struct NKI_Keyword_List *node = x; node; node = node->next) {
-    PyObject *obj = NKI_Keyword_topy(x->keyword);
+    PyObject *obj = NKI_Keyword_topy(node->keyword);
     if (!obj || PyList_Append(list, obj) == -1)
       return NULL;
     Py_DECREF(obj);
@@ -1040,7 +1002,7 @@ PyObject *NKI_Stmt_List_topy(struct NKI_Stmt_List *x) {
   if (!list)
     return NULL;
   for (struct NKI_Stmt_List *node = x; node; node = node->next) {
-    PyObject *obj = NKI_Stmt_topy(x->stmt);
+    PyObject *obj = NKI_Stmt_topy(node->stmt);
     if (!obj || PyList_Append(list, obj) == -1)
       return NULL;
     Py_DECREF(obj);
@@ -1053,7 +1015,7 @@ PyObject *NKI_Param_List_topy(struct NKI_Param_List *x) {
   if (!list)
     return NULL;
   for (struct NKI_Param_List *node = x; node; node = node->next) {
-    PyObject *obj = NKI_Param_topy(x->param);
+    PyObject *obj = NKI_Param_topy(node->param);
     if (!obj || PyList_Append(list, obj) == -1)
       return NULL;
     Py_DECREF(obj);
@@ -1066,7 +1028,7 @@ PyObject *NKI_Fun_List_topy(struct NKI_Fun_List *x) {
   if (!list)
     return NULL;
   for (struct NKI_Fun_List *node = x; node; node = node->next) {
-    PyObject *obj = NKI_Fun_topy(x->fun);
+    PyObject *obj = NKI_Fun_topy(node->fun);
     if (!obj || PyList_Append(list, obj) == -1)
       return NULL;
     Py_DECREF(obj);
@@ -1079,7 +1041,7 @@ PyObject *NKI_Arg_List_topy(struct NKI_Arg_List *x) {
   if (!list)
     return NULL;
   for (struct NKI_Arg_List *node = x; node; node = node->next) {
-    PyObject *obj = NKI_Arg_topy(x->arg);
+    PyObject *obj = NKI_Arg_topy(node->arg);
     if (!obj || PyList_Append(list, obj) == -1)
       return NULL;
     Py_DECREF(obj);

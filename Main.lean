@@ -211,7 +211,8 @@ def info (p : Parsed) : IO UInt32 := do
     IO.println s!"Source Functions: {fs}"
     let gs := String.intercalate "," $ kernel.globals.map fun kw => kw.name
     IO.println s!"Globals: {gs}"
-    pure ()
+  | .hlo name =>
+    IO.println s!"HLO Call Site {name}"
   return 0
 
 def typecheck (p : Parsed) : IO UInt32 := do

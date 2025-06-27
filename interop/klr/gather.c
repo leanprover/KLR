@@ -631,8 +631,6 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
       e->slice.l = expr(st, python->v.Slice.lower);
       e->slice.u = expr(st, python->v.Slice.upper);
       e->slice.step = expr(st, python->v.Slice.step);
-      if (!e->slice.l || !e->slice.u || !e->slice.step)
-        res = NULL;
       break;
     }
 

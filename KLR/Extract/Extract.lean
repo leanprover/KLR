@@ -21,12 +21,15 @@ private def dir := "../../interop/klr"
 
 run_meta do
   withFile s!"{dir}/ast_common.h" C.generateCommonAST
+  withFile s!"{dir}/ast_file.h" C.generateFileAST
   withFile s!"{dir}/ast_python_core.h" C.generatePythonAST
   --withFile s!"{dir}/ast_python_core.py" Python.generatePythonAST
   withFile s!"{dir}/ast_nki.h" C.generateNkiAST
   withFile s!"{dir}/ast_nki.py" Python.generateNkiAST
   withFile s!"{dir}/serde_common.h" Serde.generateCommonH
   withFile s!"{dir}/serde_common.c" Serde.generateCommonC
+  withFile s!"{dir}/serde_file.h" Serde.generateFileH
+  withFile s!"{dir}/serde_file.c" Serde.generateFileC
   withFile s!"{dir}/serde_python_core.h" Serde.generatePythonH
   withFile s!"{dir}/serde_python_core.c" Serde.generatePythonC
   withFile s!"{dir}/serde_nki.h" Serde.generateNkiH

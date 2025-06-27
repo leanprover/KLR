@@ -54,6 +54,9 @@ private def genPyType (ty : LeanType) (pre : String := "") : MetaM Unit :=
         IO.println s!"class {name}(Enum):"
         for v in variants do
           IO.println s!"  {(toString v.name).capitalize} = auto()"
+        IO.println ""
+        for v in variants do
+          IO.println s!"def {name}_{v.name}(): return {name}.{(toString v.name).capitalize}"
       else do
         let mut tys := []
         for v in variants do

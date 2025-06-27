@@ -61,7 +61,7 @@ private def genListSer (ty : SimpleType) : MetaM Unit := do
   for ({tname} node = x; node; node = node->next) count++;
   if (!cbor_encode_array_start(out, count)) return false;
   for ({tname} node = x; node; node = node->next)
-    if (!{serName ty}(out, x->{vname})) return false;"
+    if (!{serName ty}(out, node->{vname})) return false;"
 
 -- Generate serialization for an option type
 private def genOptionSer (ty : SimpleType) : MetaM Unit := do
@@ -186,7 +186,9 @@ private def genDes (ty : LeanType) : MetaM Unit := do
             IO.println s!" if (l != {fs.length}) return false;"
             if ty.isEnum
             then IO.println s!"*x = {n};"
-            else genFields (C.varName n ++ ".") fs
+            else
+              genFields (C.varName n ++ ".") fs
+              IO.println s!"(*x)->tag = {n};"
             IO.println "break;"
           | none => throwError s!"no tag for {n}"
         | _ => throwError s!"Expecting product for {name}.{v.name}"
@@ -196,24 +198,6 @@ private def genDes (ty : LeanType) : MetaM Unit := do
   IO.println "}"
 
 end Des
-
--- Strings are special
--- Note: we could just change the Q generated support files...
-private def stringH : String := "
-bool String_ser(FILE *out, const char *s);
-
-bool Bool_des(FILE *out, struct region *region, bool *x);
-bool Nat_des(FILE *out, struct region *region, u32 *x);
-bool Int_des(FILE *out, struct region *region, i32 *x);
-bool Float_des(FILE *out, struct region *region, float *x);
-bool String_des(FILE *out, struct region *region, const char **s);
-"
-
-private def stringC : String := "
-bool String_ser(FILE *out, const char *s) {
-  return cbor_encode_string(out, s, 0);
-}
-"
 
 private def genH (tys : List LeanType) : MetaM Unit := do
   tys.forM Ser.genSig
@@ -230,19 +214,23 @@ def generateCommonH : MetaM Unit := do
   genH (<- C.commonAST)
 
 def generateCommonC : MetaM Unit := do
-  IO.println <| C.headerC ["cbor.h", "ast_common.h", "serde_common.h"]
+  IO.println <| C.headerC ["cbor.h", "serde_common.h"]
   genC (<- C.commonAST)
+
+def generateFileH : MetaM Unit := do
+  IO.println <| C.headerC [ "cbor.h", "ast_file.h", "serde_common.h"]
+  genH (<- C.fileAST)
+
+def generateFileC : MetaM Unit := do
+  IO.println <| C.headerC ["serde_file.h", "serde_python_core.h", "serde_nki.h"]
+  genC (<- C.fileAST)
 
 def generatePythonH : MetaM Unit := do
   IO.println <| C.headerH ["ast_common.h", "ast_python_core.h"]
   genH (<- C.pythonAST)
 
 def generatePythonC : MetaM Unit := do
-  IO.println <| C.headerC [
-    "cbor.h",
-    "ast_common.h", "ast_python_core.h",
-    "serde_common.h", "serde_python_core.h"
-    ]
+  IO.println <| C.headerC ["cbor.h", "serde_common.h", "serde_python_core.h"]
   genC (<- C.pythonAST)
 
 def generateNkiH : MetaM Unit := do
@@ -250,9 +238,5 @@ def generateNkiH : MetaM Unit := do
   genH (<- C.nkiAST)
 
 def generateNkiC : MetaM Unit := do
-  IO.println <| C.headerC [
-    "cbor.h",
-    "ast_common.h", "ast_nki.h",
-    "serde_common.h", "serde_nki.h"
-    ]
+  IO.println <| C.headerC ["cbor.h", "serde_common.h", "serde_nki.h"]
   genC (<- C.nkiAST)
