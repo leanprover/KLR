@@ -51,7 +51,7 @@ This is all handled automatically by our derived instances.
 structure KLRFile where
   major : Nat := 0  -- TODO come up with a way to manage versions
   minor : Nat := 0
-  patch : Nat := 9
+  patch : Nat := 11
   deriving BEq, Repr
 
 attribute [serde tag = 0xf7] KLRFile.mk

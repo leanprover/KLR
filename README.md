@@ -16,25 +16,29 @@ using `pip`:
 
 ```
 # pip install klr-lang
-# python -m klr nki-to-klr test.py test_kernel -o test_kernel.klr
-# python -m klr parse-klr test_kernel.klr
+# klr gather test.py test_kernel -o test_kernel.klr
+# klr trace test_kernel.klr
 ```
 
 For more information see the [Getting Started Guide](docs/getting_started.md)
 
-# Interop
+# Interop with Python
 
-The KLR compiler starts with Python code (e.g. NKI kernels), converts the source
-code to JSON and passes it to the Lean parser. The lean parser converts (aka
-traces) the Python AST into KLR. As such, we have an external dependency on
-a Python runtime. To keep these processes as separate as possible, we just use
-a simple file-IO pipeline;
+The KLR compiler starts with Python code (e.g. NKI kernels), and converts this
+into an instance of the abstract syntax tree found in `KLR/Python.lean`. The
+current version of KLR uses the CPython parser to do this conversion. The
+parsing processes is called "gather" and involves the following steps:
 
-  1. Python parser parses kernel.py to JSON (using reflection)
-  2. Python writes kernel.json
-  3. KLR reads kernel.json
-  4. KLR writes klr.json
-  5. Python reads klr.json into a data structure
+  1. Load the Python interpreter with our custom CPython extension module
+  2. Find the kernel function and extract its source code
+  3. Run the CPython parser
+  4. Transform the CPython AST to our Python AST
+  5. Repeat steps 2-5 for all found references
+  6. Serialize the AST to the KLR on-disk format
+  7. From Lean, deserialize the Python AST from the on-disk format
+
+This process is complex and brittle, and will be replaced by a proper (pure
+Lean) parser in future versions of KLR.
 
 # Steps to make a new version/wheel
 
