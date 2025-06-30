@@ -13,4 +13,4 @@ require TensorLib from git
   "https://github.com/leanprover/TensorLib.git" @ "v0.0.10"
 
 require iris from git
-  "https://github.com/leanprover-community/iris-lean.git"
+  "https://github.com/markusdemedeiros/iris-lean.git"
