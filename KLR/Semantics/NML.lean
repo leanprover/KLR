@@ -49,7 +49,7 @@ The language is parameterized by a type of floating point numbers, see `KLR/Sema
 
 variable (DataT : Type _)
 
-def Dtype.interp : Dtype → Type _
+def Dtype.interp : KLR.Core.Dtype → Type _
 | .uint64   => UInt64
 | .uint32   => UInt32
 | .uint16   => UInt16
