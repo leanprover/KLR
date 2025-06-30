@@ -3,6 +3,7 @@ Copyright (c) 2025 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 -/
+import KLR.Core
 import KLR.Serde.Attr
 import KLR.Serde.Elab
 import KLR.Util
@@ -20,15 +21,11 @@ open Lean (FromJson ToJson)
 open Serde (FromCBOR ToCBOR)
 open Util (FromSexp ToSexp)
 
-@[serde tag = 1]
-structure Pos where
-  line : Nat
-  column : Nat
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+export Core (Pos)
 
 -- Note: the python int and float types are compatible with Lean's types
 -- The str type may require conversion (to UTF8).
-@[serde tag = 2]
+@[serde tag = 1]
 inductive Value where
   | none
   | bool (value : Bool)
@@ -39,7 +36,7 @@ inductive Value where
   | tensor (shape : List Nat) (dtype : String)  -- TODO use Core Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 3]
+@[serde tag = 2]
 inductive BinOp where
   -- logical
   | land | lor
@@ -52,13 +49,13 @@ inductive BinOp where
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 mutual
-@[serde tag = 4]
+@[serde tag = 3]
 structure Expr where
   expr : Expr'
   pos : Pos
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 5]
+@[serde tag = 4]
 inductive Expr' where
   | value (value : Value)
   | var (name : String)
@@ -70,13 +67,13 @@ inductive Expr' where
   | call (f: Expr) (args: List Expr) (keywords : List Keyword)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 6]
+@[serde tag = 5]
 inductive Index where
   | coord (i : Expr)
   | slice (l u step : Option Expr)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 7]
+@[serde tag = 6]
 structure Keyword where
   name : String
   expr : Expr
@@ -84,13 +81,13 @@ structure Keyword where
 end
 
 mutual
-@[serde tag = 8]
+@[serde tag = 7]
 structure Stmt where
   stmt : Stmt'
   pos : Pos
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 9]
+@[serde tag = 8]
 inductive Stmt' where
   | expr (e : Expr)
   | assert (e : Expr)
@@ -103,13 +100,13 @@ inductive Stmt' where
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 end
 
-@[serde tag = 10]
+@[serde tag = 9]
 structure Param where
   name : String
   dflt : Option Expr
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 11]
+@[serde tag = 10]
 structure Fun where
   name : String
   file : String
@@ -118,13 +115,13 @@ structure Fun where
   args : List Param
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 12]
+@[serde tag = 11]
 structure Arg where
   name : String
   value : Expr
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 13]
+@[serde tag = 12]
 structure Kernel where
   entry : String
   funs : List Fun

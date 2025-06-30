@@ -38,7 +38,7 @@ def declare (name : String)
             (dtype : Dtype) (shape : Shape) (memory : Memory)
             : Trace TensorName := do
   let pos := (<- get).pos
-  let tname := s!"{name}.{pos.lineno}.{pos.col_offset}"
+  let tname := s!"{name}.{pos.line}.{pos.column}"
   TensorName.make tname dtype shape $ some {
     memory := memory
     size   := Address.defaultSize shape dtype
