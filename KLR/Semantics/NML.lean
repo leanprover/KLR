@@ -85,6 +85,8 @@ def TensorHandle.get_store? (r : @TensorHandle DataT) (m : NeuronMemory) : Optio
   | .pmem, _ => .none
   | .reg, _ => .none
 
+def lift_encoding_to_store (f : DataT → DataT) : LocalStore UInt8 → LocalStore UInt8 :=
+  sorry
 
 def TensorHandle.upd_store? (r : @TensorHandle DataT) (m : NeuronMemory) (L : LocalStore UInt8 → LocalStore UInt8) :
     Option NeuronMemory :=
@@ -201,12 +203,10 @@ For now, only support trivial indexing.
                      f + sbuf_tensor.address.freeOffset.getD 0)⟩ }
 -- /-- [unary scalar] Idealized pure function application to a tensor, in-place.
 -- Returns the address of the tensor. -/
--- | unary_scalar :
---     ExprStep e s0 (.ptr tensor) s1 →
---     -- tensor.get_store? s1 = .some L →
---     tensor.upd_store? DataT s1 sorry = .some s2 →
---     ExprStep (.unary_scalar e f) s0 (.ptr tensor) s2
-
+| unary_scalar :
+    ExprStep e l0 s0 (.ptr tensor) s1 →
+    tensor.upd_store? DataT s1.memory (lift_encoding_to_store DataT f) = .some s2 →
+    ExprStep (.unary_scalar e f) l0 s0 (.ptr tensor) { s1 with memory := s2 }
 
 inductive step : ExecState DataT × State → ExecState DataT × State → Prop where
 /-- [ Return ] -/
