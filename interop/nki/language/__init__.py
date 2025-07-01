@@ -1,4 +1,4 @@
-# KLR implemetations of NKI langauge APIs
+# KLR implementations of NKI language APIs
 
 def ndarray(shape, dtype, buffer=None, name=''):
   if buffer == None:

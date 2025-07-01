@@ -3,11 +3,13 @@ Copyright (c) 2025 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin, Claude
 */
-#include "stdc.h"
-#include "region.c"
-#include "cbor.c"
+#include "cbor.h"
 #include <math.h>
 #include <stdio.h>
+
+// undef NDEBUG and re-include assert.h so assert() works even in release builds
+#undef NDEBUG
+#include <assert.h>
 
 // Note: this code was written by Q, with minor edits by Q's human assistant PG
 

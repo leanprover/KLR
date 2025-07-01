@@ -1,8 +1,11 @@
-# NB: All this setuptools stuff took about 1000 hours to figure out so never delete this.
+# See: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
+
 [build-system]
-#requires = ["setuptools>=61.0"]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+# Using scikit-build-core so we can use CMake to build the Python C extension module.
+# We're using CMake so we can easily do fancy stuff like build
+# standalone C tests, in addition to the C extension.
+requires = ["scikit-build-core>=0.11.4"] # 0.11.4 is latest in Brazil as of June 2025
+build-backend = "scikit_build_core.build"
 
 [project]
 name = "klr-lang"
@@ -11,7 +14,7 @@ authors = [
   {name = "Paul Govereau", email = "govereau@amazon.com"},
   {name = "Sean McLaughlin", email = "seanmcl@amazon.com"},
 ]
-description = "Intermediate langauge for tensor compilers"
+description = "Intermediate language for tensor compilers"
 readme = "README.md"
 license = "Apache-2.0"
 keywords = ["trainium", "tpu", "pallas", "triton", "gpu"]
@@ -36,32 +39,23 @@ testpaths = [
   "test",
 ]
 
-[tool.setuptools]
-packages = ["klr"]
+[tool.scikit-build]
+# See: https://scikit-build-core.readthedocs.io/en/latest/reference/configs.html
+wheel.packages = ["klr"]
+
+# There are lots of files for building the C extension we don't need in the compiled wheel.
+# Git-ignore style patterns are supported, so exclude everything by default,
+# then specify the things we actually do want.
+wheel.exclude = [
+  "**/*",
+  "!**/*.py",
+  "!**/*.so", # compiled extension on Linux/macOS
+  "!**/*.pyd", # compiled extension on Windows
+]
 
 [project.scripts]
 klr = "klr._cli:run_klr"
 klr-gather = "klr._cli:gather"
-
-# Note, because we are building an extension module, we will get arch specific wheels.
-# This is important because we are putting an arch-specific binary into the wheel
-# as an "extra" file.
-[[tool.setuptools.ext-modules]]
-name = "klr.frontend"
-sources = [
-    "klr/cbor.c"
-  , "klr/frontend.c"
-  , "klr/gather.c"
-  , "klr/peg_parser.c"
-  , "klr/region.c"
-  , "klr/serde.c"
-  , "klr/serde_common.c"
-  , "klr/serde_file.c"
-  , "klr/serde_nki.c"
-  , "klr/serde_python_core.c"
-  , "klr/simplify.c"
-  , "klr/topy_nki.c"
-  ]
 
 [tool.cibuildwheel]
 # Skip unsupported python versions as well as 32-bit platforms, which are not supported anymore.

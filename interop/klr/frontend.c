@@ -3,7 +3,7 @@ Copyright (c) 2024 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 */
-#include "frontend.h"
+#include "frontend_py.h"
 #include "topy_nki.h"
 
 // This file defines the frontend Python extension module and the
