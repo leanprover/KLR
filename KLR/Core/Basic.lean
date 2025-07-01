@@ -5,7 +5,10 @@ Authors: Paul Govereau, Sean McLaughlin
 -/
 import Init.Data.Int.Basic
 import KLR.Core.Operators
+import KLR.Serde.Attr
+import KLR.Serde.Elab
 import KLR.Util
+import Lean
 
 /-!
 # Abstract syntax of Core NKL language
@@ -14,6 +17,21 @@ This language is the result of "tracing", and is used as the
 portable format, a.k.a. Kernel Language Representation (KLR).
 -/
 namespace KLR.Core
+open Lean (FromJson ToJson)
+open Serde (FromCBOR ToCBOR)
+open Util (FromSexp ToSexp)
+
+/-
+A source position records the location of a statement in the original program.
+-/
+
+@[serde tag = 100]
+structure Pos where
+  line : Nat
+  column : Nat := 0
+  lineEnd : Option Nat := none
+  columnEnd : Option Nat := none
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /-
 A tensor shape is a list of the sizes of each dimension of the tensor. By

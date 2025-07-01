@@ -174,7 +174,7 @@ abbrev Env := Lean.RBMap Name Term compare
 
 structure State where
   fvn : Nat := 0
-  pos : Pos := { }
+  pos : Pos := { line := 0 }
   globals : Env := ∅
   locals : Env := ∅
   body : Array Stmt := #[]
@@ -195,7 +195,7 @@ inductive TraceErr where
   | formatted : String -> TraceErr
 
 instance : Inhabited TraceErr where
-  default := .located {} ""
+  default := .located { line := 0 } ""
 
 abbrev Trace := EStateM TraceErr State
 
@@ -224,7 +224,7 @@ errors.
 -/
 def withSrc (line : Nat) (source : String) (m : Trace a) : Trace a := fun s =>
   let p' := s.pos
-  match m { s with pos := {} } with
+  match m { s with pos := { line := 0 } } with
   | .ok x s => .ok x { s with pos := p' }
   | .error (.located p e) s =>
     .error (.formatted $ Python.Parsing.genError line source e p)
@@ -294,7 +294,7 @@ where
   addWarnings s str := if showWarnings then addWarn s str else str
   addWarn s str := s.warnings.foldl warnStr str
   warnStr str pw :=
-    if pw.fst == {} then
+    if pw.fst == { line := 0 } then
       s!"warning: {pw.snd}\n{str}"
     else
-      s!"warning:{pw.fst.lineno}: {pw.snd}\n{str}"
+      s!"warning:{pw.fst.line}: {pw.snd}\n{str}"

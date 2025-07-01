@@ -3,10 +3,11 @@ Copyright (c) 2024 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 -/
-import Lean
+import KLR.Core
 import KLR.Serde.Attr
 import KLR.Serde.Elab
 import KLR.Util
+import Lean
 
 /-!
 # Abstract syntax of Python functions
@@ -20,15 +21,9 @@ open Lean (FromJson ToJson)
 open Serde (FromCBOR ToCBOR)
 open Util (FromSexp ToSexp)
 
-@[serde tag = 1]
-structure Pos where
-  lineno : Nat := 0
-  end_lineno : Nat := 0
-  col_offset : Nat := 0
-  end_col_offset : Nat := 0
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+export Core (Pos)
 
-@[serde tag = 2]
+@[serde tag = 1]
 inductive Const where
   | none
   | bool (value : Bool)
@@ -51,31 +46,31 @@ simplicity: we do not try to resolve names that are being
 "stored" to.
 -/
 
-@[serde tag = 3]
+@[serde tag = 2]
 inductive Ctx where
   | load | store | del
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 -- Python boolean (logical) operators
-@[serde tag = 4]
+@[serde tag = 3]
 inductive BoolOp where
   | land | lor
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 -- Python comparison operators
-@[serde tag = 5]
+@[serde tag = 4]
 inductive CmpOp where
   | eq | ne | lt | le | gt | ge | is | isNot | isIn | notIn
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 -- Python unary operators
-@[serde tag = 6]
+@[serde tag = 5]
 inductive UnaryOp where
   | invert | not | uadd | usub
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 -- Python binary operators
-@[serde tag = 7]
+@[serde tag = 6]
 inductive BinOp where
   | add | sub | mul | matmul | div | mod | pow
   | lshift | rshift | or | xor | and
@@ -83,13 +78,13 @@ inductive BinOp where
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 mutual
-@[serde tag = 8]
+@[serde tag = 7]
 structure Expr where
   expr : Expr'
   pos : Pos
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 9]
+@[serde tag = 8]
 inductive Expr' where
   | const (value : Const)
     -- TODO we don't need tensor here, it can be NKI only
@@ -108,7 +103,7 @@ inductive Expr' where
   | call (f: Expr) (args: List Expr) (keywords : List Keyword)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 10]
+@[serde tag = 9]
 structure Keyword where
   id : String
   value : Expr
@@ -117,13 +112,13 @@ structure Keyword where
 end
 
 mutual
-@[serde tag = 11]
+@[serde tag = 10]
 structure Stmt where
   stmt : Stmt'
   pos : Pos
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 12]
+@[serde tag = 11]
 inductive Stmt' where
   | pass
   | expr (e : Expr)
@@ -158,7 +153,7 @@ then the structure will be populated with:
 Note, this is slightly different from the official Python AST, which
 encodes the kw_defaults as a list with None for missing defaults.
 -/
-@[serde tag = 13]
+@[serde tag = 12]
 structure Args where
   posonlyargs : List String
   args : List String
@@ -180,10 +175,10 @@ def Args.required (args : Args) : List String :=
 def Args.all_defaults (args : Args) : List Keyword :=
   let pargs := args.posonlyargs ++ args.args
   let dflt  := pargs.reverse.zip args.defaults.reverse
-  let dflt  := dflt.map fun (n, e) => .mk n e {}
+  let dflt  := dflt.map fun (n, e) => .mk n e { line := 0 }
   dflt ++ args.kw_defaults
 
-@[serde tag = 14]
+@[serde tag = 13]
 structure Fun where
   name : String
   line : Nat
@@ -211,7 +206,7 @@ An example of a global is:
     else:
       ...
 -/
-@[serde tag = 15]
+@[serde tag = 14]
 structure Kernel where
   entry : String
   funcs : List Fun
@@ -242,9 +237,9 @@ where
   inferArgs : Option (List Expr) := do
     let f <- k.funcs.find? fun f => f.name == k.entry
     let args := f.args.required
-    let ten := { expr := .const (.int 10), pos := {} }
+    let ten := { expr := .const (.int 10), pos := { line := 0 } }
     let dtype := "nki.language.float32"
-    let tensors := args.map fun _ => { expr := .tensor [ten,ten] dtype, pos := {} }
+    let tensors := args.map fun _ => { expr := .tensor [ten,ten] dtype, pos := { line := 0 } }
     return tensors
 
 -------------------------------------------------------------------------------
@@ -286,10 +281,10 @@ private def opt (p : Json -> Parser a) : Json -> Parser (Option a)
 -- Note: this will not fail, but can produce an invalid Pos
 private def pos (j: Json) : Parser Pos :=
   return {
-    lineno         := (<- nat "lineno")
-    end_lineno     := (<- nat "end_lineno")
-    col_offset     := (<- nat "col_offset")
-    end_col_offset := (<- nat "end_col_offset")
+    line      := (<- nat "lineno")
+    column    := (<- nat "col_offset")
+    lineEnd   := some (<- nat "end_lineno")
+    columnEnd := some (<- nat "end_col_offset")
   }
 where
   nat (name : String) : Parser Nat :=
@@ -308,8 +303,8 @@ private def withPos (p : String -> Json -> Parser b) (f : b -> Pos -> a) : Json 
 
 def genError (offset : Nat) (source err : String) (pos : Pos) : String :=
   let lines := source.splitOn "\n"
-  let lineno := pos.lineno - 1
-  let colno := pos.col_offset
+  let lineno := pos.line - 1
+  let colno := pos.column
   let line := if lines.length < lineno
               then "<source not available>"
               else lines[lineno]!
@@ -317,7 +312,7 @@ def genError (offset : Nat) (source err : String) (pos : Pos) : String :=
   s!"\nline {lineno + offset}:\n{line}\n{indent}^-- {err}"
 
 private def withSrc (line : Nat) (source : String) (p : Parser a) : Parser a :=
-  try set { lineno := 0 : Pos } ; p
+  try set { line := 0 : Pos } ; p
   catch e => do
     let pos <- get
     throw (genError line source e pos)
@@ -465,15 +460,15 @@ partial def global' : Json -> Parser Expr'
   | j => throw s!"malformed global environment '{j}'"
 where
   globals (arr : Array Json) : Parser (List Expr) :=
-    arr.toList.mapM fun x => return .mk (<- global' x) {}
+    arr.toList.mapM fun x => return .mk (<- global' x) { line := 0 }
 
 private def global (j : Json) : Parser Expr :=
-  return { expr := <- global' j, pos := {} }
+  return { expr := <- global' j, pos := { line := 0 } }
 
 def arguments (j : Json) : Parser Args := do
   let obj <- j.getObjVal? "arguments"
   let kws <- field (dict global) obj "kw_defaults"
-  let kws := kws.map fun (n,e) => Keyword.mk n e {}
+  let kws := kws.map fun (n,e) => Keyword.mk n e { line := 0 }
   return {
     posonlyargs := (<- field (list arg)    obj "posonlyargs")
     args        := (<- field (list arg)    obj "args")
@@ -502,15 +497,15 @@ def kernel (j : Json) : Parser Kernel := do
   let funcs := funcs.map fun (name,f) => { f with name }
   let args <- field (list global) j "args"
   let kwargs <- field (dict global) j "kwargs"
-  let kwargs := kwargs.map fun (n,e) => Keyword.mk n e {}
+  let kwargs := kwargs.map fun (n,e) => Keyword.mk n e { line := 0 }
   let globals <- field (dict global) j "globals"
-  let globals := globals.map fun (n,e) => Keyword.mk n e {}
+  let globals := globals.map fun (n,e) => Keyword.mk n e { line := 0 }
   let undefinedSymbols <- field (list str) j "undefined_symbols"
   let undefinedSymbols := undefinedSymbols.eraseDups
   return Kernel.mk name funcs args kwargs globals undefinedSymbols
 
 def parse (s : String) : Err Kernel := do
   let jsn <- Json.parse s
-  match kernel jsn {} with
+  match kernel jsn { line := 0 } with
   | .ok x _ => .ok x
   | .error s _ => .error s
