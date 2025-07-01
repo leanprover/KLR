@@ -69,10 +69,22 @@ def FiniteDataflowProblem {β : Type} ...
 `DataflowProblem.solve` may then be called on this instance.
 -/
 
+abbrev ℕ := Nat
+
+section Basics
+
+/-
+  An instance `_ : NodeProp α` fixes a `node_prop : α → Prop` that
+  defines the set of nodes (note `Set α := α → Prop`) in the carrier
+  graph.
+-/
 class NodeProp (α : Type) where
   node_prop : α → Prop
 
---type for elements of α verified to meet NodeProp α
+/-
+  With a `NodeProp α` in scope, `Node α` is the subtype of `a : α` that
+  can prove `node_prop a` (i.e., are indeed nodes in the carrier graph)
+-/
 structure Node (α : Type) [NP : NodeProp α] where
   data : α
   sound : NP.node_prop data
@@ -83,7 +95,14 @@ instance {α} [TSA : ToString α] [NodeProp α]: ToString (Node α) where
 instance {α} [BEq α] [NodeProp α]: BEq (Node α) where
   beq a₀ a₁ := a₀.data == a₁.data
 
---type of maps whose domain is a set A
+/-
+  In the context of a set of nodes `Node α` fixed by a `NodeProp α`, an
+  instance of `NodeMap α` is a constructor for map objects whose domain
+  is the nodes of the carrier graph and whose codomain is a datatype `β`.
+
+  Several utilities, as well as soundness theorems on them including
+  two induction principles, are required as well.
+-/
 class NodeMap (α : Type) extends NodeProp α where
   μ (β : Type) : Type -- type of maps
   const {β} : β → μ β -- empty instance
@@ -119,7 +138,6 @@ instance {α β : Type} [ToString α] [ToString β] [NM:NodeMap α]
     str ++ "{" ++ (toString nd.data) ++ ":"
                 ++ (toString (NM.get μ nd)) ++ "}\n") ""
 
-
 infix:90 "◃" => NodeMap.get
 
 def NodeMap.call_const (α : Type) {β : Type} (b : β) [NodeMap α]
@@ -147,6 +165,8 @@ instance {α β : Type} [NodeMap α] [ToString α] [ToString β] : ToString ⟦�
   toString μ := μ fold⟪"", (fun nd repr => repr ++
     "\n{" ++ toString nd.data ++ ": " ++ toString (μ◃nd) ++ "}")⟫
 
+
+-- copied from Mathlib for utility
 class Preorder (α : Type) extends LE α, LT α where
   le_refl : ∀ a : α, a ≤ a
   le_trans : ∀ a b c : α, a ≤ b → b ≤ c → a ≤ c
@@ -156,12 +176,21 @@ class Preorder (α : Type) extends LE α, LT α where
 instance (α : Type) [Preorder α] : LE α where
   le := LE.le
 
+-- An instance `HasBot α` fixes a bottom element (`⊥`) of type `α`.
 class HasBot (α : Type) where
   bot : α
 
 notation "⊥" => HasBot.bot
 
--- instance of the dataflow problem
+/-
+  A `DataflowProblem α β` extends an map constructor `NodeMap α` with choices of
+  `τ : ⟦α, (β → β)⟧`, the node-indexed map of transition functions, and
+  `σ : ⟦α, (List (Node α))⟧`, the node-indexed map of succesor lists fixing
+  the graph topology. Two soundness theorems are requires relating the `≤`
+  relation `τ`, and the `==` relation on `β` (as provided by their respective
+  included typeclasses). The `⊔` and `≤` relations (on `⟦α, β⟧`), must also
+  be proven.
+-/
 class DataflowProblem (α β : Type) extends NodeMap α, Max β, BEq β, Preorder β, HasBot β
 where
   τ : ⟦α, (β → β)⟧ -- transition functions
@@ -173,7 +202,12 @@ where
   map_le_supl (ν₀ ν₁ ν₂ : ⟦α, β⟧) (h : ν₀ ⟪≤⟫ ν₁) : (ν₀ ⟪≤⟫ (ν₁ ⟪⊔⟫ ν₂))
   map_le_supr (ν₀ ν₁ ν₂ : ⟦α, β⟧) (h : ν₀ ⟪≤⟫ ν₂) : (ν₀ ⟪≤⟫ (ν₁ ⟪⊔⟫ ν₂))
 
-section
+end Basics
+
+/-
+
+-/
+section DataflowProblemSolver
   variable {α β : Type} [BEq α] {DP: DataflowProblem α β}
   open DataflowProblem
 
@@ -414,265 +448,263 @@ section
       }
   }
 
+  def DataflowProblem.solve_to_depth {α β : Type}
+    (depth : ℕ)
+    (DP : DataflowProblem α β)
+    [BEq α]
+    (ν : ⟦α, (β × Bool)⟧)
+    (h : I ν)
+    : Option ((ν : ⟦α, (β × Bool)⟧) ×' (I ν) ×' (is_fix ν) = true) :=
+      match depth with
+        | 0 => none
+        | Nat.succ depth' =>
+          let ν' := Δ ν
+          let h' := Δpres ν h
+          if fix : is_fix ν' then
+            some ⟨ν', h', fix⟩
+          else
+            solve_to_depth depth' DP ν' h'
 
-abbrev ℕ := Nat
+  def DataflowProblem.solve {α β : Type} [BEq α]
+    (DP : DataflowProblem α β)
+    : Option ((ν : ⟦α, β⟧) ×' I' ν)
 
+    := (DP.solve_to_depth 1000 ν₀ base_case).map (fun ⟨ν, h, fix⟩ =>
+      let ν' := strip_bools ν; ⟨ν', Δsol ν h fix⟩)
 
-def DataflowProblem.solve_to_depth {α β : Type}
-  (depth : ℕ)
-  (DP : DataflowProblem α β)
-  [BEq α]
-  (ν : ⟦α, (β × Bool)⟧)
-  (h : I ν)
-  : Option ((ν : ⟦α, (β × Bool)⟧) ×' (I ν) ×' (is_fix ν) = true) :=
-    match depth with
-      | 0 => none
-      | Nat.succ depth' =>
-        let ν' := Δ ν
-        let h' := Δpres ν h
-        if fix : is_fix ν' then
-          some ⟨ν', h', fix⟩
-        else
-          solve_to_depth depth' DP ν' h'
+end DataflowProblemSolver
 
-def DataflowProblem.solve {α β : Type} [BEq α]
-  (DP : DataflowProblem α β)
-  : Option ((ν : ⟦α, β⟧) ×' I' ν)
+section FiniteDataflowProblemSolver
 
-  := (DP.solve_to_depth 1000 ν₀ base_case).map (fun ⟨ν, h, fix⟩ =>
-    let ν' := strip_bools ν; ⟨ν', Δsol ν h fix⟩)
+  variable (n : Nat) -- size of arrays
 
-section FiniteSolver
+  infix:90 "⊔" => Max.max
 
-variable (n : Nat) -- size of arrays
+  structure FiniteSolverInput (β : Type)
+    [BEq β]
+    [Preorder β]
+    [Max β]
+    [HasBot β]
+  where
+    num_nodes : ℕ
+    edges : ℕ → ℕ → Bool
+    transitions : ℕ → β → β
 
-infix:90 "⊔" => Max.max
+    transitions_sound n (β₀ β₁ : β) : (β₀ == β₁) → (transitions n) β₀ == (transitions n) β₁
+    le_sound (β₀ β₁ β₂ : β) : (β₀ == β₁) → (β₀ ≤ β₂) → (β₁ ≤ β₂)
+    le_supl (β₀ β₁ : β) : β₀ ≤ β₀ ⊔ β₁
+    le_supr (β₀ β₁ : β) : β₁ ≤ β₀ ⊔ β₁
 
-structure FiniteSolverInput (β : Type)
-  [BEq β]
-  [Preorder β]
-  [Max β]
-  [HasBot β]
-where
-  num_nodes : ℕ
-  edges : ℕ → ℕ → Bool
-  transitions : ℕ → β → β
-
-  transitions_sound n (β₀ β₁ : β) : (β₀ == β₁) → (transitions n) β₀ == (transitions n) β₁
-  le_sound (β₀ β₁ β₂ : β) : (β₀ == β₁) → (β₀ ≤ β₂) → (β₁ ≤ β₂)
-  le_supl (β₀ β₁ : β) : β₀ ≤ β₀ ⊔ β₁
-  le_supr (β₀ β₁ : β) : β₁ ≤ β₀ ⊔ β₁
-
-def LtProp : NodeProp ℕ where
-  node_prop n' := n' < n
-
-def NodeT := @Node ℕ (LtProp n)
-
-def node_to_fin (nd : NodeT n) : (Fin n)
-  := {val := @nd.data, isLt := @nd.sound}
-
-def fin_to_node (fin : Fin n) : (NodeT n)
-  := @Node.mk ℕ (LtProp n) fin.val fin.isLt
-
-def nodes : Vector (NodeT n) n
-  := Vector.ofFn (fin_to_node n)
-
-def vector_fn {β : Type} (f : NodeT n → β) : Vector β n
-  := Vector.ofFn (f ∘ (fin_to_node n))
-
-#check Vector.rec
-
-def FiniteDataflowProblem {β : Type}
-  [M: Max β]
-  [B: BEq β]
-  [Preorder β]
-  [HasBot β]
-  (FSI : FiniteSolverInput β)
-  : DataflowProblem ℕ β
-  := let NP : NodeProp ℕ := {
+  def LtProp : NodeProp ℕ where
     node_prop n' := n' < n
-  } ; {NP with
-    μ β := Vector β n
-    const β
-      := vector_fn n (fun _ => β)
-    of_func f
-      := vector_fn n f
-    get μ nd
-      := μ.get (node_to_fin n nd)
-    fold _ := (nodes n).toList.foldr
-    app_unary μ f := Vector.map f μ
-    app_binary μ₀ μ₁ f :=
-      (nodes n).map (fun nd => f
-        (μ₀.get (node_to_fin n nd))
-        (μ₁.get (node_to_fin n nd)))
 
-    const_get := by {
-      intros
-      unfold vector_fn Vector.get
-      simp
-    }
-    of_func_get := by {
-      intros
-      unfold node_to_fin vector_fn Vector.get
-      simp
-      unfold fin_to_node
-      rfl
-    }
-    of_map_get := by {
-      intros
-      unfold Vector.map Vector.get
-      simp
-    }
-    of_app_binary_get := by {
-      intros β₀ β₁ γ μ₀ μ₁ f a
-      unfold Vector.map Vector.get node_to_fin nodes fin_to_node
-      simp
-    }
+  def NodeT := @Node ℕ (LtProp n)
 
-    τ := vector_fn n (FSI.transitions ·.data)
-    σ := vector_fn n (fun nd =>
-          (nodes n).toList.filter (FSI.edges nd.data ·.data)
-        )
+  def node_to_fin (nd : NodeT n) : (Fin n)
+    := {val := @nd.data, isLt := @nd.sound}
 
-    τ_sound := by {
-      intro α₀ β₀ β₁ beq
-      unfold vector_fn Vector.ofFn Vector.get fin_to_node node_to_fin
-      simp
-      apply FSI.transitions_sound
-      assumption
-    }
-    le_sound := FSI.le_sound
+  def fin_to_node (fin : Fin n) : (NodeT n)
+    := @Node.mk ℕ (LtProp n) fin.val fin.isLt
 
-    map_le_supl := by {
-      unfold NodeMap.LE NodeMap.Max
-      intro ν₀ ν₁ ν₂ h a
-      unfold NodeMap.app_binary node_to_fin Vector.map Vector.get nodes fin_to_node
-      simp
-      apply Preorder.le_trans
-      {apply h}
-      {apply FSI.le_supl}
-    }
-    map_le_supr := by {
-      unfold NodeMap.LE NodeMap.Max
-      intro ν₀ ν₁ ν₂ h a
-      unfold NodeMap.app_binary node_to_fin Vector.map Vector.get nodes fin_to_node
-      simp
-      apply Preorder.le_trans
-      {apply h}
-      {apply FSI.le_supr}
-    }
+  def nodes : Vector (NodeT n) n
+    := Vector.ofFn (fin_to_node n)
 
-    fold_ind := by {
-      intro β γ ν γ₀ acc P h₀ h₁
-      induction ((nodes n).toList)
-      {
+  def vector_fn {β : Type} (f : NodeT n → β) : Vector β n
+    := Vector.ofFn (f ∘ (fin_to_node n))
+
+  #check Vector.rec
+
+  def FiniteDataflowProblem {β : Type}
+    [M: Max β]
+    [B: BEq β]
+    [Preorder β]
+    [HasBot β]
+    (FSI : FiniteSolverInput β)
+    : DataflowProblem ℕ β
+    := let NP : NodeProp ℕ := {
+      node_prop n' := n' < n
+    } ; {NP with
+      μ β := Vector β n
+      const β
+        := vector_fn n (fun _ => β)
+      of_func f
+        := vector_fn n f
+      get μ nd
+        := μ.get (node_to_fin n nd)
+      fold _ := (nodes n).toList.foldr
+      app_unary μ f := Vector.map f μ
+      app_binary μ₀ μ₁ f :=
+        (nodes n).map (fun nd => f
+          (μ₀.get (node_to_fin n nd))
+          (μ₁.get (node_to_fin n nd)))
+
+      const_get := by {
+        intros
+        unfold vector_fn Vector.get
         simp
+      }
+      of_func_get := by {
+        intros
+        unfold node_to_fin vector_fn Vector.get
+        simp
+        unfold fin_to_node
+        rfl
+      }
+      of_map_get := by {
+        intros
+        unfold Vector.map Vector.get
+        simp
+      }
+      of_app_binary_get := by {
+        intros β₀ β₁ γ μ₀ μ₁ f a
+        unfold Vector.map Vector.get node_to_fin nodes fin_to_node
+        simp
+      }
+
+      τ := vector_fn n (FSI.transitions ·.data)
+      σ := vector_fn n (fun nd =>
+            (nodes n).toList.filter (FSI.edges nd.data ·.data)
+          )
+
+      τ_sound := by {
+        intro α₀ β₀ β₁ beq
+        unfold vector_fn Vector.ofFn Vector.get fin_to_node node_to_fin
+        simp
+        apply FSI.transitions_sound
         assumption
       }
-      {
-        rename_i hd tl Pfld
+      le_sound := FSI.le_sound
+
+      map_le_supl := by {
+        unfold NodeMap.LE NodeMap.Max
+        intro ν₀ ν₁ ν₂ h a
+        unfold NodeMap.app_binary node_to_fin Vector.map Vector.get nodes fin_to_node
         simp
-        apply h₁
-        assumption
+        apply Preorder.le_trans
+        {apply h}
+        {apply FSI.le_supl}
       }
-    }
+      map_le_supr := by {
+        unfold NodeMap.LE NodeMap.Max
+        intro ν₀ ν₁ ν₂ h a
+        unfold NodeMap.app_binary node_to_fin Vector.map Vector.get nodes fin_to_node
+        simp
+        apply Preorder.le_trans
+        {apply h}
+        {apply FSI.le_supr}
+      }
 
-
-    fold_strong_ind := by {
-      intro β γ ν γ₀ acc P h₀ h₁
-      let Q (l : List (Node ℕ)) := ∀ nd ∈ l, P nd (List.foldr acc γ₀ l)
-      have h : Q (nodes n).toList := by {
-        induction (nodes n).toList<;>unfold Q; simp
+      fold_ind := by {
+        intro β γ ν γ₀ acc P h₀ h₁
+        induction ((nodes n).toList)
         {
-          rename_i hd tl Qtl
-          intro nd ndin
-          cases ndin
-          {
-            apply h₀
-          }
-          {
-            simp
-            apply h₁
-            apply Qtl
-            assumption
-          }
+          simp
+          assumption
+        }
+        {
+          rename_i hd tl Pfld
+          simp
+          apply h₁
+          assumption
         }
       }
-      unfold Q at h
-      intro a
-      apply h
-      simp
-      unfold nodes Vector.ofFn
-      simp
-      cases a
-      rename_i d snd
-      exists Fin.mk d snd
-    }
-  }
-  /-
-  namespace Test_Preds
-    def num_nodes := 14
-
-    instance : ToString (Finset ℕ) where
-      toString fs :=
-        let _ := LtProp num_nodes
-      (vector_fn num_nodes (·)).foldl (fun repr nd =>
-          if nd.data ∈ fs then
-            repr ++ " " ++ toString nd.data
-          else
-            repr) ""
-
-    instance {α : Type} [ToString α] : ToString (Option α) where
-      toString | none => "none" | some a => toString a
-
-    def FSI
-    : FiniteSolverInput (Finset ℕ) := {
-
-      num_nodes := num_nodes
-
-      edges := fun
-        | 0 => (· ∈ [])
-        | 1 => (· ∈ [2])
-        | 2 => (· ∈ [3, 4])
-        | 3 => (· ∈ [5])
-        | 4 => (· ∈ [7, 8])
-        | 5 => (· ∈ [6, 9])
-        | 6 => (· ∈ [3, 10])
-        | 7 => (· ∈ [10])
-        | 8 => (· ∈ [])
-        | 9 => (· ∈ [])
-        | 10 => (· ∈ [11, ])
-        | 11 => (· ∈ [7, 13])
-        | 12 => (· ∈ [])
-        | 13 => (· ∈ [])
-        | _ => fun _ => false
-      transitions n :=
-        (insert n ·)
 
 
-
-      bot := Finset.empty
-
-
-
-      transitions_sound := by {
-        unfold BEq.beq instBEqOfDecidableEq
+      fold_strong_ind := by {
+        intro β γ ν γ₀ acc P h₀ h₁
+        let Q (l : List (Node ℕ)) := ∀ nd ∈ l, P nd (List.foldr acc γ₀ l)
+        have h : Q (nodes n).toList := by {
+          induction (nodes n).toList<;>unfold Q; simp
+          {
+            rename_i hd tl Qtl
+            intro nd ndin
+            cases ndin
+            {
+              apply h₀
+            }
+            {
+              simp
+              apply h₁
+              apply Qtl
+              assumption
+            }
+          }
+        }
+        unfold Q at h
+        intro a
+        apply h
         simp
-      }
-      le_sound := by {
-        unfold BEq.beq instBEqOfDecidableEq
+        unfold nodes Vector.ofFn
         simp
-        intro β₀ β₁ β₂ beq ble
-        rw [←beq]
-        assumption
+        cases a
+        rename_i d snd
+        exists Fin.mk d snd
       }
-      le_supl := by simp
-      le_supr := by simp
     }
+    /-
+    namespace Test_Preds
+      def num_nodes := 14
 
-    def xx := (FiniteDataflowProblem num_nodes FSI).solve.map ((·.1))
-    #print xx
-    #eval! xx
-  end Test_Preds
-  -/
-end FiniteSolver
+      instance : ToString (Finset ℕ) where
+        toString fs :=
+          let _ := LtProp num_nodes
+        (vector_fn num_nodes (·)).foldl (fun repr nd =>
+            if nd.data ∈ fs then
+              repr ++ " " ++ toString nd.data
+            else
+              repr) ""
+
+      instance {α : Type} [ToString α] : ToString (Option α) where
+        toString | none => "none" | some a => toString a
+
+      def FSI
+      : FiniteSolverInput (Finset ℕ) := {
+
+        num_nodes := num_nodes
+
+        edges := fun
+          | 0 => (· ∈ [])
+          | 1 => (· ∈ [2])
+          | 2 => (· ∈ [3, 4])
+          | 3 => (· ∈ [5])
+          | 4 => (· ∈ [7, 8])
+          | 5 => (· ∈ [6, 9])
+          | 6 => (· ∈ [3, 10])
+          | 7 => (· ∈ [10])
+          | 8 => (· ∈ [])
+          | 9 => (· ∈ [])
+          | 10 => (· ∈ [11, ])
+          | 11 => (· ∈ [7, 13])
+          | 12 => (· ∈ [])
+          | 13 => (· ∈ [])
+          | _ => fun _ => false
+        transitions n :=
+          (insert n ·)
+
+
+
+        bot := Finset.empty
+
+
+
+        transitions_sound := by {
+          unfold BEq.beq instBEqOfDecidableEq
+          simp
+        }
+        le_sound := by {
+          unfold BEq.beq instBEqOfDecidableEq
+          simp
+          intro β₀ β₁ β₂ beq ble
+          rw [←beq]
+          assumption
+        }
+        le_supl := by simp
+        le_supr := by simp
+      }
+
+      def xx := (FiniteDataflowProblem num_nodes FSI).solve.map ((·.1))
+      #print xx
+      #eval! xx
+    end Test_Preds
+    -/
+end FiniteDataflowProblemSolver
