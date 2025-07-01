@@ -151,3 +151,12 @@ deriving BEq, FromSexp, ToSexp
 #guard toSexp (Default3.case1 (x := 5) (y := 7)) == sexp%(case1 (x 5) (y 7))
 #guard @fromSexp? Default3 _ (sexp%(case2 (y 7))) == .ok (Default3.case2 7 7)
 #guard !(@fromSexp? Default3 _ (sexp%(case2 (x 2)))).isOk
+
+-- Parser tests
+
+#guard Sexp.fromString "3.14" == .ok (.atom "3.14")
+#guard Sexp.fromString "(a ok)" == .ok (sexp%(a ok))
+#guard Sexp.fromString "(a (b c d) e)" == .ok (sexp%(a (b c d) e))
+#guard (Sexp.fromString "(a ok) oops").isOk == false
+#guard (Sexp.fromString "(a ok))").isOk == false
+#guard (Sexp.fromString "(a ok").isOk == false

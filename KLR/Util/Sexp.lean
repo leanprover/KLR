@@ -7,6 +7,7 @@ This is copied and modified from FromToJson.lean in the Lean sources. The bigges
 supporting both positional and named arguments.
 -/
 import TensorLib
+import Util.Common
 import Util.Float
 import Util.Hex
 
@@ -40,6 +41,28 @@ def lispString : Sexp -> String
 
 instance : ToString Sexp where
   toString := lispString
+
+partial def fromString (s : String) : Err Sexp := do
+  let (e, cs) <- exp s.toList
+  if cs.all Char.isWhitespace then return e
+  else throw s!"left-over stuff {cs.toString}"
+where
+  exp : List Char -> Err (Sexp × List Char)
+  | [] => return (.list [], [])
+  | c :: cs =>
+    if c.isWhitespace then exp cs
+    else if c == '(' then lst [] cs
+    else atm [] (c::cs)
+  lst (es : List Sexp) : List Char -> Err (Sexp × List Char)
+  | [] => throw "expecting )"
+  | ')' :: cs => return (.list es.reverse, cs)
+  | cs => do let (e, cs) <- exp cs; lst (e::es) cs
+  atm (s : List Char) : List Char -> Err (Sexp × List Char)
+  | [] => return (.atom ⟨ s.reverse ⟩, [])
+  | ')' :: cs => return (.atom ⟨ s.reverse ⟩, ')'::cs)
+  | c :: cs => if c.isWhitespace then
+               return (.atom ⟨ s.reverse ⟩, cs)
+               else atm (c :: s) cs
 
 end Sexp
 
