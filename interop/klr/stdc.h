@@ -8,10 +8,6 @@ Authors: Paul Govereau, Sean McLaughlin
 // A simple header file to check the C version and bring C standard
 // definitions into scope.
 
-#if __STDC__ != 1 || __STDC_VERSION__ < 201710L
-#error Compiler does not support C17
-#endif
-
 #if defined(__STDC_NO_ATOMICS__)
 #error Compiler does not support atomic types
 #endif
