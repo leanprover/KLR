@@ -25,9 +25,6 @@ install(
     DESTINATION klr/
 )
 
-# Build tests by running pip install with: -C cmake.define.BUILD_TESTING=ON -C build-dir=build
-# Run tests by running ctest in build dir: cd build/klr; ctest
-include(CTEST)
 if(BUILD_TESTING)
 
     # cbor_test

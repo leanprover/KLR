@@ -10,6 +10,12 @@ project(
     LANGUAGES C
 )
 
+# To run tests, run pip install with: -C build-dir=build
+# Then cd into that build dir and run ctest.
+#
+# NOTE: OPTIONAL because CTEST not found when cibuildwheel runs its custom docker image
+include(CTEST OPTIONAL)
+
 find_package(
     Python REQUIRED
     COMPONENTS Interpreter Development.Module

@@ -4,7 +4,9 @@
 # Using scikit-build-core so we can use CMake to build the Python C extension module.
 # We're using CMake so we can easily do fancy stuff like build
 # standalone C tests, in addition to the C extension.
-requires = ["scikit-build-core>=0.11.4"] # 0.11.4 is latest in Brazil as of June 2025
+requires = [
+  "scikit-build-core>=0.11.4", # 0.11.4 is latest in Brazil as of June 2025
+]
 build-backend = "scikit_build_core.build"
 
 [project]
