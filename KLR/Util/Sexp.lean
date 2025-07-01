@@ -73,6 +73,9 @@ export ToSexp(toSexp)
 
 namespace Sexp
 
+instance : ToSexp Sexp where
+  toSexp := id
+
 instance : ToSexp String where
   toSexp n := atom n
 
@@ -147,6 +150,9 @@ class FromSexp (a : Type) where
 export FromSexp(fromSexp?)
 
 namespace Sexp
+
+instance : FromSexp Sexp where
+  fromSexp? s := return s
 
 instance : FromSexp String where
   fromSexp? s := do match s with
