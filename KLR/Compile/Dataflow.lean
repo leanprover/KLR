@@ -67,145 +67,172 @@ def FiniteDataflowProblem {β : Type} ...
 ```
 
 `DataflowProblem.solve` may then be called on this instance.
+
+## Code by `Section`
+
+`Section Basics`- defines basic `Node`, `NodeProp`, and `NodeMap `definitions.
+  Culminates in `DataflowProblem` definition relying on `NodeMap`s.
+
+`Section DataflowProblemSolver` - defines computations and logic on `DataflowProblem`s,
+  culminating in `DataflowProblem.solve` definition that provides a solution
+  to dataflow problems.
+
+`Section FiniteDataflowProblemSolver` - simplies the process of constructing
+  `DataflowProblem`s by proviing the `FiniteSolverInput` class that uses
+  `ℕ` indexing for nodes, and can be transformed by `FiniteDataflowProblem`
+  to a `DataflowProblem`.
 -/
 
 abbrev ℕ := Nat
 
+/-
+  The section `Basics` provides the basic typeclasses, structures, and
+  notations needed to define `DataflowProblem` - including maps,
+  map operations, and operations like `≤` and `⊔` -/
 section Basics
 
-/-
-  An instance `_ : NodeProp α` fixes a `node_prop : α → Prop` that
-  defines the set of nodes (note `Set α := α → Prop`) in the carrier
-  graph.
--/
-class NodeProp (α : Type) where
-  node_prop : α → Prop
+  /-
+    An instance `_ : NodeProp α` fixes a `node_prop : α → Prop` that
+    defines the set of nodes (note `Set α := α → Prop`) in the carrier
+    graph.
+  -/
+  class NodeProp (α : Type) where
+    node_prop : α → Prop
 
-/-
-  With a `NodeProp α` in scope, `Node α` is the subtype of `a : α` that
-  can prove `node_prop a` (i.e., are indeed nodes in the carrier graph)
--/
-structure Node (α : Type) [NP : NodeProp α] where
-  data : α
-  sound : NP.node_prop data
+  /-
+    With a `NodeProp α` in scope, `Node α` is the subtype of `a : α` that
+    can prove `node_prop a` (i.e., are indeed nodes in the carrier graph)
+  -/
+  structure Node (α : Type) [NP : NodeProp α] where
+    data : α
+    sound : NP.node_prop data
 
-instance {α} [TSA : ToString α] [NodeProp α]: ToString (Node α) where
-  toString := (TSA.toString ·.data)
+  instance {α} [TSA : ToString α] [NodeProp α]: ToString (Node α) where
+    toString := (TSA.toString ·.data)
 
-instance {α} [BEq α] [NodeProp α]: BEq (Node α) where
-  beq a₀ a₁ := a₀.data == a₁.data
+  instance {α} [BEq α] [NodeProp α]: BEq (Node α) where
+    beq a₀ a₁ := a₀.data == a₁.data
 
-/-
-  In the context of a set of nodes `Node α` fixed by a `NodeProp α`, an
-  instance of `NodeMap α` is a constructor for map objects whose domain
-  is the nodes of the carrier graph and whose codomain is a datatype `β`.
+  /-
+    In the context of a set of nodes `Node α` fixed by a `NodeProp α`, an
+    instance of `NodeMap α` is a constructor for map objects whose domain
+    is the nodes of the carrier graph and whose codomain is a datatype `β`.
 
-  Several utilities, as well as soundness theorems on them including
-  two induction principles, are required as well.
--/
-class NodeMap (α : Type) extends NodeProp α where
-  μ (β : Type) : Type -- type of maps
-  const {β} : β → μ β -- empty instance
-  of_func {β} : (Node α → β) → μ β --instance from func
-  get {β} : (μ β) → Node α → β
-  fold {β γ} : (μ β) → ((Node α) → γ → γ) → γ → γ
-  app_unary {β γ} : (μ β) → (β → γ) → (μ γ)
-  app_binary {β₀ β₁ γ} : (μ β₀) → (μ β₁) → (β₀ → β₁ → γ) → (μ γ)
+    Several utilities, as well as soundness theorems on them including
+    two induction principles, are required as well.
+  -/
+  class NodeMap (α : Type) extends NodeProp α where
+    μ (β : Type) : Type -- type of maps
+    const {β} : β → μ β -- empty instance
+    of_func {β} : (Node α → β) → μ β --instance from func
+    get {β} : (μ β) → Node α → β
+    fold {β γ} : (μ β) → ((Node α) → γ → γ) → γ → γ
+    app_unary {β γ} : (μ β) → (β → γ) → (μ γ)
+    app_binary {β₀ β₁ γ} : (μ β₀) → (μ β₁) → (β₀ → β₁ → γ) → (μ γ)
 
-  const_get {β} (b : β) a : get (const b) a = b
-  of_func_get {β} (f : Node α → β) a : get (of_func f) a = f a
-  of_map_get {β γ} μ (f : β → γ) a : get (app_unary μ f) a = f (get μ a)
-  of_app_binary_get {β₀ β₁ γ} μ₀ μ₁ (f : β₀ → β₁ → γ) a
-    : get (app_binary μ₀ μ₁ f) a = f (get μ₀ a) (get μ₁ a)
+    const_get {β} (b : β) a : get (const b) a = b
+    of_func_get {β} (f : Node α → β) a : get (of_func f) a = f a
+    of_map_get {β γ} μ (f : β → γ) a : get (app_unary μ f) a = f (get μ a)
+    of_app_binary_get {β₀ β₁ γ} μ₀ μ₁ (f : β₀ → β₁ → γ) a
+      : get (app_binary μ₀ μ₁ f) a = f (get μ₀ a) (get μ₁ a)
 
-  fold_ind {β γ} {ν : μ β} {γ₀ : γ} {acc : (Node α) → γ → γ} :
-    (P : γ → Prop) →
-    (P γ₀) →
-    (∀ a γ, P γ → P (acc a γ)) →
-    P (fold ν acc γ₀)
+    fold_ind {β γ} {ν : μ β} {γ₀ : γ} {acc : (Node α) → γ → γ} :
+      (P : γ → Prop) →
+      (P γ₀) →
+      (∀ a γ, P γ → P (acc a γ)) →
+      P (fold ν acc γ₀)
 
-  fold_strong_ind {β γ} {ν : μ β} {γ₀ : γ} {acc : Node α → γ → γ} :
-    (P : Node α → γ → Prop) →
-    (∀ a γ₀, P a (acc a γ₀)) →
-    (∀ a γ₀ b, P a γ₀ → P a (acc b γ₀)) →
-    (∀ a, P a (fold ν acc γ₀))
+    fold_strong_ind {β γ} {ν : μ β} {γ₀ : γ} {acc : Node α → γ → γ} :
+      (P : Node α → γ → Prop) →
+      (∀ a γ₀, P a (acc a γ₀)) →
+      (∀ a γ₀ b, P a γ₀ → P a (acc b γ₀)) →
+      (∀ a, P a (fold ν acc γ₀))
 
-notation μ "fold⟪" st "," acc "⟫" => NodeMap.fold μ acc st
+  notation μ "fold⟪" st "," acc "⟫" => NodeMap.fold μ acc st
 
-instance {α β : Type} [ToString α] [ToString β] [NM:NodeMap α]
-  : ToString (NM.μ β) where
-  toString μ := NM.fold μ (fun nd str =>
-    str ++ "{" ++ (toString nd.data) ++ ":"
-                ++ (toString (NM.get μ nd)) ++ "}\n") ""
+  instance {α β : Type} [ToString α] [ToString β] [NM:NodeMap α]
+    : ToString (NM.μ β) where
+    toString μ := NM.fold μ (fun nd str =>
+      str ++ "{" ++ (toString nd.data) ++ ":"
+                  ++ (toString (NM.get μ nd)) ++ "}\n") ""
 
-infix:90 "◃" => NodeMap.get
+  infix:90 "◃" => NodeMap.get
 
-def NodeMap.call_const (α : Type) {β : Type} (b : β) [NodeMap α]
-  := NodeMap.const (α:=α) b
-notation "⟪" α "↦" b "⟫"=> NodeMap.call_const α b
+  def NodeMap.call_const (α : Type) {β : Type} (b : β) [NodeMap α]
+    := NodeMap.const (α:=α) b
+  notation "⟪" α "↦" b "⟫"=> NodeMap.call_const α b
 
-notation "⟦" α  "," β "⟧" => NodeMap.μ α β
+  notation "⟦" α  "," β "⟧" => NodeMap.μ α β
 
-notation μ "map⟪" f "⟫" => NodeMap.app_unary μ f
+  notation μ "map⟪" f "⟫" => NodeMap.app_unary μ f
 
-notation "of_func⟪" f "⟫" => NodeMap.of_func f
+  notation "of_func⟪" f "⟫" => NodeMap.of_func f
 
-notation "map2⟪" μ₀ "," μ₁ "," f "⟫" => NodeMap.app_binary μ₀ μ₁ f
+  notation "map2⟪" μ₀ "," μ₁ "," f "⟫" => NodeMap.app_binary μ₀ μ₁ f
 
-def NodeMap.LE {α β : Type} [NodeMap α] [LE β] (μ₀ μ₁ : ⟦α, β⟧) := (a : Node α) → (μ₀◃a ≤ μ₁◃a)
-infix:90 "⟪≤⟫" => NodeMap.LE
-instance {α β : Type} [NodeMap α] [LT β] : LT ⟦α, β⟧ where
-  lt μ₀ μ₁ := (a : Node α) → (μ₀◃a < μ₁◃a)
-def NodeMap.Max {α β : Type} [NodeMap α] [Max β] (μ₀ μ₁ : ⟦α , β⟧) :=
-  map2⟪μ₀, μ₁, (Max.max · ·)⟫
-infix:90 "⟪⊔⟫" => NodeMap.Max
-instance {α β : Type} [NodeMap α] [BEq β] : BEq ⟦α, β⟧ where
-  beq μ₀ μ₁ := μ₀ fold⟪true, (fun a prev => prev ∧ (μ₀◃a == μ₁◃a))⟫
-instance {α β : Type} [NodeMap α] [ToString α] [ToString β] : ToString ⟦α, β⟧ where
-  toString μ := μ fold⟪"", (fun nd repr => repr ++
-    "\n{" ++ toString nd.data ++ ": " ++ toString (μ◃nd) ++ "}")⟫
+  def NodeMap.LE {α β : Type} [NodeMap α] [LE β] (μ₀ μ₁ : ⟦α, β⟧) := (a : Node α) → (μ₀◃a ≤ μ₁◃a)
+  infix:90 "⟪≤⟫" => NodeMap.LE
+  instance {α β : Type} [NodeMap α] [LT β] : LT ⟦α, β⟧ where
+    lt μ₀ μ₁ := (a : Node α) → (μ₀◃a < μ₁◃a)
+  def NodeMap.Max {α β : Type} [NodeMap α] [Max β] (μ₀ μ₁ : ⟦α , β⟧) :=
+    map2⟪μ₀, μ₁, (Max.max · ·)⟫
+  infix:90 "⟪⊔⟫" => NodeMap.Max
+  instance {α β : Type} [NodeMap α] [BEq β] : BEq ⟦α, β⟧ where
+    beq μ₀ μ₁ := μ₀ fold⟪true, (fun a prev => prev ∧ (μ₀◃a == μ₁◃a))⟫
+  instance {α β : Type} [NodeMap α] [ToString α] [ToString β] : ToString ⟦α, β⟧ where
+    toString μ := μ fold⟪"", (fun nd repr => repr ++
+      "\n{" ++ toString nd.data ++ ": " ++ toString (μ◃nd) ++ "}")⟫
 
 
--- copied from Mathlib for utility
-class Preorder (α : Type) extends LE α, LT α where
-  le_refl : ∀ a : α, a ≤ a
-  le_trans : ∀ a b c : α, a ≤ b → b ≤ c → a ≤ c
-  lt := fun a b => a ≤ b ∧ ¬b ≤ a
-  lt_iff_le_not_ge : ∀ a b : α, a < b ↔ a ≤ b ∧ ¬b ≤ a := by intros; rfl
+  -- copied from Mathlib for utility
+  class Preorder (α : Type) extends LE α, LT α where
+    le_refl : ∀ a : α, a ≤ a
+    le_trans : ∀ a b c : α, a ≤ b → b ≤ c → a ≤ c
+    lt := fun a b => a ≤ b ∧ ¬b ≤ a
+    lt_iff_le_not_ge : ∀ a b : α, a < b ↔ a ≤ b ∧ ¬b ≤ a := by intros; rfl
 
-instance (α : Type) [Preorder α] : LE α where
-  le := LE.le
+  instance (α : Type) [Preorder α] : LE α where
+    le := LE.le
 
--- An instance `HasBot α` fixes a bottom element (`⊥`) of type `α`.
-class HasBot (α : Type) where
-  bot : α
+  -- An instance `HasBot α` fixes a bottom element (`⊥`) of type `α`.
+  class HasBot (α : Type) where
+    bot : α
 
-notation "⊥" => HasBot.bot
+  notation "⊥" => HasBot.bot
 
-/-
-  A `DataflowProblem α β` extends an map constructor `NodeMap α` with choices of
-  `τ : ⟦α, (β → β)⟧`, the node-indexed map of transition functions, and
-  `σ : ⟦α, (List (Node α))⟧`, the node-indexed map of succesor lists fixing
-  the graph topology. Two soundness theorems are requires relating the `≤`
-  relation `τ`, and the `==` relation on `β` (as provided by their respective
-  included typeclasses). The `⊔` and `≤` relations (on `⟦α, β⟧`), must also
-  be proven.
--/
-class DataflowProblem (α β : Type) extends NodeMap α, Max β, BEq β, Preorder β, HasBot β
-where
-  τ : ⟦α, (β → β)⟧ -- transition functions
-  σ : ⟦α, (List (Node α))⟧ -- successor relation
+  /-
+    A `DataflowProblem α β` extends an map constructor `NodeMap α` with choices of
+    `τ : ⟦α, (β → β)⟧`, the node-indexed map of transition functions, and
+    `σ : ⟦α, (List (Node α))⟧`, the node-indexed map of succesor lists fixing
+    the graph topology. Two soundness theorems are requires relating the `≤`
+    relation `τ`, and the `==` relation on `β` (as provided by their respective
+    included typeclasses). The `⊔` and `≤` relations (on `⟦α, β⟧`), must also
+    be proven.
+  -/
+  class DataflowProblem (α β : Type) extends NodeMap α, Max β, BEq β, Preorder β, HasBot β
+  where
+    τ : ⟦α, (β → β)⟧ -- transition functions
+    σ : ⟦α, (List (Node α))⟧ -- successor relation
 
-  τ_sound (α₀ : Node α) (β₀ β₁ : β) : (β₀ == β₁) → (τ◃α₀) β₀ == (τ◃α₀) β₁
-  le_sound (β₀ β₁ β₂ : β) : (β₀ == β₁) → (β₀ ≤ β₂) → (β₁ ≤ β₂)
+    τ_sound (α₀ : Node α) (β₀ β₁ : β) : (β₀ == β₁) → (τ◃α₀) β₀ == (τ◃α₀) β₁
+    le_sound (β₀ β₁ β₂ : β) : (β₀ == β₁) → (β₀ ≤ β₂) → (β₁ ≤ β₂)
 
-  map_le_supl (ν₀ ν₁ ν₂ : ⟦α, β⟧) (h : ν₀ ⟪≤⟫ ν₁) : (ν₀ ⟪≤⟫ (ν₁ ⟪⊔⟫ ν₂))
-  map_le_supr (ν₀ ν₁ ν₂ : ⟦α, β⟧) (h : ν₀ ⟪≤⟫ ν₂) : (ν₀ ⟪≤⟫ (ν₁ ⟪⊔⟫ ν₂))
+    map_le_supl (ν₀ ν₁ ν₂ : ⟦α, β⟧) (h : ν₀ ⟪≤⟫ ν₁) : (ν₀ ⟪≤⟫ (ν₁ ⟪⊔⟫ ν₂))
+    map_le_supr (ν₀ ν₁ ν₂ : ⟦α, β⟧) (h : ν₀ ⟪≤⟫ ν₂) : (ν₀ ⟪≤⟫ (ν₁ ⟪⊔⟫ ν₂))
 
 end Basics
 
-/-
 
+/-
+  The section `DataflowProblemSolver ` is paramterized on an instance of `DataflowProblem α β`.
+  It builds on the definitions of maps `⟦α, β⟧` from `NodeMap α`, and on the transition functions
+  `τ ◃ a` and succesor lists `σ ◃ a` for each node `a : Node α` (`◃` used as notation for map get)
+  provided by the `DataflowProblem` to compute a series of utility values, functions, and soundness
+  theorems ultimately definiting `DataflowProblem.solve`. This `solve` function performs a fixpoint
+  search for a solution to this dataflow problem instance. Its return type :`Option ((ν : ⟦α, β⟧) ×' I' ν)`,
+  captures that the search may fail, as it iterates only for a maximm of `(depth : ℕ) := 1000` rounds.
+  The `some` case, on the other hand, provides `ν : ⟦α, β⟧` - the map from nodes to data `β` that solves
+  the dataflow problem, and a `I' ν : Prop` - which captures that `ν` satisfies the dataflow problem.
 -/
 section DataflowProblemSolver
   variable {α β : Type} [BEq α] {DP: DataflowProblem α β}
@@ -474,6 +501,17 @@ section DataflowProblemSolver
 
 end DataflowProblemSolver
 
+/-
+  The section `FiniteDataflowProblemSolver` provides a structure type definition
+  `FiniteSolverInput β`, that can be easily instantiated with any graph over
+  `num_nodes : ℕ` nodes, with data of type `β`, as long as the edge relation and
+  transition functions can be described by numbered node index. To fully instantiate
+  a `FiniteSolverInput`, 4 simple soundness theorems relating largely the relations
+  on `β` must be proved.
+  `FiniteDataflowProblem ... FiniteSolverInput β → DataflowProblem ℕ β` is the
+  key function, lifting a `FiniteSolverInput` to `DataflowProblem` admitting the
+  solver function `sound`.
+-/
 section FiniteDataflowProblemSolver
 
   variable (n : Nat) -- size of arrays
@@ -609,7 +647,6 @@ section FiniteDataflowProblemSolver
         }
       }
 
-
       fold_strong_ind := by {
         intro β γ ν γ₀ acc P h₀ h₁
         let Q (l : List (Node ℕ)) := ∀ nd ∈ l, P nd (List.foldr acc γ₀ l)
@@ -641,8 +678,11 @@ section FiniteDataflowProblemSolver
         exists Fin.mk d snd
       }
     }
-    /-
-    namespace Test_Preds
+
+/-
+  This section is a test that relies on Mathlib, to be replaced with one
+  that does not as a TBD.
+namespace Test_Preds
       def num_nodes := 14
 
       instance : ToString (Finset ℕ) where
@@ -705,6 +745,5 @@ section FiniteDataflowProblemSolver
       def xx := (FiniteDataflowProblem num_nodes FSI).solve.map ((·.1))
       #print xx
       #eval! xx
-    end Test_Preds
-    -/
-end FiniteDataflowProblemSolver
+end Test_Preds
+-/
