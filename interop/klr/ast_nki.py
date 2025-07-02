@@ -7,6 +7,8 @@ from enum import Enum, auto
 class Pos(NamedTuple):
   line : int
   column : int
+  lineEnd : Optional[int]
+  columnEnd : Optional[int]
 
 class Value_none(NamedTuple):
   pass

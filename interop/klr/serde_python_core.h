@@ -13,7 +13,6 @@ Authors: Paul Govereau, Sean McLaughlin
 #include "ast_common.h"
 #include "ast_python_core.h"
 
-bool Python_Pos_ser(FILE *out, struct Python_Pos *x);
 bool Python_Const_ser(FILE *out, struct Python_Const *x);
 bool Python_Ctx_ser(FILE *out, enum Python_Ctx x);
 bool Python_BoolOp_ser(FILE *out, enum Python_BoolOp x);
@@ -35,7 +34,6 @@ bool Python_Keyword_List_ser(FILE *out, struct Python_Keyword_List *x);
 bool Python_Stmt_List_ser(FILE *out, struct Python_Stmt_List *x);
 bool Python_Fun_List_ser(FILE *out, struct Python_Fun_List *x);
 
-bool Python_Pos_des(FILE *in, struct region *region, struct Python_Pos **x);
 bool Python_Const_des(FILE *in, struct region *region, struct Python_Const **x);
 bool Python_Ctx_des(FILE *in, struct region *region, enum Python_Ctx *x);
 bool Python_BoolOp_des(FILE *in, struct region *region, enum Python_BoolOp *x);

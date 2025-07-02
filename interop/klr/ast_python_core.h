@@ -14,13 +14,6 @@ Authors: Paul Govereau, Sean McLaughlin
 
 // KLR.Python Abstract Syntax
 
-struct Python_Pos {
-  u32 lineno;
-  u32 end_lineno;
-  u32 col_offset;
-  u32 end_col_offset;
-};
-
 struct Python_Const {
   enum Python_Const_Tag {
     Python_Const_none = 1,
@@ -178,13 +171,13 @@ struct Python_Expr_ {
 
 struct Python_Expr {
   struct Python_Expr_ *expr;
-  struct Python_Pos *pos;
+  struct Core_Pos *pos;
 };
 
 struct Python_Keyword {
   char *id;
   struct Python_Expr *value;
-  struct Python_Pos *pos;
+  struct Core_Pos *pos;
 };
 
 struct Python_Stmt_ {
@@ -241,7 +234,7 @@ struct Python_Stmt_ {
 
 struct Python_Stmt {
   struct Python_Stmt_ *stmt;
-  struct Python_Pos *pos;
+  struct Core_Pos *pos;
 };
 
 struct Python_Args {

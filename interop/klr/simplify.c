@@ -72,17 +72,6 @@ static struct SimplifyResult make_success_nat(u32 nat) {
   return result;
 }
 
-// Convert Python position to NKI position
-static struct NKI_Pos *pos_convert(struct Python_Pos *p,
-                                   struct region *region) {
-  struct NKI_Pos *result = region_alloc(region, sizeof(*result));
-  if (!result)
-    return NULL;
-  result->line = p->lineno;
-  result->column = p->col_offset;
-  return result;
-}
-
 // Convert Python constant to NKI value
 static struct NKI_Value *value_convert(struct Python_Const *c,
                                        struct region *region) {
@@ -369,8 +358,6 @@ static struct SimplifyResult expr_convert(struct Python_Expr *e,
     return make_error("invalid expression", NULL);
   }
 
-  struct NKI_Pos *pos = pos_convert(e->pos, region);
-
   struct SimplifyResult expr_result = expr_prime_convert(e->expr, region);
   if (!expr_result.success) {
     return expr_result;
@@ -378,7 +365,7 @@ static struct SimplifyResult expr_convert(struct Python_Expr *e,
 
   struct NKI_Expr *result = region_alloc(region, sizeof(*result));
   result->expr = expr_result.value.expr->expr;
-  result->pos = pos;
+  result->pos = e->pos;
 
   return make_success_expr(result);
 }
@@ -711,7 +698,7 @@ static struct SimplifyResult indexes_convert(struct Python_Expr *e,
     // Create NKI_Expr with position
     struct NKI_Expr *coord_expr = region_alloc(region, sizeof(*coord_expr));
     coord_expr->expr = expr_result.value.expr->expr;
-    coord_expr->pos = pos_convert(e->pos, region);
+    coord_expr->pos = e->pos;
 
     index = region_alloc(region, sizeof(*index));
     index->tag = NKI_Index_coord;
@@ -903,8 +890,6 @@ static struct SimplifyResult stmt_convert(struct Python_Stmt *s,
     return make_error("invalid statement", NULL);
   }
 
-  struct NKI_Pos *pos = pos_convert(s->pos, region);
-
   struct SimplifyResult stmt_result = stmt_prime_convert(s->stmt, region);
   if (!stmt_result.success) {
     return stmt_result;
@@ -913,7 +898,7 @@ static struct SimplifyResult stmt_convert(struct Python_Stmt *s,
   // Add position to all statements in the list
   struct NKI_Stmt_List *stmt_list = stmt_result.value.stmts;
   while (stmt_list) {
-    stmt_list->stmt->pos = pos;
+    stmt_list->stmt->pos = s->pos;
     stmt_list = stmt_list->next;
   }
 

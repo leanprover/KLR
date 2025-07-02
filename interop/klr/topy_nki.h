@@ -13,7 +13,6 @@ Authors: Paul Govereau, Sean McLaughlin
 #include "ast_nki.h"
 
 #include <Python.h>
-PyObject *NKI_Pos_topy(struct NKI_Pos *x);
 PyObject *NKI_Value_topy(struct NKI_Value *x);
 PyObject *NKI_BinOp_topy(enum NKI_BinOp x);
 PyObject *NKI_Expr__topy(struct NKI_Expr_ *x);

@@ -143,8 +143,8 @@ PyObject *String_Option_topy(char *x) {
   }
 }
 
-PyObject *NKI_Pos_topy(struct NKI_Pos *x) {
-  PyObject *tup = PyTuple_New(2);
+PyObject *Core_Pos_topy(struct Core_Pos *x) {
+  PyObject *tup = PyTuple_New(4);
   if (!tup)
     return NULL;
   {
@@ -155,6 +155,16 @@ PyObject *NKI_Pos_topy(struct NKI_Pos *x) {
   {
     PyObject *obj = Nat_topy(x->column);
     if (!obj || PyTuple_SetItem(tup, 1, obj) == -1)
+      return NULL;
+  }
+  {
+    PyObject *obj = Nat_Option_topy(x->lineEnd);
+    if (!obj || PyTuple_SetItem(tup, 2, obj) == -1)
+      return NULL;
+  }
+  {
+    PyObject *obj = Nat_Option_topy(x->columnEnd);
+    if (!obj || PyTuple_SetItem(tup, 3, obj) == -1)
       return NULL;
   }
   PyObject *res = construct("Pos", tup);
@@ -618,7 +628,7 @@ PyObject *NKI_Expr_topy(struct NKI_Expr *x) {
       return NULL;
   }
   {
-    PyObject *obj = NKI_Pos_topy(x->pos);
+    PyObject *obj = Core_Pos_topy(x->pos);
     if (!obj || PyTuple_SetItem(tup, 1, obj) == -1)
       return NULL;
   }
@@ -840,7 +850,7 @@ PyObject *NKI_Stmt_topy(struct NKI_Stmt *x) {
       return NULL;
   }
   {
-    PyObject *obj = NKI_Pos_topy(x->pos);
+    PyObject *obj = Core_Pos_topy(x->pos);
     if (!obj || PyTuple_SetItem(tup, 1, obj) == -1)
       return NULL;
   }

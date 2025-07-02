@@ -123,7 +123,6 @@ def gatherRun (moduleFileName kernelFunctionName outputFileName: String)
   for p in paths do
     let exe := p.join gather
     dbg $ "exe: " ++ exe.toString
-    dbg $ "pypath: " ++ pypath
     if <- exe.pathExists then
       let output <- IO.Process.output {
         cmd := exe.toString
@@ -142,9 +141,7 @@ def gatherTmp [KLR.File.FromContents a]
     (klrPythonModuleDir : Option String) (debug : Bool) : IO a :=
   IO.FS.withTempFile fun _ tmpName => do
     gatherRun moduleFileName kernelFunctionName tmpName.toString klrPythonModuleDir debug
-    let res <- KLR.File.readKLRFile tmpName .cbor
-    IO.FS.removeFile tmpName
-    return res
+    KLR.File.readKLRFile tmpName .cbor
 
 private def evalKlrTensors
   (moduleFileName kernelFunctionName : String)
@@ -215,6 +212,17 @@ def info (p : Parsed) : IO UInt32 := do
     IO.println s!"HLO Call Site {name}"
   return 0
 
+def compile (p : Parsed) : IO UInt32 := do
+  let debug := p.hasFlag "debug"
+  let file := p.positionalArg! "moduleFileName" |>.as! String
+  let kernel := p.positionalArg! "kernelFunctionName" |>.as! String
+  let dir := (p.flag? "klr-module-dir").map fun x => x.as! String
+  let kernel : KLR.Python.Kernel <- gatherTmp file kernel dir debug
+  let kernel : KLR.NKI.Kernel <- KLR.NKI.simplify kernel
+  -- TODO run the type checker
+  IO.println (reprStr kernel)
+  return 0
+
 def typecheck (p : Parsed) : IO UInt32 := do
   let file := p.positionalArg! "file" |>.as! String
   let kernel : KLR.Python.Kernel <- KLR.File.readKLRFile file .cbor
@@ -275,6 +283,20 @@ def evalKLR (p : Parsed) : IO UInt32 := do
 def gatherCmd := `[Cli|
   "gather" VIA gather;
   "Gather Python sources into an AST file"
+
+  FLAGS:
+    o, outfile : String; "Name of output file"
+    d, "klr-module-dir" : String; "Directory of Python klr module. Added to PYTHONPATH."
+    debug : Unit; "Print debugging info"
+
+  ARGS:
+    moduleFileName : String; "File of the Python module with the kernel function"
+    kernelFunctionName : String; "Name of the kernel function"
+]
+
+def compileCmd := `[Cli|
+  "compile" VIA compile;
+  "Compile a NKI kernel"
 
   FLAGS:
     o, outfile : String; "Name of output file"
@@ -352,6 +374,7 @@ def klrCmd : Cmd := `[Cli|
   "KLR is an IR for NKI and other tensor-like languages in Lean."
 
   SUBCOMMANDS:
+    compileCmd;
     evalKLRCmd;
     gatherCmd;
     infoCmd;

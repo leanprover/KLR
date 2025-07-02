@@ -13,52 +13,38 @@ Authors: Paul Govereau, Sean McLaughlin
 #include "serde_common.h"
 #include "serde_python_core.h"
 
-bool Python_Pos_ser(FILE *out, struct Python_Pos *x) {
-  if (!cbor_encode_tag(out, 1, 0, 4))
-    return false;
-  if (!cbor_encode_uint(out, x->lineno))
-    return false;
-  if (!cbor_encode_uint(out, x->end_lineno))
-    return false;
-  if (!cbor_encode_uint(out, x->col_offset))
-    return false;
-  if (!cbor_encode_uint(out, x->end_col_offset))
-    return false;
-  return true;
-}
-
 bool Python_Const_ser(FILE *out, struct Python_Const *x) {
   switch (x->tag) {
   case Python_Const_none:
-    if (!cbor_encode_tag(out, 2, 0, 0))
+    if (!cbor_encode_tag(out, 1, 0, 0))
       return false;
     break;
   case Python_Const_bool:
-    if (!cbor_encode_tag(out, 2, 1, 1))
+    if (!cbor_encode_tag(out, 1, 1, 1))
       return false;
     if (!cbor_encode_bool(out, x->b.value))
       return false;
     break;
   case Python_Const_int:
-    if (!cbor_encode_tag(out, 2, 2, 1))
+    if (!cbor_encode_tag(out, 1, 2, 1))
       return false;
     if (!cbor_encode_int(out, x->i.value))
       return false;
     break;
   case Python_Const_float:
-    if (!cbor_encode_tag(out, 2, 3, 1))
+    if (!cbor_encode_tag(out, 1, 3, 1))
       return false;
     if (!cbor_encode_float(out, x->f.value))
       return false;
     break;
   case Python_Const_string:
-    if (!cbor_encode_tag(out, 2, 4, 1))
+    if (!cbor_encode_tag(out, 1, 4, 1))
       return false;
     if (!String_ser(out, x->s.value))
       return false;
     break;
   case Python_Const_ellipsis:
-    if (!cbor_encode_tag(out, 2, 5, 0))
+    if (!cbor_encode_tag(out, 1, 5, 0))
       return false;
     break;
   default:
@@ -70,15 +56,15 @@ bool Python_Const_ser(FILE *out, struct Python_Const *x) {
 bool Python_Ctx_ser(FILE *out, enum Python_Ctx x) {
   switch (x) {
   case Python_Ctx_load:
-    if (!cbor_encode_tag(out, 3, 0, 0))
+    if (!cbor_encode_tag(out, 2, 0, 0))
       return false;
     break;
   case Python_Ctx_store:
-    if (!cbor_encode_tag(out, 3, 1, 0))
+    if (!cbor_encode_tag(out, 2, 1, 0))
       return false;
     break;
   case Python_Ctx_del:
-    if (!cbor_encode_tag(out, 3, 2, 0))
+    if (!cbor_encode_tag(out, 2, 2, 0))
       return false;
     break;
   default:
@@ -90,11 +76,11 @@ bool Python_Ctx_ser(FILE *out, enum Python_Ctx x) {
 bool Python_BoolOp_ser(FILE *out, enum Python_BoolOp x) {
   switch (x) {
   case Python_BoolOp_land:
-    if (!cbor_encode_tag(out, 4, 0, 0))
+    if (!cbor_encode_tag(out, 3, 0, 0))
       return false;
     break;
   case Python_BoolOp_lor:
-    if (!cbor_encode_tag(out, 4, 1, 0))
+    if (!cbor_encode_tag(out, 3, 1, 0))
       return false;
     break;
   default:
@@ -106,43 +92,43 @@ bool Python_BoolOp_ser(FILE *out, enum Python_BoolOp x) {
 bool Python_CmpOp_ser(FILE *out, enum Python_CmpOp x) {
   switch (x) {
   case Python_CmpOp_eq:
-    if (!cbor_encode_tag(out, 5, 0, 0))
+    if (!cbor_encode_tag(out, 4, 0, 0))
       return false;
     break;
   case Python_CmpOp_ne:
-    if (!cbor_encode_tag(out, 5, 1, 0))
+    if (!cbor_encode_tag(out, 4, 1, 0))
       return false;
     break;
   case Python_CmpOp_lt:
-    if (!cbor_encode_tag(out, 5, 2, 0))
+    if (!cbor_encode_tag(out, 4, 2, 0))
       return false;
     break;
   case Python_CmpOp_le:
-    if (!cbor_encode_tag(out, 5, 3, 0))
+    if (!cbor_encode_tag(out, 4, 3, 0))
       return false;
     break;
   case Python_CmpOp_gt:
-    if (!cbor_encode_tag(out, 5, 4, 0))
+    if (!cbor_encode_tag(out, 4, 4, 0))
       return false;
     break;
   case Python_CmpOp_ge:
-    if (!cbor_encode_tag(out, 5, 5, 0))
+    if (!cbor_encode_tag(out, 4, 5, 0))
       return false;
     break;
   case Python_CmpOp_is:
-    if (!cbor_encode_tag(out, 5, 6, 0))
+    if (!cbor_encode_tag(out, 4, 6, 0))
       return false;
     break;
   case Python_CmpOp_isNot:
-    if (!cbor_encode_tag(out, 5, 7, 0))
+    if (!cbor_encode_tag(out, 4, 7, 0))
       return false;
     break;
   case Python_CmpOp_isIn:
-    if (!cbor_encode_tag(out, 5, 8, 0))
+    if (!cbor_encode_tag(out, 4, 8, 0))
       return false;
     break;
   case Python_CmpOp_notIn:
-    if (!cbor_encode_tag(out, 5, 9, 0))
+    if (!cbor_encode_tag(out, 4, 9, 0))
       return false;
     break;
   default:
@@ -154,19 +140,19 @@ bool Python_CmpOp_ser(FILE *out, enum Python_CmpOp x) {
 bool Python_UnaryOp_ser(FILE *out, enum Python_UnaryOp x) {
   switch (x) {
   case Python_UnaryOp_invert:
-    if (!cbor_encode_tag(out, 6, 0, 0))
+    if (!cbor_encode_tag(out, 5, 0, 0))
       return false;
     break;
   case Python_UnaryOp_not:
-    if (!cbor_encode_tag(out, 6, 1, 0))
+    if (!cbor_encode_tag(out, 5, 1, 0))
       return false;
     break;
   case Python_UnaryOp_uadd:
-    if (!cbor_encode_tag(out, 6, 2, 0))
+    if (!cbor_encode_tag(out, 5, 2, 0))
       return false;
     break;
   case Python_UnaryOp_usub:
-    if (!cbor_encode_tag(out, 6, 3, 0))
+    if (!cbor_encode_tag(out, 5, 3, 0))
       return false;
     break;
   default:
@@ -178,55 +164,55 @@ bool Python_UnaryOp_ser(FILE *out, enum Python_UnaryOp x) {
 bool Python_BinOp_ser(FILE *out, enum Python_BinOp x) {
   switch (x) {
   case Python_BinOp_add:
-    if (!cbor_encode_tag(out, 7, 0, 0))
+    if (!cbor_encode_tag(out, 6, 0, 0))
       return false;
     break;
   case Python_BinOp_sub:
-    if (!cbor_encode_tag(out, 7, 1, 0))
+    if (!cbor_encode_tag(out, 6, 1, 0))
       return false;
     break;
   case Python_BinOp_mul:
-    if (!cbor_encode_tag(out, 7, 2, 0))
+    if (!cbor_encode_tag(out, 6, 2, 0))
       return false;
     break;
   case Python_BinOp_matmul:
-    if (!cbor_encode_tag(out, 7, 3, 0))
+    if (!cbor_encode_tag(out, 6, 3, 0))
       return false;
     break;
   case Python_BinOp_div:
-    if (!cbor_encode_tag(out, 7, 4, 0))
+    if (!cbor_encode_tag(out, 6, 4, 0))
       return false;
     break;
   case Python_BinOp_mod:
-    if (!cbor_encode_tag(out, 7, 5, 0))
+    if (!cbor_encode_tag(out, 6, 5, 0))
       return false;
     break;
   case Python_BinOp_pow:
-    if (!cbor_encode_tag(out, 7, 6, 0))
+    if (!cbor_encode_tag(out, 6, 6, 0))
       return false;
     break;
   case Python_BinOp_lshift:
-    if (!cbor_encode_tag(out, 7, 7, 0))
+    if (!cbor_encode_tag(out, 6, 7, 0))
       return false;
     break;
   case Python_BinOp_rshift:
-    if (!cbor_encode_tag(out, 7, 8, 0))
+    if (!cbor_encode_tag(out, 6, 8, 0))
       return false;
     break;
   case Python_BinOp_or:
-    if (!cbor_encode_tag(out, 7, 9, 0))
+    if (!cbor_encode_tag(out, 6, 9, 0))
       return false;
     break;
   case Python_BinOp_xor:
-    if (!cbor_encode_tag(out, 7, 10, 0))
+    if (!cbor_encode_tag(out, 6, 10, 0))
       return false;
     break;
   case Python_BinOp_and:
-    if (!cbor_encode_tag(out, 7, 11, 0))
+    if (!cbor_encode_tag(out, 6, 11, 0))
       return false;
     break;
   case Python_BinOp_floor:
-    if (!cbor_encode_tag(out, 7, 12, 0))
+    if (!cbor_encode_tag(out, 6, 12, 0))
       return false;
     break;
   default:
@@ -238,13 +224,13 @@ bool Python_BinOp_ser(FILE *out, enum Python_BinOp x) {
 bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
   switch (x->tag) {
   case Python_Expr_const:
-    if (!cbor_encode_tag(out, 9, 0, 1))
+    if (!cbor_encode_tag(out, 8, 0, 1))
       return false;
     if (!Python_Const_ser(out, x->c.value))
       return false;
     break;
   case Python_Expr_tensor:
-    if (!cbor_encode_tag(out, 9, 1, 2))
+    if (!cbor_encode_tag(out, 8, 1, 2))
       return false;
     if (!Python_Expr_List_ser(out, x->tensor.shape))
       return false;
@@ -252,7 +238,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_name:
-    if (!cbor_encode_tag(out, 9, 2, 2))
+    if (!cbor_encode_tag(out, 8, 2, 2))
       return false;
     if (!String_ser(out, x->name.id))
       return false;
@@ -260,7 +246,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_attr:
-    if (!cbor_encode_tag(out, 9, 3, 3))
+    if (!cbor_encode_tag(out, 8, 3, 3))
       return false;
     if (!Python_Expr_ser(out, x->attr.value))
       return false;
@@ -270,7 +256,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_tuple:
-    if (!cbor_encode_tag(out, 9, 4, 2))
+    if (!cbor_encode_tag(out, 8, 4, 2))
       return false;
     if (!Python_Expr_List_ser(out, x->tuple.xs))
       return false;
@@ -278,7 +264,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_list:
-    if (!cbor_encode_tag(out, 9, 5, 2))
+    if (!cbor_encode_tag(out, 8, 5, 2))
       return false;
     if (!Python_Expr_List_ser(out, x->list.xs))
       return false;
@@ -286,7 +272,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_subscript:
-    if (!cbor_encode_tag(out, 9, 6, 3))
+    if (!cbor_encode_tag(out, 8, 6, 3))
       return false;
     if (!Python_Expr_ser(out, x->subscript.tensor))
       return false;
@@ -296,7 +282,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_slice:
-    if (!cbor_encode_tag(out, 9, 7, 3))
+    if (!cbor_encode_tag(out, 8, 7, 3))
       return false;
     if (!Python_Expr_Option_ser(out, x->slice.l))
       return false;
@@ -306,7 +292,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_boolOp:
-    if (!cbor_encode_tag(out, 9, 8, 2))
+    if (!cbor_encode_tag(out, 8, 8, 2))
       return false;
     if (!Python_BoolOp_ser(out, x->boolOp.op))
       return false;
@@ -314,7 +300,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_binOp:
-    if (!cbor_encode_tag(out, 9, 9, 3))
+    if (!cbor_encode_tag(out, 8, 9, 3))
       return false;
     if (!Python_BinOp_ser(out, x->binOp.op))
       return false;
@@ -324,7 +310,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_unaryOp:
-    if (!cbor_encode_tag(out, 9, 10, 2))
+    if (!cbor_encode_tag(out, 8, 10, 2))
       return false;
     if (!Python_UnaryOp_ser(out, x->unaryOp.op))
       return false;
@@ -332,7 +318,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_compare:
-    if (!cbor_encode_tag(out, 9, 11, 3))
+    if (!cbor_encode_tag(out, 8, 11, 3))
       return false;
     if (!Python_Expr_ser(out, x->compare.left))
       return false;
@@ -342,7 +328,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_ifExp:
-    if (!cbor_encode_tag(out, 9, 12, 3))
+    if (!cbor_encode_tag(out, 8, 12, 3))
       return false;
     if (!Python_Expr_ser(out, x->ifExp.test))
       return false;
@@ -352,7 +338,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_call:
-    if (!cbor_encode_tag(out, 9, 13, 3))
+    if (!cbor_encode_tag(out, 8, 13, 3))
       return false;
     if (!Python_Expr_ser(out, x->call.f))
       return false;
@@ -368,23 +354,23 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
 }
 
 bool Python_Expr_ser(FILE *out, struct Python_Expr *x) {
-  if (!cbor_encode_tag(out, 8, 0, 2))
+  if (!cbor_encode_tag(out, 7, 0, 2))
     return false;
   if (!Python_Expr__ser(out, x->expr))
     return false;
-  if (!Python_Pos_ser(out, x->pos))
+  if (!Core_Pos_ser(out, x->pos))
     return false;
   return true;
 }
 
 bool Python_Keyword_ser(FILE *out, struct Python_Keyword *x) {
-  if (!cbor_encode_tag(out, 10, 0, 3))
+  if (!cbor_encode_tag(out, 9, 0, 3))
     return false;
   if (!String_ser(out, x->id))
     return false;
   if (!Python_Expr_ser(out, x->value))
     return false;
-  if (!Python_Pos_ser(out, x->pos))
+  if (!Core_Pos_ser(out, x->pos))
     return false;
   return true;
 }
@@ -392,29 +378,29 @@ bool Python_Keyword_ser(FILE *out, struct Python_Keyword *x) {
 bool Python_Stmt__ser(FILE *out, struct Python_Stmt_ *x) {
   switch (x->tag) {
   case Python_Stmt_pass:
-    if (!cbor_encode_tag(out, 12, 0, 0))
+    if (!cbor_encode_tag(out, 11, 0, 0))
       return false;
     break;
   case Python_Stmt_expr:
-    if (!cbor_encode_tag(out, 12, 1, 1))
+    if (!cbor_encode_tag(out, 11, 1, 1))
       return false;
     if (!Python_Expr_ser(out, x->expr.e))
       return false;
     break;
   case Python_Stmt_assert:
-    if (!cbor_encode_tag(out, 12, 2, 1))
+    if (!cbor_encode_tag(out, 11, 2, 1))
       return false;
     if (!Python_Expr_ser(out, x->assert.e))
       return false;
     break;
   case Python_Stmt_ret:
-    if (!cbor_encode_tag(out, 12, 3, 1))
+    if (!cbor_encode_tag(out, 11, 3, 1))
       return false;
     if (!Python_Expr_ser(out, x->ret.e))
       return false;
     break;
   case Python_Stmt_assign:
-    if (!cbor_encode_tag(out, 12, 4, 2))
+    if (!cbor_encode_tag(out, 11, 4, 2))
       return false;
     if (!Python_Expr_List_ser(out, x->assign.xs))
       return false;
@@ -422,7 +408,7 @@ bool Python_Stmt__ser(FILE *out, struct Python_Stmt_ *x) {
       return false;
     break;
   case Python_Stmt_augAssign:
-    if (!cbor_encode_tag(out, 12, 5, 3))
+    if (!cbor_encode_tag(out, 11, 5, 3))
       return false;
     if (!Python_Expr_ser(out, x->augAssign.x))
       return false;
@@ -432,7 +418,7 @@ bool Python_Stmt__ser(FILE *out, struct Python_Stmt_ *x) {
       return false;
     break;
   case Python_Stmt_annAssign:
-    if (!cbor_encode_tag(out, 12, 6, 3))
+    if (!cbor_encode_tag(out, 11, 6, 3))
       return false;
     if (!Python_Expr_ser(out, x->annAssign.x))
       return false;
@@ -442,7 +428,7 @@ bool Python_Stmt__ser(FILE *out, struct Python_Stmt_ *x) {
       return false;
     break;
   case Python_Stmt_ifStm:
-    if (!cbor_encode_tag(out, 12, 7, 3))
+    if (!cbor_encode_tag(out, 11, 7, 3))
       return false;
     if (!Python_Expr_ser(out, x->ifStm.e))
       return false;
@@ -452,7 +438,7 @@ bool Python_Stmt__ser(FILE *out, struct Python_Stmt_ *x) {
       return false;
     break;
   case Python_Stmt_forLoop:
-    if (!cbor_encode_tag(out, 12, 8, 4))
+    if (!cbor_encode_tag(out, 11, 8, 4))
       return false;
     if (!Python_Expr_ser(out, x->forLoop.x))
       return false;
@@ -464,11 +450,11 @@ bool Python_Stmt__ser(FILE *out, struct Python_Stmt_ *x) {
       return false;
     break;
   case Python_Stmt_breakLoop:
-    if (!cbor_encode_tag(out, 12, 9, 0))
+    if (!cbor_encode_tag(out, 11, 9, 0))
       return false;
     break;
   case Python_Stmt_continueLoop:
-    if (!cbor_encode_tag(out, 12, 10, 0))
+    if (!cbor_encode_tag(out, 11, 10, 0))
       return false;
     break;
   default:
@@ -478,17 +464,17 @@ bool Python_Stmt__ser(FILE *out, struct Python_Stmt_ *x) {
 }
 
 bool Python_Stmt_ser(FILE *out, struct Python_Stmt *x) {
-  if (!cbor_encode_tag(out, 11, 0, 2))
+  if (!cbor_encode_tag(out, 10, 0, 2))
     return false;
   if (!Python_Stmt__ser(out, x->stmt))
     return false;
-  if (!Python_Pos_ser(out, x->pos))
+  if (!Core_Pos_ser(out, x->pos))
     return false;
   return true;
 }
 
 bool Python_Args_ser(FILE *out, struct Python_Args *x) {
-  if (!cbor_encode_tag(out, 13, 0, 7))
+  if (!cbor_encode_tag(out, 12, 0, 7))
     return false;
   if (!String_List_ser(out, x->posonlyargs))
     return false;
@@ -508,7 +494,7 @@ bool Python_Args_ser(FILE *out, struct Python_Args *x) {
 }
 
 bool Python_Fun_ser(FILE *out, struct Python_Fun *x) {
-  if (!cbor_encode_tag(out, 14, 0, 5))
+  if (!cbor_encode_tag(out, 13, 0, 5))
     return false;
   if (!String_ser(out, x->name))
     return false;
@@ -524,7 +510,7 @@ bool Python_Fun_ser(FILE *out, struct Python_Fun *x) {
 }
 
 bool Python_Kernel_ser(FILE *out, struct Python_Kernel *x) {
-  if (!cbor_encode_tag(out, 15, 0, 6))
+  if (!cbor_encode_tag(out, 14, 0, 6))
     return false;
   if (!String_ser(out, x->entry))
     return false;
@@ -610,30 +596,12 @@ bool Python_Fun_List_ser(FILE *out, struct Python_Fun_List *x) {
   return true;
 }
 
-bool Python_Pos_des(FILE *in, struct region *region, struct Python_Pos **x) {
-  u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
-    return false;
-  if (t != 1 || c != 0 || l != 4)
-    return false;
-  *x = region_alloc(region, sizeof(**x));
-  if (!Nat_des(in, region, &(*x)->lineno))
-    return false;
-  if (!Nat_des(in, region, &(*x)->end_lineno))
-    return false;
-  if (!Nat_des(in, region, &(*x)->col_offset))
-    return false;
-  if (!Nat_des(in, region, &(*x)->end_col_offset))
-    return false;
-  return true;
-}
-
 bool Python_Const_des(FILE *in, struct region *region,
                       struct Python_Const **x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 2)
+  if (t != 1)
     return false;
   *x = region_alloc(region, sizeof(**x));
   switch (c) {
@@ -685,7 +653,7 @@ bool Python_Ctx_des(FILE *in, struct region *region, enum Python_Ctx *x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 3)
+  if (t != 2)
     return false;
   (void)region;
   switch (c) {
@@ -714,7 +682,7 @@ bool Python_BoolOp_des(FILE *in, struct region *region, enum Python_BoolOp *x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 4)
+  if (t != 3)
     return false;
   (void)region;
   switch (c) {
@@ -738,7 +706,7 @@ bool Python_CmpOp_des(FILE *in, struct region *region, enum Python_CmpOp *x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 5)
+  if (t != 4)
     return false;
   (void)region;
   switch (c) {
@@ -803,7 +771,7 @@ bool Python_UnaryOp_des(FILE *in, struct region *region,
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 6)
+  if (t != 5)
     return false;
   (void)region;
   switch (c) {
@@ -837,7 +805,7 @@ bool Python_BinOp_des(FILE *in, struct region *region, enum Python_BinOp *x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 7)
+  if (t != 6)
     return false;
   (void)region;
   switch (c) {
@@ -917,7 +885,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 9)
+  if (t != 8)
     return false;
   *x = region_alloc(region, sizeof(**x));
   switch (c) {
@@ -1069,12 +1037,12 @@ bool Python_Expr_des(FILE *in, struct region *region, struct Python_Expr **x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 8 || c != 0 || l != 2)
+  if (t != 7 || c != 0 || l != 2)
     return false;
   *x = region_alloc(region, sizeof(**x));
   if (!Python_Expr__des(in, region, &(*x)->expr))
     return false;
-  if (!Python_Pos_des(in, region, &(*x)->pos))
+  if (!Core_Pos_des(in, region, &(*x)->pos))
     return false;
   return true;
 }
@@ -1084,14 +1052,14 @@ bool Python_Keyword_des(FILE *in, struct region *region,
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 10 || c != 0 || l != 3)
+  if (t != 9 || c != 0 || l != 3)
     return false;
   *x = region_alloc(region, sizeof(**x));
   if (!String_des(in, region, &(*x)->id))
     return false;
   if (!Python_Expr_des(in, region, &(*x)->value))
     return false;
-  if (!Python_Pos_des(in, region, &(*x)->pos))
+  if (!Core_Pos_des(in, region, &(*x)->pos))
     return false;
   return true;
 }
@@ -1101,7 +1069,7 @@ bool Python_Stmt__des(FILE *in, struct region *region,
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 12)
+  if (t != 11)
     return false;
   *x = region_alloc(region, sizeof(**x));
   switch (c) {
@@ -1206,12 +1174,12 @@ bool Python_Stmt_des(FILE *in, struct region *region, struct Python_Stmt **x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 11 || c != 0 || l != 2)
+  if (t != 10 || c != 0 || l != 2)
     return false;
   *x = region_alloc(region, sizeof(**x));
   if (!Python_Stmt__des(in, region, &(*x)->stmt))
     return false;
-  if (!Python_Pos_des(in, region, &(*x)->pos))
+  if (!Core_Pos_des(in, region, &(*x)->pos))
     return false;
   return true;
 }
@@ -1220,7 +1188,7 @@ bool Python_Args_des(FILE *in, struct region *region, struct Python_Args **x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 13 || c != 0 || l != 7)
+  if (t != 12 || c != 0 || l != 7)
     return false;
   *x = region_alloc(region, sizeof(**x));
   if (!String_List_des(in, region, &(*x)->posonlyargs))
@@ -1244,7 +1212,7 @@ bool Python_Fun_des(FILE *in, struct region *region, struct Python_Fun **x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 14 || c != 0 || l != 5)
+  if (t != 13 || c != 0 || l != 5)
     return false;
   *x = region_alloc(region, sizeof(**x));
   if (!String_des(in, region, &(*x)->name))
@@ -1265,7 +1233,7 @@ bool Python_Kernel_des(FILE *in, struct region *region,
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 15 || c != 0 || l != 6)
+  if (t != 14 || c != 0 || l != 6)
     return false;
   *x = region_alloc(region, sizeof(**x));
   if (!String_des(in, region, &(*x)->entry))

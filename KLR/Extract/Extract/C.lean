@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 -/
 import Extract.Basic
+import KLR.Core.Basic
 import KLR.File
 import KLR.NKI.Basic
 import KLR.Python
@@ -154,7 +155,8 @@ def commonAST : MetaM (List LeanType) := do
   let atomic := [.bool, .nat, .int, .float, .string]
   let lists := atomic.map fun t => .simple (.list t)
   let options := atomic.map fun t => .simple (.option t)
-  return lists ++ options
+  let tys <- collectLeanTypes [ `KLR.Core.Pos ]
+  return lists ++ options ++ tys
 
 def fileAST : MetaM (List LeanType) := do
   let tys <- collectLeanTypes [
@@ -167,7 +169,6 @@ def fileAST : MetaM (List LeanType) := do
 
 def pythonAST: MetaM (List LeanType) := do
   collectTypes [
-    `KLR.Python.Pos,
     `KLR.Python.Const,
     `KLR.Python.Ctx,
     `KLR.Python.BoolOp,
@@ -186,7 +187,6 @@ def pythonAST: MetaM (List LeanType) := do
 
 def nkiAST : MetaM (List LeanType) := do
   collectTypes [
-    `KLR.NKI.Pos,
     `KLR.NKI.Value,
     `KLR.NKI.BinOp,
     `KLR.NKI.Expr',

@@ -197,10 +197,10 @@ static struct Python_Expr_List* const_exprs(struct state *st, PyObject *obj);
 
 #define mkPos(p,a,b,c,d) { \
   p = region_alloc(st->region, sizeof(*(p))); \
-  p->lineno = 0; \
-  p->end_lineno = 0; \
-  p->col_offset = 0; \
-  p->end_col_offset = 0; \
+  p->line = a; \
+  p->lineEnd = b; \
+  p->column = c; \
+  p->columnEnd = d; \
   }
 #define Pos(p,obj) mkPos(p, \
                          obj->lineno, obj->end_lineno, \
@@ -211,12 +211,6 @@ static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
   e->expr = region_alloc(st->region, sizeof(*e->expr));
 
   mkPos(e->pos, 0, 0, 0, 0);
-
-  e->pos = region_alloc(st->region, sizeof(*e->pos));
-  e->pos->lineno = 0;
-  e->pos->end_lineno = 0;
-  e->pos->col_offset = 0;
-  e->pos->end_col_offset = 0;
 
   e->expr->c.value = value(st, obj);
   if (e->expr->c.value) {
@@ -1184,13 +1178,13 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws) {
 
       *kw = region_alloc(st.region, sizeof(**kw));
       (*kw)->keyword = region_alloc(st.region, sizeof(struct Python_Keyword));
-      (*kw)->keyword->pos = region_alloc(st.region, sizeof(struct Python_Pos));
+      (*kw)->keyword->pos = region_alloc(st.region, sizeof(struct Core_Pos));
       (*kw)->keyword->id = s;
       (*kw)->keyword->value = e;
-      (*kw)->keyword->pos->lineno = 0;
-      (*kw)->keyword->pos->end_lineno = 0;
-      (*kw)->keyword->pos->col_offset = 0;
-      (*kw)->keyword->pos->end_col_offset = 0;
+      (*kw)->keyword->pos->line = 0;
+      (*kw)->keyword->pos->column = 0;
+      (*kw)->keyword->pos->lineEnd = 0;
+      (*kw)->keyword->pos->columnEnd = 0;
       (*kw)->next = NULL;
       kw = &(*kw)->next;
     }

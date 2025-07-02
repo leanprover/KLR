@@ -14,11 +14,6 @@ Authors: Paul Govereau, Sean McLaughlin
 
 // KLR.NKI Abstract Syntax
 
-struct NKI_Pos {
-  u32 line;
-  u32 column;
-};
-
 struct NKI_Value {
   enum NKI_Value_Tag {
     NKI_Value_none = 1,
@@ -121,7 +116,7 @@ struct NKI_Expr_ {
 
 struct NKI_Expr {
   struct NKI_Expr_ *expr;
-  struct NKI_Pos *pos;
+  struct Core_Pos *pos;
 };
 
 struct NKI_Index {
@@ -187,7 +182,7 @@ struct NKI_Stmt_ {
 
 struct NKI_Stmt {
   struct NKI_Stmt_ *stmt;
-  struct NKI_Pos *pos;
+  struct Core_Pos *pos;
 };
 
 struct NKI_Param {

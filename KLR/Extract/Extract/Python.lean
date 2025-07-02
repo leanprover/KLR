@@ -77,13 +77,15 @@ from enum import Enum, auto"
 def generatePythonAST : MetaM Unit := do
   IO.println header
   let tys <- C.pythonAST
-  for t in tys do
+  let pty <- collectLeanType `KLR.Core.Pos
+  for t in pty :: tys do
     genPyType t
   return ()
 
 def generateNkiAST : MetaM Unit := do
   IO.println header
   let tys <- C.nkiAST
-  for t in tys do
+  let pty <- collectLeanType `KLR.Core.Pos
+  for t in pty :: tys do
     genPyType t
   return ()

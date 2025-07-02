@@ -37,3 +37,10 @@ struct String_List {
   struct String_List *next;
   char *s;
 };
+
+struct Core_Pos {
+  u32 line;
+  u32 column;
+  u32 lineEnd;
+  u32 columnEnd;
+};

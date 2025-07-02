@@ -13,7 +13,6 @@ Authors: Paul Govereau, Sean McLaughlin
 #include "ast_common.h"
 #include "ast_nki.h"
 
-bool NKI_Pos_ser(FILE *out, struct NKI_Pos *x);
 bool NKI_Value_ser(FILE *out, struct NKI_Value *x);
 bool NKI_BinOp_ser(FILE *out, enum NKI_BinOp x);
 bool NKI_Expr__ser(FILE *out, struct NKI_Expr_ *x);
@@ -35,7 +34,6 @@ bool NKI_Param_List_ser(FILE *out, struct NKI_Param_List *x);
 bool NKI_Fun_List_ser(FILE *out, struct NKI_Fun_List *x);
 bool NKI_Arg_List_ser(FILE *out, struct NKI_Arg_List *x);
 
-bool NKI_Pos_des(FILE *in, struct region *region, struct NKI_Pos **x);
 bool NKI_Value_des(FILE *in, struct region *region, struct NKI_Value **x);
 bool NKI_BinOp_des(FILE *in, struct region *region, enum NKI_BinOp *x);
 bool NKI_Expr__des(FILE *in, struct region *region, struct NKI_Expr_ **x);
