@@ -284,7 +284,7 @@ def hloToHLR (p : Parsed) : IO UInt32 := do
   let s <- IO.FS.readFile file
   match StableHLO.Parsing.parse s with
   | .ok (hlo, _) =>
-    let hlr := KLR.HLR.compile hlo
+    let hlr := KLR.HLR.Compile.compile hlo
     match hlr with
     | (.ok _, s) => do
       let hlr := s.program
@@ -292,7 +292,7 @@ def hloToHLR (p : Parsed) : IO UInt32 := do
       -- print graph of folded function
       let function := s.program.functions.head!
       let folded := KLR.HLR.constFold function
-      let g := KLR.HLR.hlrToGraph folded |> toString
+      let g := KLR.HLR.Graph.graph folded |> toString
       writeContent "dot" p g
       return 0
     | (.error e, s) => do
