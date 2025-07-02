@@ -152,22 +152,62 @@ def nonterminating {S : SmallStep} (c : S.prog × S.state) : Prop :=
   -- The program never gets stuck
   ∀ n c', S.stepN n c c' → ¬ S.stuck c'
 
+/-- All finite traces of a configuration only ever get stuck in value states. -/
+def safe {S : SmallStep} (c : S.prog × S.state) : Prop :=
+  ∀ n c', S.stepN n c c' → S.stuck c' → (S.to_val c').isSome
+
 /-- A conservative definition of program equivalence, which should work as long as our semantics
 is deterministic. -/
 def PRel {S : SmallStep}
     (Φi : (S.prog × S.state) → (S.prog × S.state) → Prop)
     (Φf : S.val → S.val → Prop) : Prop :=
   -- For all starting configurations that are related by Φi,
-  ∀ c1 c2, Φi c1 c2 →
+  ∀ {c1 c2}, Φi c1 c2 →
   -- They are equiterminating,
   (nonterminating c1 ↔ nonterminating c2) ∧
   -- and for any two finite executions,
   (∀ c1' c2' n m,
     (S.stepN n c1 c1' ∧ S.stuck c1' ∧ S.stepN m c2 c2' ∧ S.stuck c2') →
-    -- They only ever get stuck in value states that are related by Φf
+    -- They only ever get stuck in value states (safety) and those values are related by Φf
     (∃ v1 v2, S.to_val c1' = some v1 ∧ S.to_val c2' = some v2 ∧ Φf v1 v2))
 
+/-- Monotonicity of PRel with respect to the input and output relations. -/
+theorem PRel.mono {S : SmallStep} {Φi Φi' : (S.prog × S.state) → (S.prog × S.state) → Prop}
+    {Φf Φf' : S.val → S.val → Prop} (Hi : ∀ {c1 c2}, Φi' c1 c2 → Φi c1 c2)
+    (Hf : ∀ {c1 c2}, Φf c1 c2 → Φf' c1 c2) : PRel Φi Φf → PRel Φi' Φf' := by
+  intro HRel c1 c2 HΦ
+  rcases (HRel (Hi HΦ)) with ⟨Hnt, Hv⟩
+  refine ⟨Hnt, ?_⟩
+  intro c1' c2' n m Hstuck
+  rcases (Hv c1' c2' n m Hstuck) with ⟨v1, v2, H1, H2, H3⟩
+  exact ⟨v1, v2, H1, H2, Hf H3⟩
 
+
+/-- The equality relation on configurations. -/
+def Rel.equals {S : SmallStep} : (S.prog × S.state) → (S.prog × S.state) → Prop := (· = ·)
+
+/-- The relation that states that the starting programs are equal, and the statring states both
+satisfy a unary property. -/
+def Rel.lift2 {S : SmallStep} (p : S.prog) (Rs : S.state → Prop) (c1 c2 : S.prog × S.state) : Prop :=
+  c1.1 = p ∧ c2.1 = p ∧ Rs c1.2 ∧ Rs c2.2
+
+/-- The trivial relation on configurations. -/
+def Rel.triv {T : Type _} (_ _ : T) : Prop := True
+
+/-- If a program is related to itself with
+ - The "equality" starting relation
+ - the trivial terminal relation,
+ then for every execution of the program with state starting in R, that execution is safe.
+
+This might only make sense for deterministic semantics?
+-/
+theorem PRel.safety {S : SmallStep} p (R : S.state → Prop) (Hp : PRel (Rel.lift2 p R) Rel.triv) :
+    ∀ {s : S.state}, R s → safe (p, s) := by
+  intro s Hr n cf Hstep Hstuck
+  have HRi : Rel.lift2 p R (p, s) (p, s) := ⟨rfl, rfl, Hr, Hr⟩
+  rcases (Hp HRi) with ⟨Hterm, Hval⟩
+  rcases (Hval cf cf n n ⟨Hstep, Hstuck, Hstep, Hstuck⟩) with ⟨v1, _, Hv1, _, _⟩
+  rw [Hv1]; rfl
 
 namespace SmallStep
 
