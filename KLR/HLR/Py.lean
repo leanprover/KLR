@@ -11,7 +11,13 @@ import SHerLOC
 import TensorLib.Shape
 import TensorLib.Slice
 
-namespace KLR.HLR
+open TensorLib (Shape Dtype Slice)
+
+-- This module converts an HLR program into a runnable Python program.
+-- At present, it can't convert HLR constants to python constants and can't
+-- take input tensors, so it is only helpful to ensure that the shape
+-- annotations are correct and that the program is well-formed.
+namespace KLR.HLR.Py
 
 structure FormatCtx where
   indent : Nat := 0
@@ -33,28 +39,37 @@ def putLn (msg : String) : Format Unit := do
   let newLine := s!"{indentStr}{msg}\n"
   pure (← set { ctx with program := ctx.program ++ newLine })
 
-class ToPy (T : Type) where
-  toPy : T → Format Unit
+def dTypeToPy : Dtype → String
+  | .bool => "np.bool_"
+  | .int8 => "np.int8"
+  | .int16 => "np.int16"
+  | .int32 => "np.int32"
+  | .int64 => "np.int64"
+  | .uint8 => "np.uint8"
+  | .uint16 => "np.uint16"
+  | .uint32 => "np.uint32"
+  | .uint64 => "np.uint64"
+  | .float32 => "np.float32"
+  | .float64 => "np.float64"
 
-def binOpToPy (op : BinaryOp) : String :=
-  match op with
-  | .mul => "multiply"
-  | .max => "maximum"
-  | .sub => "subtrace"
-  | .add => "add"
-  | .div => "divide"
-  | .cmp => "compare"
-  | .and => "logical_and"
-def unaryOpToPy (op : UnaryOp) : String :=
-  match op with
-  | .exp => "exp"
-  | .sqrt => "sqrt"
-  | .neg => "negative"
-  | .convert => "convert"
-def reduceOpToPy (op : BinaryOp) : String :=
-  match op with
-  | .max => "max"
-  | .add => "sum"
+def binOpToPy : BinaryOp → String
+  | .mul => "np.multiply"
+  | .max => "np.maximum"
+  | .sub => "np.subtract"
+  | .add => "np.add"
+  | .div => "np.divide"
+  | .cmp => "np.compare"
+  | .and => "np.logical_and"
+
+def unaryOpToPy : UnaryOp → String
+  | .exp => "np.exp"
+  | .sqrt => "np.sqrt"
+  | .neg => "np.negative"
+  | .convert d => s!"(lambda x: x.as_type({dTypeToPy d}))"
+
+def reduceOpToPy : BinaryOp → String
+  | .max => "np.max"
+  | .add => "np.sum"
   | _ => s!"assert false # Unsupported reduction operation {repr op}"
 
 def intLitToPy : StableHLO.Parsing.IntegerLiteral → String
@@ -68,16 +83,16 @@ def floatLitToPy : StableHLO.Parsing.FloatLiteral → String
     let sciPartStr := intLitToPy sciPart
     s!"{intPartStr}.{fracPartStr}e{sciPartStr}"
   | .hexaDecimal n => toString n
-def elementLitToPy (v : StableHLO.Parsing.ElementLiteral) : String :=
-  match v with
+
+def elementLitToPy : StableHLO.Parsing.ElementLiteral → String
   | .booleanLiteral .true => "True"
   | .booleanLiteral .false => "False"
   | .floatLiteral f => floatLitToPy f
   | .complexLiteral { real, imaginary } =>
     s!"complex({floatLitToPy real}, {floatLitToPy imaginary})"
   | .stringLiteral str => s!"'{str}'"
-def valueToPy (v : StableHLO.Parsing.DenseLiteral) : String :=
-  match v with
+
+def valueToPy : StableHLO.Parsing.DenseLiteral → String
   | .denseDimension n => s!"[{n.map valueToPy |> ", ".intercalate}]"
   | .denseElements arr => ",".intercalate (arr.map (fun x => elementLitToPy x))
 
@@ -85,69 +100,72 @@ def shapeToPy (s : Shape) : String :=
   s.val.map toString |> ",".intercalate
 
 def varToPy (arg : Var) : String :=
-  s!"var_{arg}" -- Prefix to avoid python naming issues
+  -- Prefix, since Python variables can't start with a digit
+  s!"var_{arg}"
 
 def opToPy (op : Operator) : String :=
   match op with
-  | .arg index => s!"np.array(args[{index}], dtype=np.int32)"
-  | .binaryOp binOp a b => s!"np.{binOpToPy binOp}({varToPy a}, {varToPy b})"
-  | .unaryOp unOp a => s!"np.{unaryOpToPy unOp}({varToPy a})"
-  | .reductionOp redOp a b dim => s!"np.{reduceOpToPy redOp}({varToPy a}, initial={varToPy b}, axis={dim[0]!})"
+  | .arg index => s!"args[{index}]"
+  | .binaryOp binOp a b => s!"{binOpToPy binOp}({varToPy a}, {varToPy b})"
+  | .unaryOp unOp a => s!"{unaryOpToPy unOp}({varToPy a})"
+  | .reductionOp redOp a b dim => s!"{reduceOpToPy redOp}({varToPy a}, initial={varToPy b}, axis={dim[0]!})"
   | .batchMatmul a b => s!"np.einsum(\"bij,bkj->bik\", {varToPy a}, {varToPy b})"
   | .arange start stop step shape => s!"np.arange({start}, {stop}, {step}).reshape({shapeToPy shape})"
   | .concat tensors dim =>
     let tensorsStr := String.intercalate "," (tensors.map (fun t => s!"{t}"))
     s!"np.concatenate([{tensorsStr}], axis={dim})"
   | .select cond a b => s!"np.where({cond}, {varToPy a}, {varToPy b})"
-  | .full value shape => s!"np.full(({shapeToPy shape}), {floatLitToPy value}, dtype=np.float32)"
+  | .full value shape => s!"np.full(({shapeToPy shape}), {floatLitToPy value})"
   | .transpose a dims =>
     let dimsStr := dims.map toString |> ", ".intercalate
     s!"np.transpose({varToPy a}, axes=[{dimsStr}])"
   | .split_with_sizes _ _ => panic! s!"Split with sizes operation not implemented in Python translation"
   | .reshape a shape => s!"{varToPy a}.reshape({shapeToPy shape})"
-  | .broadcast a shape => s!"np.broadcast_to({varToPy a}, shape=({shapeToPy shape}))"
-  | .const _ shape => s!"np.full(({shapeToPy shape}), 0, dtype=np.float32)" -- TODO: make this use actual const
+  | .broadcast a shape dims => s!"jax.lax.broadcast_in_dim({varToPy a}, ({shapeToPy shape}), {dims})"
+  | .const _ shape _ => s!"np.random.random(({shapeToPy shape})" -- TODO: make this use the actual constant value
   | .gather _ _ _ _ _ _ => panic! s!"Gather operation not implemented in Python translation"
   | .slice _ _ _ _ => panic! s!"Slice operation not implemented in Python translation"
   | .call _ _ =>
     panic! s!"Can't translate call operators to Python"
 
+def compileStatement (s : Statement) : Format Unit := do
+  match s with
+  | .comment msg => putLn s!"# {msg}"
+  | .assign dest op {shape, ..} => do
+    let opStr := opToPy op
+    putLn (s!"{varToPy dest} = {opStr} # {shape}")
+    if shape.ndim != 0 then
+      putLn (s!"assert {varToPy dest}.shape == ({shapeToPy shape},), \"Expected %s, got %s\" % (({shapeToPy shape}), {varToPy dest}.shape)")
+  | .ret vars =>
+    let varNames := vars.map varToPy |> ", ".intercalate
+    putLn (s!"return {varNames}")
 
-instance : ToPy Statement where
-  toPy p := do
-    match p with
-    | .comment msg => putLn s!"# {msg}"
-    | .assign dest op shape => do
-      let opStr := opToPy op
-      putLn (s!"{varToPy dest} = {opStr} # {shape}")
-      putLn (s!"assert {varToPy dest}.shape == ({shapeToPy shape}), \"Expected %s, got %s\" % (({shapeToPy shape}), {varToPy dest}.shape)")
-    | .ret name => putLn (s!"return {varToPy name}")
-
-instance : ToPy Function where
-  toPy f := do
-    let inputsStr := f.inputs.map (fun shape => s!"\"np.ndarray[({shapeToPy shape})]\"") |> ", ".intercalate |> fun x => s!"args: Tuple[{x}]"
-    let outputsStr := f.outputs.map shapeToPy |> ", ".intercalate
+def compileFunction (f : Function) : Format Unit := do
+    let inputsStr := f.inputs.map (fun {shape, ..} => s!"\"np.ndarray[({shapeToPy shape})]\"") |> ", ".intercalate |> fun x => s!"args: Tuple[{x}]"
+    let outputsStr := f.outputs.map (fun {shape, ..} => shapeToPy shape) |> ", ".intercalate
     let funcHeader := s!"def {f.name}({inputsStr}) -> (\"np.ndarray[({outputsStr})]\"):"
-    let args := f.inputs.map (fun shape => s!"np.zeros(({shapeToPy shape}), dtype=np.float32)")
-    let funCall := s!"{f.name}({", ".intercalate args})"
+    let args := f.inputs.map (fun {shape, ..} => s!"np.random.random(({shapeToPy shape}))")
+    let funCall := s!"{f.name}([{", ".intercalate args}])"
     putLn funcHeader
     increaseIndent
     for statement in f.statements do
-      ToPy.toPy statement
+      compileStatement statement
     decreaseIndent
     putLn funCall
 
-instance : ToPy Program where
-  toPy p := do
+def compileProgram (p : Program) : Format Unit := do
     putLn "import numpy as np"
+    putLn "import jax"
+    putLn "from typing import Tuple"
     for func in p.functions do
-      ToPy.toPy func
+      compileFunction func
 
-def formatProgram (p : Program) : String :=
+-- Compile the HLR program to a Python program.
+def compile (p : Program) : String :=
   let ctx := FormatCtx.mk 0 ""
-  let result := ToPy.toPy p
+  let result := compileProgram p
   match result.run ctx with
   | .ok _ ctx => ctx.program
   | .error err _ => s!"Error formatting program: {err}"
 
-end KLR.HLR
+end KLR.HLR.Py

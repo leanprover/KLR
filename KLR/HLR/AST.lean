@@ -78,7 +78,7 @@ inductive Operator where
   -- reshape a tensor to the specified shape
   | reshape (a : Var) (shape : Shape)
   -- broadcast a tensor to the specified shape
-  | broadcast (a : Var) (shape : Shape)
+  | broadcast (a : Var) (shape : Shape) (broadcastDims : List Nat)
   -- create a constant tensor with the given values and shape
   | const (values : StableHLO.Parsing.DenseLiteral) (shape : Shape) (dtype : TensorLib.Dtype)
   -- gather elements from a tensor using the provided indices and offset dimensions
@@ -124,45 +124,6 @@ instance : Coe StableHLO.Parsing.TensorType TensorTy where
       | _ => panic! s!"Unsupported tensor element type: {repr t.tensorElementTypeGen}"
     .mk shape dtype
 
-instance : ToString BinaryOp where
-  toString
-    | .mul => "mul"
-    | .max => "max"
-    | .sub => "sub"
-    | .add => "add"
-    | .div => "div"
-    | .cmp => "cmp"
-    | .and => "and"
-instance : ToString UnaryOp where
-  toString
-    | .exp => "exp"
-    | .sqrt => "sqrt"
-    | .neg => "neg"
-    | .convert dtype => s!"convert_{dtype}"
-instance : ToString TensorTy where
-  toString (t : TensorTy) : String :=
-    s!"{t.shape}x{t.dtype}"
-
--- Human readable name for the operator.
-def opName : Operator → String
-  | .arg _ => s!"arg"
-  | .binaryOp binOp .. => s!"{binOp}"
-  | .unaryOp unOp .. => s!"{unOp}"
-  | .reductionOp redOp .. => s!"{redOp}"
-  | .batchMatmul .. => s!"batchMatmul"
-  | .arange .. => s!"arange"
-  | .concat .. => s!"concat"
-  | .select .. => s!"select"
-  | .full .. => s!"full"
-  | .transpose .. => s!"transpose"
-  | .split_with_sizes .. => s!"split_with_sizes"
-  | .reshape .. => s!"reshape"
-  | .broadcast .. => s!"broadcast"
-  | .const .. => s!"const"
-  | .gather .. => s!"gather"
-  | .slice .. => s!"slice"
-  | .call callee .. => s!"call {callee}"
-
 -- Returns the list of variables that this operator immediately depends on.
 def dependencies : Operator → List Var
   | .arg _ => []
@@ -177,7 +138,7 @@ def dependencies : Operator → List Var
   | .transpose a _ => [a]
   | .split_with_sizes a _ => [a]
   | .reshape a _ => [a]
-  | .broadcast a _ => [a]
+  | .broadcast a .. => [a]
   | .const .. => []
   | .gather a i .. => [a, i]
   | .slice a .. => [a]
@@ -218,29 +179,52 @@ instance : ToString TensorLib.Slice where
     let stop := stop.map toString |>.getD ""
     let step := step.map toString |>.getD ""
     s!"{start}:{stop}:{step}"
+
 instance : ToString TensorLib.Shape where
   toString s :=
     s.val.map toString |> "x".intercalate |> fun x => s!"[{x}]"
+
 instance : ToString TensorLib.Dtype where
   toString
     | .bool => "bool"
-    | .int8 => "int8"
-    | .int16 => "int16"
-    | .int32 => "int32"
-    | .int64 => "int64"
-    | .uint8 => "uint8"
-    | .uint16 => "uint16"
-    | .uint32 => "uint32"
-    | .uint64 => "uint64"
-    | .float32 => "float32"
-    | .float64 => "float64"
+    | .int8 => "i8"
+    | .int16 => "i16"
+    | .int32 => "i32"
+    | .int64 => "i64"
+    | .uint8 => "u8"
+    | .uint16 => "u16"
+    | .uint32 => "u32"
+    | .uint64 => "u64"
+    | .float32 => "f32"
+    | .float64 => "f64"
+
+instance : ToString BinaryOp where
+  toString
+    | .mul => "mul"
+    | .max => "max"
+    | .sub => "sub"
+    | .add => "add"
+    | .div => "div"
+    | .cmp => "cmp"
+    | .and => "and"
+
+instance : ToString UnaryOp where
+  toString
+    | .exp => "exp"
+    | .sqrt => "sqrt"
+    | .neg => "neg"
+    | .convert dtype => s!"convert_{dtype}"
+
+instance : ToString TensorTy where
+  toString (t : TensorTy) : String :=
+    s!"{t.shape}{t.dtype}"
 
 instance : ToString Operator where
   toString
     | .arg n => s!"arg({n})"
-    | .binaryOp binOp a b => s!"{repr binOp}({a}, {b})"
-    | .unaryOp unOp a => s!"{repr unOp}({a})"
-    | .reductionOp redOp a b dim => s!"reduce-{repr redOp}({a}, {b}, dim={dim})"
+    | .binaryOp binOp a b => s!"{binOp}({a}, {b})"
+    | .unaryOp unOp a => s!"{unOp}({a})"
+    | .reductionOp redOp a b dim => s!"reduce-{redOp}({a}, {b}, dim={dim})"
     | .batchMatmul a b => s!"matmul({a}, {b})"
     | .arange start stop step shape => s!"arange({start}, {stop}, {step}, shape={shape})"
     | .concat tensors dim => s!"concat({", ".intercalate tensors}, dim={dim})"
@@ -249,7 +233,7 @@ instance : ToString Operator where
     | .transpose a dims => s!"transpose({a}, dims={dims})"
     | .split_with_sizes a sizes => s!"split_with_sizes({a}, sizes={sizes})"
     | .reshape a shape => s!"reshape({a}, shape={shape})"
-    | .broadcast a shape => s!"broadcast({a}, shape={shape})"
+    | .broadcast a shape dims => s!"broadcast({a}, shape={shape}, dims={dims})"
     | .const _ shape dtype => s!"const(..., shape={shape}, dtype={dtype})"
     | .gather a indices offsetDims collapsedSliceDims startIndexMap indexVectorDim
       => s!" gather({a}, indices={indices}, offsetDims={offsetDims}, collapsedSliceDims={collapsedSliceDims}, startIndexMap={startIndexMap}, indexVectorDim={indexVectorDim})"
@@ -261,7 +245,7 @@ instance : ToString Operator where
 instance : ToString Statement where
   toString
     | .comment msg => s!"# {msg}"
-    | .assign dest op shape => s!"{dest} : {shape} = {op}"
+    | .assign dest op shape => s!"{dest} : {toString shape} = {op}"
     | .ret name => s!"return {name}"
 
 instance : ToString Function where
@@ -275,5 +259,25 @@ instance : ToString Program where
   toString p :=
     let functionsStr := p.functions.map toString |> "\n".intercalate
     s!"# Program\n" ++ functionsStr
+
+-- Human readable name for the operator.
+def opName : Operator → String
+  | .arg _ => s!"arg"
+  | .binaryOp binOp .. => s!"{binOp}"
+  | .unaryOp unOp .. => s!"{unOp}"
+  | .reductionOp redOp .. => s!"{redOp}"
+  | .batchMatmul .. => s!"batchMatmul"
+  | .arange .. => s!"arange"
+  | .concat .. => s!"concat"
+  | .select .. => s!"select"
+  | .full .. => s!"full"
+  | .transpose .. => s!"transpose"
+  | .split_with_sizes .. => s!"split_with_sizes"
+  | .reshape .. => s!"reshape"
+  | .broadcast .. => s!"broadcast"
+  | .const .. => s!"const"
+  | .gather .. => s!"gather"
+  | .slice .. => s!"slice"
+  | .call callee .. => s!"call {callee}"
 
 end KLR.HLR

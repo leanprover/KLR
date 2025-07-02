@@ -221,7 +221,8 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
     | .broadcastInDim => do
       log "Compiling broadcastInDim operation"
       let input := inputValues[0]!
-      pure [.assign output (.broadcast input outputTy.shape) outputTy]
+      let broadcastDims ← (← lookupAttributeValue inputAttributes "broadcast_dimensions") |> parseArray
+      pure [.assign output (.broadcast input outputTy.shape broadcastDims) outputTy]
     | .transpose => do
       log "Compiling transpose operation"
       let input := inputValues[0]!
@@ -264,6 +265,7 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
       let rhsResultSize := if rhsResultShape.isEmpty then 1 else rhsResultShape.foldl (fun acc d => acc * d) (1 : Nat)
       let contractingSize := if contractingShape.isEmpty then 1 else contractingShape.foldl (fun acc d => acc * d) 1
       -- Create fresh variable names for intermediate results
+      -- TODO: this is currently not correct, since the names are not unique
       let lhsTransposedName := lhs ++ "_transposed"
       let rhsTransposedName := rhs ++ "_transposed"
       let lhsReshapedName := lhs ++ "_reshaped"
