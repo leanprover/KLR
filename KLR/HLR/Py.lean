@@ -70,7 +70,7 @@ def unaryOpToPy : UnaryOp → String
 def reduceOpToPy : BinaryOp → String
   | .max => "np.max"
   | .add => "np.sum"
-  | _ => s!"assert false # Unsupported reduction operation {repr op}"
+  | op => panic! s!"Unsupported reduction operation: {op}"
 
 def intLitToPy : StableHLO.Parsing.IntegerLiteral → String
   | .mk .plus decimal => s!"{decimal}"
