@@ -13,6 +13,11 @@ import TensorLib.Dtype
 
 open TensorLib (Shape Dtype)
 
+-- The definition of the High-Level Representation (HLR) IR. The goal of this IR is to
+-- be a uniform representation for graphs of tensor operations, which we can use as a
+-- common compilation target for different frontends (e.g. StableHLO, PyTorch FX, etc.).
+-- A HLR program consists of a list of functions, each with a name, and input and output tensors.
+-- The function body is in SSA, with each operation producing a single output tensor.
 namespace KLR.HLR
 
 structure TensorTy where
