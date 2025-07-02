@@ -289,11 +289,14 @@ def hloToHLR (p : Parsed) : IO UInt32 := do
     | (.ok _, s) => do
       let hlr := s.program
       IO.println (toString hlr)
+      let headFunction := s.program.functions.head!
       -- print graph of folded function
-      let function := s.program.functions.head!
-      let folded := KLR.HLR.constFold function
+      let folded := KLR.HLR.constFold headFunction
       let g := KLR.HLR.Graph.graph folded |> toString
       writeContent "dot" p g
+      -- print HLR program as Python program
+      let py := KLR.HLR.Py.formatProgram hlr
+      writeContent "py" p py
       return 0
     | (.error e, s) => do
       IO.eprintln s!"Error compiling HLO to HLR: {e}"
