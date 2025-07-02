@@ -82,6 +82,7 @@ def FiniteDataflowProblem {β : Type} ...
   `ℕ` indexing for nodes, and can be transformed by `FiniteDataflowProblem`
   to a `DataflowProblem`.
 -/
+import Lean.Data.RBMap
 
 abbrev ℕ := Nat
 
@@ -550,11 +551,9 @@ section FiniteDataflowProblemSolver
   def vector_fn {β : Type} (f : NodeT n → β) : Vector β n
     := Vector.ofFn (f ∘ (fin_to_node n))
 
-  #check Vector.rec
-
   def FiniteDataflowProblem {β : Type}
-    [M: Max β]
-    [B: BEq β]
+    [Max β]
+    [BEq β]
     [Preorder β]
     [HasBot β]
     (FSI : FiniteSolverInput β)
@@ -678,6 +677,68 @@ section FiniteDataflowProblemSolver
         exists Fin.mk d snd
       }
     }
+
+section RBMapImpl
+  variable {γ ρ} {_:Ord γ} {_:BEq ρ} {_:Preorder ρ} {_:DecidableLE ρ} {_:Max ρ}
+  variable {Γ : List γ}
+
+  def instBEq : BEq (Lean.RBMap γ ρ Ord.compare) := {
+    beq μ₀ μ₁ := Γ.all (fun g ↦
+      match μ₀.find? g, μ₁.find? g with
+        | none, none => true
+        | none, some _ => false
+        | some _, none => false
+        | some r₀, some r₁ => r₀ == r₁)
+  }
+
+  def instPreorder : Preorder (Lean.RBMap γ ρ Ord.compare) := {
+    le μ₀ μ₁ := Γ.all (fun g ↦
+      match μ₀.find? g, μ₁.find? g with
+        | none, none => true
+        | none, some _ => true
+        | some _, none => false
+        | some r₀, some r₁ => r₀ ≤ r₁)
+    le_refl := by {
+      simp
+      intro μ₀ g hg
+      cases (Lean.RBMap.find? μ₀ g)<;> simp
+      apply Preorder.le_refl
+    }
+    le_trans := by {
+      simp
+      intro μ₀ μ₁ μ₂ le₀₁ le₁₂ g gΓ
+      let le₀₁ := le₀₁ g gΓ
+      let le₁₂ := le₁₂ g gΓ
+      cases h₀ : Lean.RBMap.find? μ₀ g <;>
+      cases h₁ : Lean.RBMap.find? μ₁ g<;>
+      cases h₂ : Lean.RBMap.find? μ₂ g <;>
+      simp<;>
+      rw [h₀, h₁] at le₀₁<;>simp at le₀₁<;>
+      rw [h₁, h₂] at le₁₂<;>simp at le₁₂
+      rename_i r₀ r₁ r₂
+      exact (Preorder.le_trans r₀ r₁ r₂ le₀₁ le₁₂)
+    }
+  }
+
+  def instMax : Max (Lean.RBMap γ ρ Ord.compare) := {
+    max μ₀ μ₁ := μ₀.mergeBy (fun _ ↦ (·⊔·)) μ₁
+  }
+
+  def instH : HasBot (Lean.RBMap γ ρ Ord.compare) := {
+    bot := Lean.RBMap.empty
+  }
+
+  def FSI : @FiniteSolverInput (Lean.RBMap γ ρ Ord.compare)
+    (instBEq (Γ:=Γ)) (instPreorder (Γ:=Γ)) instMax instH := {
+      num_nodes := sorry
+      edges := sorry
+
+    }
+end RBMapImpl
+
+
+
+
 
 /-
   This section is a test that relies on Mathlib, to be replaced with one
