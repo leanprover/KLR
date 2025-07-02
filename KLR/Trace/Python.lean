@@ -641,6 +641,45 @@ partial def integer? : Option Expr -> Trace (Option Int)
   | none => return none
   | some e => expr e
 
+-- Deal with a function call, '.call f args kws'
+-- assignLhs is set when this call was the RHS of assignment,
+-- 'lhs = f(args, kws)'.
+partial def fnCall (f:Expr) (args:List Expr) (kws:List Keyword)
+                   (assignLhs:Option Term × Option BinOp): Trace Term := do
+  let expand_kwargs_from_assign (kwargs:List (String × Term))
+      : Trace (List (String × Term)) :=
+    match assignLhs with
+    | (.some dst, binop) => do
+      let accum := binop == Option.some BinOp.add
+      let accval:Term := .expr (.value (.bool accum)) .bool
+      return (kwargs.append [("dst", dst), ("accum", accval)])
+    | _ => do
+      return kwargs
+
+  match (<- expr f : Term) with
+  | .builtin n _ self => do
+      let f <- builtinFn n
+      let args <- args.mapM expr
+      let args := (match self with
+                  | .none => args
+                  | .some t => t :: args)
+      let kwargs <- kws.mapM (keyword expr)
+      let kwargs <- expand_kwargs_from_assign kwargs
+      f args kwargs
+  | .source f    => do
+      -- For a normal Python function call, there should be no specialized
+      -- behavior when the LHS of assignment is considered.
+      match assignLhs with
+      | (.some _, _) => throw "Don't know what to do when LHS has information"
+      | _ => function_call f (<- args.mapM expr) (<- kws.mapM (keyword expr))
+  | .expr (.value (.var f)) _ =>
+      let kwargs <- kws.mapM (keyword expr)
+      let kwargs <- expand_kwargs_from_assign kwargs
+      let kwargs <- kwargs.mapM (λ(x,y) => do let y' <- fromNKI? y; return (x, y'))
+      return .expr (.call f (<- args.mapM expr) kwargs) default
+  | _ => throw "not a callable type"
+
+
 partial def expr' : Expr' -> Trace Term
   | .const c => return const c
   | .tensor s dty => do
@@ -665,20 +704,7 @@ partial def expr' : Expr' -> Trace Term
       let tru <- expr tru  -- eagerly evaluate both branches
       let fls <- expr fls  -- to report errors to user
       return if tst then tru else fls
-  | .call f args kws => do
-      match (<- expr f : Term) with
-      | .builtin n _ self => do
-          let f <- builtinFn n
-          let args <- args.mapM expr
-          let kwargs <- kws.mapM (keyword expr)
-          let args := match self with
-                      | none => args
-                      | some t => t :: args
-          f args kwargs
-      | .source f    => do function_call f (<- args.mapM expr) (<- kws.mapM (keyword expr))
-      | .expr (.value (.var f)) _ =>
-          return .expr (.call f (<- args.mapM expr) (<- kws.mapM (keyword expr))) default
-      | _ => throw "not a callable type"
+  | .call f args kws => fnCall f args kws (.none, .none)
 
 -- Convert an expression in assignment context (an L-Value).
 partial def LValue (e : Expr) : Trace Term :=
@@ -727,8 +753,31 @@ partial def stmt' : Stmt' -> Trace StmtResult
       let t : Term <- expr e
       if (<- t.isFalse) then throw "assertion failed"
       return .done
-  | .assign xs e => do assign xs (<- expr e); return .done
-  | .augAssign x op e => do assign [x] (<- expr' (.binOp op x e)); return .done
+  | .assign xs e =>
+      (do match (xs, e.expr) with
+      | ([x], .call f args kws) =>
+        let xval <- expr x -- Interpret x as RValue
+        let res <- fnCall f args kws (.some xval, .none)
+        -- Emit side effects, possibly the fn call itself
+        let _ <- toPureExpr res
+        return .done
+      | _ => throw "unknown form")
+      <|> do
+        assign xs (<- expr e)
+        return .done
+  | .augAssign x op e =>
+      (do match e.expr with
+      | .call f args kws =>
+        -- Interpret x as RValue, to pass it as a 'dst' keyword argument
+        let xval <- expr x
+        let res <- fnCall f args kws (.some xval, .some op)
+        -- Emit side effects, possibly the fn call itself
+        let _ <- toPureExpr res
+        return .done
+      | _ => throw "unknown form")
+      <|> do
+        assign [x] (<- expr' (.binOp op x e))
+        return .done
   | .annAssign _ _ .none => return .done
   | .annAssign x _ (.some e) => do assign [x] (<- expr e); return .done
   | .ifStm e thn els => do
