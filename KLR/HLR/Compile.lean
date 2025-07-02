@@ -11,298 +11,198 @@ import TensorLib.Shape
 import TensorLib.Slice
 import KLR.HLR.AST
 
+open TensorLib (Shape Dtype)
+
 namespace KLR.HLR
 
+-- A generic environment for associating variables with data of type T.
 abbrev Env T := List (Var × T)
-
 namespace Env
-def extend (env : Env T) (var : Var) (x : T) : Env T :=
+def extend {T : Type} (env : Env T) (var : Var) (x : T) : Env T :=
   (var, x) :: env
-def lookup  (env : Env T) (var : Var): Option T := List.lookup var env
-def empty : Env T := []
+def lookup  {T : Type} (env : Env T) (var : Var): Option T := List.lookup var env
+def empty {T : Type} : Env T := []
 end Env
 
+-- An environment for associating variable names with unique IDs so that we
+-- can generate fresh variable names.
 abbrev GensymEnv := Env Nat
 
+-- Context for the compilation process, to be stored in a state monad.
 structure Ctx where
+  -- the program being compiled
   program : Program
+  -- the environment for generating fresh variable names
   gensymEnv : GensymEnv
+  -- the log of messages generated during compilation (for debugging)
   log : List String
 deriving Inhabited, Repr
 
+namespace Ctx
 def empty : Ctx := .mk (.mk []) .empty []
+end Ctx
 
+-- Compilation requires tracking state and also potentially returning errors.
 abbrev Compile T := EStateM String Ctx T
 
+-- Emit a message to the compilation log.
 def log (msg : String) : Compile Unit :=
   modify (fun ctx => { ctx with log := ctx.log ++ [msg]})
 
+-- Generate a fresh variable name based on a label.
 def gensym (label : String) : Compile Var := do
   let ctx ← get
   let nextId := match ctx.gensymEnv.lookup label with
     | some id => id + 1
     | none => 0
   modify (fun ctx => { ctx with gensymEnv := ctx.gensymEnv.extend label nextId })
-  pure s!"{label}_{nextId}"
+  let id := match nextId with
+    | 0 => ""
+    | _ => s!"_{nextId}"
+  pure s!"{label}{id}"
 
-class FindShape (T : Type) where
-  findShape : T → Var → Compile (Option Shape)
-
-instance : FindShape (List Statement) where
-  findShape statements var := do
-    let found := statements.findSome? (fun x =>
-      match x with
-      | .assign v _ ty => if v == var then .some ty.shape else .none
-      | _ => .none)
-    match found with
-    | some shape => pure shape
-    | none => pure .none
-
-instance : FindShape Function where
-  findShape f var := do
-    FindShape.findShape f.statements var
-
+-- Add a function to the program being compiled.
 def addFunction (func : Function) : Compile Unit := do
   modify (fun ctx =>
     { ctx with program := { ctx.program with functions := ctx.program.functions ++ [func] } })
 
-def assertShapeEq (shape1 shape2 : Shape) : Compile Unit := do
-  if shape1 == shape2 then
-    pure ()
-  else
-    .error s!"Shape mismatch: {shape1} != {shape2}"
-
+-- Permute `l` according to the indices in `permutation`.
 def permute {T : Type} (l : List T) (permutation : List Nat) : Option (List T) :=
   permutation.mapM fun (dim : Nat) => l[dim]?
 
-instance : ToString TensorLib.Slice where
-  toString (s : TensorLib.Slice) : String :=
-    let {start, stop, step, ..} := s
-    let start := start.map toString |>.getD ""
-    let stop := stop.map toString |>.getD ""
-    let step := step.map toString |>.getD ""
-    s!"{start}:{stop}:{step}"
-
-instance : ToString TensorLib.Shape where
-  toString (s : TensorLib.Shape) : String :=
-    s.val.map toString |> fun x => "[" ++ "x".intercalate x ++ "]"
-instance : ToString TensorLib.Dtype where
-  toString d := match d with
-    | .bool => "bool"
-    | .int8 => "int8"
-    | .int16 => "int16"
-    | .int32 => "int32"
-    | .int64 => "int64"
-    | .uint8 => "uint8"
-    | .uint16 => "uint16"
-    | .uint32 => "uint32"
-    | .uint64 => "uint64"
-    | .float32 => "float32"
-    | .float64 => "float64"
-
-instance : ToString Operator where
-  toString (op : Operator) : String :=
-    match op with
-    | .arg n => s!"arg({n})"
-    | .binaryOp binOp a b => s!"{repr binOp}({a}, {b})"
-    | .unaryOp unOp a => s!"{repr unOp}({a})"
-    | .reductionOp redOp a b dim => s!"reduce-{repr redOp}({a}, {b}, dim={dim})"
-    | .batchMatmul a b => s!"matmul({a}, {b})"
-    | .arange start stop step shape => s!"arange({start}, {stop}, {step}, shape={shape})"
-    | .concat tensors dim => s!"concat({", ".intercalate tensors}, dim={dim})"
-    | .select cond a b => s!"select({cond}, {a}, {b})"
-    | .full _ shape => s!"full(..., shape={shape})"
-    | .transpose a dims => s!"transpose({a}, dims={dims})"
-    | .split_with_sizes a sizes => s!"split_with_sizes({a}, sizes={sizes})"
-    | .reshape a shape => s!"reshape({a}, shape={shape})"
-    | .broadcast a shape => s!"broadcast({a}, shape={shape})"
-    | .const _ shape dtype => s!"const(..., shape={shape}, dtype={dtype})"
-    | .gather a indices offsetDims collapsedSliceDims startIndexMap indexVectorDim
-      => s!" gather({a}, indices={indices}, offsetDims={offsetDims}, collapsedSliceDims={collapsedSliceDims}, startIndexMap={startIndexMap}, indexVectorDim={indexVectorDim})"
-    | .slice a start limit stride => s!"slice({a}, start={start}, limit={limit}, stride={stride})"
-    | .call callee inputValues =>
-      let inputsStr := inputValues.map toString |> ", ".intercalate
-      s!"call({callee}, inputs=[{inputsStr}])"
-
-def functionToString (f : Function) : Compile String := do
-  let rec statementToString : Statement → Compile String := fun s => do
-    match s with
-    | .comment msg => pure s!"# {msg}"
-    | .assign dest op shape => do
-      let deps := dependencies op
-      let depShapes := (← deps.mapM (FindShape.findShape f)) |> List.allSome
-      let depShapes ← match depShapes with
-        | some shapes => pure shapes
-        | none => .error s!"Could not find shapes for dependencies: {deps}"
-      let depShapesStr := depShapes.map toString |> ", ".intercalate
-      pure s!"{dest} = {toString op} : ({depShapesStr}) -> {shape}"
-    | .ret name => pure s!"return {name}"
-  let inputsStr := f.inputs.map (fun shape => s!"{shape}") |> ", ".intercalate
-  let outputsStr := f.outputs.map toString |> ", ".intercalate
-  let statementsStr := (← f.statements.mapM statementToString) |> "\n".intercalate
-  pure s!"def {f.name}({inputsStr}) -> ({outputsStr}):\n{statementsStr}"
-
-def programToString (p : Program) : Compile String := do
-  let functionsStr := (← p.functions.mapM functionToString)
-  pure s!"# Program\n{functionsStr}"
-
-def getOutputName (outputs : List StableHLO.Parsing.ValueId) : Compile Var :=
-  match outputs with
-  | [output] => pure output
-  | _ => .error "Function signature must have a single tensor output."
-
-def getTensorInputType (sig : List StableHLO.Parsing.ValueType) (n : Nat): Compile TensorTy :=
-  match sig[n]? with
+-- Parse a StableHLO tensor type from the function signature at index `n`.
+def parseTensorType (l : List StableHLO.Parsing.ValueType) (n : Nat): Compile TensorTy :=
+  match l[n]? with
   | .some (.tensorType t) => pure (Coe.coe t)
-  | .some _ => .error s!"Function input {n} must have a tensor type."
-  | _ => .error s!"Function signature must have at least {n + 1} tensor inputs. Instead, got  {repr sig}"
-def getSingleTensorOutputType (sig : List StableHLO.Parsing.ValueType) : Compile TensorTy :=
-  match sig with
-  | [output] => match output with
-    | .tensorType t => pure (Coe.coe t)
-    | _ => .error "Function signature must have a single tensor output."
-  | _ => .error "Function signature must have a single tensor output."
+  | .some t => .error s!"Element {n} of type list must have tensor type, but got {repr t}."
+  | _ => .error s!"Type list must have at least {n + 1} values, but got only {l.length}."
 
-def getArrayType (c : StableHLO.Parsing.Constant) : Compile (List Nat) :=
+-- Parse a StableHLO tensor type from a list of types, expecting the list to have exactly one element.
+def parseSingleTensorType (l : List StableHLO.Parsing.ValueType) : Compile TensorTy :=
+  match l with
+  | [.tensorType t] => pure (Coe.coe t)
+  | t => .error s!"Expected type list to have a single tensor type, but got {repr t}."
+
+-- Parse an array from a StableHLO literal.
+def parseArray (c : StableHLO.Parsing.Literal) : Compile (List Nat) :=
   match c with
-  | .mk (.array (.array64 arr)) _ => return arr.map (fun (.mk _sign n) => n)
-  | .mk (.array (.array1 _)) _ => .error "array1 unimplemented."
+  | .array (.array64 arr) => return arr.map (fun (.mk _sign n) => n)
+  | .array (.array1 _) => .error "array1 unimplemented."
   | _ => .error "Expected an array of integers."
 
-def getAttribute  (attrs : List StableHLO.Parsing.Attribute) (name : String) : Compile StableHLO.Parsing.Attribute :=
+-- Parse a Nat from a StableHLO float literal.
+-- We need this because integers are often represented as floats in StableHLO.
+def parseNatFromFloat (c : StableHLO.Parsing.Literal) : Compile Nat :=
+  match c with
+  | .element (.floatLiteral (.decimal {integerPart, fractionalPart, scientificPart})) =>
+    match (fractionalPart.decimal == 0, scientificPart.decimal == 0, integerPart.sign) with
+      | (true, true, .plus) => pure integerPart.decimal
+      | (false, _, _) | (_, false, _) =>
+        .error s!"Expected a non-negative integer, but got a float literal with fractional or scientific part: {repr c}."
+      | (_, _, .minus) =>
+        .error s!"Expected a non-negative integer, but got a float literal with negative sign: {repr c}."
+  | .element (.floatLiteral l) => .error s!"Got unsupported float literal {repr l}."
+  | l => .error s!"Expected a float literal but got {repr l}."
+
+-- Find an attribute by name in a list of attributes
+def lookupAttribute  (attrs : List StableHLO.Parsing.Attribute) (name : String) : Compile StableHLO.Parsing.Constant :=
   match attrs.find? (fun (.mk id _) => id == name) with
-  | some attr => pure attr
+  | some ⟨ _, attr ⟩ => pure attr
   | none => .error s!"Attribute '{name}' not found."
 
-def getFieldValueMany (fields : List StableHLO.Parsing.StableHLORecordField) (name : String) : Compile (List Nat) :=
+-- Find an attribute by name in a list of attributes, returning only the associated literal, not its type
+def lookupAttributeValue (attrs : List StableHLO.Parsing.Attribute) (name : String) : Compile StableHLO.Parsing.Literal :=
+  lookupAttribute attrs name |>.map (fun ⟨ lit, _ ⟩ => lit)
+
+-- Get the value of a field in a StableHLO record, expecting it to be a list of integers.
+def lookupNatsInFields (fields : List StableHLO.Parsing.StableHLORecordField) (name : String) : Compile (List Nat) :=
   match fields.find? (fun (.mk n _) => n == name) with
   | some (.mk _ (.many ns)) => pure ns
-  | some _ => .error s!"Field '{name}' must be a list of integers."
+  | some v => .error s!"Field '{name}' must be a list of integers, but got {repr v}."
   | none => pure []
-def getFieldValueOne (fields : List StableHLO.Parsing.StableHLORecordField) (name : String) : Compile Nat :=
+
+-- Get the value of a field in a StableHLO record, expecting it to be a single integer.
+def lookupNatInFields (fields : List StableHLO.Parsing.StableHLORecordField) (name : String) : Compile Nat :=
   match fields.find? (fun (.mk n _) => n == name) with
   | some (.mk _ (.one n)) => pure n
-  | some _ => .error s!"Field '{name}' must be a single integers."
-  | none => .error s!"Field '{name}' not found in the record."
+  | some v => .error s!"Field '{name}' must be a single integer, but got {repr v}."
+  | none => .error s!"Field '{name}' not found in record list {repr fields}."
+
+-- extract the arguments to the `dotGeneral` operation from a record in the list of attributes
 def extractDotDimensionNumbers (attrs : List StableHLO.Parsing.Attribute) : Compile (List Nat × List Nat × List Nat × List Nat) := do
-  let dotAttr ← getAttribute attrs "dot_dimension_numbers"
+  let dotAttr ← lookupAttributeValue attrs "dot_dimension_numbers"
   match dotAttr with
-  | .mk _ (.mk (.stableHLORecord fields) _) =>
-    let lhs_batching_dims ← getFieldValueMany fields "lhs_batching_dimensions"
-    let lhs_contracting_dims ← getFieldValueMany fields "lhs_contracting_dimensions"
-    let rhs_batching_dims ← getFieldValueMany fields "rhs_batching_dimensions"
-    let rhs_contracting_dims ← getFieldValueMany fields "rhs_contracting_dimensions"
+  | .stableHLORecord fields =>
+    let lhs_batching_dims ← lookupNatsInFields fields "lhs_batching_dimensions"
+    let lhs_contracting_dims ← lookupNatsInFields fields "lhs_contracting_dimensions"
+    let rhs_batching_dims ← lookupNatsInFields fields "rhs_batching_dimensions"
+    let rhs_contracting_dims ← lookupNatsInFields fields "rhs_contracting_dimensions"
     pure (lhs_batching_dims, lhs_contracting_dims, rhs_batching_dims, rhs_contracting_dims)
   | _ => .error "Attribute 'dot_dimension_numbers' must be a stableHLORecord."
+
+-- extract the arguments to the `gather` operation from a record in the list of attributes
 def extractDimensionNumbers (attrs : List StableHLO.Parsing.Attribute) : Compile (List Nat × List Nat × List Nat × Nat) := do
-  let attr ← getAttribute attrs "dimension_numbers"
+  let attr ← lookupAttributeValue attrs "dimension_numbers"
   match attr with
-  | .mk _ (.mk (.stableHLORecord fields) _) =>
-    let offset_dims ← getFieldValueMany fields "offset_dims"
-    let collapsed_slice_dims ← getFieldValueMany fields "collapsed_slice_dims"
-    let start_index_map ← getFieldValueMany fields "start_index_map"
-    let index_vector_dim ← getFieldValueOne fields "index_vector_dim"
+  | .stableHLORecord fields =>
+    let offset_dims ← lookupNatsInFields fields "offset_dims"
+    let collapsed_slice_dims ← lookupNatsInFields fields "collapsed_slice_dims"
+    let start_index_map ← lookupNatsInFields fields "start_index_map"
+    let index_vector_dim ← lookupNatInFields fields "index_vector_dim"
     pure (offset_dims, collapsed_slice_dims, start_index_map, index_vector_dim)
   | _ => .error "Attribute 'dimension_numbers' must be a stableHLORecord."
 
+-- The StableHLO `reduce` operation always calls an arbitrary reduction function.
+-- However, in HLR we only support a few specific reduction operations (mostly
+-- arithmetic and logical binary operators). Since many StableHLO programs only
+-- use these basic reduction operations, we can recognize when the StableHLO function
+-- called by a `reduce` operation is one of these basic operations, and convert it
+-- to the corresponding HLR BinaryOp.
+-- If this process is unsuccessful, it means that the input `reduce` function is more
+-- complicated and can't be supported by the current HLR design.
 def reduceFunctionToReduceOp (f : StableHLO.Parsing.InputFunc) : Compile (BinaryOp) := do
   match f with
   | .mk _ [.stablehlo .maximum .., .return ..] => pure .max
   | .mk _ [.stablehlo .add .., .return ..] => pure .add
   | .mk _ [.stablehlo .and .., .return ..] => pure .and
-  | op => .error (s!"Unable to match reduction function {repr op} to a reduce operation." ++
-    "Need to implement more cases or function calling.")
+  | .mk _ [.stablehlo op .., .return ..] => .error s!"Unimplemented reduction function {repr op}."
+  | op =>
+    .error ("Unable to recognize `reduce` function as simple binary operator. Compiling" ++
+    "this program likely requires adding support for arbitrary function calling in `reduce`"
+    ++ s!"Function: {repr op}")
 
-def compileOp (o : StableHLO.Parsing.Operation) : Compile (List Statement) := do
-  match o with
-  | .stablehlo opCode inputValues inputFunctions inputAttributes outputs signature =>
+-- Compile a StableHLO operation into a list of HLR statements.
+--
+-- Note: this function annotates each statement with the type of its output,
+-- but this type is merely passed through from the HLO program, not computed anew.
+-- This means it's possible that if there's a mistake in the shape calculation
+-- in the HLO program, the HLR statements will also have incorrect shapes.
+-- Eventually, we'll want a function that can shape-check an HLR program.
+def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
+  | .stablehlo opCode inputValues inputFunctions inputAttributes outputs signature => do
+    -- Reuse the variable names and shapes from the StableHLO program
+    let output ← match outputs with
+    | [output] => pure output
+    | _ => .error "Operator signature must have a single output."
+    let outputTy ← parseSingleTensorType signature.range
+    -- helper function to emit HLR for element-wise unary ops
     let makeUnOp := fun (op : UnaryOp) => do
+      log s!"Compiling unary op {op}"
       let a := inputValues[0]!
-      let output ←  getOutputName outputs
-      let ty ← getSingleTensorOutputType signature.range
-      pure [.assign output (.unaryOp op a) ty]
+      pure [.assign output (.unaryOp op a) outputTy]
+    -- helper function to emit HLR for element-wise binary ops
     let makeBinOp := fun (op : BinaryOp) => do
+      log s!"Compiling binary op {op}"
       let a := inputValues[0]!
       let b := inputValues[1]!
-      let output ←  getOutputName outputs
-      let outputTy ←
-        getSingleTensorOutputType signature.range
       pure [.assign output (.binaryOp op a b) outputTy]
     match opCode with
-    | .constant =>  do
-        log "constant"
-        let valueAttr ← getAttribute inputAttributes "value"
-        match valueAttr with
-        | .mk _ (.mk (.tensor (.denseElements [(.floatLiteral f)]))  _) =>
-          let ty ← getSingleTensorOutputType signature.range
-          let outputName ← getOutputName outputs
-          pure [.assign outputName (.full f ty.shape) ty]
-        | .mk _ (.mk (.tensor lit)  _) =>
-          let ty ← getSingleTensorOutputType signature.range
-          let outputName ← getOutputName outputs
-          pure [.assign outputName (.const lit ty.shape ty.dtype) ty]
-        | .mk _ (.mk _ _) => .error "Constant operation requires a 'value' attribute with tensor literal."
-    | .dotGeneral => do
-        let (lhsBatchingDims, lhsContractingDims, rhsBatchingDims, rhsContractingDims) ←
-          extractDotDimensionNumbers inputAttributes
-        let lhs := inputValues[0]!
-        let rhs := inputValues[1]!
-        let lhsType ← getTensorInputType signature.domain 0
-        let rhsType ← getTensorInputType signature.domain 1
-        let dtype := lhsType.dtype
-        let lhsShape := lhsType.shape
-        let rhsShape := rhsType.shape
-        let outputName ← getOutputName outputs
-        let outputTy ← getSingleTensorOutputType signature.range
-        let lhsDims :=  List.range (TensorLib.Shape.ndim lhsShape)
-        let rhsDims :=  List.range (TensorLib.Shape.ndim rhsShape)
-        let lhsResultDims := lhsDims.filter (fun i => !lhsBatchingDims.contains i && !lhsContractingDims.contains i)
-        let rhsResultDims := rhsDims.filter (fun i => !rhsBatchingDims.contains i && !rhsContractingDims.contains i)
-        let lhsTransposePerm := lhsBatchingDims ++ lhsResultDims ++ lhsContractingDims
-        let rhsTransposePerm := rhsBatchingDims ++ rhsResultDims ++ rhsContractingDims
-        let lhsTransposedShape := permute lhsShape.val lhsTransposePerm |>.get!
-        let rhsTransposedShape := permute rhsShape.val rhsTransposePerm |>.get!
-        let batchShape := lhsTransposedShape.take lhsBatchingDims.length
-        let lhsResultShape := lhsTransposedShape.drop lhsBatchingDims.length |>.take lhsResultDims.length
-        let rhsResultShape := rhsTransposedShape.drop rhsBatchingDims.length |>.take rhsResultDims.length
-        let contractingShape := lhsTransposedShape.drop (lhsBatchingDims.length + lhsResultDims.length) |>
-          List.take (lhsTransposedShape.length - (lhsBatchingDims.length + lhsResultDims.length))
-        let batchSize := if batchShape.isEmpty then 1 else batchShape.foldl (fun acc d => acc * d) 1
-        let resultShape := batchShape ++ lhsResultShape ++ rhsResultShape
-        let lhsResultSize := if lhsResultShape.isEmpty then 1 else lhsResultShape.foldl (fun acc d => acc * d) (1 : Nat)
-        let rhsResultSize := if rhsResultShape.isEmpty then 1 else rhsResultShape.foldl (fun acc d => acc * d) (1 : Nat)
-        let contractingSize := if contractingShape.isEmpty then 1 else contractingShape.foldl (fun acc d => acc * d) 1
-        --
-        let lhsTransposedName := lhs ++ "_transposed"
-        let rhsTransposedName := rhs ++ "_transposed"
-        let lhsReshapedName := lhs ++ "_reshaped"
-        let lhsReshapedShape := [batchSize, lhsResultSize, contractingSize]
-        let lhsReshapedTy := TensorTy.mk (.mk lhsReshapedShape) dtype
-        let rhsReshapedName := rhs ++ "_reshaped"
-        let rhsReshapedShape := [batchSize, rhsResultSize, contractingSize]
-        let rhsReshapedTy := TensorTy.mk (.mk rhsReshapedShape) dtype
-        let resultReshapedName := outputName ++ "_reshaped"
-        let resultReshapedShape := [batchSize, lhsResultSize, rhsResultSize]
-        let resultReshapedType := TensorTy.mk (.mk resultReshapedShape) dtype
-        pure ([
-          .comment "Dot General Operation",
-          .assign lhsTransposedName (.transpose lhs lhsTransposePerm) (.mk (.mk lhsTransposedShape) dtype),
-          .assign rhsTransposedName (.transpose rhs rhsTransposePerm) (.mk (.mk rhsTransposedShape) dtype),
-          .assign lhsReshapedName (.reshape lhsTransposedName lhsReshapedTy.shape) lhsReshapedTy,
-          .assign rhsReshapedName (.reshape rhsTransposedName rhsReshapedTy.shape) rhsReshapedTy,
-          .assign resultReshapedName (.batchMatmul lhsReshapedName rhsReshapedName) resultReshapedType,
-          .assign outputName (.reshape resultReshapedName (.mk resultShape)) outputTy,
-        ])
-    | .reshape => do
-        log "reshape"
-        let input := inputValues[0]!
-        let output ← getOutputName outputs
-        let outputTy ← getSingleTensorOutputType signature.range
-        pure [.assign output (.reshape input outputTy.shape) outputTy]
+    -- element-wise unary operators
     | .sqrt => makeUnOp .sqrt
     | .negate => makeUnOp .neg
     | .exponential => makeUnOp .exp
-    | .convert => makeUnOp .convert -- TODO: add support for converting between types
+    | .convert => makeUnOp (UnaryOp.convert outputTy.dtype)
+    -- element-wise binary operators
     | .compare => makeBinOp .cmp
     | .multiply => makeBinOp .mul
     | .add => makeBinOp .add
@@ -310,115 +210,165 @@ def compileOp (o : StableHLO.Parsing.Operation) : Compile (List Statement) := do
     | .maximum => makeBinOp .max
     | .subtract =>  makeBinOp .sub
     | .divide =>  makeBinOp .div
+    -- tensor nullary operators
+    | .constant =>  do
+      log "Compiling constant operation"
+      let valueAttr ← lookupAttributeValue inputAttributes "value"
+      match valueAttr with
+      | (.tensor (.denseElements [(.floatLiteral f)])) =>
+        pure [.assign output (.full f outputTy.shape) outputTy]
+      | (.tensor lit) =>
+        pure [.assign output (.const lit outputTy.shape outputTy.dtype) outputTy]
+      | _ => .error "Constant operation requires a 'value' attribute with tensor literal."
+    -- tensor unary operators
+    | .reshape => do
+      log "reshape"
+      let input := inputValues[0]!
+      pure [.assign output (.reshape input outputTy.shape) outputTy]
     | .gather =>
-      log "gather"
+      log "Compiling gather operation"
       let (offsetDims, collapsedSliceDims, startIndexMap, indexVectorDim) ←
         extractDimensionNumbers inputAttributes
       let input := inputValues[0]!
       let indices := inputValues[1]!
-      let output ← getOutputName outputs
-      let outputShape ← getSingleTensorOutputType signature.range
-      pure [.assign output (.gather input indices offsetDims collapsedSliceDims startIndexMap indexVectorDim) outputShape]
+      pure [.assign output (.gather input indices offsetDims collapsedSliceDims startIndexMap indexVectorDim) outputTy]
     | .slice =>
-      log "slice"
+      log "Compiling slice operation"
       let input := inputValues[0]!
-      let start ← (← getAttribute inputAttributes "start_indices") |> fun (.mk _ dims) => getArrayType dims
-      let limit ← (← getAttribute inputAttributes "limit_indices") |> fun (.mk _ dims) => getArrayType dims
-      let stride ← (← getAttribute inputAttributes "strides") |> fun (.mk _ dims) => getArrayType dims
-      let output ← getOutputName outputs
-      let outputShape ← getSingleTensorOutputType signature.range
-      pure [.assign output (.slice input start limit stride) outputShape]
+      let start ← (← lookupAttributeValue inputAttributes "start_indices") |> parseArray
+      let limit ← (← lookupAttributeValue inputAttributes "limit_indices") |> parseArray
+      let stride ← (← lookupAttributeValue inputAttributes "strides") |> parseArray
+      pure [.assign output (.slice input start limit stride) outputTy]
+    | .reduce =>
+      log "Compiling reduce operation"
+      let op ← reduceFunctionToReduceOp inputFunctions[0]!
+      let dims ← (← lookupAttributeValue inputAttributes "dimensions") |> parseArray
+      pure [.assign output (.reductionOp op inputValues[0]! inputValues[1]! dims) outputTy] -- TODO: init value
+    | .broadcastInDim => do
+      log "Compiling broadcastInDim operation"
+      let input := inputValues[0]!
+      pure [.assign output (.broadcast input outputTy.shape) outputTy]
+    | .transpose => do
+      log "Compiling transpose operation"
+      let input := inputValues[0]!
+      let dims ← (← lookupAttributeValue inputAttributes "permutation") |> parseArray
+      pure  [.assign output (.transpose input dims) outputTy]
+    -- tensor binary operators
+    | .dotGeneral => do
+      -- The semantics of the `dotGeneral` operation are complex, see the
+      -- specification for details. The variables here are named similar to the
+      -- variables in the spec to aid comprehension.
+      -- https://github.com/openxla/stablehlo/blob/6f7b4ab8f96dc65cf3c8e9824836117d2934cc45/docs/spec.md?#dot_general
+      log "Compiling dotGeneral operation"
+      -- Gather metadata from the inputs
+      let (lhsBatchingDims, lhsContractingDims, rhsBatchingDims, rhsContractingDims) ←
+        extractDotDimensionNumbers inputAttributes
+      let lhs := inputValues[0]!
+      let rhs := inputValues[1]!
+      let lhsType ← parseTensorType signature.domain 0
+      let rhsType ← parseTensorType signature.domain 1
+      let dtype := lhsType.dtype
+      let lhsShape := lhsType.shape
+      let rhsShape := rhsType.shape
+      let lhsDims :=  List.range (TensorLib.Shape.ndim lhsShape)
+      let rhsDims :=  List.range (TensorLib.Shape.ndim rhsShape)
+      -- Calculate shapes of intermediate tensors and output
+      let lhsResultDims := lhsDims.filter (fun i => !lhsBatchingDims.contains i && !lhsContractingDims.contains i)
+      let rhsResultDims := rhsDims.filter (fun i => !rhsBatchingDims.contains i && !rhsContractingDims.contains i)
+      let lhsTransposePerm := lhsBatchingDims ++ lhsResultDims ++ lhsContractingDims
+      let rhsTransposePerm := rhsBatchingDims ++ rhsResultDims ++ rhsContractingDims
+      let lhsTransposedShape := permute lhsShape.val lhsTransposePerm |>.get!
+      let rhsTransposedShape := permute rhsShape.val rhsTransposePerm |>.get!
+      let batchShape := lhsTransposedShape.take lhsBatchingDims.length
+      let lhsResultShape := lhsTransposedShape.drop lhsBatchingDims.length |>.take lhsResultDims.length
+      let rhsResultShape := rhsTransposedShape.drop rhsBatchingDims.length |>.take rhsResultDims.length
+      let contractingShape := lhsTransposedShape.drop (lhsBatchingDims.length + lhsResultDims.length) |>
+        List.take (lhsTransposedShape.length - (lhsBatchingDims.length + lhsResultDims.length))
+      let batchSize := if batchShape.isEmpty then 1 else batchShape.foldl (fun acc d => acc * d) 1
+      let resultShape := batchShape ++ lhsResultShape ++ rhsResultShape
+      let lhsResultSize := if lhsResultShape.isEmpty then 1 else lhsResultShape.foldl (fun acc d => acc * d) (1 : Nat)
+      let rhsResultSize := if rhsResultShape.isEmpty then 1 else rhsResultShape.foldl (fun acc d => acc * d) (1 : Nat)
+      let contractingSize := if contractingShape.isEmpty then 1 else contractingShape.foldl (fun acc d => acc * d) 1
+      -- Create fresh variable names for intermediate results
+      let lhsTransposedName := lhs ++ "_transposed"
+      let rhsTransposedName := rhs ++ "_transposed"
+      let lhsReshapedName := lhs ++ "_reshaped"
+      let lhsReshapedShape := [batchSize, lhsResultSize, contractingSize]
+      let lhsReshapedTy := TensorTy.mk (.mk lhsReshapedShape) dtype
+      let rhsReshapedName := rhs ++ "_reshaped"
+      let rhsReshapedShape := [batchSize, rhsResultSize, contractingSize]
+      let rhsReshapedTy := TensorTy.mk (.mk rhsReshapedShape) dtype
+      let resultReshapedName := output ++ "_reshaped"
+      let resultReshapedShape := [batchSize, lhsResultSize, rhsResultSize]
+      let resultReshapedType := TensorTy.mk (.mk resultReshapedShape) dtype
+      -- Emit the HLR statements for the dotGeneral operation
+      pure ([
+        .comment "Dot General Operation",
+        .assign lhsTransposedName (.transpose lhs lhsTransposePerm) (.mk (.mk lhsTransposedShape) dtype),
+        .assign rhsTransposedName (.transpose rhs rhsTransposePerm) (.mk (.mk rhsTransposedShape) dtype),
+        .assign lhsReshapedName (.reshape lhsTransposedName lhsReshapedTy.shape) lhsReshapedTy,
+        .assign rhsReshapedName (.reshape rhsTransposedName rhsReshapedTy.shape) rhsReshapedTy,
+        .assign resultReshapedName (.batchMatmul lhsReshapedName rhsReshapedName) resultReshapedType,
+        .assign output (.reshape resultReshapedName (.mk resultShape)) outputTy,
+      ])
     | .concatenate =>
-      log "concatenate"
+      log "Compiling concatenate operation"
       let tensors := inputValues
-      let dimAttr ← getAttribute inputAttributes "dimension"
-      let output ← getOutputName outputs
-      let outputShape ← getSingleTensorOutputType signature.range
-      match dimAttr with
-      | .mk _ (.mk (.element (.floatLiteral (.decimal n))) _) => do
-        if n.fractionalPart.decimal == 0 || n.scientificPart.decimal == 0 then
-          pure [.assign output (.concat tensors n.integerPart.decimal) outputShape]
-        else
-          .error s!"Concatenate operation requires a 'dimension' attribute with a non-negative integer"
-      | _ => .error "Concatenate operation requires a 'dimension' attribute with an integer."
+      let dim ← (← lookupAttributeValue inputAttributes "dimension") |> parseNatFromFloat
+      pure [.assign output (.concat tensors dim) outputTy]
+    -- tensor ternary operators
     | .select =>
-      log "select"
+      log "Compiling select operation"
       let cond := inputValues[0]!
       let a := inputValues[1]!
       let b := inputValues[2]!
-      let output ← getOutputName outputs
-      let outputShape ← getSingleTensorOutputType signature.range
-      pure [.assign output (.select cond a b) outputShape]
-    | .reduce =>
-        log "reduce"
-        let op ← reduceFunctionToReduceOp inputFunctions[0]!
-        let output ← getOutputName outputs
-        let outputShape ← getSingleTensorOutputType signature.range
-        let (.mk _ dims) ← getAttribute inputAttributes "dimensions"
-        let dims ← getArrayType dims
-        pure [.assign output (.reductionOp op inputValues[0]! inputValues[1]! dims) outputShape] -- TODO: init value
-    | .broadcastInDim => do
-        log "broadcast"
-        let input := inputValues[0]!
-        let output ← getOutputName outputs
-        let outputTy ←  getSingleTensorOutputType signature.range
-        pure [.assign output (.broadcast input outputTy.shape) outputTy]
-    | .transpose => do
-        log "transpose"
-        let input := inputValues[0]!
-        let dimsAttr ← getAttribute inputAttributes "permutation"
-        let output ← getOutputName outputs
-        let outputShape ← getSingleTensorOutputType signature.range
-        match dimsAttr with
-        | .mk _ (.mk (.array (.array64 arr)) _) => do
-            let dims : List Nat := arr.map (fun (.mk _ n) => n)
-            pure  [.assign output (.transpose input dims) outputShape]
-        | _ => .error "Transpose operation requires a 'permutation' attribute with an array of ints."
-    | _ => .error s!"Unsupported operation: {repr opCode}"
+      pure [.assign output (.select cond a b) outputTy]
+    | _ => .error s!"Unsupported HLO operation: {repr opCode}"
   | .return ops _ => do
-    log "return"
-    pure [Statement.ret (",".intercalate ops)]
-  | .call callee inputValues outputs signature =>
-    log "call"
-    pure [Statement.assign (← getOutputName outputs)
-      (.call callee inputValues)
-      (← getSingleTensorOutputType signature.range)]
+    log "Compiling return operation"
+    pure [Statement.ret ops]
+  | .call callee inputValues outputs signature => do
+    log "Compiling call operation"
+    let output ← match outputs with
+    | [output] => pure output
+    | _ => .error "Call operator signature must have a single output."
+    pure [
+      Statement.assign
+        output
+        (.call callee inputValues)
+        (← parseSingleTensorType signature.range)]
 
   | s => .error s!"Unsupported operation type {repr s}"
 
-def compileFunc (f : StableHLO.Parsing.Function) : Compile Unit :=
-  match f.funcBody with
-  | .mk args body => do
-    let inputs ← args.mapM (fun (.mk name v) => do
-      match v with
-      | .tensorType t => pure t
-      | _ => .error s!"Function input {name} must have a tensor type.")
-    let preamble ← args.mapIdxM (fun i (.mk name v) => do
-      match v with
-      | .tensorType t =>
-        pure (.assign name (.arg i) t)
-      | _ => .error s!"Function input {name} must have a tensor type.")
-    let statements ← body.flatMapM compileOp
-    let (outputs : List TensorTy) ← f.funcType.range.mapM (fun typ => do
-      match typ with
-      | .tensorType t => pure t
-      | _ => .error "Function output must be a tensor type.")
-    let func := Function.mk f.funcId inputs outputs (preamble ++ statements)
-    addFunction func
+def compileFunc (f : StableHLO.Parsing.Function) : Compile Unit := do
+  let .mk args body := f.funcBody
+  let inputs ← args.mapM (fun (.mk name v) => do
+    match v with
+    | .tensorType t => pure t
+    | _ => .error s!"Function input {name} must have tensor type.")
+  let outputs ← f.funcType.range.mapM fun x => match x with
+    | .tensorType t => pure t
+    | _ => .error "Function output must be a tensor type."
+  -- Since arguments are referred to by index, emit a statement for each
+  -- argument that assigns it to a named variable
+  let preamble ← args.mapIdxM (fun i (.mk name v) => do
+    match v with
+    | .tensorType t =>
+      pure (Statement.assign name (.arg i) t)
+    | _ => .error s!"Function input {name} must have tensor type.")
+  let statements ← body.flatMapM compileOp
+  let func := Function.mk f.funcId inputs outputs (preamble ++ statements)
+  addFunction func
 
-def compileModule (m : StableHLO.Parsing.Module) : Compile Unit := do
+def compileModule (m : StableHLO.Parsing.Module) : Compile Unit :=
   m.modFuncs.forM compileFunc
 
-def compile (m : List StableHLO.Parsing.Module) : (Except String String) × Ctx :=
+def compile (m : List StableHLO.Parsing.Module) : (Except String Unit) × Ctx :=
   let compiled := match m with
     | [m] => compileModule m
     | _  => .error "Only one module is supported for now."
-  let str := compiled.bind (fun _ => do
-    let ctx ← get
-    let programStr ← programToString ctx.program
-    pure programStr)
-  match str.run empty with
-  | .ok prog s => (.ok prog, s)
+  match compiled.run Ctx.empty with
+  | .ok _ s => (.ok (), s)
   | .error err s => (.error err, s)
 
 end KLR.HLR

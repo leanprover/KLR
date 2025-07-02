@@ -11,12 +11,13 @@ import TensorLib.Shape
 import TensorLib.Slice
 import TensorLib.Dtype
 
+open TensorLib (Shape Dtype)
+
 namespace KLR.HLR
 
-abbrev Shape := TensorLib.Shape
 structure TensorTy where
-  shape : TensorLib.Shape
-  dtype : TensorLib.Dtype
+  shape : Shape
+  dtype : Dtype
 deriving Inhabited, Repr, Nonempty
 
 abbrev Var := String
@@ -37,10 +38,17 @@ inductive UnaryOp where
   | exp
   | sqrt
   | neg
-  | convert
+  | convert (dtype : TensorLib.Dtype)
 deriving Inhabited, Repr
 
 -- Operators in the HLR (High-Level Representation) of KLR.
+--
+-- Note: some HLO operations have "load-bearing" output shapes, meaning the
+-- output shape is a vital part of the operation's semantics (e.g. `reshape`).
+-- For these operators, we store the output shape in the `Operator`, even
+-- though this means that when considering an `Operator` as part of a `Statement`,
+-- the output shape information exists in two redundant places: in the `Statement`
+-- and in the `Operator`.
 inductive Operator where
   -- An argument to the function, identified by its index.
   | arg (index : Nat)
@@ -81,18 +89,19 @@ inductive Operator where
   | call (callee : String) (inputValues : List Var)
 deriving Inhabited, Repr
 
--- A statement in the HLR, which can be a comment, an assignment, or a return statement.
+-- A statement in HLR (High Level Representation).
 -- In SSA form, so each variable is assigned exactly once.
 inductive Statement where
-  -- a comment in the code, for documentation purposes
+  -- a comment in the code, for making the dumped IR readable
   | comment (msg : String)
-  -- assign the result of an operator to a fresh variable, with the specified shape
+  -- assign the result of `op` to `dest` , with the shape `shape`
   | assign (dest : Var) (op : Operator) (shape : TensorTy)
-  -- return a variable from the function
-  | ret (name : Var)
+  -- return variable `name` from the function
+  | ret (vars : List Var)
 deriving Inhabited, Repr
 
--- A function in the HLR, which consists of a name, input shapes, output shapes, and a list of statements.
+-- An HLR function. Note that arguments are referred to by index, so
+-- we only store the argument shapes, not names.
 structure Function where
   name : String
   inputs : List TensorTy
@@ -100,6 +109,7 @@ structure Function where
   statements : List Statement
 deriving Inhabited, Repr, Nonempty
 
+-- An HLR program
 structure Program where
   functions : List Function
 deriving Inhabited, Repr, Nonempty
@@ -114,10 +124,8 @@ instance : Coe StableHLO.Parsing.TensorType TensorTy where
       | _ => panic! s!"Unsupported tensor element type: {repr t.tensorElementTypeGen}"
     .mk shape dtype
 
-
 instance : ToString BinaryOp where
-  toString op :=
-    match op with
+  toString
     | .mul => "mul"
     | .max => "max"
     | .sub => "sub"
@@ -126,18 +134,17 @@ instance : ToString BinaryOp where
     | .cmp => "cmp"
     | .and => "and"
 instance : ToString UnaryOp where
-  toString op :=
-    match op with
+  toString
     | .exp => "exp"
     | .sqrt => "sqrt"
     | .neg => "neg"
-    | .convert => "convert"
+    | .convert dtype => s!"convert_{dtype}"
 instance : ToString TensorTy where
   toString (t : TensorTy) : String :=
     s!"{t.shape}x{t.dtype}"
 
-def opName (op : Operator) : String :=
-  match op with
+-- Human readable name for the operator.
+def opName : Operator → String
   | .arg _ => s!"arg"
   | .binaryOp binOp .. => s!"{binOp}"
   | .unaryOp unOp .. => s!"{unOp}"
@@ -157,8 +164,7 @@ def opName (op : Operator) : String :=
   | .call callee .. => s!"call {callee}"
 
 -- Returns the list of variables that this operator immediately depends on.
-def dependencies (op : Operator) : List Var :=
-  match op with
+def dependencies : Operator → List Var
   | .arg _ => []
   | .binaryOp _ a b => [a, b]
   | .unaryOp _ a => [a]
@@ -191,7 +197,7 @@ def findVar (f : Function) (v : Var) : Option Operator :=
     | .assign dest op _ => if dest == v then .some op else .none
     | _ => .none)
 
--- Finds the statement that assigns to a variable in the function.
+-- Returns the list of all variables that this function depends on transitively.
 def transitiveDependencies (f : Function) (v : Var) : List Var := Id.run do
   let mut deps := [v]
   repeat
@@ -204,48 +210,70 @@ def transitiveDependencies (f : Function) (v : Var) : List Var := Id.run do
     deps := deps ++ filtered
   return deps
 
-def forwardEdges (f : Function) : List (Var × List Var) := Id.run do
-  let mut edges := (vars f).map fun v => (v, [])
-  for stmt in f.statements do
-    match stmt with
-    | .assign dest op _ =>
-      let deps := dependencies op
-      for dep in deps do
-        edges := edges.map (fun (v, es) => if v == dep then (v, es ++ [dest]) else (v, es))
-    | _ => ()
-  return edges
+-- TODO: move these toString instances to the TensorLib repo
+instance : ToString TensorLib.Slice where
+  toString s :=
+    let {start, stop, step, ..} := s
+    let start := start.map toString |>.getD ""
+    let stop := stop.map toString |>.getD ""
+    let step := step.map toString |>.getD ""
+    s!"{start}:{stop}:{step}"
+instance : ToString TensorLib.Shape where
+  toString s :=
+    s.val.map toString |> "x".intercalate |> fun x => s!"[{x}]"
+instance : ToString TensorLib.Dtype where
+  toString
+    | .bool => "bool"
+    | .int8 => "int8"
+    | .int16 => "int16"
+    | .int32 => "int32"
+    | .int64 => "int64"
+    | .uint8 => "uint8"
+    | .uint16 => "uint16"
+    | .uint32 => "uint32"
+    | .uint64 => "uint64"
+    | .float32 => "float32"
+    | .float64 => "float64"
 
-def topoSort (f : Function) : List Var := Id.run do
-  -- kahn's algorithm for topological sorting
-  let mut sorted := []
-  -- nodes with no incoming edges
-  let mut queue := vars f |> .filter (fun v =>
-    match findVar f v with
-    | .some (.arg _) | .some (.const _ _ _) => true
-    | _ => false)
-  let mut forwardEdges := forwardEdges f
-  while ! queue.isEmpty do
-    -- remove a node from the queue
-    let n := queue.head!
-    queue := queue.tail!
-    -- add it to the sorted list
-    sorted := sorted ++ [n]
+instance : ToString Operator where
+  toString
+    | .arg n => s!"arg({n})"
+    | .binaryOp binOp a b => s!"{repr binOp}({a}, {b})"
+    | .unaryOp unOp a => s!"{repr unOp}({a})"
+    | .reductionOp redOp a b dim => s!"reduce-{repr redOp}({a}, {b}, dim={dim})"
+    | .batchMatmul a b => s!"matmul({a}, {b})"
+    | .arange start stop step shape => s!"arange({start}, {stop}, {step}, shape={shape})"
+    | .concat tensors dim => s!"concat({", ".intercalate tensors}, dim={dim})"
+    | .select cond a b => s!"select({cond}, {a}, {b})"
+    | .full _ shape => s!"full(..., shape={shape})"
+    | .transpose a dims => s!"transpose({a}, dims={dims})"
+    | .split_with_sizes a sizes => s!"split_with_sizes({a}, sizes={sizes})"
+    | .reshape a shape => s!"reshape({a}, shape={shape})"
+    | .broadcast a shape => s!"broadcast({a}, shape={shape})"
+    | .const _ shape dtype => s!"const(..., shape={shape}, dtype={dtype})"
+    | .gather a indices offsetDims collapsedSliceDims startIndexMap indexVectorDim
+      => s!" gather({a}, indices={indices}, offsetDims={offsetDims}, collapsedSliceDims={collapsedSliceDims}, startIndexMap={startIndexMap}, indexVectorDim={indexVectorDim})"
+    | .slice a start limit stride => s!"slice({a}, start={start}, limit={limit}, stride={stride})"
+    | .call callee inputValues =>
+      let inputsStr := inputValues.map toString |> ", ".intercalate
+      s!"call({callee}, inputs=[{inputsStr}])"
 
-    -- find all edges that start from this node
-    let dests := forwardEdges.findSome? (fun (v, es) => if v == n then .some es else .none)
-    match dests with
-      | .some es =>
-      -- for each edge:
-      for e in es do
-        -- remove the edge from the graph
-        forwardEdges := forwardEdges.map (fun (v, es) => (v, es.filter (fun x => x != e)))
-        -- if the destination has no other incoming edges, add it to the queue
-        if ! forwardEdges.any (fun (_, deps) => deps.contains e) then
-          queue := queue ++ [e]
-      | none => ()
-  if forwardEdges.any (fun (_, deps) => ! deps.isEmpty) then
-    panic! "Graph has cycles, cannot perform topological sort"
-  return sorted
+instance : ToString Statement where
+  toString
+    | .comment msg => s!"# {msg}"
+    | .assign dest op shape => s!"{dest} : {shape} = {op}"
+    | .ret name => s!"return {name}"
 
+instance : ToString Function where
+  toString f :=
+    let inputsStr := f.inputs.map toString |> ", ".intercalate
+    let outputsStr := f.outputs.map toString |> ", ".intercalate
+    let statementsStr := f.statements.map toString |> "\n".intercalate
+    s!"def {f.name}({inputsStr}) -> ({outputsStr}):\n{statementsStr}"
+
+instance : ToString Program where
+  toString p :=
+    let functionsStr := p.functions.map toString |> "\n".intercalate
+    s!"# Program\n" ++ functionsStr
 
 end KLR.HLR
