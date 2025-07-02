@@ -1,5 +1,0 @@
-# All files must be below the python project root
-include klr/README.md
-include klr/*.[ch]
-include klr/klr.bin
-graft klr/peg_parser

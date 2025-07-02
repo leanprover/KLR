@@ -43,6 +43,10 @@ testpaths = [
 
 [tool.scikit-build]
 # See: https://scikit-build-core.readthedocs.io/en/latest/reference/configs.html
+
+# Build stable ABI wheels, for any version of CPython 3.9+
+wheel.py-api = "cp39"
+
 wheel.packages = ["klr"]
 
 # There are lots of files for building the C extension we don't need in the compiled wheel.
@@ -53,6 +57,21 @@ wheel.exclude = [
   "!**/*.py",
   "!**/*.so", # compiled extension on Linux/macOS
   "!**/*.pyd", # compiled extension on Windows
+]
+
+# scikit-build-core adds everything to sdist (unless it's in the .gitignore).
+# This picks up too much stuff by accident, so let's exclude everything and then manually include what we want.
+sdist.exclude = [
+  "**/*",
+]
+
+sdist.include = [
+  "klr/",
+  "test/",
+  "CMakeLists.txt",
+  "LICENSE",
+  "pyproject.toml",
+  "README.md",
 ]
 
 [project.scripts]
