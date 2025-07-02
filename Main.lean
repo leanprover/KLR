@@ -291,11 +291,10 @@ def hloToHLR (p : Parsed) : IO UInt32 := do
       IO.println (toString hlr)
       let headFunction := s.program.functions.head!
       -- print graph of folded function
-      let folded := KLR.HLR.constFold headFunction
-      let g := KLR.HLR.Graph.graph folded |> toString
+      let g := KLR.HLR.Graph.graph headFunction |> toString
       writeContent "dot" p g
       -- print HLR program as Python program
-      let py := KLR.HLR.Py.formatProgram hlr
+      let py := KLR.HLR.Py.compile hlr
       writeContent "py" p py
       return 0
     | (.error e, s) => do
