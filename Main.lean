@@ -8,7 +8,6 @@ import TensorLib.Npy
 import TensorLib.Tensor
 import SHerLOC
 import KLR.HLR
-import KLR.KLR
 import SHerLOC.Analysis.Graph
 
 open Cli
