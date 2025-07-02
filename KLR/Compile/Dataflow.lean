@@ -159,9 +159,7 @@ section Basics
 
   infix:90 "◃" => NodeMap.get
 
-  def NodeMap.call_const (α : Type) {β : Type} (b : β) [NodeMap α]
-    := NodeMap.const (α:=α) b
-  notation "⟪" α "↦" b "⟫"=> NodeMap.call_const α b
+  notation "⟪" α "↦" b "⟫"=> NodeMap.const (α:=α) b
 
   notation "⟦" α  "," β "⟧" => NodeMap.μ α β
 
@@ -171,26 +169,26 @@ section Basics
 
   notation "map2⟪" μ₀ "," μ₁ "," f "⟫" => NodeMap.app_binary μ₀ μ₁ f
 
-  def NodeMap.LE {α β : Type} [NodeMap α] [LE β] (μ₀ μ₁ : ⟦α, β⟧) := (a : Node α) → (μ₀◃a ≤ μ₁◃a)
-  infix:90 "⟪≤⟫" => NodeMap.LE
-  instance {α β : Type} [NodeMap α] [LT β] : LT ⟦α, β⟧ where
-    lt μ₀ μ₁ := (a : Node α) → (μ₀◃a < μ₁◃a)
-  def NodeMap.Max {α β : Type} [NodeMap α] [Max β] (μ₀ μ₁ : ⟦α , β⟧) :=
-    map2⟪μ₀, μ₁, (Max.max · ·)⟫
-  infix:90 "⟪⊔⟫" => NodeMap.Max
+  instance {α β : Type} [NodeMap α] [LE β] : LE ⟦α, β⟧ where
+    le μ₀ μ₁ := (a : Node α) → (μ₀◃a ≤ μ₁◃a)
+
+  instance {α β : Type} [NodeMap α] [Max β] : Max ⟦α, β⟧ where
+    max μ₀ μ₁ := map2⟪μ₀, μ₁, (Max.max · ·)⟫
+
+  infix:100 "⊔" => Max.max
+
+
   instance {α β : Type} [NodeMap α] [BEq β] : BEq ⟦α, β⟧ where
     beq μ₀ μ₁ := μ₀ fold⟪true, (fun a prev => prev ∧ (μ₀◃a == μ₁◃a))⟫
+
   instance {α β : Type} [NodeMap α] [ToString α] [ToString β] : ToString ⟦α, β⟧ where
     toString μ := μ fold⟪"", (fun nd repr => repr ++
       "\n{" ++ toString nd.data ++ ": " ++ toString (μ◃nd) ++ "}")⟫
 
-
   -- copied from Mathlib for utility
-  class Preorder (α : Type) extends LE α, LT α where
+  class Preorder (α : Type) extends LE α where
     le_refl : ∀ a : α, a ≤ a
     le_trans : ∀ a b c : α, a ≤ b → b ≤ c → a ≤ c
-    lt := fun a b => a ≤ b ∧ ¬b ≤ a
-    lt_iff_le_not_ge : ∀ a b : α, a < b ↔ a ≤ b ∧ ¬b ≤ a := by intros; rfl
 
   instance (α : Type) [Preorder α] : LE α where
     le := LE.le
@@ -200,6 +198,28 @@ section Basics
     bot : α
 
   notation "⊥" => HasBot.bot
+
+  instance {α β : Type} [NodeMap α] [HasBot β] : HasBot ⟦α, β⟧ where
+    bot :=  NodeMap.const (α:=α) ⊥
+
+  instance {α β : Type} [NodeMap α] [Preorder β] : Preorder ⟦α , β⟧ := {
+    le := LE.le
+    le_refl := by {
+      unfold LE.le instLEμ
+      simp
+      intros
+      apply Preorder.le_refl
+    }
+    le_trans := by {
+      unfold LE.le instLEμ
+      simp
+      intros
+      rename_i a b c h₀ h₁ nd
+      apply (Preorder.le_trans (a◃nd) (b◃nd) (c◃nd))
+      apply h₀
+      apply h₁
+    }
+  }
 
   /-
     A `DataflowProblem α β` extends an map constructor `NodeMap α` with choices of
@@ -218,8 +238,8 @@ section Basics
     τ_sound (α₀ : Node α) (β₀ β₁ : β) : (β₀ == β₁) → (τ◃α₀) β₀ == (τ◃α₀) β₁
     le_sound (β₀ β₁ β₂ : β) : (β₀ == β₁) → (β₀ ≤ β₂) → (β₁ ≤ β₂)
 
-    map_le_supl (ν₀ ν₁ ν₂ : ⟦α, β⟧) (h : ν₀ ⟪≤⟫ ν₁) : (ν₀ ⟪≤⟫ (ν₁ ⟪⊔⟫ ν₂))
-    map_le_supr (ν₀ ν₁ ν₂ : ⟦α, β⟧) (h : ν₀ ⟪≤⟫ ν₂) : (ν₀ ⟪≤⟫ (ν₁ ⟪⊔⟫ ν₂))
+    map_le_supl (ν₀ ν₁ ν₂ : ⟦α, β⟧) (h : ν₀ ≤ ν₁) : (ν₀ ≤ (ν₁ ⊔ ν₂))
+    map_le_supr (ν₀ ν₁ ν₂ : ⟦α, β⟧) (h : ν₀ ≤ ν₂) : (ν₀ ≤ (ν₁ ⊔ ν₂))
 
 end Basics
 
@@ -256,7 +276,7 @@ section DataflowProblemSolver
     unfold I R E
     intro α₀ α₁ edge
     left
-    unfold ν₀ NodeMap.call_const
+    unfold ν₀
     rw [NodeMap.const_get]
   }
 
@@ -264,7 +284,7 @@ section DataflowProblemSolver
     of_func⟪(fun a' => if ε a a' then ((τ◃a) (ν◃a).1) else ⊥)⟫
 
   def Δ₀ (ν : ⟦α, (β × Bool)⟧) : ⟦α, β⟧ :=
-    ν fold⟪ν map⟪(·.1)⟫, (fun a ν₀ => if (ν◃a).2 then ν₀ ⟪⊔⟫ (δ ν a) else ν₀)⟫
+    ν fold⟪ν map⟪(·.1)⟫, (fun a ν₀ => if (ν◃a).2 then ν₀ ⊔ (δ ν a) else ν₀)⟫
 
   def Δ (ν : ⟦α, (β × Bool)⟧) : ⟦α, (β × Bool)⟧ :=
     let ν' := Δ₀ ν
@@ -311,22 +331,15 @@ section DataflowProblemSolver
       rw [NodeMap.of_map_get]
     }
 
-  omit [BEq α] in theorem map_le_refl (ν : ⟦α, β⟧) : ν ⟪≤⟫ ν := by {
-    unfold NodeMap.LE
-    intros
-    apply Preorder.le_refl
-  }
-
-
-  theorem δlessΔ (ν : ⟦α, (β × Bool)⟧) (a₀ : Node α) (h: (ν ◃ a₀).2): δ ν a₀ ⟪≤⟫ Δ₀ ν := by {
-    let P a ν₀ := (ν◃a).2 = true → δ ν a ⟪≤⟫ ν₀
+  theorem δlessΔ (ν : ⟦α, (β × Bool)⟧) (a₀ : Node α) (h: (ν ◃ a₀).2): δ ν a₀ ≤ Δ₀ ν := by {
+    let P a ν₀ := (ν◃a).2 = true → δ ν a ≤ ν₀
     apply (NodeMap.fold_strong_ind P)<;>try unfold P
     {
       intro a γ₀ ha
       rw [ha]
       simp
       apply map_le_supr
-      apply map_le_refl
+      apply Preorder.le_refl
     }
     {
       intro a γ₀ b ha ha'
@@ -360,11 +373,11 @@ section DataflowProblemSolver
       }
     }
 
-  theorem Δmono (ν : ⟦α, (β × Bool)⟧) : (strip_bools ν) ⟪≤⟫ Δ₀ ν := by {
-    let P ν' := (strip_bools ν) ⟪≤⟫ ν'
+  theorem Δmono (ν : ⟦α, (β × Bool)⟧) : (strip_bools ν) ≤ Δ₀ ν := by {
+    let P ν' := (strip_bools ν) ≤ ν'
     apply NodeMap.fold_ind
     {
-      unfold NodeMap.LE
+      unfold LE.le
       intro a
       rw [NodeMap.of_map_get]
       rw [strip_bools_snd]
@@ -515,7 +528,7 @@ end DataflowProblemSolver
 -/
 section FiniteDataflowProblemSolver
 
-  variable (n : Nat) -- size of arrays
+  variable (n : Nat) -- number of nodes
 
   infix:90 "⊔" => Max.max
 
@@ -531,8 +544,8 @@ section FiniteDataflowProblemSolver
 
     transitions_sound n (β₀ β₁ : β) : (β₀ == β₁) → (transitions n) β₀ == (transitions n) β₁
     le_sound (β₀ β₁ β₂ : β) : (β₀ == β₁) → (β₀ ≤ β₂) → (β₁ ≤ β₂)
-    le_supl (β₀ β₁ : β) : β₀ ≤ β₀ ⊔ β₁
-    le_supr (β₀ β₁ : β) : β₁ ≤ β₀ ⊔ β₁
+    le_supl (β₀ β₁ : β) : β₀ ≤ Max.max β₀ β₁
+    le_supr (β₀ β₁ : β) : β₁ ≤ Max.max β₀ β₁
 
   def LtProp : NodeProp ℕ where
     node_prop n' := n' < n
@@ -551,16 +564,12 @@ section FiniteDataflowProblemSolver
   def vector_fn {β : Type} (f : NodeT n → β) : Vector β n
     := Vector.ofFn (f ∘ (fin_to_node n))
 
-  def FiniteDataflowProblem {β : Type}
-    [Max β]
-    [BEq β]
-    [Preorder β]
-    [HasBot β]
-    (FSI : FiniteSolverInput β)
-    : DataflowProblem ℕ β
-    := let NP : NodeProp ℕ := {
+  def FiniteNodeProp : NodeProp ℕ := {
       node_prop n' := n' < n
-    } ; {NP with
+    }
+
+  def FiniteNodeMap : NodeMap ℕ := {
+    FiniteNodeProp n with
       μ β := Vector β n
       const β
         := vector_fn n (fun _ => β)
@@ -598,39 +607,6 @@ section FiniteDataflowProblemSolver
         simp
       }
 
-      τ := vector_fn n (FSI.transitions ·.data)
-      σ := vector_fn n (fun nd =>
-            (nodes n).toList.filter (FSI.edges nd.data ·.data)
-          )
-
-      τ_sound := by {
-        intro α₀ β₀ β₁ beq
-        unfold vector_fn Vector.ofFn Vector.get fin_to_node node_to_fin
-        simp
-        apply FSI.transitions_sound
-        assumption
-      }
-      le_sound := FSI.le_sound
-
-      map_le_supl := by {
-        unfold NodeMap.LE NodeMap.Max
-        intro ν₀ ν₁ ν₂ h a
-        unfold NodeMap.app_binary node_to_fin Vector.map Vector.get nodes fin_to_node
-        simp
-        apply Preorder.le_trans
-        {apply h}
-        {apply FSI.le_supl}
-      }
-      map_le_supr := by {
-        unfold NodeMap.LE NodeMap.Max
-        intro ν₀ ν₁ ν₂ h a
-        unfold NodeMap.app_binary node_to_fin Vector.map Vector.get nodes fin_to_node
-        simp
-        apply Preorder.le_trans
-        {apply h}
-        {apply FSI.le_supr}
-      }
-
       fold_ind := by {
         intro β γ ν γ₀ acc P h₀ h₁
         induction ((nodes n).toList)
@@ -648,7 +624,7 @@ section FiniteDataflowProblemSolver
 
       fold_strong_ind := by {
         intro β γ ν γ₀ acc P h₀ h₁
-        let Q (l : List (Node ℕ)) := ∀ nd ∈ l, P nd (List.foldr acc γ₀ l)
+        let Q l := ∀ nd ∈ l, P nd (List.foldr acc γ₀ l)
         have h : Q (nodes n).toList := by {
           induction (nodes n).toList<;>unfold Q; simp
           {
@@ -676,22 +652,97 @@ section FiniteDataflowProblemSolver
         rename_i d snd
         exists Fin.mk d snd
       }
+  }
+
+  def FiniteDataflowProblem {β : Type}
+    [BEq β]
+    [P:Preorder β]
+    [Max β]
+    [HasBot β]
+    (FSI : FiniteSolverInput β)
+    : DataflowProblem ℕ β
+    := let FNM := FiniteNodeMap n;
+      {
+      τ := vector_fn n (FSI.transitions ·.data)
+      σ := vector_fn n (fun nd =>
+            (nodes n).toList.filter (FSI.edges nd.data ·.data)
+          )
+
+      τ_sound := by {
+        intro α₀ β₀ β₁ beq
+        unfold vector_fn Vector.ofFn NodeMap.get
+        unfold FNM FiniteNodeMap Vector.get fin_to_node node_to_fin
+        simp
+        apply FSI.transitions_sound
+        assumption
+      }
+
+      le_sound := FSI.le_sound
+
+      map_le_supl := by {
+        unfold LE.le instLEμ Max.max instMaxμ
+        simp
+        intro ν₀ ν₁ ν₂ h a
+        unfold NodeMap.app_binary NodeMap.get
+        unfold FNM FiniteNodeMap node_to_fin Vector.map Vector.get nodes fin_to_node
+        simp
+        apply Preorder.le_trans
+        {apply h}
+        {apply FSI.le_supl}
+      }
+      map_le_supr := by {
+        unfold LE.le instLEμ Max.max instMaxμ
+        intro ν₀ ν₁ ν₂ h a
+        unfold NodeMap.app_binary NodeMap.get FNM
+        unfold FiniteNodeMap node_to_fin Vector.map Vector.get nodes fin_to_node
+        simp
+        apply Preorder.le_trans
+        {apply h}
+        {apply FSI.le_supr}
+      }
     }
 
-section RBMapImpl
-  variable {γ ρ} {_:Ord γ} {_:BEq ρ} {_:Preorder ρ} {_:DecidableLE ρ} {_:Max ρ}
-  variable {Γ : List γ}
+section InnerMapImpl
+  variable (ρ) [BEq ρ] [DecidableEq ρ] [Preorder ρ] [DecidableLE ρ] [Max ρ] [HasBot ρ]
+  variable (num_nodes num_keys : ℕ)
 
-  def instBEq : BEq (Lean.RBMap γ ρ Ord.compare) := {
+  def FNM : NodeMap ℕ := (FiniteNodeMap num_keys)
+
+  def FSI : FiniteSolverInput ((FNM num_keys).μ ρ) := {
+    num_nodes := num_nodes
+    edges := sorry
+    transitions := sorry
+
+    transitions_sound := sorry
+    le_sound := by {
+
+    }
+    le_supl := by {
+
+    }
+    le_supr := by {
+
+    }
+  }
+
+end InnerMapImpl
+
+section RBMapImpl
+  variable (γ ρ) [Ord γ] [DecidableEq ρ] [Preorder ρ] [DecidableLE ρ] [Max ρ]
+  variable (Γ : List γ)
+
+  abbrev μ := (Lean.RBMap γ ρ Ord.compare)
+
+  instance instBEq : BEq (μ γ ρ) := {
     beq μ₀ μ₁ := Γ.all (fun g ↦
       match μ₀.find? g, μ₁.find? g with
         | none, none => true
         | none, some _ => false
         | some _, none => false
-        | some r₀, some r₁ => r₀ == r₁)
+        | some r₀, some r₁ => r₀ = r₁)
   }
 
-  def instPreorder : Preorder (Lean.RBMap γ ρ Ord.compare) := {
+  instance instPreorder : Preorder (μ γ ρ) := {
     le μ₀ μ₁ := Γ.all (fun g ↦
       match μ₀.find? g, μ₁.find? g with
         | none, none => true
@@ -720,20 +771,130 @@ section RBMapImpl
     }
   }
 
-  def instMax : Max (Lean.RBMap γ ρ Ord.compare) := {
+  instance instMax : Max (μ γ ρ) := {
     max μ₀ μ₁ := μ₀.mergeBy (fun _ ↦ (·⊔·)) μ₁
-  }
-
-  def instH : HasBot (Lean.RBMap γ ρ Ord.compare) := {
+    }
+  instance instHasBot : HasBot (μ γ ρ) := {
     bot := Lean.RBMap.empty
   }
 
-  def FSI : @FiniteSolverInput (Lean.RBMap γ ρ Ord.compare)
-    (instBEq (Γ:=Γ)) (instPreorder (Γ:=Γ)) instMax instH := {
-      num_nodes := sorry
-      edges := sorry
+  section Prove_find_join
+    variable (μ₀ μ₁ : μ γ ρ) (g : γ)
+    theorem supl_none : μ₀.find? g = none → (μ₀⊔μ₁).find? g = μ₁.find? g := by {
+      intro h
+      unfold Max.max instMax Lean.RBMap.mergeBy Lean.RBMap.fold
+      cases hμ₀ : μ₀
+      rename_i nd₀ wf₀
+      cases hμ₁ : μ₁
+      rename_i nd₁ wf₁
+      simp
+      unfold Lean.RBNode.fold
+      induction nd₁ <;> simp
+      {
+        unfold Lean.RBMap.find?
+        simp
+        have h' : Lean.RBNode.find compare nd₀ g = none := by {
+          unfold Lean.RBMap.find? at h
+          rw [hμ₀] at h
+          simp at h
+          exact h
+        }
+        rw [h']
+        unfold Lean.RBNode.find
+        trivial
+      }
+      {
 
+      }
     }
+    theorem supr_none : μ₁.find? g = none → (μ₀⊔μ₁).find? g = μ₀.find? g := sorry
+    theorem sup_some : ∀ ρ₀ ρ₁, μ₀.find? g = some ρ₀ → μ₁.find? g = some ρ₁ →
+      (μ₀⊔μ₁).find? g = some (ρ₀ ⊔ ρ₁) := sorry
+
+    theorem find_join : (μ₀ ⊔ μ₁).find? g =
+      match (μ₀.find? g, μ₁.find? g) with
+          | (none, none) => none
+          | (some ρ, none)
+          | (none, some ρ) => some ρ
+          | (some ρ₀, some ρ₁) => ρ₀ ⊔ ρ₁ := by {
+            cases h₀ : (Lean.RBMap.find? μ₀ g) <;>
+            cases h₁ : (Lean.RBMap.find? μ₁ g) <;> simp
+            {
+              rw [supl_none] <;> assumption
+            }
+            {
+              rw [supl_none] <;> assumption
+            }
+            {
+              rw [supr_none] <;> assumption
+            }
+            {
+              rename_i ρ₀ ρ₁
+              rw [sup_some] <;> assumption
+            }
+          }
+
+  end Prove_find_join
+
+  variable (num_nodes : ℕ)
+  variable (le_supl : ∀ ρ₀ ρ₁ : ρ, ρ₀ ≤ ρ₀ ⊔ ρ₁)
+  variable (le_supr : ∀ ρ₀ ρ₁ : ρ, ρ₁ ≤ ρ₀ ⊔ ρ₁)
+
+  def SolverInput : @FiniteSolverInput (μ γ ρ)
+  (instBEq γ ρ Γ) (instPreorder γ ρ Γ) (instMax γ ρ) (instHasBot γ ρ)
+        := {
+      num_nodes := num_nodes
+      edges := sorry
+      transitions := sorry
+
+      transitions_sound := sorry
+      le_sound := by {
+        unfold LE.le BEq.beq instLEOfPreorder instBEq Preorder.toLE instPreorder
+        simp
+        intro μ₀ μ₁ μ₂ h₀₁ h₀₂ g gΓ
+        let h₀₁ := h₀₁ g gΓ
+        let h₀₂ := h₀₂ g gΓ
+        cases h₀ : (Lean.RBMap.find? μ₀ g) <;>
+        cases h₁ : (Lean.RBMap.find? μ₁ g) <;>
+        cases h₂ : (Lean.RBMap.find? μ₂ g) <;>
+        rw [h₀, h₁] at h₀₁ <;> simp at h₀₁ <;>
+        rw [h₀, h₂] at h₀₂ <;> simp at h₀₂
+        simp
+        rename_i ρ₀ ρ₁ ρ₂
+        rw [←h₀₁]
+        assumption
+      }
+
+      le_supl := by {
+        unfold LE.le instLEOfPreorder Preorder.toLE instPreorder
+        simp
+        intro μ₀ μ₁ g gΓ
+        cases h₀ : Lean.RBMap.find? μ₀ g <;>
+        cases h₁ : (Lean.RBMap.find? μ₁ g) <;>
+        cases h₀₁ : Lean.RBMap.find? (μ₀⊔μ₁) g <;> simp <;>
+        rw [find_join, h₀, h₁] at h₀₁ <;>
+        simp at h₀₁ <;> rw [←h₀₁]
+        apply Preorder.le_refl
+        apply le_supl
+        }
+
+      le_supr := by {
+        unfold LE.le instLEOfPreorder Preorder.toLE instPreorder
+        simp
+        intro μ₀ μ₁ g gΓ
+        cases h₀ : Lean.RBMap.find? μ₀ g <;>
+        cases h₁ : (Lean.RBMap.find? μ₁ g) <;>
+        cases h₀₁ : Lean.RBMap.find? (μ₀⊔μ₁) g <;> simp <;>
+        rw [find_join, h₀, h₁] at h₀₁ <;>
+        simp at h₀₁ <;> rw [←h₀₁]
+        apply Preorder.le_refl
+        apply le_supr
+        }
+  }
+
+  def solution := (FiniteDataflowProblem num_nodes
+    (SolverInput γ ρ Γ num_nodes le_supl le_supr)).solve
+
 end RBMapImpl
 
 
