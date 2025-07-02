@@ -15,31 +15,16 @@ open TensorLib (Shape Dtype)
 
 namespace KLR.HLR
 
--- A generic environment for associating variables with data of type T.
-abbrev Env T := List (Var × T)
-namespace Env
-def extend {T : Type} (env : Env T) (var : Var) (x : T) : Env T :=
-  (var, x) :: env
-def lookup  {T : Type} (env : Env T) (var : Var): Option T := List.lookup var env
-def empty {T : Type} : Env T := []
-end Env
-
--- An environment for associating variable names with unique IDs so that we
--- can generate fresh variable names.
-abbrev GensymEnv := Env Nat
-
 -- Context for the compilation process, to be stored in a state monad.
 structure Ctx where
   -- the program being compiled
   program : Program
-  -- the environment for generating fresh variable names
-  gensymEnv : GensymEnv
   -- the log of messages generated during compilation (for debugging)
   log : List String
 deriving Inhabited, Repr
 
 namespace Ctx
-def empty : Ctx := .mk (.mk []) .empty []
+def empty : Ctx := .mk (.mk []) []
 end Ctx
 
 -- Compilation requires tracking state and also potentially returning errors.
@@ -48,18 +33,6 @@ abbrev Compile T := EStateM String Ctx T
 -- Emit a message to the compilation log.
 def log (msg : String) : Compile Unit :=
   modify (fun ctx => { ctx with log := ctx.log ++ [msg]})
-
--- Generate a fresh variable name based on a label.
-def gensym (label : String) : Compile Var := do
-  let ctx ← get
-  let nextId := match ctx.gensymEnv.lookup label with
-    | some id => id + 1
-    | none => 0
-  modify (fun ctx => { ctx with gensymEnv := ctx.gensymEnv.extend label nextId })
-  let id := match nextId with
-    | 0 => ""
-    | _ => s!"_{nextId}"
-  pure s!"{label}{id}"
 
 -- Add a function to the program being compiled.
 def addFunction (func : Function) : Compile Unit := do

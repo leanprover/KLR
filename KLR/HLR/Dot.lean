@@ -1,9 +1,12 @@
+/-
+Copyright (c) 2025 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Paul Biberstein
+-/
 import SHerLOC.Analysis.Graph
 import KLR.HLR.AST
 
-abbrev Vertex := StableHLO.Analysis.Vertex
-abbrev Graph := StableHLO.Analysis.Graph
-abbrev Edge := StableHLO.Analysis.Edge
+open StableHLO.Analysis (Vertex Graph Edge)
 
 namespace KLR.HLR
 
@@ -87,7 +90,7 @@ def hlrToGraph (f : HLR.Function) : Graph := Id.run do
       edges := newEdges ++ edges
     | .ret v =>
       vertices := makeRawNode "return" "return" :: vertices
-      edges := (makeEdge (makeNodeName v) "return") :: edges
+      edges := v.map (fun v => (makeEdge (makeNodeName v) "return")) ++ edges
     | .comment _ => ()
 
   .mk f.name vertices edges
