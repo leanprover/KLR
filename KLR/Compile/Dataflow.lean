@@ -151,6 +151,12 @@ section Basics
       (∀ a γ₀ b, P a γ₀ → P a (acc b γ₀)) →
       (∀ a, P a (fold ν acc γ₀))
 
+  -- An instance `HasBot α` fixes a bottom element (`⊥`) of type `α`.
+  class HasBot (α : Type) where
+    bot : α
+
+  notation "⊥" => HasBot.bot
+
   notation μ "fold⟪" st "," acc "⟫" => NodeMap.fold μ acc st
 
   instance {α β : Type} [ToString α] [ToString β] [NM:NodeMap α]
@@ -159,11 +165,12 @@ section Basics
       str ++ "{" ++ (toString nd.data) ++ ":"
                   ++ (toString (NM.get μ nd)) ++ "}\n") ""
 
+
+  notation "⟦" α  "," β "⟧" => NodeMap.μ α β
+
   infix:90 "◃" => NodeMap.get
 
   notation "⟪↦" b "⟫"=> NodeMap.const b
-
-  notation "⟦" α  "," β "⟧" => NodeMap.μ α β
 
   notation μ "map⟪" f "⟫" => NodeMap.app_unary μ f
 
@@ -236,12 +243,6 @@ section Basics
 
   instance (α : Type) [Preorder α] : LE α where
     le := LE.le
-
-  -- An instance `HasBot α` fixes a bottom element (`⊥`) of type `α`.
-  class HasBot (α : Type) where
-    bot : α
-
-  notation "⊥" => HasBot.bot
 
   instance {α β : Type} [NodeMap α] [HasBot β] : HasBot ⟦α, β⟧ where
     bot :=  NodeMap.const (α:=α) ⊥
@@ -737,6 +738,9 @@ section InnerMapImpl
   variable (num_nodes num_keys : ℕ)
   variable (edges : ℕ → ℕ → Bool)
   variable (transitions : ℕ → ℕ → ρ → ρ)
+  structure SolutionT where
+    vals : ℕ → ℕ → ρ
+    props (n m k : ℕ) : (edges n m) → transitions n k (vals n k) ≤ vals m k
 
   def FNM : NodeMap ℕ := (FiniteNodeMap num_keys)
 
@@ -798,4 +802,29 @@ section InnerMapImpl
       apply le_supr
     }
   }
+
+  def Solution : Option (SolutionT ρ edges transitions) :=
+    let _ : NodeMap ℕ := FNM num_keys
+    let DP : DataflowProblem ℕ ⟦ℕ, ρ⟧ := FiniteDataflowProblem num_nodes
+      (FSI ρ le_supl le_supr num_nodes edges transitions)
+    match DP.solve with
+    | none => none
+    | some ⟨ν, h⟩ =>
+      let vals n k : ρ := by {
+        by_cases h : n < num_nodes
+        {
+          let nν := ν.get ⟨n, h⟩
+          by_cases h : k < num_keys
+          {exact nν.get ⟨k, h⟩}
+          exact ⊥
+        }
+        exact ⊥
+      }
+      let props n m k : (edges n m) → transitions n k (vals n k) ≤ vals m k := sorry
+      some {
+        vals := vals
+        props := props
+      }
+
+  #check Solution
 end InnerMapImpl
