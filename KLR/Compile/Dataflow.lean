@@ -739,8 +739,9 @@ section InnerMapImpl
   variable (edges : ℕ → ℕ → Bool)
   variable (transitions : ℕ → ℕ → ρ → ρ)
   structure SolutionT where
-    vals : ℕ → ℕ → ρ
-    props (n m k : ℕ) : (edges n m) → transitions n k (vals n k) ≤ vals m k
+    vals (n k : ℕ) : (n < num_nodes) → (k < num_keys) → ρ
+    props (n m k : ℕ) : (hn : n < num_nodes) → (hm : m < num_nodes) → (hk : k < num_keys) →
+      (edges n m) → transitions n k (vals n k hn hk) ≤ (vals m k hm hk)
 
   def FNM : NodeMap ℕ := (FiniteNodeMap num_keys)
 
@@ -803,24 +804,54 @@ section InnerMapImpl
     }
   }
 
-  def Solution : Option (SolutionT ρ edges transitions) :=
-    let _ : NodeMap ℕ := FNM num_keys
+  def Solution : Option (SolutionT ρ num_nodes num_keys edges transitions) :=
+    let NMK : NodeMap ℕ := FNM num_keys
     let DP : DataflowProblem ℕ ⟦ℕ, ρ⟧ := FiniteDataflowProblem num_nodes
       (FSI ρ le_supl le_supr num_nodes edges transitions)
+    let NMN := DP.toNodeMap
     match DP.solve with
     | none => none
     | some ⟨ν, h⟩ =>
-      let vals n k : ρ := by {
-        by_cases h : n < num_nodes
-        {
-          let nν := ν.get ⟨n, h⟩
-          by_cases h : k < num_keys
-          {exact nν.get ⟨k, h⟩}
-          exact ⊥
-        }
-        exact ⊥
+      let vals n k hn hk : ρ := (ν.get ⟨n, hn⟩).get ⟨k, hk⟩
+
+      let props n m k hn hm hk : (edges n m) →
+        transitions n k (vals n k hn hk) ≤ vals m k hm hk := by {
+          unfold I' R' E at h
+          intro e
+          let ndn : @Node ℕ NMN.toNodeProp := ⟨n, by {
+            unfold NodeProp.node_prop NodeMap.toNodeProp NMN DataflowProblem.toNodeMap DP FiniteDataflowProblem FiniteNodeMap FiniteNodeProp
+            simp
+            assumption
+          }⟩
+          let ndm : @Node ℕ NMN.toNodeProp := ⟨m, by {
+            unfold NodeProp.node_prop NodeMap.toNodeProp NMN DataflowProblem.toNodeMap DP FiniteDataflowProblem FiniteNodeMap FiniteNodeProp
+            simp
+            assumption
+          }⟩
+          let ndk : @Node ℕ NMK.toNodeProp := @Node.mk ℕ NMK.toNodeProp k (by {
+            unfold NodeProp.node_prop NodeMap.toNodeProp NMK FNM FiniteNodeMap FiniteNodeProp
+            simp
+            assumption
+          })
+          have hε : ε ndn ndm := by {
+            unfold ε DataflowProblem.σ DP FiniteDataflowProblem FSI nodes vector_fn fin_to_node NodeMap.get FiniteNodeMap node_to_fin Vector.ofFn Vector.get
+            simp
+            exists ndm
+            constructor
+            exists ⟨m, hm⟩
+            constructor
+            unfold BEq.beq instBEqNode
+            simp
+            unfold ndn ndm
+            simp
+            assumption
+          }
+          have h' := h ndn ndm hε ndk
+          simp at h'
+          unfold DataflowProblem.τ DP FiniteDataflowProblem FSI NodeMap.get NodeMap.of_func FiniteNodeMap vector_fn fin_to_node node_to_fin NMK Vector.ofFn Vector.get FNM FiniteNodeMap vector_fn Vector.ofFn node_to_fin fin_to_node Vector.get at h'
+          simp at h'
+          apply h'
       }
-      let props n m k : (edges n m) → transitions n k (vals n k) ≤ vals m k := sorry
       some {
         vals := vals
         props := props
