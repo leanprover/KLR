@@ -20,6 +20,7 @@ open Lean.Elab.Term(TermElabM elabBinders elabTerm)
 open Lean.Meta(forallTelescopeReducing mkListLit)
 open Lean.Parser.Term(bracketedBinderF doExpr matchAlt matchAltExpr)
 open Lean.PrettyPrinter(ppCommand)
+open Std(Format)
 open TensorLib(Err impossible toLEByteArray)
 
 namespace KLR.Util
@@ -27,20 +28,20 @@ namespace KLR.Util
 inductive Sexp where
 | atom (s : String)
 | list (es : List Sexp)
-deriving BEq, Inhabited, Repr
+deriving BEq, Inhabited
 
 namespace Sexp
 
-def lispString : Sexp -> String
+def oneline : Sexp -> String
 | atom s => s
 | list es =>
-  let body := " ".intercalate (es.map lispString)
+  let body := " ".intercalate (es.map oneline)
   s!"({body})"
 
-#guard lispString (list [atom "a", atom "b", list [atom "c"]]) == "(a b (c))"
+#guard oneline (list [atom "a", atom "b", list [atom "c"]]) == "(a b (c))"
 
 instance : ToString Sexp where
-  toString := lispString
+  toString := oneline
 
 partial def fromString (s : String) : Err Sexp := do
   let (e, cs) <- exp s.toList
@@ -660,3 +661,18 @@ macro_rules
       `(toSexp $stx)
     else
       Macro.throwUnsupported
+
+section Format
+open Std.Format
+
+def format : Sexp -> Format
+| .atom s => text s
+| .list xs => group (nest 0 (paren (joinSep (xs.map format) line)))
+
+instance : Repr Sexp where
+  reprPrec s _ := format s
+
+def pretty [ToSexp a] (x : a) (width : Nat := 80) : String :=
+  Format.pretty (width := width) (repr (toSexp x))
+
+end Format
