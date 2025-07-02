@@ -11,7 +11,6 @@ lake build
 
 # Get Python packages
 cp -R $PYTHON_DIR/* $WHEEL_DIR
-cp $ROOT/LICENSE $WHEEL_DIR
 
 # Get klr binary
 cp $ROOT/.lake/build/bin/klr $WHEEL_DIR/klr/klr.bin
@@ -19,13 +18,16 @@ cp $ROOT/.lake/build/bin/klr $WHEEL_DIR/klr/klr.bin
 cd $WHEEL_DIR
 
 if [ -z "${GITHUB_RUN_ID+x}" ]; then
-  echo "Building wheel locally"
+  echo "Building wheel and sdist locally"
   python -m build
 else
+  echo "Building sdist"
+  python -m build --sdist --outdir ./wheelhouse
+
   # https://github.com/pypa/cibuildwheel
   # NB: I could never get this to run on my mac locally. I got it to
   # work on linux with no trouble.
-  echo "Building wheel via GitHub Actions"
+  echo "Building wheels via GitHub Actions"
   python -m cibuildwheel --output-dir ./wheelhouse
 fi
 

@@ -4,4 +4,7 @@ __pycache__/
 *.so
 *.dSYM
 .vscode/
-/.wheel/
+*.egg-info/
+build/
+dist/
+klr.bin

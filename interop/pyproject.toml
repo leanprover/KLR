@@ -1,7 +1,6 @@
 # NB: All this setuptools stuff took about 1000 hours to figure out so never delete this.
 [build-system]
-#requires = ["setuptools>=61.0"]
-requires = ["setuptools"]
+requires = ["setuptools==68.0.0"] # version used by Brazil's Python3PBuildTool as of 2025.07.02
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -13,7 +12,7 @@ authors = [
 ]
 description = "Intermediate langauge for tensor compilers"
 readme = "README.md"
-license = "Apache-2.0"
+license = {text = "Apache-2.0"}
 keywords = ["trainium", "tpu", "pallas", "triton", "gpu"]
 
 # Note, dependencies here are "abstract" while the same
@@ -42,26 +41,6 @@ packages = ["klr"]
 [project.scripts]
 klr = "klr._cli:run_klr"
 klr-gather = "klr._cli:gather"
-
-# Note, because we are building an extension module, we will get arch specific wheels.
-# This is important because we are putting an arch-specific binary into the wheel
-# as an "extra" file.
-[[tool.setuptools.ext-modules]]
-name = "klr.frontend"
-sources = [
-    "klr/cbor.c"
-  , "klr/frontend.c"
-  , "klr/gather.c"
-  , "klr/peg_parser.c"
-  , "klr/region.c"
-  , "klr/serde.c"
-  , "klr/serde_common.c"
-  , "klr/serde_file.c"
-  , "klr/serde_nki.c"
-  , "klr/serde_python_core.c"
-  , "klr/simplify.c"
-  , "klr/topy_nki.c"
-  ]
 
 [tool.cibuildwheel]
 # Skip unsupported python versions as well as 32-bit platforms, which are not supported anymore.
