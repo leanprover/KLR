@@ -13,7 +13,8 @@ import KLR.HLR.AST
 
 open TensorLib (Shape Dtype)
 
-namespace KLR.HLR
+-- This module compiles a StableHLO program into an HLR program.
+namespace KLR.HLR.Compile
 
 -- Context for the compilation process, to be stored in a state monad.
 structure Ctx where
@@ -344,4 +345,4 @@ def compile (m : List StableHLO.Parsing.Module) : (Except String Unit) × Ctx :=
   | .ok _ s => (.ok (), s)
   | .error err s => (.error err, s)
 
-end KLR.HLR
+end KLR.HLR.Compile

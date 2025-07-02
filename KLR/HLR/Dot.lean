@@ -8,19 +8,23 @@ import KLR.HLR.AST
 
 open StableHLO.Analysis (Vertex Graph Edge)
 
-namespace KLR.HLR
+-- This module provides a way to convert an HLR function into a DOT graph representation.
+namespace KLR.HLR.Graph
 
-def makeNodeName (var : String) : String :=
+-- Process the name `var` so that it can used as a node ID in DOT format.
+-- Notably, IDs can't start with a digit, so we prefix it with "node_".
+def sanitize (var : String) : String :=
   s!"node_{var}"
 
-def makeConstNodeName (var use : String) : String :=
-  s!"node_const_{var}_{use}"
-
-def makeRawNode (id label : String) : Vertex :=
+def makeReturnNode (funcName : String) : Vertex :=
   .mk
-    id
-    (StableHLO.Analysis.AttributeList.mk [
-      ("label", label),
+    s!"return_{funcName}"
+    (.mk [
+      ("label", s!"return\\n{funcName}"),
+      ("shape", "box"),
+      ("style", "filled"),
+      ("fillcolor", "lightgray"),
+      ("color", "gray")
     ])
 def makeOpNode (op : Operator) (output : String) : Vertex :=
   let attrs := match op with
@@ -42,14 +46,14 @@ def makeOpNode (op : Operator) (output : String) : Vertex :=
     ]
   | _ => []
   .mk
-    (makeNodeName output)
+    (sanitize output)
     (.mk ([
       ("label", s!"{opName op}\\n{output}"),
     ] ++ attrs))
 
 def makeConstNode (name : String) (usedAt : String): Vertex :=
   .mk
-    (makeConstNodeName name usedAt)
+    s!"node_const_{name}_{usedAt}"
     (.mk [
       ("label", s!"const\\n{name} ({usedAt})"),
       ("shape", "diamond"),
@@ -64,33 +68,50 @@ def makeEdge (source : String) (dest : String) : Edge :=
     dest
     (.mk [])
 
-def hlrToGraph (f : HLR.Function) : Graph := Id.run do
+-- Convert an HLR function to a DOT graph, where each variable is a vertex
+-- and an edge exists from A to B if A is used in the computation of B.
+--
+-- Note: since constants are reused in many parts of the function, they can
+-- cause the graph to have long edges that cross over other nodes. To avoid this,
+-- we create a separate vertex for each use of a constant.
+def graph (f : HLR.Function) : Graph := Id.run do
   let mut vertices := []
   let mut edges := []
+  -- Every variables in the function that is the result of a `constant` operatior
   let mut consts := f.statements.filterMap (fun s => match s with
     | .assign v (.const _ _ _) _ => .some v
     | _ => .none)
-  let (makeEdges : List String → String → (List Vertex) × (List Edge)) := (fun inputs output =>
-    inputs.map (fun input =>
+  -- A closure that creates edges from a list of inputs to an output variable.
+  -- If the input is a constant, it creates a vertex for that constant.
+  let (makeEdges : List String → String → (List Vertex) × (List Edge)) := fun inputs output => Id.run do
+    let mut vertices := []
+    let mut edges := []
+    for input in inputs do
       if consts.contains input then
-        let vertices := (makeConstNode input output) :: []
-        let edges := (makeEdge (makeConstNodeName input output) (makeNodeName output)) :: []
-        (vertices, edges)
+        let node := makeConstNode input output
+        vertices := node :: vertices
+        edges := (makeEdge node.id output) :: edges
       else
-        let edges := (makeEdge (makeNodeName input) (makeNodeName output)) :: []
-        ([], edges)) |> List.unzip |> fun (vertices, edges) => (vertices.flatten, edges.flatten))
+        edges := (makeEdge input output) :: edges
+    return (vertices, edges)
 
+  -- Walk the program statements and create vertices and edges.
   for s in f.statements do
     match s with
     | .assign _ (.const _ _ _) _ => ()
     | .assign v op _ =>
-      vertices := makeOpNode op v :: vertices
-      let (newVertices, newEdges) := makeEdges (dependencies op) v
-      vertices := newVertices ++ vertices
+      let deps := dependencies op |>.map sanitize
+      let (newVertices, newEdges) := makeEdges deps (sanitize v)
+      vertices := [makeOpNode op v] ++ newVertices ++ vertices
       edges := newEdges ++ edges
-    | .ret v =>
-      vertices := makeRawNode "return" "return" :: vertices
-      edges := v.map (fun v => (makeEdge (makeNodeName v) "return")) ++ edges
+    | .ret vars =>
+      let node := makeReturnNode f.name
+      let deps := vars.map sanitize
+      let (newVertices, newEdges) := makeEdges deps node.id
+      vertices := [node] ++ newVertices ++ vertices
+      edges := newEdges ++ edges
     | .comment _ => ()
 
   .mk f.name vertices edges
+
+end KLR.HLR.Graph
