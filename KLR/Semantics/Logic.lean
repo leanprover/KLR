@@ -8,11 +8,26 @@ import KLR.Semantics.NML
 import Iris.Algebra.OFE
 import Iris.Algebra.UPred
 import Iris.Instances.UPred
+import Iris.Instances.heProp
 
 -- The logic: I can reuse UPred with a fixed ghost state (first-order)
 -- I'll want the fixpoint combinator to define the wp
 -- Need to port some more of the upred rules most likely
 
+section weakestpre
+
+variable {DataT : Type _}
+
+
+
+
+
+
+end weakestpre
+
+
+
+/-
 
 section logic_test
 open Iris NML Iris.BI.BIBase Lean
@@ -51,3 +66,5 @@ macro "{{ " pre:term  " }} " p1:term " × " p2:term "{{ " x:ident  " => " post:t
   ``(triple $pre $p1 $p2 (fun $x => $post))
 
 end logic_test
+
+-/
