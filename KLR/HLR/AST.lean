@@ -103,11 +103,16 @@ A statement in HLR (High Level Representation).
 In SSA form, so each variable is assigned exactly once.
 -/
 inductive Statement where
-  -- a comment in the code, for making the dumped IR readable
+  -- A comment in the code, for making the dumped IR readable
   | comment (msg : String)
-  -- assign the result of `op` to `dest` , with the shape `shape`
+  /-
+  Assign the result of `op` to `dest` , with resulting shape `shape`
+
+  Note: We store the shape directly, even though it is inferrable based on the,
+  operator, to avoid having to recompute it with fallible operations later.
+  -/
   | assign (dest : Var) (op : Operator) (shape : TensorTy)
-  -- return variables `vars` from the function
+  -- Return variables `vars` from the function
   | ret (vars : List Var)
 deriving Inhabited, Repr
 
