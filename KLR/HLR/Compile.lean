@@ -69,8 +69,10 @@ def parseArray (c : StableHLO.Parsing.Literal) : Compile (List Nat) :=
   | .array (.array1 _) => throw "array1 unimplemented."
   | _ => throw "Expected an array of integers."
 
--- Parse a Nat from a StableHLO float literal.
--- We need this because integers are often represented as floats in StableHLO.
+/-
+Parse a Nat from a StableHLO float literal.
+We need this because integers are often represented as floats in StableHLO.
+-/
 def parseNatFromFloat (c : StableHLO.Parsing.Literal) : Compile Nat :=
   match c with
   | .element (.floatLiteral (.decimal {integerPart, fractionalPart, scientificPart})) =>
@@ -131,14 +133,16 @@ def extractDimensionNumbers (attrs : List StableHLO.Parsing.Attribute) : Compile
     pure (offset_dims, collapsed_slice_dims, start_index_map, index_vector_dim)
   | _ => throw "Attribute 'dimension_numbers' must be a stableHLORecord."
 
--- The StableHLO `reduce` operation always calls an arbitrary reduction function.
--- However, in HLR we only support a few specific reduction operations (mostly
--- arithmetic and logical binary operators). Since many StableHLO programs only
--- use these basic reduction operations, we can recognize when the StableHLO function
--- called by a `reduce` operation is one of these basic operations, and convert it
--- to the corresponding HLR BinaryOp.
--- If this process is unsuccessful, it means that the input `reduce` function is more
--- complicated and can't be supported by the current HLR design.
+/-
+The StableHLO `reduce` operation always calls an arbitrary reduction function.
+However, in HLR we only support a few specific reduction operations (mostly
+arithmetic and logical binary operators). Since many StableHLO programs only
+use these basic reduction operations, we can recognize when the StableHLO function
+called by a `reduce` operation is one of these basic operations, and convert it
+to the corresponding HLR BinaryOp.
+If this process is unsuccessful, it means that the input `reduce` function is more
+complicated and can't be supported by the current HLR design.
+-/
 def reduceFunctionToReduceOp (f : StableHLO.Parsing.InputFunc) : Compile (BinaryOp) := do
   match f with
   | .mk _ [.stablehlo .maximum .., .return ..] => pure .max
@@ -150,13 +154,15 @@ def reduceFunctionToReduceOp (f : StableHLO.Parsing.InputFunc) : Compile (Binary
     "this program likely requires adding support for arbitrary function calling in `reduce`"
     ++ s!"Function: {repr op}")
 
--- Compile a StableHLO operation into a list of HLR statements.
---
--- Note: this function annotates each statement with the type of its output,
--- but this type is merely passed through from the HLO program, not computed anew.
--- This means it's possible that if there's a mistake in the shape calculation
--- in the HLO program, the HLR statements will also have incorrect shapes.
--- Eventually, we'll want a function that can shape-check an HLR program.
+/-
+Compile a StableHLO operation into a list of HLR statements.
+
+Note: this function annotates each statement with the type of its output,
+but this type is merely passed through from the HLO program, not computed anew.
+This means it's possible that if there's a mistake in the shape calculation
+in the HLO program, the HLR statements will also have incorrect shapes.
+Eventually, we'll want a function that can shape-check an HLR program.
+-/
 def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
   | .stablehlo opCode inputValues inputFunctions inputAttributes outputs signature => do
     -- Reuse the variable names and shapes from the StableHLO program
@@ -235,10 +241,12 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
       pure  [.assign output (.transpose input dims) outputTy]
     -- tensor binary operators
     | .dotGeneral => do
-      -- The semantics of the `dotGeneral` operation are complex, see the
-      -- specification for details. The variables here are named similar to the
-      -- variables in the spec to aid comprehension.
-      -- https://github.com/openxla/stablehlo/blob/6f7b4ab8f96dc65cf3c8e9824836117d2934cc45/docs/spec.md?#dot_general
+      /-
+      The semantics of the `dotGeneral` operation are complex, see the
+      specification for details. The variables here are named similar to the
+      variables in the spec to aid comprehension.
+      https://github.com/openxla/stablehlo/blob/6f7b4ab8f96dc65cf3c8e9824836117d2934cc45/docs/spec.md?#dot_general
+      -/
       log "Compiling dotGeneral operation"
       -- Gather metadata from the inputs
       let (lhsBatchingDims, lhsContractingDims, rhsBatchingDims, rhsContractingDims) ←

@@ -11,8 +11,10 @@ open StableHLO.Analysis (Vertex Graph Edge)
 -- This module provides a way to convert an HLR function into a DOT graph representation.
 namespace KLR.HLR.Graph
 
--- Process the name `var` so that it can used as a node ID in DOT format.
--- Notably, IDs can't start with a digit, so we prefix it with "node_".
+/-
+Process the name `var` so that it can used as a node ID in DOT format.
+Notably, IDs can't start with a digit, so we prefix it with "node_".
+-/
 def sanitize (var : String) : String :=
   s!"node_{var}"
 
@@ -68,12 +70,14 @@ def makeEdge (source : String) (dest : String) : Edge :=
     dest
     (.mk [])
 
--- Convert an HLR function to a DOT graph, where each variable is a vertex
--- and an edge exists from A to B if A is used in the computation of B.
---
--- Note: since constants are reused in many parts of the function, they can
--- cause the graph to have long edges that cross over other nodes. To avoid this,
--- we create a separate vertex for each use of a constant.
+/-
+Convert an HLR function to a DOT graph, where each variable is a vertex
+and an edge exists from A to B if A is used in the computation of B.
+
+Note: since constants are reused in many parts of the function, they can
+cause the graph to have long edges that cross over other nodes. To avoid this,
+we create a separate vertex for each use of a constant.
+-/
 def graph (f : HLR.Function) : Graph := Id.run do
   let mut vertices := []
   let mut edges := []

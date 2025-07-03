@@ -13,11 +13,13 @@ import TensorLib.Dtype
 
 open TensorLib (Shape Dtype)
 
--- The definition of the High-Level Representation (HLR) IR. The goal of this IR is to
--- be a uniform representation for graphs of tensor operations, which we can use as a
--- common compilation target for different frontends (e.g. StableHLO, PyTorch FX, etc.).
--- A HLR program consists of a list of functions, each with a name, and input and output tensors.
--- The function body is in SSA, with each operation producing a single output tensor.
+/-
+The definition of the High-Level Representation (HLR) IR. The goal of this IR is to
+be a uniform representation for graphs of tensor operations, which we can use as a
+common compilation target for different frontends (e.g. StableHLO, PyTorch FX, etc.).
+A HLR program consists of a list of functions, each with a name, and input and output tensors.
+The function body is in SSA, with each operation producing a single output tensor.
+-/
 namespace KLR.HLR
 
 structure TensorTy where
@@ -46,14 +48,16 @@ inductive UnaryOp where
   | convert (dtype : TensorLib.Dtype)
 deriving Inhabited, Repr
 
--- Operators in the HLR (High-Level Representation) of KLR.
---
--- Note: some HLO operations have "load-bearing" output shapes, meaning the
--- output shape is a vital part of the operation's semantics (e.g. `reshape`).
--- For these operators, we store the output shape in the `Operator`, even
--- though this means that when considering an `Operator` as part of a `Statement`,
--- the output shape information exists in two redundant places: in the `Statement`
--- and in the `Operator`.
+/-
+Operators in the HLR (High-Level Representation) of KLR.
+
+Note: some HLO operations have "load-bearing" output shapes, meaning the
+output shape is a vital part of the operation's semantics (e.g. `reshape`).
+For these operators, we store the output shape in the `Operator`, even
+though this means that when considering an `Operator` as part of a `Statement`,
+the output shape information exists in two redundant places: in the `Statement`
+and in the `Operator`.
+-/
 inductive Operator where
   -- An argument to the function, identified by its index.
   | arg (index : Nat)
@@ -94,8 +98,10 @@ inductive Operator where
   | call (callee : String) (inputValues : List Var)
 deriving Inhabited, Repr
 
--- A statement in HLR (High Level Representation).
--- In SSA form, so each variable is assigned exactly once.
+/-
+A statement in HLR (High Level Representation).
+In SSA form, so each variable is assigned exactly once.
+-/
 inductive Statement where
   -- a comment in the code, for making the dumped IR readable
   | comment (msg : String)
@@ -105,8 +111,10 @@ inductive Statement where
   | ret (vars : List Var)
 deriving Inhabited, Repr
 
--- An HLR function. Note that arguments are referred to by index, so
--- we only store the argument shapes, not names.
+/-
+An HLR function. Note that arguments are referred to by index, so
+we only store the argument shapes, not names.
+-/
 structure Function where
   name : String
   inputs : List TensorTy

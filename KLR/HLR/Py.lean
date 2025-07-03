@@ -14,10 +14,12 @@ import TensorLib.Slice
 open TensorLib (Shape Dtype Slice)
 open Std.Format
 
--- This module converts an HLR program into a runnable Python program.
--- At present, it can't convert HLR constants to python constants and can't
--- take input tensors, so it is only helpful to ensure that the shape
--- annotations are correct and that the program is well-formed.
+/-
+This module converts an HLR program into a runnable Python program.
+At present, it can't convert HLR constants to python constants and can't
+take input tensors, so it is only helpful to ensure that the shape
+annotations are correct and that the program is well-formed.
+-/
 namespace KLR.HLR.Py
 
 structure FormatCtx where
