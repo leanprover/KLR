@@ -43,10 +43,16 @@ def oneline : Sexp -> String
 instance : ToString Sexp where
   toString := oneline
 
-partial def fromString (s : String) : Err Sexp := do
-  let (e, cs) <- exp s.toList
-  if cs.all Char.isWhitespace then return e
-  else throw s!"left-over stuff {cs.toString}"
+partial def fromString (s : String) : Err (List Sexp) := do
+  let mut cs := s.toList
+  let mut sexps := []
+  repeat do
+    if cs.all Char.isWhitespace then break else
+    if cs.isEmpty then impossible -- sanity check
+    let (e, cs') <- exp cs -- This must consume at least 1 character
+    cs := cs'
+    sexps := e :: sexps
+  return sexps.reverse
 where
   exp : List Char -> Err (Sexp × List Char)
   | [] => return (.list [], [])
@@ -60,10 +66,11 @@ where
   | cs => do let (e, cs) <- exp cs; lst (e::es) cs
   atm (s : List Char) : List Char -> Err (Sexp × List Char)
   | [] => return (.atom ⟨ s.reverse ⟩, [])
-  | ')' :: cs => return (.atom ⟨ s.reverse ⟩, ')'::cs)
-  | c :: cs => if c.isWhitespace then
-               return (.atom ⟨ s.reverse ⟩, cs)
-               else atm (c :: s) cs
+  | ')' :: cs => if s.isEmpty then throw "mismatched )" else return (.atom ⟨ s.reverse ⟩, ')'::cs)
+  | c :: cs =>
+    if c.isWhitespace then
+    return (.atom ⟨ s.reverse ⟩, cs)
+    else atm (c :: s) cs
 
 end Sexp
 
