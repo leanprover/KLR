@@ -252,6 +252,9 @@ def PRelN {S : SmallStep} (n : Nat) (Φi : (S.prog × S.state) → (S.prog × S.
           S.stepN n2.succ c2 c2' ∧
           PRelN n' (fun ρ1 ρ2 => ρ1 = c1' ∧ ρ2 = c2) Φf)
 
+-- TODO: This is monotone. Proof: Rel.lift_values and the other case are disjoint (because
+-- it can't be both a value, therefore stuck, and also steppable.
+
 /-- Property of the global state which is true at every point during execution. -/
 def strong_relational_invariant {S : SmallStep} (Φi : S.prog × S.state → S.prog × S.state → Prop) : Prop :=
     (∀ cl cr cl' : S.prog × S.state, Φi cl cr → S.step cl cl' → Φi cl' cr) ∧
@@ -368,8 +371,13 @@ theorem PRelN_PRel [Det S] {Φi Φf} (HInv : strong_relational_invariant Φi) :
       sorry
     · -- Prove: That for any two possible stuck states that we eventually step to,
       -- they are values where Φf holds.
-      -- intro c1' c2' n m ⟨H1, H2, H3, H4⟩
-      -- have HP' := HP (Nat.max n m)
+
+      -- To do this we can prove a monotonicity lemma, it holds for all
+      -- (c1' c2' : S.prog × S.state) (n m : Nat) because it holds for Hc1.c' Hc2.c' Hc1.n Hc2.n
+      -- This is because on terminating traces there is exactly ony such (n, c') pair where this holds.
+
+      -- We need to get the Φf somehow.
+      -- We need a value for
       sorry
   · exfalso
     -- TOOD: Cleanup the PRelN_terminating proof and apply it in the other direction
