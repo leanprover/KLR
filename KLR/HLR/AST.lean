@@ -153,19 +153,6 @@ def findVar (f : Function) (v : Var) : Option Operator :=
     | .assign dest op _ => if dest == v then .some op else .none
     | _ => .none)
 
--- Returns the list of all variables that this function depends on transitively.
-def transitiveDependencies (f : Function) (v : Var) : List Var := Id.run do
-  let mut deps := [v]
-  repeat
-    let newDeps := deps.flatMap (fun v => match findVar f v with
-      | .some x => dependencies x
-      | .none => [])
-    let filtered := newDeps.filter (fun s => ! deps.contains s)
-    if filtered.isEmpty then
-      break
-    deps := deps ++ filtered
-  return deps
-
 -- TODO: move these toString instances to the TensorLib repo
 instance : ToString TensorLib.Slice where
   toString s :=
