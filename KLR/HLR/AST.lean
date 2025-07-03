@@ -98,7 +98,7 @@ inductive Operator where
   -- we just pass through the semantics of HLO's gather
   | gather (input indices : Var) (offsetDims collapsedSliceDims startIndexMap : List Nat) (indexVectorDim : Nat)
   -- slice a tensor along specified dimensions, with start, limit, and stride
-  | slice (a : Var) (start limit stride : List Nat)
+  | slice (a : Var) (slice : List TensorLib.Slice)
   -- call another function, passing input values and receiving outputs
   | call (callee : String) (inputValues : List Var)
 deriving Inhabited, Repr
@@ -235,7 +235,7 @@ instance : ToString Operator where
     | .const t shape dtype => s!"const({repr t}, shape={shape}, dtype={dtype})"
     | .gather a indices offsetDims collapsedSliceDims startIndexMap indexVectorDim
       => s!" gather({a}, indices={indices}, offsetDims={offsetDims}, collapsedSliceDims={collapsedSliceDims}, startIndexMap={startIndexMap}, indexVectorDim={indexVectorDim})"
-    | .slice a start limit stride => s!"slice({a}, start={start}, limit={limit}, stride={stride})"
+    | .slice a slices => s!"slice({a}, {slices})"
     | .call callee inputValues =>
       let inputsStr := inputValues.map toString |> ", ".intercalate
       s!"call({callee}, inputs=[{inputsStr}])"

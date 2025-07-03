@@ -311,7 +311,15 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
       let start ← (← lookupAttributeValue inputAttributes "start_indices") |> parseArray
       let limit ← (← lookupAttributeValue inputAttributes "limit_indices") |> parseArray
       let stride ← (← lookupAttributeValue inputAttributes "strides") |> parseArray
-      pure [.assign output (.slice input start limit stride) outputTy]
+      let slices ← start
+        |> List.length
+        |> List.range
+        |> List.mapM (fun i =>
+          TensorLib.Slice.make
+            (.some $ Int.ofNat start[i]!)
+            (.some $ Int.ofNat limit[i]!)
+            (.some $ Int.ofNat stride[i]!))
+      pure [.assign output (.slice input slices) outputTy]
     | .reduce =>
       log "Compiling reduce operation"
       let op ← reduceFunctionToReduceOp inputFunctions[0]!

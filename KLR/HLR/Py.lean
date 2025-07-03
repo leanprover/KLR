@@ -108,13 +108,13 @@ def opToPy (op : Operator) : String :=
   | .transpose a dims =>
     let dimsStr := dims.map toString |> ", ".intercalate
     s!"np.transpose({varToPy a}, axes=[{dimsStr}])"
-  | .split_with_sizes _ _ => panic! s!"Split with sizes operation not implemented in Python translation"
+  | .split_with_sizes .. => panic! s!"Split with sizes operation not implemented in Python translation"
   | .reshape a shape => s!"{varToPy a}.reshape({shapeToPy shape})"
   | .broadcast a shape dims => s!"jax.lax.broadcast_in_dim({varToPy a}, ({shapeToPy shape}), {dims})"
   | .const _ shape _ => s!"np.random.random(({shapeToPy shape})" -- TODO: make this use the actual constant value
-  | .gather _ _ _ _ _ _ => panic! s!"Gather operation not implemented in Python translation"
-  | .slice _ _ _ _ => panic! s!"Slice operation not implemented in Python translation"
-  | .call _ _ =>
+  | .gather .. => panic! s!"Gather operation not implemented in Python translation"
+  | .slice .. => panic! s!"Slice operation not implemented in Python translation"
+  | .call .. =>
     panic! s!"Can't translate call operators to Python"
 
 def compileStatement (s : Statement) : Format :=

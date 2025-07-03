@@ -31,18 +31,18 @@ def makeReturnNode (funcName : String) : Vertex :=
     ])
 def makeOpNode (op : Operator) (output : String) : Vertex :=
   let attrs := match op with
-  | .arg _ => [
+  | .arg .. => [
       ("shape", "diamond"),
       ("style", "filled"),
       ("fillcolor", "lightgreen"),
       ("color", "green")
     ]
-  | .batchMatmul _ _ => [
+  | .batchMatmul .. => [
       ("style", "filled"),
       ("fillcolor", "lightpink"),
       ("color", "red")
     ]
-  | .slice _ _ _ _ => [
+  | .slice .. => [
       ("style", "filled"),
       ("fillcolor", "lightblue"),
       ("color", "blue")
