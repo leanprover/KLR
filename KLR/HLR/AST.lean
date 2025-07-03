@@ -87,6 +87,8 @@ inductive Operator where
   -- reshape a tensor to the specified shape
   | reshape (a : Var) (shape : Shape)
   -- broadcast a tensor to the specified shape
+  -- TODO: broadcasting is very complicated and we haven't figured it out yet,
+  -- so this instruction just passes through the semantics of HLO's broadcasting
   | broadcast (a : Var) (shape : Shape) (broadcastDims : List Nat)
   -- create a constant tensor with the given values and shape
   | const (values : StableHLO.Parsing.DenseLiteral) (shape : Shape) (dtype : TensorLib.Dtype)
