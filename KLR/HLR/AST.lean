@@ -119,16 +119,6 @@ structure Program where
   functions : List Function
 deriving Inhabited, Repr, Nonempty
 
-instance : Coe StableHLO.Parsing.TensorType TensorTy where
-  coe (t : StableHLO.Parsing.TensorType) :=
-    let (shape : Shape) := t.shape.map (fun dim => match dim with
-      | .known d =>  d
-      | .unknown => panic! "Can't support tensors with unkown shape") |> .mk
-    let (dtype : TensorLib.Dtype) := match t.tensorElementTypeGen with
-      | .classic (.floatType .f32) => TensorLib.Dtype.float32
-      | _ => panic! s!"Unsupported tensor element type: {repr t.tensorElementTypeGen}"
-    .mk shape dtype
-
 -- Returns the list of variables that this operator immediately depends on.
 def dependencies : Operator → List Var
   | .arg _ => []

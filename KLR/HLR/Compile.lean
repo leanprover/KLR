@@ -44,17 +44,26 @@ def addFunction (func : Function) : Compile Unit := do
 def permute {T : Type} (l : List T) (permutation : List Nat) : Option (List T) :=
   permutation.mapM fun (dim : Nat) => l[dim]?
 
--- Parse a StableHLO tensor type from the function signature at index `n`.
-def parseTensorType (l : List StableHLO.Parsing.ValueType) (n : Nat): Compile TensorTy :=
+-- Convert a StableHLO tensor type to an HLR TensorTy.
+def parseTensorType (t : StableHLO.Parsing.TensorType) : Compile TensorTy := do
+    let shape ← t.shape.mapM (fun
+      | .known d =>  pure d
+      | .unknown => throw "Can't support tensors with dynamic shape")
+    let dtype ← match t.tensorElementTypeGen with
+      | .classic (.floatType .f32) => pure TensorLib.Dtype.float32
+      | _ => throw s!"Unsupported tensor element type: {repr t.tensorElementTypeGen}"
+    return .mk (.mk shape) dtype
+
+-- Parse an HLR TensorTy at index `n` from the list of types.
+def parseTensorTypeFromValueTypes (l : List StableHLO.Parsing.ValueType) (n : Nat): Compile TensorTy :=
   match l[n]? with
-  | .some (.tensorType t) => pure (Coe.coe t)
+  | .some (.tensorType t) => parseTensorType t
   | .some t => .error s!"Element {n} of type list must have tensor type, but got {repr t}."
   | _ => .error s!"Type list must have at least {n + 1} values, but got only {l.length}."
 
--- Parse a StableHLO tensor type from a list of types, expecting the list to have exactly one element.
-def parseSingleTensorType (l : List StableHLO.Parsing.ValueType) : Compile TensorTy :=
-  match l with
-  | [.tensorType t] => pure (Coe.coe t)
+-- Parse an HLR TensorTy from a list of types, expecting the list to have exactly one element.
+def parseSingleTensorTypeFromValueTypes : List StableHLO.Parsing.ValueType → Compile TensorTy
+  | [.tensorType t] => parseTensorType t
   | t => .error s!"Expected type list to have a single tensor type, but got {repr t}."
 
 -- Parse an array from a StableHLO literal.
@@ -158,7 +167,7 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
     let output ← match outputs with
     | [output] => pure output
     | _ => .error "Operator signature must have a single output."
-    let outputTy ← parseSingleTensorType signature.range
+    let outputTy ← parseSingleTensorTypeFromValueTypes signature.range
     -- helper function to emit HLR for element-wise unary ops
     let makeUnOp := fun (op : UnaryOp) => do
       log s!"Compiling unary op {op}"
@@ -240,8 +249,8 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
         extractDotDimensionNumbers inputAttributes
       let lhs := inputValues[0]!
       let rhs := inputValues[1]!
-      let lhsType ← parseTensorType signature.domain 0
-      let rhsType ← parseTensorType signature.domain 1
+      let lhsType ← parseTensorTypeFromValueTypes signature.domain 0
+      let rhsType ← parseTensorTypeFromValueTypes signature.domain 1
       let dtype := lhsType.dtype
       let lhsShape := lhsType.shape
       let rhsShape := rhsType.shape
@@ -312,7 +321,7 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
       Statement.assign
         output
         (.call callee inputValues)
-        (← parseSingleTensorType signature.range)]
+        (← parseSingleTensorTypeFromValueTypes signature.range)]
 
   | s => .error s!"Unsupported operation type {repr s}"
 
@@ -320,17 +329,17 @@ def compileFunc (f : StableHLO.Parsing.Function) : Compile Unit := do
   let .mk args body := f.funcBody
   let inputs ← args.mapM (fun (.mk name v) => do
     match v with
-    | .tensorType t => pure t
+    | .tensorType t => parseTensorType t
     | _ => .error s!"Function input {name} must have tensor type.")
   let outputs ← f.funcType.range.mapM fun x => match x with
-    | .tensorType t => pure t
+    | .tensorType t => parseTensorType t
     | _ => .error "Function output must be a tensor type."
   -- Since arguments are referred to by index, emit a statement for each
   -- argument that assigns it to a named variable
   let preamble ← args.mapIdxM (fun i (.mk name v) => do
     match v with
     | .tensorType t =>
-      pure (Statement.assign name (.arg i) t)
+      pure (Statement.assign name (.arg i) (← parseTensorType t))
     | _ => .error s!"Function input {name} must have tensor type.")
   let statements ← body.flatMapM compileOp
   let func := Function.mk f.funcId inputs outputs (preamble ++ statements)
