@@ -139,7 +139,7 @@ def dependencies : Operator → List Var
   | .slice a .. => [a]
   | .call _ inputs => inputs
 
--- Returns the list of all variables in this function.
+-- Returns the list of all variables defined in this function.
 def vars (f : Function) : List Var :=
   f.statements.filterMap (fun stmt =>
     match stmt with
