@@ -154,9 +154,10 @@ deriving BEq, FromSexp, ToSexp
 
 -- Parser tests
 
-#guard Sexp.fromString "3.14" == .ok (.atom "3.14")
-#guard Sexp.fromString "(a ok)" == .ok (sexp%(a ok))
-#guard Sexp.fromString "(a (b c d) e)" == .ok (sexp%(a (b c d) e))
-#guard (Sexp.fromString "(a ok) oops").isOk == false
+#guard Sexp.fromString "3.14" == .ok [.atom "3.14"]
+#guard Sexp.fromString "(a ok)" == .ok [sexp%(a ok)]
+#guard Sexp.fromString "(a (b c d) e)" == .ok [sexp%(a (b c d) e)]
+#guard (Sexp.fromString "(a ok) oops") == .ok [sexp%(a ok), sexp%oops]
 #guard (Sexp.fromString "(a ok))").isOk == false
 #guard (Sexp.fromString "(a ok").isOk == false
+#guard (Sexp.fromString "(a)(b)(c)") == .ok [sexp%(a), sexp%(b), sexp%(c)]
