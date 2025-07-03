@@ -11,7 +11,7 @@ import SHerLOC
 import TensorLib.Shape
 import TensorLib.Slice
 
-open TensorLib (Shape Dtype)
+open TensorLib (Dtype Shape)
 
 -- This module compiles a StableHLO program into an HLR program.
 namespace KLR.HLR.Compile

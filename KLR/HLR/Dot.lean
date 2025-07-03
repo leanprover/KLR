@@ -7,7 +7,7 @@ Authors: Paul Biberstein
 import KLR.HLR.AST
 import SHerLOC.Analysis.Graph
 
-open StableHLO.Analysis (Vertex Graph Edge)
+open StableHLO.Analysis (Graph Edge Vertex)
 
 -- This module provides a way to convert an HLR function into a DOT graph representation.
 namespace KLR.HLR.Graph
