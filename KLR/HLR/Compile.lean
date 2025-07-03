@@ -10,8 +10,9 @@ import KLR.Util
 import SHerLOC
 import TensorLib.Shape
 import TensorLib.Slice
+import TensorLib.Tensor
 
-open TensorLib (Dtype Shape)
+open TensorLib (Dtype Shape Tensor)
 
 -- This module compiles a StableHLO program into an HLR program.
 namespace KLR.HLR.Compile
@@ -39,6 +40,93 @@ def addFunction (func : Function) : Compile Unit := do
 -- Permute `l` according to the indices in `permutation`.
 def permute {T : Type} (l : List T) (permutation : List Nat) : Option (List T) :=
   permutation.mapM fun dim => l[dim]?
+
+/-
+Parses a StableHLO floatliteral to a Float32.
+
+TODO: Probably has all sorts of rounding errors, but dealing with floats in Lean
+is so agonizing, and the semantics of this number storage system are so confusing,
+that I'm satisfied with this as a first pass for now.
+
+Examples:
+The FloatLiteral
+  intPart: {.minus, 4}
+  fracPart: {.plus, 785980}
+  sciPart: {.minus, 1}
+Represents the number 4.4785980e-1, which is
+  (4 + 0.4785980) * 10 ^ -1
+
+Alternatively, if we have
+  intPart: {.minus, 3}
+  fracPart: {.plus, 597620}
+  sciPart: {.minus, 3}
+Then it represents the number -3.597620e-3, which is
+  (-3 + 0.597620) * 10 ^ -3
+-/
+def parseFloat (c : StableHLO.Parsing.FloatLiteral) : Float32 :=
+  match c with
+  | .decimal {
+    integerPart := ⟨ intSign, intDecimal ⟩,
+    fractionalPart := ⟨ _, fracDecimal ⟩,
+    scientificPart := ⟨ sciSign, sciDecimal ⟩
+    } =>
+    let exponent := match sciSign with
+      | .plus => Int.ofNat sciDecimal
+      | .minus => (Int.ofNat sciDecimal) * -1
+    let intSign := match intSign with
+      | .plus => ""
+      | .minus => "-"
+    let mantissa := String.toInt! s!"{intSign}{intDecimal}{fracDecimal}"
+    -- TODO: is there no log10 in the lean std library?
+    let fracDigits := ToString.toString fracDecimal |>.length |> Int.ofNat
+    let exponent := exponent - fracDigits
+    (Float32.ofInt mantissa) * ((Float32.ofNat 10) ^ (Float32.ofInt exponent))
+  | .hexaDecimal _ => panic! "Hexadecimal float literals are not supported yet."
+
+-- Parse a StableHLO element literal to a Float32.
+def parseFloatFromElementLiteral (c : StableHLO.Parsing.ElementLiteral) : Compile Float32 :=
+  match c with
+  |(.floatLiteral f) => pure (parseFloat f)
+  | _ => throw s!"Expected a float literal, but got {repr c}."
+
+-- Convert a list of Float32 values to a TensorLib tensor.
+def ofFloatList (ns : List Float32) : Compile Tensor := do
+  let dtype := TensorLib.Dtype.float32
+  let size := dtype.itemsize
+  let arr := Tensor.zeros dtype (Shape.mk [ns.length])
+  let mut data := arr.data
+  let mut posn := 0
+  for n in ns do
+    let v <- dtype.byteArrayOfFloat32 n
+    data := v.copySlice 0 data posn size
+    posn := posn + size
+  .ok { arr with data := data }
+
+-- Convert a list of tensors to a single tensor by concatenating them along a new first dimension.
+def ofTensorList (ns : List Tensor) : Compile Tensor :=
+  match ns with
+  | f :: r => do
+    if ! (r.all fun t => t.shape == f.shape) then
+      throw s!"All tensors in the list must have the same shape, but got {repr ns}."
+    else
+      let newShape := Shape.mk (ns.length :: f.shape.val)
+      let dtype := f.dtype
+      let size := ns.foldl (fun acc t => acc + t.size) 0
+      let arr := Tensor.zeros dtype newShape
+      let mut data := arr.data
+      let mut posn := 0
+      for t in ns do
+        data := t.data.copySlice 0 data posn (t.data.size * size)
+        posn := posn + (t.data.size * size)
+      .ok { arr with data := data }
+  | [] => pure (TensorLib.Tensor.empty TensorLib.Dtype.float32 (Shape.mk []))
+
+-- Parse a StableHLO dense literal to an HLR tensor.
+def parseTensorLiteral : StableHLO.Parsing.DenseLiteral → Compile Tensor
+  | .denseDimension values => do
+    ofTensorList (← values.mapM parseTensorLiteral)
+  | .denseElements elems => do
+    (← elems.mapM parseFloatFromElementLiteral) |> ofFloatList
 
 -- Convert a StableHLO tensor type to an HLR TensorTy.
 def parseTensorType (t : StableHLO.Parsing.TensorType) : Compile TensorTy := do
@@ -201,9 +289,9 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
       let valueAttr ← lookupAttributeValue inputAttributes "value"
       match valueAttr with
       | (.tensor (.denseElements [(.floatLiteral f)])) =>
-        pure [.assign output (.full f outputTy.shape) outputTy]
+        pure [.assign output (.full (parseFloat f) outputTy.shape) outputTy]
       | (.tensor lit) =>
-        pure [.assign output (.const lit outputTy.shape outputTy.dtype) outputTy]
+        pure [.assign output (.const (← parseTensorLiteral lit) outputTy.shape outputTy.dtype) outputTy]
       | _ => throw "Constant operation requires a 'value' attribute with tensor literal."
     -- tensor unary operators
     | .reshape => do

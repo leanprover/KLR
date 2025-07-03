@@ -10,6 +10,7 @@ import SHerLOC
 import TensorLib.Dtype
 import TensorLib.Shape
 import TensorLib.Slice
+import TensorLib.Tensor
 
 open TensorLib (Shape Dtype)
 
@@ -79,7 +80,7 @@ inductive Operator where
   -- select elements from two tensors based on a condition tensor
   | select (cond a b : Var)
   -- create a tensor filled with a specific value, with the given shape
-  | full (value : StableHLO.Parsing.FloatLiteral) (shape : Shape)
+  | full (value : Float32) (shape : Shape)
   -- transpose a tensor with the provided permutation of dimensions
   | transpose (a : Var) (dims : List Nat)
   -- unused
@@ -91,7 +92,7 @@ inductive Operator where
   -- so this instruction just passes through the semantics of HLO's broadcasting
   | broadcast (a : Var) (shape : Shape) (broadcastDims : List Nat)
   -- create a constant tensor with the given values and shape
-  | const (values : StableHLO.Parsing.DenseLiteral) (shape : Shape) (dtype : TensorLib.Dtype)
+  | const (values : TensorLib.Tensor) (shape : Shape) (dtype : TensorLib.Dtype)
   -- gather elements from a tensor using the provided indices and offset dimensions
   -- TODO: gather is complicated and not used except for in llama, so for now
   -- we just pass through the semantics of HLO's gather
@@ -226,12 +227,12 @@ instance : ToString Operator where
     | .arange start stop step shape => s!"arange({start}, {stop}, {step}, shape={shape})"
     | .concat tensors dim => s!"concat({", ".intercalate tensors}, dim={dim})"
     | .select cond a b => s!"select({cond}, {a}, {b})"
-    | .full _ shape => s!"full(..., shape={shape})"
+    | .full v shape => s!"full({repr v}, shape={shape})"
     | .transpose a dims => s!"transpose({a}, dims={dims})"
     | .split_with_sizes a sizes => s!"split_with_sizes({a}, sizes={sizes})"
     | .reshape a shape => s!"reshape({a}, shape={shape})"
     | .broadcast a shape dims => s!"broadcast({a}, shape={shape}, dims={dims})"
-    | .const _ shape dtype => s!"const(..., shape={shape}, dtype={dtype})"
+    | .const t shape dtype => s!"const({repr t}, shape={shape}, dtype={dtype})"
     | .gather a indices offsetDims collapsedSliceDims startIndexMap indexVectorDim
       => s!" gather({a}, indices={indices}, offsetDims={offsetDims}, collapsedSliceDims={collapsedSliceDims}, startIndexMap={startIndexMap}, indexVectorDim={indexVectorDim})"
     | .slice a start limit stride => s!"slice({a}, start={start}, limit={limit}, stride={stride})"
