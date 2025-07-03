@@ -93,6 +93,8 @@ inductive Operator where
   -- create a constant tensor with the given values and shape
   | const (values : StableHLO.Parsing.DenseLiteral) (shape : Shape) (dtype : TensorLib.Dtype)
   -- gather elements from a tensor using the provided indices and offset dimensions
+  -- TODO: gather is complicated and not used except for in llama, so for now
+  -- we just pass through the semantics of HLO's gather
   | gather (input indices : Var) (offsetDims collapsedSliceDims startIndexMap : List Nat) (indexVectorDim : Nat)
   -- slice a tensor along specified dimensions, with start, limit, and stride
   | slice (a : Var) (start limit stride : List Nat)
