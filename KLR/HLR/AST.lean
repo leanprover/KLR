@@ -31,13 +31,13 @@ abbrev Var := String
 
 -- scalar-scalar binary operators
 inductive BinaryOp where
-  | mul
-  | max
-  | sub
   | add
+  | sub
+  | mul
   | div
-  | cmp
   | and
+  | max
+  | cmp
 deriving Inhabited, Repr
 
 -- scalar unary operators
@@ -188,13 +188,13 @@ instance : ToString TensorLib.Dtype where
 
 instance : ToString BinaryOp where
   toString
-    | .mul => "mul"
-    | .max => "max"
-    | .sub => "sub"
     | .add => "add"
+    | .sub => "sub"
+    | .mul => "mul"
     | .div => "div"
-    | .cmp => "cmp"
     | .and => "and"
+    | .max => "max"
+    | .cmp => "cmp"
 
 instance : ToString UnaryOp where
   toString

@@ -42,13 +42,13 @@ def dTypeToPy : Dtype → String
   | .float64 => "np.float64"
 
 def binOpToPy : BinaryOp → String
-  | .mul => "np.multiply"
-  | .max => "np.maximum"
-  | .sub => "np.subtract"
   | .add => "np.add"
+  | .sub => "np.subtract"
+  | .mul => "np.multiply"
   | .div => "np.divide"
-  | .cmp => "np.compare"
   | .and => "np.logical_and"
+  | .max => "np.maximum"
+  | .cmp => "np.compare"
 
 def unaryOpToPy : UnaryOp → String
   | .exp => "np.exp"
@@ -57,8 +57,8 @@ def unaryOpToPy : UnaryOp → String
   | .convert d => s!"(lambda x: x.as_type({dTypeToPy d}))"
 
 def reduceOpToPy : BinaryOp → String
-  | .max => "np.max"
   | .add => "np.sum"
+  | .max => "np.max"
   | op => panic! s!"Unsupported reduction operation: {op}"
 
 def intLitToPy : StableHLO.Parsing.IntegerLiteral → String
