@@ -208,6 +208,11 @@ For now, only support trivial indexing.
     tensor.upd_store? DataT s1.memory (lift_encoding_to_store DataT f) = .some s2 →
     ExprStep (.unary_scalar e f) l0 s0 (.ptr tensor) { s1 with memory := s2 }
 
+
+theorem expr_step_det : ExprStep DataT e loc s vl sl → ExprStep DataT e loc s vr sr → vl = vr ∧ sl = sr := by
+  sorry
+
+
 inductive step : ExecState DataT × State → ExecState DataT × State → Prop where
 /-- [ Return ] -/
 | ret :
@@ -233,5 +238,36 @@ inductive step : ExecState DataT × State → ExecState DataT × State → Prop 
           .cons ⟨.loop I x (Iterator.next (@Value DataT) i) b, loc⟩ <|
           p, s)
 
-/- TODO: Write an interpreter and prove it correct. Use a nondeterminism monad. -/
+@[simp] def to_val : ExecState DataT × State → Option (Value DataT × State)
+| (.done v, s) => .some (v, s)
+| _ => .none
+
+def NMLSemantics : SmallStep where
+  prog := ExecState DataT
+  state := State
+  val := Value DataT × State
+  step := step DataT
+  to_val := to_val DataT
+  value_stuck {c c'} := by
+    rcases c with ⟨⟨p⟩, s⟩
+    · simp
+    · rintro _ ⟨⟩
+
+instance : Det (NMLSemantics DataT) where
+  step_det {c c'} := by
+    rintro ⟨⟩ _ ⟨⟩
+    · rename_i He1 _ _ He2
+      rcases expr_step_det _ He1 He2 with ⟨H1, H2⟩
+      subst H1; subst H2; rfl
+    · congr
+      rename_i He1 _ _ He2
+      rcases expr_step_det _ He1 He2 with ⟨H1, H2⟩
+      exact H2.symm
+    · congr
+      rename_i He1 _ _ He2
+      rcases expr_step_det _ He1 He2 with ⟨H1, H2⟩
+      exact H2.symm
+    · rfl
+    · rfl
+
 end NML
