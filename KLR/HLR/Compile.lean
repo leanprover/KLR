@@ -29,7 +29,7 @@ def empty : Ctx := .mk (.mk []) []
 end Ctx
 
 -- Compilation requires tracking state and also potentially returning errors.
-abbrev Compile T := EStateM String Ctx T
+abbrev Compile T := StM Ctx T
 
 -- Emit a message to the compilation log.
 def log (msg : String) : Compile Unit :=
