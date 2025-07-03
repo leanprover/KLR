@@ -7,9 +7,9 @@ Authors: Paul Biberstein
 import KLR.Core.Operators
 import KLR.Util
 import SHerLOC
+import TensorLib.Dtype
 import TensorLib.Shape
 import TensorLib.Slice
-import TensorLib.Dtype
 
 open TensorLib (Shape Dtype)
 

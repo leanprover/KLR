@@ -5,11 +5,11 @@ Authors: Paul Biberstein
 -/
 
 import KLR.Core.Operators
+import KLR.HLR.AST
 import KLR.Util
 import SHerLOC
 import TensorLib.Shape
 import TensorLib.Slice
-import KLR.HLR.AST
 
 open TensorLib (Shape Dtype)
 

@@ -4,15 +4,15 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Biberstein
 -/
 
-import KLR.HLR.AST
 import KLR.Core.Operators
+import KLR.HLR.AST
 import KLR.Util
 import SHerLOC
 import TensorLib.Shape
 import TensorLib.Slice
 
-open TensorLib (Shape Dtype Slice)
 open Std.Format
+open TensorLib (Dtype Shape Slice)
 
 /-
 This module converts an HLR program into a runnable Python program.

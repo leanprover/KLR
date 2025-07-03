@@ -3,8 +3,9 @@ Copyright (c) 2025 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Biberstein
 -/
-import SHerLOC.Analysis.Graph
+
 import KLR.HLR.AST
+import SHerLOC.Analysis.Graph
 
 open StableHLO.Analysis (Vertex Graph Edge)
 
