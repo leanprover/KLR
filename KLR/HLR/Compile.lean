@@ -24,10 +24,6 @@ structure Ctx where
   log : List String
 deriving Inhabited, Repr
 
-namespace Ctx
-def empty : Ctx := .mk (.mk []) []
-end Ctx
-
 -- Compilation requires tracking state and also potentially returning errors.
 abbrev Compile T := StM Ctx T
 
@@ -352,7 +348,7 @@ def compile (m : List StableHLO.Parsing.Module) : (Except String Unit) × Ctx :=
   let compiled := match m with
     | [m] => compileModule m
     | _  => throw "Only one module is supported for now."
-  match compiled.run Ctx.empty with
+  match compiled.run default with
   | .ok _ s => (.ok (), s)
   | .error err s => (throw err, s)
 
