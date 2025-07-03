@@ -227,11 +227,21 @@ def withSrc (line : Nat) (source : String) (m : Trace a) : Trace a := fun s =>
   match m { s with pos := { line := 0 } } with
   | .ok x s => .ok x { s with pos := p' }
   | .error (.located p e) s =>
-    .error (.formatted $ Python.Parsing.genError line source e p)
+    .error (.formatted $ genError line source e p)
            { s with pos := p' }
   | .error (.formatted str) s =>
-    .error (.formatted (str ++ Python.Parsing.genError line source "called from" s.pos))
+    .error (.formatted (str ++ genError line source "called from" s.pos))
            { s with pos := p' }
+where
+  genError (offset : Nat) (source err : String) (pos : Pos) : String :=
+    let lines := source.splitOn "\n"
+    let lineno := pos.line - 1
+    let colno := pos.column
+    let line := if lines.length < lineno
+                then "<source not available>"
+                else lines[lineno]!
+    let indent := (Nat.repeat (List.cons ' ') colno List.nil).asString
+    s!"\nline {lineno + offset}:\n{line}\n{indent}^-- {err}"
 
 -- generate a fresh name using an existing name as a prefix
 def genName (name : Name := .anonymous) : Trace Name :=
