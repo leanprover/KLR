@@ -72,16 +72,23 @@ def parseFloat (c : StableHLO.Parsing.FloatLiteral) : Float32 :=
     } =>
     let exponent := match sciSign with
       | .plus => Int.ofNat sciDecimal
-      | .minus => (Int.ofNat sciDecimal) * -1
-    let intSign := match intSign with
-      | .plus => ""
-      | .minus => "-"
-    let mantissa := String.toInt! s!"{intSign}{intDecimal}{fracDecimal}"
-    -- TODO: is there no log10 in the lean std library?
+      | .minus => -1 * Int.ofNat sciDecimal
+    let sign := match intSign with
+      | .plus => 1
+      | .minus => (-1 : Float32)
+    let mantissa := String.toNat! s!"{intDecimal}{fracDecimal}"
     let fracDigits := ToString.toString fracDecimal |>.length |> Int.ofNat
     let exponent := exponent - fracDigits
-    (Float32.ofInt mantissa) * ((Float32.ofNat 10) ^ (Float32.ofInt exponent))
+    let (exponentSign, exponent) := if exponent >= 0 then
+      (false, exponent.natAbs)
+    else
+      (true, exponent.natAbs)
+    sign * OfScientific.ofScientific mantissa exponentSign exponent
   | .hexaDecimal _ => panic! "Hexadecimal float literals are not supported yet."
+
+#guard parseFloat (.decimal { integerPart := ⟨ .plus,  4 ⟩, fractionalPart := ⟨ .plus, 785980 ⟩, scientificPart := ⟨ .plus,  3 ⟩}) == 4785.980
+#guard parseFloat (.decimal { integerPart := ⟨ .minus, 4 ⟩, fractionalPart := ⟨ .plus, 785980 ⟩, scientificPart := ⟨ .minus, 1 ⟩}) == -0.4785980
+#guard parseFloat (.decimal { integerPart := ⟨ .minus, 3 ⟩, fractionalPart := ⟨ .plus, 597620 ⟩, scientificPart := ⟨ .minus, 3 ⟩}) == -0.003597620
 
 -- Parse a StableHLO element literal to a Float32.
 def parseFloatFromElementLiteral (c : StableHLO.Parsing.ElementLiteral) : Compile Float32 :=
