@@ -856,6 +856,153 @@ section InnerMapImpl
         vals := vals
         props := props
       }
-
-  #check Solution
 end InnerMapImpl
+
+section ConcreteMapImpl
+  section IsConstImpl
+    inductive ℂ : Type where
+      | maybe : ℂ -- key may or may not be set (top val)
+      | any : ℂ -- key has been set
+      | some : ℕ → ℂ -- key has been set to (ℕ)
+      | unreachable : ℂ -- there are no reaching paths that set this key (bot val)
+      deriving DecidableEq
+
+    notation "𝕄" => ℂ.maybe
+    notation "𝔸" => ℂ.any
+    notation "𝕊" => ℂ.some
+    notation "𝕌" => ℂ.unreachable
+
+    instance : DecidableEq ℂ := by {
+      unfold DecidableEq
+      intro a b
+      by_cases h: (a=b)
+      apply isTrue; assumption
+      apply isFalse; assumption
+      }
+
+    instance : Max ℂ where
+      max := fun
+      | 𝕄, _
+      | _, 𝕄 => 𝕄 -- properties of merging w top (maybe - 𝕄) (if either branch is 𝕄, merge in 𝕄)
+      | 𝕌, ℂ₀
+      | ℂ₀, 𝕌 => ℂ₀ -- properties of merging w bot (unreachable - 𝕌) (if either branch is 𝕌, other is unaffected)
+      | 𝕊 a, 𝕊 b => if a = b then 𝕊 a else 𝔸 --two 𝕊 (some) branches either agree, or must be generalized to 𝔸
+      |_, _ => 𝔸 -- case where one branch is 𝔸 (any) and the other is 𝕊 (some), merge is 𝔸
+
+    instance : HasBot ℂ where
+      bot := 𝕌
+
+    instance : Preorder ℂ where
+      le ℂ₀ ℂ₁ := ℂ₁ = ℂ₀ ⊔ ℂ₁
+      le_refl := by {
+        intro ℂ₀
+        cases ℂ₀<;>
+        unfold Max.max instMaxℂ<;>
+        simp
+      }
+      le_trans := by {
+        unfold Max.max instMaxℂ<;>
+        intro ℂ₀ ℂ₁ ℂ₂ r₀ r₁<;>
+        cases ℂ₀<;>cases ℂ₁<;>cases ℂ₂<;>
+        simp<;>simp at r₀<;>simp at r₁
+        {
+          rename_i n₀ n₁ n₂
+          by_cases h₀₁: (n₀ = n₁) = true <;>
+          simp at h₀₁ <;>
+          by_cases h₁₂: (n₁ = n₂) = true <;>
+          simp at h₁₂ <;>
+          by_cases h₀₂: (n₀ = n₂) = true <;>
+          simp at h₀₂ <;>
+          try {split at r₀<;> contradiction} <;>
+          try {split at r₁<;> contradiction}
+          {rw [h₀₂]; simp}
+          {rw [←h₀₁] at h₁₂; contradiction}
+        }
+    }
+
+    instance : DecidableLE ℂ := by {
+      intro ℂ₀ ℂ₁
+      unfold LE.le instLEOfPreorder Preorder.toLE instPreorderℂ
+      simp
+      by_cases h : (ℂ₁ = ℂ₀⊔ℂ₁)
+      apply isTrue; assumption
+      apply isFalse; assumption
+    }
+
+    #synth DecidableEq ℂ
+    #synth Preorder ℂ
+    #synth DecidableLE ℂ
+    #synth Max ℂ
+    #synth HasBot ℂ
+
+    theorem le_supl: ∀ ℂ₀ ℂ₁ : ℂ, ℂ₀ ≤ ℂ₀ ⊔ ℂ₁ := by {
+      intro ℂ₀ ℂ₁
+      unfold LE.le instLEOfPreorder Preorder.toLE instPreorderℂ Max.max instMaxℂ
+      simp
+      cases ℂ₀ <;> cases ℂ₁ <;> simp
+      split <;> simp
+    }
+    theorem le_supr : ∀ ℂ₀ ℂ₁ : ℂ, ℂ₁ ≤ ℂ₀ ⊔ ℂ₁ := by {
+      intro ℂ₀ ℂ₁
+      unfold LE.le instLEOfPreorder Preorder.toLE instPreorderℂ Max.max instMaxℂ
+      simp
+      cases h₀ : ℂ₀ <;> cases h₁ : ℂ₁ <;> simp
+      split <;> simp
+      {
+        rename_i n₀ n₁ eq
+        rw [eq]
+        simp
+      }
+    }
+  end IsConstImpl
+
+  def num_nodes : ℕ := 17
+  def num_keys : ℕ := 2
+
+  def edges : ℕ → ℕ → Bool := fun
+  | 0, 1
+  | 0, 2
+  | 1, 3
+  | 2, 4
+  | 2, 5
+  | 2, 6
+  | 3, 7
+  | 4, 3
+  | 4, 8
+  | 5, 9
+  | 6, 10
+  | 7, 1
+  | 7, 11
+  | 8, 12
+  | 9, 13
+  | 10, 13
+  | 11, 15
+  | 12, 14
+  | 13, 14
+  | 14, 16
+  | 15, 16 => true
+  | _, _ => false
+
+  def transitions : ℕ → ℕ → ℂ → ℂ := fun
+  | 2, 0, _ => ℂ.some 5
+  | 2, 1, _ => ℂ.some 2
+  | 5, 0, _ => ℂ.some 1
+  | 6, 0, _ => ℂ.some 1
+  | 7, 1, _ => ℂ.some 4
+  | 8, 0, _ => ℂ.some 3
+  | 11, 0, _ => ℂ.some 9
+  | 14, 0, _ => ℂ.some 7
+  | _, _, ℂ₀ => ℂ₀
+
+
+  def X := Solution
+    (ρ:=ℂ)
+    (le_supl:=le_supl)
+    (le_supr:=le_supr)
+    (num_nodes:=num_nodes)
+    (num_keys:=num_keys)
+    (edges:=edges)
+    (transitions:=transitions)
+
+  #eval! (match X with | some _ => "some" | none => "none")
+end ConcreteMapImpl
