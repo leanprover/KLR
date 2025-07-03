@@ -38,7 +38,7 @@ def addFunction (func : Function) : Compile Unit := do
 
 -- Permute `l` according to the indices in `permutation`.
 def permute {T : Type} (l : List T) (permutation : List Nat) : Option (List T) :=
-  permutation.mapM fun (dim : Nat) => l[dim]?
+  permutation.mapM fun dim => l[dim]?
 
 -- Convert a StableHLO tensor type to an HLR TensorTy.
 def parseTensorType (t : StableHLO.Parsing.TensorType) : Compile TensorTy := do
@@ -85,7 +85,7 @@ def parseNatFromFloat (c : StableHLO.Parsing.Literal) : Compile Nat :=
 
 -- Find an attribute by name in a list of attributes
 def lookupAttribute  (attrs : List StableHLO.Parsing.Attribute) (name : String) : Compile StableHLO.Parsing.Constant :=
-  match attrs.find? (fun (.mk id _) => id == name) with
+  match attrs.find? (fun ⟨ id, _ ⟩ => id == name) with
   | some ⟨ _, attr ⟩ => pure attr
   | none => throw s!"Attribute '{name}' not found."
 
@@ -95,14 +95,14 @@ def lookupAttributeValue (attrs : List StableHLO.Parsing.Attribute) (name : Stri
 
 -- Get the value of a field in a StableHLO record, expecting it to be a list of integers.
 def lookupNatsInFields (fields : List StableHLO.Parsing.StableHLORecordField) (name : String) : Compile (List Nat) :=
-  match fields.find? (fun (.mk n _) => n == name) with
+  match fields.find? (fun ⟨ n, _ ⟩ => n == name) with
   | some (.mk _ (.many ns)) => pure ns
   | some v => throw s!"Field '{name}' must be a list of integers, but got {repr v}."
   | none => pure []
 
 -- Get the value of a field in a StableHLO record, expecting it to be a single integer.
 def lookupNatInFields (fields : List StableHLO.Parsing.StableHLORecordField) (name : String) : Compile Nat :=
-  match fields.find? (fun (.mk n _) => n == name) with
+  match fields.find? (fun ⟨ n, _ ⟩ => n == name) with
   | some (.mk _ (.one n)) => pure n
   | some v => throw s!"Field '{name}' must be a single integer, but got {repr v}."
   | none => throw s!"Field '{name}' not found in record list {repr fields}."
@@ -264,11 +264,11 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
       let rhsResultShape := rhsTransposedShape.drop rhsBatchingDims.length |>.take rhsResultDims.length
       let contractingShape := lhsTransposedShape.drop (lhsBatchingDims.length + lhsResultDims.length) |>
         List.take (lhsTransposedShape.length - (lhsBatchingDims.length + lhsResultDims.length))
-      let batchSize := if batchShape.isEmpty then 1 else batchShape.foldl (fun acc d => acc * d) 1
+      let batchSize := if batchShape.isEmpty then 1 else batchShape.foldl (· * ·) 1
       let resultShape := batchShape ++ lhsResultShape ++ rhsResultShape
-      let lhsResultSize := if lhsResultShape.isEmpty then 1 else lhsResultShape.foldl (fun acc d => acc * d) (1 : Nat)
-      let rhsResultSize := if rhsResultShape.isEmpty then 1 else rhsResultShape.foldl (fun acc d => acc * d) (1 : Nat)
-      let contractingSize := if contractingShape.isEmpty then 1 else contractingShape.foldl (fun acc d => acc * d) 1
+      let lhsResultSize := if lhsResultShape.isEmpty then 1 else lhsResultShape.foldl (· * ·) (1 : Nat)
+      let rhsResultSize := if rhsResultShape.isEmpty then 1 else rhsResultShape.foldl (· * ·) (1 : Nat)
+      let contractingSize := if contractingShape.isEmpty then 1 else contractingShape.foldl (· * ·) 1
       -- Create fresh variable names for intermediate results
       -- TODO: this is currently not correct, since the names are not unique
       let lhsTransposedName := lhs ++ "_transposed"
@@ -323,16 +323,16 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
 
 def compileFunc (f : StableHLO.Parsing.Function) : Compile Unit := do
   let .mk args body := f.funcBody
-  let inputs ← args.mapM (fun (.mk name v) => do
+  let inputs ← args.mapM (fun ⟨ name, v ⟩ => do
     match v with
     | .tensorType t => parseTensorType t
     | _ => throw s!"Function input {name} must have tensor type.")
-  let outputs ← f.funcType.range.mapM fun x => match x with
+  let outputs ← f.funcType.range.mapM fun
     | .tensorType t => parseTensorType t
     | _ => throw "Function output must be a tensor type."
   -- Since arguments are referred to by index, emit a statement for each
   -- argument that assigns it to a named variable
-  let preamble ← args.mapIdxM (fun i (.mk name v) => do
+  let preamble ← args.mapIdxM (fun i ⟨ name, v ⟩ => do
     match v with
     | .tensorType t =>
       pure (Statement.assign name (.arg i) (← parseTensorType t))

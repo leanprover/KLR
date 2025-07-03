@@ -78,7 +78,7 @@ def graph (f : HLR.Function) : Graph := Id.run do
   let mut vertices := []
   let mut edges := []
   -- Every variables in the function that is the result of a `constant` operatior
-  let mut consts := f.statements.filterMap (fun s => match s with
+  let mut consts := f.statements.filterMap (fun
     | .assign v (.const _ _ _) _ => .some v
     | _ => .none)
   -- A closure that creates edges from a list of inputs to an output variable.

@@ -141,15 +141,13 @@ def dependencies : Operator → List Var
 
 -- Returns the list of all variables defined in this function.
 def vars (f : Function) : List Var :=
-  f.statements.filterMap (fun stmt =>
-    match stmt with
+  f.statements.filterMap (fun
     | .assign dest .. => .some dest
     | _ => .none)
 
 -- Finds the operator that assigns to a variable in the function.
 def findVar (f : Function) (v : Var) : Option Operator :=
-  f.statements.findSome? (fun stmt =>
-    match stmt with
+  f.statements.findSome? (fun
     | .assign dest op _ => if dest == v then .some op else .none
     | _ => .none)
 

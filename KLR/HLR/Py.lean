@@ -81,7 +81,7 @@ def elementLitToPy : StableHLO.Parsing.ElementLiteral → String
 
 def valueToPy : StableHLO.Parsing.DenseLiteral → String
   | .denseDimension n => s!"[{n.map valueToPy |> ", ".intercalate}]"
-  | .denseElements arr => ",".intercalate (arr.map (fun x => elementLitToPy x))
+  | .denseElements arr => ",".intercalate (arr.map elementLitToPy)
 
 def shapeToPy (s : Shape) : String :=
   s.val.map toString |> ",".intercalate
@@ -99,7 +99,7 @@ def opToPy (op : Operator) : String :=
   | .batchMatmul a b => s!"np.einsum(\"bij,bkj->bik\", {varToPy a}, {varToPy b})"
   | .arange start stop step shape => s!"np.arange({start}, {stop}, {step}).reshape({shapeToPy shape})"
   | .concat tensors dim =>
-    let tensorsStr := String.intercalate "," (tensors.map (fun t => s!"{t}"))
+    let tensorsStr := String.intercalate "," (tensors.map toString)
     s!"np.concatenate([{tensorsStr}], axis={dim})"
   | .select cond a b => s!"np.where({cond}, {varToPy a}, {varToPy b})"
   | .full value shape => s!"np.full(({shapeToPy shape}), {floatLitToPy value})"
