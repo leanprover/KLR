@@ -107,7 +107,7 @@ inductive Statement where
   | comment (msg : String)
   -- assign the result of `op` to `dest` , with the shape `shape`
   | assign (dest : Var) (op : Operator) (shape : TensorTy)
-  -- return variable `name` from the function
+  -- return variables `vars` from the function
   | ret (vars : List Var)
 deriving Inhabited, Repr
 
