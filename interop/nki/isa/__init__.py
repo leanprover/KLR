@@ -1,4 +1,4 @@
-# KLR implemetations of NKI ISA APIs
+# KLR implementations of NKI ISA APIs
 
 def psum_raw_ptr(address, size):
   p_start, f_start = address

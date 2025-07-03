@@ -9,6 +9,9 @@ Authors: Paul Govereau, Sean McLaughlin, Claude
 
 // Note: this code was written by Q, with minor edits by Q's human assistant PG
 
+// Forward declarations
+struct region;
+
 // Encoding functions
 bool cbor_encode_uint(FILE *out, u64 value);
 bool cbor_encode_int(FILE *out, i64 value);

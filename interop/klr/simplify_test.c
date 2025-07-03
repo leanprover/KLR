@@ -6,9 +6,12 @@ Authors: Paul Govereau, Sean McLaughlin, Claude
 
 // This code was entirely written by Q
 
-#include "stdc.h"
-#include "region.c"
-#include "simplify.c"
+#include "ast_python_core.h"
+#include "frontend.h"
+#include <stdio.h>
+
+// undef NDEBUG and re-include assert.h so assert() works even in release builds
+#undef NDEBUG
 #include <assert.h>
 
 // Test counter

@@ -144,8 +144,7 @@ You will also need to build a local version of the Python extension library for
 your version of Python. For example:
 
 ```
-# cd interop/klr
-# make PY_VER=3.10
+# python3 -m pip install interop/
 ```
 
 Once complete, all of the CLI commands described below can be run using either
