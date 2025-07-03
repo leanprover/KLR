@@ -738,11 +738,31 @@ section InnerMapImpl
   variable (num_nodes num_keys : ℕ)
   variable (edges : ℕ → ℕ → Bool)
   variable (transitions : ℕ → ℕ → ρ → ρ)
-  structure SolutionT where
-    vals (n k : ℕ) : (n < num_nodes) → (k < num_keys) → ρ
-    props (n m k : ℕ) : (hn : n < num_nodes) → (hm : m < num_nodes) → (hk : k < num_keys) →
-      (edges n m) → transitions n k (vals n k hn hk) ≤ (vals m k hm hk)
 
+  section SolutionImpl
+    structure SolutionT where
+      vals (n k : ℕ) : (n < num_nodes) → (k < num_keys) → ρ
+      props (n m k : ℕ) : (hn : n < num_nodes) → (hm : m < num_nodes) → (hk : k < num_keys) →
+        (edges n m) → transitions n k (vals n k hn hk) ≤ (vals m k hm hk)
+
+    def SolutionT.toString [ToString ρ]
+    (𝕊 : SolutionT ρ num_nodes num_keys edges transitions)
+    : String :=
+      let 𝕍 := 𝕊.vals
+      let nd_to_string n (hn :n < num_nodes) : String :=
+        let entries := (List.range num_keys).filterMap
+          (fun k => if hk: k < num_keys then some (ToString.toString (𝕍 n k hn hk)) else none)
+        String.intercalate " " entries
+      let lines := (List.range num_nodes).filterMap
+        (fun n => if hn: n < num_nodes then (
+          let s := nd_to_string n hn; some (s!"Node {n}: {s}")
+        ) else none)
+      String.intercalate "\n" ([""] ++ lines ++ [""])
+
+      instance [ToString ρ] : ToString (SolutionT ρ num_nodes num_keys edges transitions) where
+        toString := (SolutionT.toString ρ num_nodes num_keys edges transitions)
+
+  end SolutionImpl
   def FNM : NodeMap ℕ := (FiniteNodeMap num_keys)
 
   def FSI {_:NodeMap ℕ}: FiniteSolverInput (⟦ℕ, ρ⟧) := {
@@ -872,6 +892,13 @@ section ConcreteMapImpl
     notation "𝕊" => ℂ.some
     notation "𝕌" => ℂ.unreachable
 
+    instance : ToString ℂ where
+      toString := fun
+      | 𝕄 => "𝕄"
+      | 𝔸 => "𝔸"
+      | 𝕊 n => s!"𝕊 {n}"
+      | 𝕌 => "𝕌"
+
     instance : DecidableEq ℂ := by {
       unfold DecidableEq
       intro a b
@@ -995,7 +1022,7 @@ section ConcreteMapImpl
   | _, _, ℂ₀ => ℂ₀
 
 
-  def X := Solution
+  def 𝕏 := Solution
     (ρ:=ℂ)
     (le_supl:=le_supl)
     (le_supr:=le_supr)
@@ -1004,5 +1031,28 @@ section ConcreteMapImpl
     (edges:=edges)
     (transitions:=transitions)
 
-  #eval! (match X with | some _ => "some" | none => "none")
+  #eval 𝕏
+  /- Output:
+
+  (some (
+  Node 0: 𝕌 𝕌
+  Node 1: 𝕊 5 𝕊 4
+  Node 2: 𝕌 𝕌
+  Node 3: 𝕊 5 𝔸
+  Node 4: 𝕊 5 𝕊 2
+  Node 5: 𝕊 5 𝕊 2
+  Node 6: 𝕊 5 𝕊 2
+  Node 7: 𝕊 5 𝔸
+  Node 8: 𝕊 5 𝕊 2
+  Node 9: 𝕊 1 𝕊 2
+  Node 10: 𝕊 1 𝕊 2
+  Node 11: 𝕊 5 𝕊 4
+  Node 12: 𝕊 3 𝕊 2
+  Node 13: 𝕊 1 𝕊 2
+  Node 14: 𝔸 𝕊 2
+  Node 15: 𝕊 9 𝕊 4
+  Node 16: 𝔸 𝔸
+  ))
+
+  -/
 end ConcreteMapImpl
