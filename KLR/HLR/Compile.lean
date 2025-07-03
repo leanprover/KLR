@@ -65,7 +65,7 @@ def parseSingleTensorTypeFromValueTypes : List StableHLO.Parsing.ValueType → C
 -- Parse an array from a StableHLO literal.
 def parseArray (c : StableHLO.Parsing.Literal) : Compile (List Nat) :=
   match c with
-  | .array (.array64 arr) => pure (arr.map (fun (.mk _sign n) => n))
+  | .array (.array64 arr) => pure (arr.map fun ⟨ _sign, n ⟩ => n)
   | .array (.array1 _) => throw "array1 unimplemented."
   | _ => throw "Expected an array of integers."
 
