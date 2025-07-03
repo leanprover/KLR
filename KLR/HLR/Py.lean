@@ -12,6 +12,7 @@ import TensorLib.Shape
 import TensorLib.Slice
 
 open TensorLib (Shape Dtype Slice)
+open Std.Format
 
 -- This module converts an HLR program into a runnable Python program.
 -- At present, it can't convert HLR constants to python constants and can't
@@ -23,21 +24,7 @@ structure FormatCtx where
   indent : Nat := 0
   program : String := ""
 
-abbrev Format := EStateM String FormatCtx
-
-def increaseIndent : Format Unit := do
-  modify (fun ctx => { ctx with indent := ctx.indent + 4 })
-def decreaseIndent : Format Unit := do
-  modify (fun ctx => { ctx with indent := max 0 (ctx.indent - 4) })
-def getIndent : Format String := do
-  let ctx ← get
-  pure (List.replicate ctx.indent " " |> String.join)
-
-def putLn (msg : String) : Format Unit := do
-  let ctx ← get
-  let indentStr ← getIndent
-  let newLine := s!"{indentStr}{msg}\n"
-  pure (← set { ctx with program := ctx.program ++ newLine })
+abbrev Format := Std.Format
 
 def dTypeToPy : Dtype → String
   | .bool => "np.bool_"
@@ -128,44 +115,39 @@ def opToPy (op : Operator) : String :=
   | .call _ _ =>
     panic! s!"Can't translate call operators to Python"
 
-def compileStatement (s : Statement) : Format Unit := do
+def compileStatement (s : Statement) : Format :=
   match s with
-  | .comment msg => putLn s!"# {msg}"
-  | .assign dest op {shape, ..} => do
-    let opStr := opToPy op
-    putLn (s!"{varToPy dest} = {opStr} # {shape}")
+  | .comment msg => text s!"# {msg}"
+  | .assign dest op {shape, ..} =>
+    text (s!"{varToPy dest} = {opToPy op} # {shape}") ++
     if shape.ndim != 0 then
-      putLn (s!"assert {varToPy dest}.shape == ({shapeToPy shape},), \"Expected %s, got %s\" % (({shapeToPy shape}), {varToPy dest}.shape)")
+      line ++ text (s!"assert {varToPy dest}.shape == ({shapeToPy shape},), \"Expected %s, got %s\" % (({shapeToPy shape}), {varToPy dest}.shape)")
+    else
+      nil
   | .ret vars =>
     let varNames := vars.map varToPy |> ", ".intercalate
-    putLn (s!"return {varNames}")
+    text s!"return {varNames}"
 
-def compileFunction (f : Function) : Format Unit := do
+def compileFunction (f : Function) : Format :=
     let inputsStr := f.inputs.map (fun {shape, ..} => s!"\"np.ndarray[({shapeToPy shape})]\"") |> ", ".intercalate |> fun x => s!"args: Tuple[{x}]"
     let outputsStr := f.outputs.map (fun {shape, ..} => shapeToPy shape) |> ", ".intercalate
     let funcHeader := s!"def {f.name}({inputsStr}) -> (\"np.ndarray[({outputsStr})]\"):"
     let args := f.inputs.map (fun {shape, ..} => s!"np.random.random(({shapeToPy shape}))")
     let funCall := s!"{f.name}([{", ".intercalate args}])"
-    putLn funcHeader
-    increaseIndent
-    for statement in f.statements do
-      compileStatement statement
-    decreaseIndent
-    putLn funCall
+    text funcHeader ++
+    (nest 4 (prefixJoin line (f.statements.map compileStatement))) ++ line ++
+    text funCall
 
-def compileProgram (p : Program) : Format Unit := do
-    putLn "import numpy as np"
-    putLn "import jax"
-    putLn "from typing import Tuple"
-    for func in p.functions do
-      compileFunction func
+def compileProgram (p : Program) : Format :=
+    let lines := [
+      text "import numpy as np",
+      text "import jax",
+      text "from typing import Tuple"] ++
+      p.functions.map compileFunction
+    joinSep lines line
 
 -- Compile the HLR program to a Python program.
 def compile (p : Program) : String :=
-  let ctx := FormatCtx.mk 0 ""
-  let result := compileProgram p
-  match result.run ctx with
-  | .ok _ ctx => ctx.program
-  | .error err _ => s!"Error formatting program: {err}"
+  (compileProgram p).pretty
 
 end KLR.HLR.Py
