@@ -52,26 +52,26 @@ def parseTensorType (t : StableHLO.Parsing.TensorType) : Compile TensorTy := do
     let dtype ← match t.tensorElementTypeGen with
       | .classic (.floatType .f32) => pure TensorLib.Dtype.float32
       | _ => throw s!"Unsupported tensor element type: {repr t.tensorElementTypeGen}"
-    return .mk (.mk shape) dtype
+    pure (.mk (.mk shape) dtype)
 
 -- Parse an HLR TensorTy at index `n` from the list of types.
 def parseTensorTypeFromValueTypes (l : List StableHLO.Parsing.ValueType) (n : Nat): Compile TensorTy :=
   match l[n]? with
   | .some (.tensorType t) => parseTensorType t
-  | .some t => .error s!"Element {n} of type list must have tensor type, but got {repr t}."
-  | _ => .error s!"Type list must have at least {n + 1} values, but got only {l.length}."
+  | .some t => throw s!"Element {n} of type list must have tensor type, but got {repr t}."
+  | _ => throw s!"Type list must have at least {n + 1} values, but got only {l.length}."
 
 -- Parse an HLR TensorTy from a list of types, expecting the list to have exactly one element.
 def parseSingleTensorTypeFromValueTypes : List StableHLO.Parsing.ValueType → Compile TensorTy
   | [.tensorType t] => parseTensorType t
-  | t => .error s!"Expected type list to have a single tensor type, but got {repr t}."
+  | t => throw s!"Expected type list to have a single tensor type, but got {repr t}."
 
 -- Parse an array from a StableHLO literal.
 def parseArray (c : StableHLO.Parsing.Literal) : Compile (List Nat) :=
   match c with
-  | .array (.array64 arr) => return arr.map (fun (.mk _sign n) => n)
-  | .array (.array1 _) => .error "array1 unimplemented."
-  | _ => .error "Expected an array of integers."
+  | .array (.array64 arr) => pure (arr.map (fun (.mk _sign n) => n))
+  | .array (.array1 _) => throw "array1 unimplemented."
+  | _ => throw "Expected an array of integers."
 
 -- Parse a Nat from a StableHLO float literal.
 -- We need this because integers are often represented as floats in StableHLO.
@@ -81,17 +81,17 @@ def parseNatFromFloat (c : StableHLO.Parsing.Literal) : Compile Nat :=
     match (fractionalPart.decimal == 0, scientificPart.decimal == 0, integerPart.sign) with
       | (true, true, .plus) => pure integerPart.decimal
       | (false, _, _) | (_, false, _) =>
-        .error s!"Expected a non-negative integer, but got a float literal with fractional or scientific part: {repr c}."
+        throw s!"Expected a non-negative integer, but got a float literal with fractional or scientific part: {repr c}."
       | (_, _, .minus) =>
-        .error s!"Expected a non-negative integer, but got a float literal with negative sign: {repr c}."
-  | .element (.floatLiteral l) => .error s!"Got unsupported float literal {repr l}."
-  | l => .error s!"Expected a float literal but got {repr l}."
+        throw s!"Expected a non-negative integer, but got a float literal with negative sign: {repr c}."
+  | .element (.floatLiteral l) => throw s!"Got unsupported float literal {repr l}."
+  | l => throw s!"Expected a float literal but got {repr l}."
 
 -- Find an attribute by name in a list of attributes
 def lookupAttribute  (attrs : List StableHLO.Parsing.Attribute) (name : String) : Compile StableHLO.Parsing.Constant :=
   match attrs.find? (fun (.mk id _) => id == name) with
   | some ⟨ _, attr ⟩ => pure attr
-  | none => .error s!"Attribute '{name}' not found."
+  | none => throw s!"Attribute '{name}' not found."
 
 -- Find an attribute by name in a list of attributes, returning only the associated literal, not its type
 def lookupAttributeValue (attrs : List StableHLO.Parsing.Attribute) (name : String) : Compile StableHLO.Parsing.Literal :=
@@ -101,15 +101,15 @@ def lookupAttributeValue (attrs : List StableHLO.Parsing.Attribute) (name : Stri
 def lookupNatsInFields (fields : List StableHLO.Parsing.StableHLORecordField) (name : String) : Compile (List Nat) :=
   match fields.find? (fun (.mk n _) => n == name) with
   | some (.mk _ (.many ns)) => pure ns
-  | some v => .error s!"Field '{name}' must be a list of integers, but got {repr v}."
+  | some v => throw s!"Field '{name}' must be a list of integers, but got {repr v}."
   | none => pure []
 
 -- Get the value of a field in a StableHLO record, expecting it to be a single integer.
 def lookupNatInFields (fields : List StableHLO.Parsing.StableHLORecordField) (name : String) : Compile Nat :=
   match fields.find? (fun (.mk n _) => n == name) with
   | some (.mk _ (.one n)) => pure n
-  | some v => .error s!"Field '{name}' must be a single integer, but got {repr v}."
-  | none => .error s!"Field '{name}' not found in record list {repr fields}."
+  | some v => throw s!"Field '{name}' must be a single integer, but got {repr v}."
+  | none => throw s!"Field '{name}' not found in record list {repr fields}."
 
 -- extract the arguments to the `dotGeneral` operation from a record in the list of attributes
 def extractDotDimensionNumbers (attrs : List StableHLO.Parsing.Attribute) : Compile (List Nat × List Nat × List Nat × List Nat) := do
@@ -121,7 +121,7 @@ def extractDotDimensionNumbers (attrs : List StableHLO.Parsing.Attribute) : Comp
     let rhs_batching_dims ← lookupNatsInFields fields "rhs_batching_dimensions"
     let rhs_contracting_dims ← lookupNatsInFields fields "rhs_contracting_dimensions"
     pure (lhs_batching_dims, lhs_contracting_dims, rhs_batching_dims, rhs_contracting_dims)
-  | _ => .error "Attribute 'dot_dimension_numbers' must be a stableHLORecord."
+  | _ => throw "Attribute 'dot_dimension_numbers' must be a stableHLORecord."
 
 -- extract the arguments to the `gather` operation from a record in the list of attributes
 def extractDimensionNumbers (attrs : List StableHLO.Parsing.Attribute) : Compile (List Nat × List Nat × List Nat × Nat) := do
@@ -133,7 +133,7 @@ def extractDimensionNumbers (attrs : List StableHLO.Parsing.Attribute) : Compile
     let start_index_map ← lookupNatsInFields fields "start_index_map"
     let index_vector_dim ← lookupNatInFields fields "index_vector_dim"
     pure (offset_dims, collapsed_slice_dims, start_index_map, index_vector_dim)
-  | _ => .error "Attribute 'dimension_numbers' must be a stableHLORecord."
+  | _ => throw "Attribute 'dimension_numbers' must be a stableHLORecord."
 
 -- The StableHLO `reduce` operation always calls an arbitrary reduction function.
 -- However, in HLR we only support a few specific reduction operations (mostly
@@ -148,9 +148,9 @@ def reduceFunctionToReduceOp (f : StableHLO.Parsing.InputFunc) : Compile (Binary
   | .mk _ [.stablehlo .maximum .., .return ..] => pure .max
   | .mk _ [.stablehlo .add .., .return ..] => pure .add
   | .mk _ [.stablehlo .and .., .return ..] => pure .and
-  | .mk _ [.stablehlo op .., .return ..] => .error s!"Unimplemented reduction function {repr op}."
+  | .mk _ [.stablehlo op .., .return ..] => throw s!"Unimplemented reduction function {repr op}."
   | op =>
-    .error ("Unable to recognize `reduce` function as simple binary operator. Compiling" ++
+    throw ("Unable to recognize `reduce` function as simple binary operator. Compiling" ++
     "this program likely requires adding support for arbitrary function calling in `reduce`"
     ++ s!"Function: {repr op}")
 
@@ -166,7 +166,7 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
     -- Reuse the variable names and shapes from the StableHLO program
     let output ← match outputs with
     | [output] => pure output
-    | _ => .error "Operator signature must have a single output."
+    | _ => throw "Operator signature must have a single output."
     let outputTy ← parseSingleTensorTypeFromValueTypes signature.range
     -- helper function to emit HLR for element-wise unary ops
     let makeUnOp := fun (op : UnaryOp) => do
@@ -202,7 +202,7 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
         pure [.assign output (.full f outputTy.shape) outputTy]
       | (.tensor lit) =>
         pure [.assign output (.const lit outputTy.shape outputTy.dtype) outputTy]
-      | _ => .error "Constant operation requires a 'value' attribute with tensor literal."
+      | _ => throw "Constant operation requires a 'value' attribute with tensor literal."
     -- tensor unary operators
     | .reshape => do
       log "reshape"
@@ -308,7 +308,7 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
       let a := inputValues[1]!
       let b := inputValues[2]!
       pure [.assign output (.select cond a b) outputTy]
-    | _ => .error s!"Unsupported HLO operation: {repr opCode}"
+    | _ => throw s!"Unsupported HLO operation: {repr opCode}"
   | .return ops _ => do
     log "Compiling return operation"
     pure [Statement.ret ops]
@@ -316,31 +316,31 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
     log "Compiling call operation"
     let output ← match outputs with
     | [output] => pure output
-    | _ => .error "Call operator signature must have a single output."
+    | _ => throw "Call operator signature must have a single output."
     pure [
       Statement.assign
         output
         (.call callee inputValues)
         (← parseSingleTensorTypeFromValueTypes signature.range)]
 
-  | s => .error s!"Unsupported operation type {repr s}"
+  | s => throw s!"Unsupported operation type {repr s}"
 
 def compileFunc (f : StableHLO.Parsing.Function) : Compile Unit := do
   let .mk args body := f.funcBody
   let inputs ← args.mapM (fun (.mk name v) => do
     match v with
     | .tensorType t => parseTensorType t
-    | _ => .error s!"Function input {name} must have tensor type.")
+    | _ => throw s!"Function input {name} must have tensor type.")
   let outputs ← f.funcType.range.mapM fun x => match x with
     | .tensorType t => parseTensorType t
-    | _ => .error "Function output must be a tensor type."
+    | _ => throw "Function output must be a tensor type."
   -- Since arguments are referred to by index, emit a statement for each
   -- argument that assigns it to a named variable
   let preamble ← args.mapIdxM (fun i (.mk name v) => do
     match v with
     | .tensorType t =>
       pure (Statement.assign name (.arg i) (← parseTensorType t))
-    | _ => .error s!"Function input {name} must have tensor type.")
+    | _ => throw s!"Function input {name} must have tensor type.")
   let statements ← body.flatMapM compileOp
   let func := Function.mk f.funcId inputs outputs (preamble ++ statements)
   addFunction func
@@ -351,9 +351,9 @@ def compileModule (m : StableHLO.Parsing.Module) : Compile Unit :=
 def compile (m : List StableHLO.Parsing.Module) : (Except String Unit) × Ctx :=
   let compiled := match m with
     | [m] => compileModule m
-    | _  => .error "Only one module is supported for now."
+    | _  => throw "Only one module is supported for now."
   match compiled.run Ctx.empty with
   | .ok _ s => (.ok (), s)
-  | .error err s => (.error err, s)
+  | .error err s => (throw err, s)
 
 end KLR.HLR.Compile
