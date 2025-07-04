@@ -881,10 +881,10 @@ end InnerMapImpl
 section ConcreteMapImpl
   section IsConstImpl
     inductive ℂ : Type where
-      | maybe : ℂ -- key may or may not be set (top val)
-      | any : ℂ -- key has been set
-      | some : ℕ → ℂ -- key has been set to (ℕ)
-      | unreachable : ℂ -- there are no reaching paths that set this key (bot val)
+      | maybe : ℂ -- key at pos may or may not be set (top val)
+      | any : ℂ -- key at pos is set
+      | some : ℕ → ℂ -- key at pos is set to (ℕ)
+      | unreachable : ℂ -- false - key as pos is unreachable
       deriving DecidableEq
 
     notation "𝕄" => ℂ.maybe
@@ -983,7 +983,7 @@ section ConcreteMapImpl
     }
   end IsConstImpl
 
-  def num_nodes : ℕ := 17
+  def num_nodes : ℕ := 20
   def num_keys : ℕ := 2
 
   def edges : ℕ → ℕ → Bool := fun
@@ -1007,10 +1007,13 @@ section ConcreteMapImpl
   | 12, 14
   | 13, 14
   | 14, 16
-  | 15, 16 => true
+  | 15, 16
+  | 17, 18
+  | 18, 19 => true
   | _, _ => false
 
   def transitions : ℕ → ℕ → ℂ → ℂ := fun
+  | 0, _, _ => 𝕄
   | 2, 0, _ => ℂ.some 5
   | 2, 1, _ => ℂ.some 2
   | 5, 0, _ => ℂ.some 1
@@ -1020,7 +1023,6 @@ section ConcreteMapImpl
   | 11, 0, _ => ℂ.some 9
   | 14, 0, _ => ℂ.some 7
   | _, _, ℂ₀ => ℂ₀
-
 
   def 𝕏 := Solution
     (ρ:=ℂ)
@@ -1032,26 +1034,29 @@ section ConcreteMapImpl
     (transitions:=transitions)
 
   #eval 𝕏
-  /- Output:
+  /- Output: (i looked at it by hand and it looks right 😊)
 
-  (some (
+  some (
   Node 0: 𝕌 𝕌
-  Node 1: 𝕊 5 𝕊 4
-  Node 2: 𝕌 𝕌
-  Node 3: 𝕊 5 𝔸
+  Node 1: 𝕄 𝕄
+  Node 2: 𝕄 𝕄
+  Node 3: 𝕄 𝕄
   Node 4: 𝕊 5 𝕊 2
   Node 5: 𝕊 5 𝕊 2
   Node 6: 𝕊 5 𝕊 2
-  Node 7: 𝕊 5 𝔸
+  Node 7: 𝕄 𝕄
   Node 8: 𝕊 5 𝕊 2
   Node 9: 𝕊 1 𝕊 2
   Node 10: 𝕊 1 𝕊 2
-  Node 11: 𝕊 5 𝕊 4
+  Node 11: 𝕄 𝕊 4
   Node 12: 𝕊 3 𝕊 2
   Node 13: 𝕊 1 𝕊 2
   Node 14: 𝔸 𝕊 2
   Node 15: 𝕊 9 𝕊 4
   Node 16: 𝔸 𝔸
+  Node 17: 𝕌 𝕌
+  Node 18: 𝕌 𝕌
+  Node 19: 𝕌 𝕌
   ))
 
   -/
