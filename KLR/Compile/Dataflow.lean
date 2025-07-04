@@ -70,6 +70,7 @@ def FiniteDataflowProblem {β : Type} ...
 
 ## Concrete example : constant propagation
 
+See comment on section `ConcreteMapImpl` below.
 
 ## Code by `Section`
 
@@ -81,13 +82,19 @@ def FiniteDataflowProblem {β : Type} ...
   to dataflow problems.
 
 `Section FiniteDataflowProblemSolver` - simplies the process of constructing
-  `DataflowProblem`s by proviing the `FiniteSolverInput` class that uses
+  `DataflowProblem`s by providing the `FiniteSolverInput` class that uses
   `ℕ` indexing for nodes, and can be transformed by `FiniteDataflowProblem`
   to a `DataflowProblem`.
 
-`Section InnerMapImpl` - description TBD
+`Section InnerMapImpl` - Provides functions to construct `DataflowProblem ℕ β`s
+  from `β` that are themselves map types (`⟦⬝, ⬝⟧`). Also provides a solution
+  type `SolutionT` that is more usable to the caller by omitting reliance on
+  proof-carrying `Node ℕ` indices.
 
-`Section ConcreteMapImpl` - description TBD
+`Section ConcreteMapImpl` - Defines a datatype `ℂ` representing knowledge of
+  constancy, and initializes a `DataflowProblem ℕ ⟦ℕ, ℂ⟧` using the `InnerMapImpl`
+  utilities above. initialized with a concrete graph and transition funcset,
+  the solver is called - exercising the pipeline end-to-end.
 -/
 import Lean.Data.RBMap
 
@@ -295,7 +302,7 @@ end Basics
 
 
 /-
-  The section `DataflowProblemSolver ` is paramterized on an instance of `DataflowProblem α β`.
+  The section `DataflowProblemSolver ` is parameterized on an instance of `DataflowProblem α β`.
   It builds on the definitions of maps `⟦α, β⟧` from `NodeMap α`, and on the transition functions
   `τ ◃ a` and succesor lists `σ ◃ a` for each node `a : Node α` (`◃` used as notation for map get)
   provided by the `DataflowProblem` to compute a series of utility values, functions, and soundness
@@ -981,8 +988,65 @@ section InnerMapImpl
         props := props
       }
 end InnerMapImpl
+/-
+  The section `ConcreteMapImpl` serves to illustrate an end-to-end usage
+  of the dataflow solver defined above. In particular:
 
+  `ConcreteMapImpl` defines a datatype `ℂ` representing knowledge of
+  the constancy of a variable `k` at a location (i.e. what can be said about the
+  value of the variable in any program trace that reaches that program point):
+    | `𝕄` - "maybe"/⊤ - `k` may or may not be defined
+    | `𝔸` - "any" - `k` is defined
+    | `𝕊 (n : ℕ)` - "some `n`" - `k = n`
+    | `𝕌` - "unreachable" - this program point is not reachable.
+  A bundle of class instances are proven to give `ℂ`
+  necessary type-level structure. The interesting part of each:
+  `[ToString ℂ]` - trivial
+  `[DecidableEq ℂ]` - trivial
+  `[Max ℂ]` - this defines our lattice structure!
+              morally, values `ρ₀⊔ρ₁` here should always
+              represent the right entry to a block
+              given that its predecessors exits are
+              `ρ₀` and `ρ₁`. if you come up with a relation
+              that lacks associativity, everything here
+              will technically work but using the returned
+              proofs of dataflow constraint satisfaction
+              will be very difficult.
+  `[HasBot ℂ]` - choose a `⊥` for the `β`-lattice. theoretically,
+                this should satisfy `⊥ ≤ ⬝` (i.e. `⊥⊔ρ₀ = ρ₀⊔⊥ = ρ₀),
+                but the solver can still be run with an alternate value.
+                the tradeoff is that the returned fixpoint may not be
+                minimal. But this may be useful in some cases.
+  `[Preorder ℂ]` - This formally defines `ℂ₀ ≤ ℂ₁ := ℂ₁ = ℂ₀ ⊔ ℂ₁`.
+                  This is a canonical definition. completing the
+                  `Preorder` requires proving reflexivity and
+                  transitivity. Since `ℂ` is a finite type,
+                  these just come down to case matching and bookkeeping.
+  `[DecidableLE ℂ]` - trivial
+  `{le_supl} {le_supr}` - these establish compatability for the `≤` and `⊔`
+                          instances provided above. Notably, these
+                          compatabilities were the definition of `≤`,
+                          so the proof reduces to unfolding.
+
+  With this `ℂ` plus algebraic structure in hand, we need only to
+  concretely choose our graph and transitions to obtain all arguments
+  to `InnerMapImpl.Solution`.
+
+  Details of constructing this graph are provided below, but it is easy
+  to see that there is little to no boilerplate in the definitions of
+  `num_nodes`, `num_keys`, `edges` and `transitions`.
+
+  Fully instantiating our instances allows the `𝕏` below to be a
+  parameter-free `InnerMapImpl.SolutionT` type (which luckily
+  has a ToString instance defined in section).
+
+  wooo!!! 🎉
+-/
 section ConcreteMapImpl
+  /-
+    Section `IsConstImpl` defines the "constancy type" `ℂ`, and all
+    needed structure on `ℂ` to eventually construct a `DataflowProblem ℕ ⟦ℕ, ℂ⟧`.
+  -/
   section IsConstImpl
     inductive ℂ : Type where
       | maybe : ℂ -- key at pos may or may not be set (top val)
@@ -1000,7 +1064,7 @@ section ConcreteMapImpl
       toString := fun
       | 𝕄 => "𝕄"
       | 𝔸 => "𝔸"
-      | 𝕊 n => s!"𝕊 {n}"
+      | 𝕊 n => s!"(𝕊 {n})"
       | 𝕌 => "𝕌"
 
     instance : DecidableEq ℂ := by {
@@ -1087,81 +1151,106 @@ section ConcreteMapImpl
     }
   end IsConstImpl
 
-  def num_nodes : ℕ := 20
-  def num_keys : ℕ := 2
+  /-
+    Section `GraphImpl` specifies the topology and transitions
+    of the graph that will be fed to `InnerMapImpl.Solution`
+    (and within that, `DataflowProblem`).
 
-  def edges : ℕ → ℕ → Bool := fun
-  | 0, 1
-  | 0, 2
-  | 1, 3
-  | 2, 4
-  | 2, 5
-  | 2, 6
-  | 3, 7
-  | 4, 3
-  | 4, 8
-  | 5, 9
-  | 6, 10
-  | 7, 1
-  | 7, 11
-  | 8, 12
-  | 9, 13
-  | 10, 13
-  | 11, 15
-  | 12, 14
-  | 13, 14
-  | 14, 16
-  | 15, 16
-  | 17, 18
-  | 18, 19 => true
-  | _, _ => false
-
-  def transitions : ℕ → ℕ → ℂ → ℂ := fun
-  | 0, _, _ => 𝕄
-  | 2, 0, _ => ℂ.some 5
-  | 2, 1, _ => ℂ.some 2
-  | 5, 0, _ => ℂ.some 1
-  | 6, 0, _ => ℂ.some 1
-  | 7, 1, _ => ℂ.some 4
-  | 8, 0, _ => ℂ.some 3
-  | 11, 0, _ => ℂ.some 9
-  | 14, 0, _ => ℂ.some 7
-  | _, _, ℂ₀ => ℂ₀
-
-  def 𝕏 := Solution
-    (ρ:=ℂ)
-    (le_supl:=le_supl)
-    (le_supr:=le_supr)
-    (num_nodes:=num_nodes)
-    (num_keys:=num_keys)
-    (edges:=edges)
-    (transitions:=transitions)
-
-  #eval 𝕏
-  /- Output: (i looked at it by hand and it looks right 😊)
-
-  some (
-  Node 0: 𝕌 𝕌
-  Node 1: 𝕄 𝕄
-  Node 2: 𝕄 𝕄
-  Node 3: 𝕄 𝕄
-  Node 4: 𝕊 5 𝕊 2
-  Node 5: 𝕊 5 𝕊 2
-  Node 6: 𝕊 5 𝕊 2
-  Node 7: 𝕄 𝕄
-  Node 8: 𝕊 5 𝕊 2
-  Node 9: 𝕊 1 𝕊 2
-  Node 10: 𝕊 1 𝕊 2
-  Node 11: 𝕄 𝕊 4
-  Node 12: 𝕊 3 𝕊 2
-  Node 13: 𝕊 1 𝕊 2
-  Node 14: 𝔸 𝕊 2
-  Node 15: 𝕊 9 𝕊 4
-  Node 16: 𝔸 𝔸
-  Node 17: 𝕌 𝕌
-  Node 18: 𝕌 𝕌
-  Node 19: 𝕌 𝕌
-  ))
-
+    `num_nodes : ℕ` is the number of nodes in the graph
+    `num_keys : ℕ` is the number of keys in our dataflow values `β := ⟦ℕ, ℂ⟧`
+      here, it corresponds to the number of variables being tracked (2)
+    `edges : ℕ → ℕ → Bool` defines the edge relation. entering in a relation
+    from hand/head/mind requires minimal effort.
+    `transitions : (n : ℕ) → (k : ℕ) → ℂ → ℂ` defines how inner dataflow values `ℂ` are
+      transformed at node `n` and key `k`. As noted in the `section InnerMapImpl` comment,
+      `ℕ → ℕ → ℂ → ℂ` does not generate all `⟦ℕ, ℂ⟧ → ⟦ℕ, ℂ⟧`, but even under the
+      restriction (outlined above), many common problems are expressable
   -/
+  section GraphImpl
+    def num_nodes : ℕ := 20
+    def num_keys : ℕ := 2
+
+    def edges : ℕ → ℕ → Bool := fun
+    | 0, 1
+    | 0, 2
+    | 1, 3
+    | 2, 4
+    | 2, 5
+    | 2, 6
+    | 3, 7
+    | 4, 3
+    | 4, 8
+    | 5, 9
+    | 6, 10
+    | 7, 1
+    | 7, 11
+    | 8, 12
+    | 9, 13
+    | 10, 13
+    | 11, 15
+    | 12, 14
+    | 13, 14
+    | 14, 16
+    | 15, 16
+    | 17, 18
+    | 18, 19 => true
+    | _, _ => false
+
+    def transitions : ℕ → ℕ → ℂ → ℂ := fun
+    | 0, _, _ => 𝕄
+    | 2, 0, _ => ℂ.some 5
+    | 2, 1, _ => ℂ.some 2
+    | 5, 0, _ => ℂ.some 1
+    | 6, 0, _ => ℂ.some 1
+    | 7, 1, _ => ℂ.some 4
+    | 8, 0, _ => ℂ.some 3
+    | 11, 0, _ => ℂ.some 9
+    | 14, 0, _ => ℂ.some 7
+    | _, _, ℂ₀ => ℂ₀
+  end GraphImpl
+
+  /-
+    Given all above instantiations, `InnerMapImpl.Solution` is finally
+    called and a solution value `𝕏` can be defined parameter-free. 🥳
+  -/
+  section ConcreteSolution
+    def 𝕏 := Solution
+      (ρ:=ℂ)
+      (le_supl:=le_supl)
+      (le_supr:=le_supr)
+      (num_nodes:=num_nodes)
+      (num_keys:=num_keys)
+      (edges:=edges)
+      (transitions:=transitions)
+
+    #eval 𝕏
+    /- Output: (i looked at it by hand and it looks right 😊)
+
+    some (
+      Node 0: 𝕌 𝕌
+      Node 1: 𝕄 𝕄
+      Node 2: 𝕄 𝕄
+      Node 3: 𝕄 𝕄
+      Node 4: (𝕊 5) (𝕊 2)
+      Node 5: (𝕊 5) (𝕊 2)
+      Node 6: (𝕊 5) (𝕊 2)
+      Node 7: 𝕄 𝕄
+      Node 8: (𝕊 5) (𝕊 2)
+      Node 9: (𝕊 1) (𝕊 2)
+      Node 10: (𝕊 1) (𝕊 2)
+      Node 11: 𝕄 (𝕊 4)
+      Node 12: (𝕊 3) (𝕊 2)
+      Node 13: (𝕊 1) (𝕊 2)
+      Node 14: 𝔸 (𝕊 2)
+      Node 15: (𝕊 9) (𝕊 4)
+      Node 16: 𝔸 𝔸
+      Node 17: 𝕌 𝕌
+      Node 18: 𝕌 𝕌
+      Node 19: 𝕌 𝕌
+    ))
+
+    -/
+  end ConcreteSolution
 end ConcreteMapImpl
+
+-- thanks for reading! - Julia 💕
