@@ -1281,8 +1281,9 @@ section ConcreteMapImpl
       with a "stepping relation" for each node `σ : ℕ → α → α`,
       and a "simulation relation" `α₀ ∼ β₀ : Prop`
       satisfying `∀ n, α₀ ∼ β₀ → (σₙ α₀) ∼ (τₙ β₀)`
+        (simulation is preserved by applying respective stepping/transition functions)
       and `β₀ ≤ β₁ → α₀ ∼ β₀ → α₀ ∼ β₁`
-      and `β₀ == β₁ → α₀ ∼ β₀ → α₀ ∼ β₁`.
+        (simulation is weakened by weakening `β`).
 
       We must also choose a `⊥{α}` for `α`,
       (corresponding to value at program entry)
@@ -1299,11 +1300,14 @@ section ConcreteMapImpl
           `(_:Option ℕ) ∼  (_:ℂ)` relation (e.g. `some n ∼ 𝕊 n`))
       Once the associated properties are proven...
 
-      We can now define "program states" `π := (α₀ : α) × (n : ℕ)` (interpreted
-      as the statement "execution has state `α` at entry to block `n`.
+      We can now define "program states" `π := (a : α) × (n : ℕ)` (interpreted
+      as the statement "execution has entered node `n` with state `a`.
 
       We can now define "program stepping":
        `π₀ ⊑ π₁ := (edge π₀.n π₁.n) ∧ (n:=π₀.n; τₙ) π₀.α₀ = π₁.α₀`
+          (i.e., `π₀` steps to `π₁` if `n₀` has an edge to `n₁`
+          and applying the indexed transition `τ` for node `n₀`
+          to `α₀` yields `α₁`.)
 
       We can now define a type for "traces" `𝕥` as a list of
       `N` `α × ℕ` entries
@@ -1311,7 +1315,17 @@ section ConcreteMapImpl
       where `𝕥[0] = (⊥{α}, 0)`
         (sound entry to trace (assuming 0 is the "entry block")),
       and `∀ n < N - 1, 𝕥[n] ⊑ 𝕥[n+1]`
-        (successive entries in trace constitute valid steps)
+        (successive entries in trace constitute valid steps).
+
+      Traces `𝕥` are the type of program executions! (trying to
+      decide many properties of the type will thus be impossible
+      however, the 'bisimulation' between the inductive constructors
+      for `𝕥` (for a neatly dependently typed implementation of the datatype)
+      and the transitions in the abstract domain, along with dataflow
+      equations that provide a tractable description of all sound
+      abstract program paths. Since this type has finite description,
+      properties can be proven that then project onto corresponding
+      properties of concrete program execution.)
 
       Now if `ν := 𝕏.vals` is a dataflow solution,
       and `𝕥ₙ := (n, _) := 𝕥; n`
