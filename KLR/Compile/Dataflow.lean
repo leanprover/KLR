@@ -1248,7 +1248,81 @@ section ConcreteMapImpl
       Node 18: 𝕌 𝕌
       Node 19: 𝕌 𝕌
     ))
+    -/
 
+    /-======================================================
+      HEY THIS IS IMPORTANT:
+
+      SPECULATION ON USAGE OF `(𝕏 : SolutionT).props` OUTPUT VALUE
+      IN LARGER PROOFS
+
+      ======================================================
+
+      of course, the point of this dataflow solver as a modular
+      component is to return not just the solution `ν` but propositional
+      satisfaction of the dataflow inequalities by the `ν`.
+
+      The propositional components of `𝕏 : SolutionT` establish
+      that for any edge from nodes `n` to `m` `τ ν[n] ≤ ν[m]`.
+
+      How is this useful?
+
+      Call `β := ⟦ℕ, ℂ⟧` our abstract domain.
+      The instance definition provides transitions `τ : ℕ → β → β`.
+
+      Choose a "concrete domain" `α`
+      with a "stepping relation" for each node `σ : ℕ → α → α`,
+      and a "simulation relation" `α₀ ∼ β₀ : Prop`
+      satisfying `∀ n, α₀ ∼ β₀ → (σₙ α₀) ∼ (τₙ β₀)`
+      and `β₀ ≤ β₁ → α₀ ∼ β₀ → α₀ ∼ β₁`
+      and `β₀ == β₁ → α₀ ∼ β₀ → α₀ ∼ β₁`.
+
+      We must also choose a `⊥{α}` for `α`,
+      (corresponding to value at program entry)
+      that relates to the `⊥{β}` for `β`
+      satisfying `⊥{α} ∼ ⊥{β}`.
+
+      For our above example, we can choose `α := ⟦ℕ, Option ℕ⟧`
+        (concrete program states)
+      and `α₀ ∼ β₀` lifting from a corresponding canonical
+        `(_:Option ℕ) ∼  (_:ℂ)` relation (e.g. `some n ∼ 𝕊 n`)
+      Once the associated properties are proven...
+
+      We can now define "program states" `π := (α₀ : α) × (n : ℕ)` (interpreted
+      as the statement "execution has state `α` at entry to block `n`.
+
+      We can now define "program stepping":
+       `π₀ ⊑ π₁ := (edge π₀.n π₁.n) ∧ (n:=π₀.n; τₙ) π₀.α₀ = π₁.α₀`
+
+      We can now define a type for "paths" `ℓ` as a list of
+      `N` `α × ℕ` entries (corresponding to program states at unit times)
+      where `ℓ[0] = (⊥{α}, 0)`
+        (assuming 0 is the "entry block"),
+      and `∀ n < N - 1, l[n] ⊑ l[n+1]` (successive entries constitute valid steps)
+
+      Now if `ν := 𝕏.vals` is a dataflow solution,
+      and `ℓₙ := (n, _) := ℓ; n`
+      and `ℓₐ := (_, α₀) := ℓ; α₀`
+      it is provable inductively from `𝕏.props` that:
+      `∀ ℓ, ℓₐ ∼ ν[ℓₙ]`.
+
+      In the case of our concrete example, this means that we can prove
+      that any program state `αₙ` at node `n` reached through stepping
+      from the entry state is constrained by
+      `αₙ ∼ βₙ` for the abstract state `βₙ := ν[n]`.
+      For various values of `αₙ` and `βₙ`,
+      this could mean (for all keys `k`),
+
+      `αₙ ∼ 𝕄` : no information
+      `αₙ ∼ 𝔸` : `k` is defined
+      `αₙ ∼ 𝕊 m` : `k` is defined and equal to `m`
+      `αₙ ∼ 𝕌` : impossible (which implies that `∄ ℓ, ℓₐ ∼ 𝕌)`,
+                  i.e., no node `n` satisfying `ν[n] = 𝕌` will
+                  ever be reached by a path
+
+      These are powerful results, for which much
+      thought has gone into generating and
+      presenting conveniently.
     -/
   end ConcreteSolution
 end ConcreteMapImpl
