@@ -1006,14 +1006,14 @@ end InnerMapImpl
   `[Max ℂ]` - this defines our lattice structure!
               morally, values `ρ₀⊔ρ₁` here should always
               represent the right entry to a block
-              given that its predecessors exits are
+              given that its predecessors' exits are
               `ρ₀` and `ρ₁`. if you come up with a relation
               that lacks associativity, everything here
               will technically work but using the returned
               proofs of dataflow constraint satisfaction
               will be very difficult.
   `[HasBot ℂ]` - choose a `⊥` for the `β`-lattice. theoretically,
-                this should satisfy `⊥ ≤ ⬝` (i.e. `⊥⊔ρ₀ = ρ₀⊔⊥ = ρ₀),
+                this should satisfy `⊥ ≤ ⬝` (i.e. `⊥⊔ρ₀ = ρ₀⊔⊥ = ρ₀`),
                 but the solver can still be run with an alternate value.
                 the tradeoff is that the returned fixpoint may not be
                 minimal. But this may be useful in some cases.
