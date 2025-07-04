@@ -68,6 +68,9 @@ def FiniteDataflowProblem {β : Type} ...
 
 `DataflowProblem.solve` may then be called on this instance.
 
+## Concrete example : constant propagation
+
+
 ## Code by `Section`
 
 `Section Basics`- defines basic `Node`, `NodeProp`, and `NodeMap `definitions.
@@ -83,6 +86,8 @@ def FiniteDataflowProblem {β : Type} ...
   to a `DataflowProblem`.
 
 `Section InnerMapImpl` - description TBD
+
+`Section ConcreteMapImpl` - description TBD
 -/
 import Lean.Data.RBMap
 
@@ -680,6 +685,11 @@ section FiniteDataflowProblemSolver
       }
   }
 
+  /-
+    This takes a defined `FiniteSolverInpu β` and generates a `DataflowProblem ℕ β`.
+    This is the end of the section because the returned instance provides the
+    `DataflowProblem.solve` function.
+  -/
   def FiniteDataflowProblem {β : Type}
     [BEq β]
     [P:Preorder β]
@@ -781,6 +791,13 @@ section InnerMapImpl
   variable (edges : ℕ → ℕ → Bool)
   variable (transitions : ℕ → ℕ → ρ → ρ)
 
+  /-
+    `SolutionT` captures the type of information returned by this section's
+    computqtions to the caller. namely, it forgets internal data representation
+    and offers all indexing by raw `(ℕ → ⬝).
+
+    It is returned by `Solution` below
+  -/
   section SolutionImpl
     structure SolutionT where
       vals (n k : ℕ) : (n < num_nodes) → (k < num_keys) → ρ
@@ -805,8 +822,43 @@ section InnerMapImpl
         toString := (SolutionT.toString ρ num_nodes num_keys edges transitions)
 
   end SolutionImpl
+
+  /-
+    This is the `NodeMap ℕ` instance for INNER maps over num_keys
+    Outer maps over num_nodes have a separate `NodeMap ℕ` instance.
+    This is because these provide different types `Node ℕ`; both
+    are finite types, but of different size.
+
+    confusion over this duality is resolved where necessary by
+    providing identifiers to contextual instances, as opposed
+    to relying on inference at the signature level.
+
+    For example, FNM below captures the INNER map types, whereas
+    the outer type is inferred without its invocation. Later,
+    `Solution` binds identifiers (`NMN` and `NMK`) to each of the
+    (`n`-indexed and `k`-indexed) `NodeMap ℕ` instances.
+
+    Later in `Solution`, nodes `Node ℕ` corresponding to indices
+    of each of the inner and outer maps are needed, and are obtained:
+      `ndk : @Node ℕ NMK.toNodeProp := @Node.mk ℕ NMK.toNodeProp k`
+      `ndn : @Node ℕ NMN.toNodeProp := @Node.mk ℕ NMN.toNodeProp n`
+
+    Though dealing with dual instances of `NodeMap ℕ` is cumbersome,
+    it allows significant code reuse and defines dataflowproblems
+    with `β` equal to a map type minimally.
+  -/
   def FNM : NodeMap ℕ := (FiniteNodeMap num_keys)
 
+  /-
+    Defining a `FiniteSolverInput ⟦ℕ, ρ⟧` requires
+    tweaking the `transitions` function to index on
+    `Node ℕ`s instead of `ℕ`s, and proving a small
+    handful of compatibility lemmas. They ultimately
+    rely on sufficient corresponding properties of
+    `ρ` through unrollings also dependent on above-
+    proven properties of `⟦⬝, ⬝⟧` types. None are
+    very surprising.
+  -/
   def FSI {_:NodeMap ℕ}: FiniteSolverInput (⟦ℕ, ρ⟧) := {
     num_nodes := num_nodes
     edges := edges
@@ -866,6 +918,16 @@ section InnerMapImpl
     }
   }
 
+  /-
+    `Solution` mainly functions to take the `FSI : FiniteSolverInput ⟦ℕ, ρ⟧`
+    from above, use `FiniteDataflowProblem` from above to construct a
+    `DataflowProblem ℕ ⟦ℕ, ρ⟧` (internally represented by a `⟦ℕ, ⟦ℕ, ρ⟧⟧` instance),
+    and map under the resultant `Option ((ν : ⟦ℕ, ⟦ℕ, ρ⟧⟧) ×' I' ν)` a transformation
+    to the `InnerMapImpl.SolutionT` type. This mapping requires folding
+    and unfolding many conversions between raw `ℕ` indices, and proof-carrying
+    `Node ℕ` instances (of each `NodeMap ℕ` class!). None of these proofs
+    are surprising.
+  -/
   def Solution : Option (SolutionT ρ num_nodes num_keys edges transitions) :=
     let NMK : NodeMap ℕ := FNM num_keys
     let DP : DataflowProblem ℕ ⟦ℕ, ρ⟧ := FiniteDataflowProblem num_nodes
