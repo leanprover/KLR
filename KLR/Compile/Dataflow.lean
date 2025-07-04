@@ -545,14 +545,14 @@ end DataflowProblemSolver
 
 /-
   The section `FiniteDataflowProblemSolver` provides a structure type definition
-  `FiniteSolverInput β`, that can be easily instantiated with any graph over
+  `FiniteSolverInput β`, that can be instantiated with any graph over
   `num_nodes : ℕ` nodes, with data of type `β`, as long as the edge relation and
   transition functions can be described by numbered node index. To fully instantiate
   a `FiniteSolverInput`, 4 simple soundness theorems relating largely the relations
   on `β` must be proved.
   `FiniteDataflowProblem ... FiniteSolverInput β → DataflowProblem ℕ β` is the
   key function, lifting a `FiniteSolverInput` to `DataflowProblem` admitting the
-  solver function `sound`.
+  solver function `DataflowProblem.solve`.
 -/
 section FiniteDataflowProblemSolver
 
@@ -727,9 +727,51 @@ section FiniteDataflowProblemSolver
         {apply FSI.le_supr}
       }
     }
+end FiniteDataflowProblemSolver
 
 /-
-  description TBD
+  The section `InnerMapImpl` provides a further reification of the
+  `DataflowProblem`-generating pipeline built above. In particular,
+  It makes instantiating `FiniteSolverInput β` easy for datatypes `β`
+  that represent maps themselves from a finite set of keys to values.
+
+  Motivation:
+
+  To instantiate the above `FiniteSolverInput β` for types `β`, that have
+  boolean equality (`BEq β`), a compatible ordering relation
+  (`Preorder β`), a supremum wrt ord `Max β`), a bottom element wrt ord
+  (`HasBot β`), and appropriate congruences under equality, is easy.
+
+  For example: `FiniteSolverInput ℕ` or even `List ℕ` or other structures
+  with sufficiently many library typeclass instances.
+
+  However, for many dataflow analysis cases, the right datatype `β` is
+  itself a map type. for example `⟦ℕ, γ⟧` for an innter datatype `γ`.
+  `ℕ` here is chosen to accomodate mappings over any finite, numbered
+  set of keys. `γ` must provide all the structure requires of `β` itself,
+  however, it will ideally be a simple enough type that this is immediate.
+  Finite types will often suffice for `γ` (e.g. `Bool` for use/free), and
+  in other cases shallow inductive types like the `ℂ` for constancy of a
+  value (set to n:ℕ, set to some value, unknown).
+  mappings `β := ⟦ℕ, γ⟧` represents assignments of each of the `num_keys`
+  keys (e.g., variable names, mem locs, other identifiers) to data `γ`.
+
+  To complete the `DataflowProblem` instance, the edge relation `edges`
+  must be provided, and the transitions `τ := transitions n k`. Here
+  `τ` is the transition function at node  `n < num_nodes`, as it acts
+  on key `k < num_keys`. Notably, the "whole node" functions `⟦ℕ, γ⟧ → ⟦ℕ, γ⟧`
+  that can be derived by thus specifying the transitions are only those
+  that factor into components that each act on a single key. This is a
+  restriction of `InnerMapImpl`.
+
+  `InnerMapImpl.SolutionT` is a type that provides a final assignment
+  of nodes to data `β`, and of indexed props establishing the
+  satisfaction of the dataflow constraints by these data.
+
+  `InnerMapImpl.Solution` returns a `Option (SolutionT ...)`. This
+  represents the success vs timeout case.
+
+  That's how this thing works! 💕
 -/
 section InnerMapImpl
   variable (ρ : Type) [DecidableEq ρ] [Preorder ρ] [DecidableLE ρ] [Max ρ] [HasBot ρ]
