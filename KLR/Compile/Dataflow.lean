@@ -96,8 +96,8 @@ See comment on section `ConcreteMapImpl` below.
   utilities above. initialized with a concrete graph and transition funcset,
   the solver is called - exercising the pipeline end-to-end.
 -/
-import Lean.Data.RBMap
 
+-- sigh i shouldn't have to do this
 abbrev ℕ := Nat
 
 /-
