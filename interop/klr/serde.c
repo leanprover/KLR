@@ -27,7 +27,7 @@ write_file(const char *file, struct File_Contents *contents) {
   struct Serde_KLRFile clsFile = {
     .major = 0,
     .minor = 0,
-    .patch = 11,
+    .patch = 12,
   };
   struct Serde_KLRMetaData data = {
     .format = "KLR"
@@ -100,7 +100,7 @@ read_file(const u8 *buf, u64 size, enum File_Contents_Tag tag) {
     ERR("could not read call-site buffer");
   if (!Serde_KLRFile_des(in, res.region, &file))
     ERR("could not read call-site header");
-  if (file->major != 0 || file->minor != 0 || file->patch != 11)
+  if (file->major != 0 || file->minor != 0 || file->patch != 12)
     ERR("KLR version mismatch");
   if (!Serde_KLRMetaData_des(in, res.region, &data))
     ERR("could not read call-site meta-data");
@@ -116,7 +116,7 @@ read_file(const u8 *buf, u64 size, enum File_Contents_Tag tag) {
     ERR("could not read kernel file");
   if (!Serde_KLRFile_des(in, res.region, &file))
     ERR("could not read kernel header");
-  if (file->major != 0 || file->minor != 0 || file->patch != 11)
+  if (file->major != 0 || file->minor != 0 || file->patch != 12)
     ERR("KLR version mismatch");
   if (!Serde_KLRMetaData_des(in, res.region, &data))
     ERR("could not read kernel meta-data");
