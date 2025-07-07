@@ -8,6 +8,13 @@ focus of KLR is the
 [Neuron Kernel Interface](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/general/nki/index.html),
 and the [Trainium](https://aws.amazon.com/ai/machine-learning/trainium/) hardware.
 
+# Building on Amazon Linux 2023
+
+To build the FFI utilities like Archive, please use
+
+LIBRARY_PATH=/usr/lib64 lake build
+
+(or export the path) to get linking to work correctly.
 
 # Quick Start
 
