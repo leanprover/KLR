@@ -18,6 +18,9 @@ import Cli
 import KLR
 import TensorLib.Npy
 import TensorLib.Tensor
+import SHerLOC
+import KLR.HLR
+import SHerLOC.Analysis.Graph
 
 open Cli
 open KLR
@@ -298,6 +301,32 @@ def evalKLR (p : Parsed) : IO UInt32 := do
     TensorLib.Npy.Ndarray.save! arr filename
   return 0
 
+def hloToHLR (p : Parsed) : IO UInt32 := do
+  let file := p.positionalArg! "file" |>.as! String
+  let s <- IO.FS.readFile file
+  match StableHLO.Parsing.parse s with
+  | .ok (hlo, _) =>
+    let hlr := KLR.HLR.Compile.compile hlo
+    match hlr with
+    | (.ok _, s) => do
+      let hlr := s.program
+      IO.println (toString hlr)
+      let headFunction := s.program.functions.head!
+      -- print graph of function
+      let g := KLR.HLR.Graph.graph headFunction |> toString
+      writeContent "dot" p g
+      -- print HLR program as Python program
+      let py := KLR.HLR.Py.compile hlr
+      writeContent "py" p py
+      return 0
+    | (.error e, s) => do
+      IO.eprintln s!"Error compiling HLO to HLR: {e}"
+      IO.eprintln s!"{repr s}"
+      return 1
+  | .error e =>
+    IO.eprintln e
+    return 1
+
 -- -- Command configuration
 
 def gatherCmd := `[Cli|
@@ -388,6 +417,15 @@ def evalKLRCmd := `[Cli|
     kernelFunctionName : String;  "Name of the kernel function"
     ...inputFiles : String;       ".npy files corresponding to the inputs to the kernel, in positional order"
 ]
+def hloToHLRCmd := `[Cli|
+  "hlo-to-hlr" VIA hloToHLR;
+  "Compile HLO graph to HLR graph"
+
+  FLAGS:
+    o, outfile : String; "Name of output file"
+  ARGS:
+    file : String;      "File of HLO graph in .mlir format"
+]
 
 def klrCmd : Cmd := `[Cli|
   klr NOOP; ["0.0.12"]
@@ -401,6 +439,7 @@ def klrCmd : Cmd := `[Cli|
     nkiToKLRCmd;
     traceCmd;
     typecheckCmd
+    hloToHLRCmd
 ]
 
 def main (args : List String) : IO UInt32 := do
