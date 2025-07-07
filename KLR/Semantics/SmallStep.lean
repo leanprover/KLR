@@ -188,8 +188,8 @@ end det
 /-- Our definition of program equivalence.
 
 We consider two programs equivalent when:
+- For all configurations that are initially related by Φi,
 - They are equiterminating,
-- They preserve the relational invariant Φi across all possible executions,
 - All stuck states are values,
 - All stuck states obey the relational invariant Φf.
 -/
@@ -335,8 +335,9 @@ theorem rel_lift_Values_not_Nonterminating {S : SmallStep} (cl cr : S.Prog × S.
 
 /- A Step-indexed version of PRel.
 
-Both Programs need to either terminate in Values satisfying Φf in at most n Steps,
-or take at least n Steps.
+Assuming both programs start in Φi-related states,
+  they terminate in values satisfying Φf in at most n Steps,
+  or take at least n Steps.
 -/
 def PRelN {S : SmallStep} (n : Nat) (Φi : (S.Prog × S.State) → (S.Prog × S.State) → Prop)
   (Φf : S.Val × S.State → S.Val × S.State → Prop) : Prop :=
