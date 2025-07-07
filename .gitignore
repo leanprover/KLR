@@ -8,3 +8,5 @@ __pycache__/
 build/
 dist/
 klr.bin
+/.wheel/
+env
