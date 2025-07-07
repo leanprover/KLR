@@ -68,16 +68,16 @@ structure DualMemory (α : Type _) where
   bounded : PhyStore α
   unbounded : UnboundedBank α
 
-inductive DualMemoryStoreIndex (α : Type _)
+inductive DualMemoryStoreIndex
 | in_bounded
 | in_unbounded (i : Nat)
   deriving Repr, BEq
 
-def DualMemory.in_memory {α} (d : DualMemory α) : DualMemoryStoreIndex α → Prop
+def DualMemory.in_memory {α} (d : DualMemory α) : DualMemoryStoreIndex → Prop
 | .in_bounded => True
 | .in_unbounded i => i < d.unbounded.size
 
-def DualMemory.get_store {α} (d : DualMemory α) (ix : DualMemoryStoreIndex α) (_ : in_memory d ix) :
+def DualMemory.get_store {α} (d : DualMemory α) (ix : DualMemoryStoreIndex) (_ : in_memory d ix) :
     LocalStore α :=
   match ix with | .in_bounded => d.bounded.toLocalStore | .in_unbounded i => d.unbounded[i]
 
@@ -101,8 +101,9 @@ def AffineMap.is_trivial (a : AffineMap) : Prop :=
   a.par_stride = 1 ∧
   a.free_strides = a.free_strides.map (fun _ => 1)
 
+structure ChipMemory (α : Type _) where
+  sbuf : DualMemory α
+  psum : DualMemory α
+  hbm : UnboundedBank α
 
-structure NeuronMemory where
-  sbuf : DualMemory UInt8
-  psum : DualMemory UInt8
-  hbm : UnboundedBank UInt8
+abbrev NeuronMemory := ChipMemory UInt8
