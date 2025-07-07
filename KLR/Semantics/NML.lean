@@ -237,20 +237,22 @@ inductive step : ExecState DataT × State → ExecState DataT × State → Prop 
           .cons ⟨.loop I x (Iterator.next (@Value DataT) i) b, loc⟩ <|
           p, s)
 
-@[simp] def to_val : ExecState DataT × State → Option (Value DataT × State)
-| (.done v, s) => .some (v, s)
+@[simp] def to_val : ExecState DataT → Option (Value DataT)
+| .done v => .some v
 | _ => .none
 
 def NMLSemantics : SmallStep where
-  prog := ExecState DataT
-  state := State
-  val := Value DataT × State
-  step := step DataT
-  to_val := to_val DataT
-  value_stuck {c c'} := by
-    rcases c with ⟨⟨p⟩, s⟩
-    · simp
-    · rintro _ ⟨⟩
+  Prog := ExecState DataT
+  State := State
+  Val := Value DataT
+  Step := step DataT
+  toVal := to_val DataT
+  toVal_isSome_isStuck{c c'} := by
+    rintro _ _ H
+    cases c
+    · cases H
+    cases H
+    rintro H <;> cases H
 
 instance : Det (NMLSemantics DataT) where
   step_det {c c'} := by
@@ -268,5 +270,6 @@ instance : Det (NMLSemantics DataT) where
       exact H2.symm
     · rfl
     · rfl
+  step_progress := sorry
 
 end NML
