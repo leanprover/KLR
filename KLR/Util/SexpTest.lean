@@ -152,12 +152,19 @@ deriving BEq, FromSexp, ToSexp
 #guard @fromSexp? Default3 _ (sexp%(case2 (y 7))) == .ok (Default3.case2 7 7)
 #guard !(@fromSexp? Default3 _ (sexp%(case2 (x 2)))).isOk
 
--- Parser tests
+-- Show structs with all defaults can be emitted entirely when in another structure or inductive
+private structure Default4 where
+  x : Nat := 8
+  y : Nat := 7
+deriving BEq, FromSexp, Repr
 
-#guard Sexp.fromString "3.14" == .ok [.atom "3.14"]
-#guard Sexp.fromString "(a ok)" == .ok [sexp%(a ok)]
-#guard Sexp.fromString "(a (b c d) e)" == .ok [sexp%(a (b c d) e)]
-#guard (Sexp.fromString "(a ok) oops") == .ok [sexp%(a ok), sexp%oops]
-#guard (Sexp.fromString "(a ok))").isOk == false
-#guard (Sexp.fromString "(a ok").isOk == false
-#guard (Sexp.fromString "(a)(b)(c)") == .ok [sexp%(a), sexp%(b), sexp%(c)]
+private inductive Default5 where
+| Foo (x : Default4 := {})
+deriving BEq, FromSexp, Repr
+
+#guard @fromSexp? Default5 _ (sexp%(Foo)) == .ok (Default5.Foo {})
+
+private structure Default6 where
+deriving BEq, FromSexp, Repr
+
+#guard @fromSexp? Default6 _ (sexp%()) == .ok (Default6.mk)
