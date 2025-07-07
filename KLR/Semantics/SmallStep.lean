@@ -4,112 +4,211 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Markus de Medeiros
 -/
 
-/- # Mechanization of a generic nondeterministic small-step semantics -/
+-- TODO: Move
+/-- Prop-Valued version of `Option.isSome`; easier to do cases on. -/
+inductive Option.IsSomeP : Option α → Prop where
+| some : IsSomeP (some v)
 
-/-- A small step semantics.
+theorem Option.isSomeP_iff_isSome {v : Option α} : v.IsSomeP ↔ v.isSome = true := by
+  constructor
+  · rintro ⟨⟩; rfl
+  · cases v <;> rintro ⟨⟩; exact Option.IsSomeP.some
 
-Each configuration `prog × state` nondeterministically steps to anything in the `step` relation.
-We distinguish between error states and terminated states using the `to_val` partial function.
-The `val` type should include everything we want to observe about the state of our terminated programs.
+/- # Mechanization of a generic nondeterministic small-Step semantics -/
 
-markusde: Having to_val be a partial function out of prog × state rather than a total function out of
-{ x : prog × state | stuck x } is more robust against changes to the semantics.
+/-- A small Step semantics.
+Each configuration `Prog × State` nondeterministically Steps to anything in the `Step` relation.
+We distinguish between error States and terminated States using the `toVal` partial function.
+markusde: Having toVal be a partial function out of Prog × State rather than a total function out of
+{ x : Prog × State | stuck x } is more robust against changes to the semantics.
 -/
 structure SmallStep : Type _ where
-  prog : Type _
-  state : Type _
-  val : Type _
-  step : prog × state → prog × state → Prop
-  to_val : prog × state → Option val
-  value_stuck {c c' : prog × state} : (to_val c).isSome → step c c' → False
+  /-- The type of Program terms. -/
+  Prog : Type _
+  /-- The type of States. -/
+  State : Type _
+  /-- The type of Values. -/
+  Val : Type _
+  /-- A nondeterministic Stepping relation. -/
+  Step : Prog × State → Prog × State → Prop
+  /-- Check if a Program is done, and terminate if so. -/
+  toVal : Prog → Option Val
+  /-- Values must not be able to execute.  -/
+  toVal_isSome_isStuck {p1 p2 : Prog} {s1 s2 : State} : (toVal p1).IsSomeP → Step (p1, s1) (p2, s2) → False
 
-/-- A small step semantics is deterministic when every configuration is either stuck,
-or steps to exactly one state. -/
+/-- A small Step semantics is deterministic when every configuration is either stuck,
+or Steps to exactly one State. We also force that the semantics can't take stutter steps, so that
+there is exactly one way that the program can progress at each point. -/
 class Det (S : SmallStep) where
-  step_det {c c'} : S.step c c' → ∀ c'', S.step c c'' → c'' = c'
+  step_det {c c'} : S.Step c c' → ∀ c'', S.Step c c'' → c'' = c'
+  step_progress {c c'} : S.Step c c' → c ≠ c'
+export Det (step_det)
 
 namespace SmallStep
 
 section basic
 variable (S : SmallStep)
 
-def stuck (c : S.prog × S.state) : Prop := ∀ c', ¬ S.step c c'
+/-- A program is a value. -/
+def IsValue (p : S.Prog) : Prop := S.toVal p |>.IsSomeP
 
-inductive stepN : Nat → S.prog × S.state → S.prog × S.state → Prop where
-| done : c = c' → stepN 0 c c'
-| step : S.step c c' → stepN n c' c'' → stepN n.succ c c''
+/-- A configuration is stuck. -/
+def IsStuck (c : S.Prog × S.State) : Prop := ∀ {c'}, S.Step c c' → False
 
-theorem stepN_zero_inv (H : S.stepN 0 c c') : c = c' := by cases H; trivial
+/-- N-step stepping relation. -/
+inductive StepN : Nat → S.Prog × S.State → S.Prog × S.State → Prop where
+| done : c = c' → StepN 0 c c'
+| step : S.Step c c' → StepN n c' c'' → StepN n.succ c c''
 
-theorem stepN_one (H : S.stepN 1 c c') : S.step c c' := by
-  rcases H; rename_i _ H1 H2
-  exact (stepN_zero_inv _ H2).symm ▸ H1
+/-- Demonic nontermination: There is no terminating trace.
+This is stronger than the usual definition of nontermination, but is easy to work with
+and equivalent to in the deterministic case. -/
+def Nonterminating (c : S.Prog × S.State) : Prop :=
+  ∀ {n c'}, S.StepN n c c' → ¬ S.IsStuck c'
 
-theorem stepN_stuck_inv (H : S.stepN m c c') (Hs : S.stuck c) : m = 0 := by
-  cases H
+/-- Angelic termination: There exists a terminating trace. -/
+def MayTerminate (c : S.Prog × S.State) : Prop :=
+  ∃ n c', S.StepN n c c' ∧ S.IsStuck c'
+
+/-- Demonic termination: there exists N such that it is not possible for any trace to take
+more than N steps. -/
+def Terminating (c : S.Prog × S.State) : Prop :=
+  ∃ N, ∀ c' N', N < N' → ¬S.StepN N' c c'
+
+/-- There is exactly one state that the program can terminate in. -/
+def UniquelyTerminating (c : S.Prog × S.State) : Prop :=
+  ∃ N c', (S.StepN N c c') ∧ (S.IsStuck c') ∧ (∀ N'  c'', S.StepN N' c c'' → S.IsStuck c'' → N = N' ∧ c' = c'')
+
+
+/-- All finite traces of a configuration only ever get stuck in value states. -/
+def Safe {S : SmallStep} (c : S.Prog × S.State) : Prop :=
+  ∀ {n p s}, S.StepN n c (p, s) → S.IsStuck (p, s) → S.IsValue p
+
+theorem stepN_zero_inv (H : S.StepN 0 c c') : c = c' := by
+  rcases H with ⟨rfl⟩|_; rfl
+
+theorem step_of_stepN_one (H : S.StepN 1 c c') : S.Step c c' := by
+  rcases H with _|⟨H, rfl|_⟩; exact H
+
+theorem stepN_isStuck_inv (H : S.StepN m c c') (Hs : S.IsStuck c) : m = 0 := by
+  rcases H with _|H
   · rfl
-  · rename_i Hstep HstepN
-    exact (Hs _ Hstep).elim
+  · exact False.elim (Hs H)
 
-theorem stepN_1_iff_step : S.stepN 1 (p, s) (p', s') ↔ S.step (p, s) (p', s') := by
-  refine ⟨?_, (stepN.step · (stepN.done rfl))⟩
+theorem stepN_1_iff_step : S.StepN 1 (p, s) (p', s') ↔ S.Step (p, s) (p', s') := by
+  refine ⟨?_, (StepN.step · (StepN.done rfl))⟩
   rintro (_|⟨H,He|_⟩)
   exact He▸H
 
-theorem step_not_stuck (H : S.step (p1, s1) (p1', s1')) : (S.to_val (p1, s1)).isNone := by
-  have H' : ¬(S.to_val (p1, s1)).isSome → (S.to_val (p1, s1)).isNone := by
-    cases S.to_val (p1, s1) <;> simp
-  exact H' (S.value_stuck · H)
+theorem step_not_isStuck : S.Step (p1, s1) (p1', s1') → ¬(S.IsStuck (p1, s1)) :=
+  (· |> ·)
+
+/-- For all programs, they either map teminate, or they don't. -/
+theorem weak_termination_em c : S.MayTerminate c ∨ S.Nonterminating c := by
+  if Hem : S.Nonterminating c then exact .inr Hem else
+  refine (.inl ?_)
+  simp only [Nonterminating, Prod.forall, Classical.not_forall, not_imp, Classical.not_not] at Hem
+  rcases Hem with ⟨n, p, s, _, _⟩; exists n; exists (p, s)
 
 end basic
 
+section det
 
-/-- All traces of a configuration do not terminate. -/
-def nonterminating {S : SmallStep} (c : S.prog × S.state) : Prop :=
-  -- The program never gets stuck
-  ∀ n c', S.stepN n c c' → ¬ S.stuck c'
 
-/-- All finite traces of a configuration only ever get stuck in value states. -/
-def safe {S : SmallStep} (c : S.prog × S.state) : Prop :=
-  ∀ n c', S.stepN n c c' → S.stuck c' → (S.to_val c').isSome
+variable {S : SmallStep} [Det S]
 
-def det_stepN_unqiue [Det S] {n} : S.stepN n c c' ∧ S.stepN n c c'' → c' = c'' := by
-  revert c
-  induction n
-  · intro _; rintro ⟨(H|_), (H'|_)⟩; exact H.symm.trans H'
-  · rename_i n IH
-    rintro c ⟨(_|⟨H1, H2⟩), (_|⟨H3, H4⟩)⟩
-    exact IH ⟨(Det.step_det H1 _ H3) ▸ H2, H4⟩
+-- TODO: Cleanup
+theorem stepN_detN {n1 n2 c'} : ∀ {c}, S.IsStuck c' → S.StepN n1 c c' → S.StepN n2 c c' → n1 = n2 := by
+  intros _ _ H1
+  induction H1 generalizing n2
+  · intro H2
+    rename_i H Hs
+    exact (S.stepN_isStuck_inv H2 (H ▸ Hs)).symm
+  · rename_i n c'' Hs Hsn IH Ht
+    intro Hsn'
+    cases n2
+    · exfalso
+      have H'' := S.stepN_zero_inv Hsn'; subst H''
+      apply Ht Hs
+    rename_i n2
+    congr
+    apply IH Ht
+    cases Hsn'
+    rename_i c'' Hs' Hsn'
+    have Hx := step_det Hs _ Hs'
+    exact Hx ▸ Hsn'
 
-/-- For all programs, they either surely teminate, or they don't. -/
-theorem SmallStep.termination_em {S : SmallStep} c : (∃ n, ∃ c', S.stepN n c c' ∧ S.stuck c') ∨ S.nonterminating c := by
-  refine (Classical.em _).elim .inr (fun H => .inl ?_)
-  simp only [nonterminating, Classical.not_forall, not_imp, Classical.not_not] at H
-  rcases H with ⟨n, c', H, Hs⟩
-  exists n
-  exists c'
+-- TODO: Cleanup
+theorem stepN_det {n1 n2 c1 c2} (Hs : S.IsStuck c1) (Hs2 : S.IsStuck c2):
+    ∀ {c}, S.StepN n1 c c1 → S.StepN n2 c c2 → n1 = n2 ∧ c1 = c2 := by
+  revert c2 n2
+  induction n1
+  · intro n2 c2 Hs2 c Hcc1 Hcc2
+    have Hcc1' := S.stepN_zero_inv Hcc1 <;> subst Hcc1'
+    cases n2
+    · have Hcc2' := S.stepN_zero_inv Hcc2 <;> subst Hcc2'
+      exact ⟨rfl, rfl⟩
+    · -- c = c1 and c1 is stuck
+      rename_i n; exfalso
+      cases Hcc2
+      rename_i _ Hstep _
+      apply Hs
+      apply Hstep
+  · rename_i n1 IH
+    intro n2 c2 Hs2 c HstepN1 HStepN2
+    cases HstepN1
+    rename_i c1' Hcc1' Hc'c1
+    cases n2
+    · exfalso
+      -- c = c2
+      have Hcc2' := S.stepN_zero_inv HStepN2
+      clear HStepN2
+      apply (Hcc2' ▸ Hs2) Hcc1'
+    rename_i n2
+    simp
+    apply IH
+    · apply Hs2
+    · apply Hc'c1
+    cases HStepN2
+    rename_i H1 H2 H3
+    rw [← step_det Hcc1' _ H2]
+    trivial
 
-/-- A conservative definition of program equivalence, which should work as long as our semantics
-is deterministic.
+/-- For determinisic programs, if it might terminate, then it is uniquely terminating -/
+theorem uniquelyTerminating_of_mayTerinate c : S.MayTerminate c → S.UniquelyTerminating c := by
+  rintro ⟨N, c', Hs, Ht⟩; exact ⟨N, c', Hs, Ht, fun N' c'' Hs' Ht' => stepN_det Ht Ht' Hs Hs'⟩
 
-This is the thing we eventually want to prove about our programs.
+/-- All deterministic programs either terminate, or they don't -/
+theorem uniquelyTerminating_em c : S.UniquelyTerminating c ∨ S.Nonterminating c :=
+  (S.weak_termination_em c).elim (.inl ∘ uniquelyTerminating_of_mayTerinate _) .inr
+
+end det
+
+
+/-- Our definition of program equivalence.
+
+We consider two programs equivalent when:
+- They are equiterminating,
+- They preserve the relational invariant Φi across all possible executions,
+- All stuck states are values,
+- All stuck states obey the relational invariant Φf.
 -/
 def PRel {S : SmallStep}
-    (Φi : (S.prog × S.state) → (S.prog × S.state) → Prop)
-    (Φf : S.val → S.val → Prop) : Prop :=
+    (Φi : (S.Prog × S.State) → (S.Prog × S.State) → Prop)
+    (Φf : (S.Val × S.State) → (S.Val × S.State) → Prop) : Prop :=
   -- For all starting configurations that are related by Φi,
   ∀ {c1 c2}, Φi c1 c2 →
   -- They are equiterminating,
-  (nonterminating c1 ↔ nonterminating c2) ∧
+  (S.Nonterminating c1 ↔ S.Nonterminating c2) ∧
   -- and for any two finite executions,
   (∀ c1' c2' n m,
-    (S.stepN n c1 c1' ∧ S.stuck c1' ∧ S.stepN m c2 c2' ∧ S.stuck c2') →
-    -- They only ever get stuck in value states (safety) and those values are related by Φf
-    (∃ v1 v2, S.to_val c1' = some v1 ∧ S.to_val c2' = some v2 ∧ Φf v1 v2))
+    (S.StepN n c1 c1' ∧ S.IsStuck c1' ∧ S.StepN m c2 c2' ∧ S.IsStuck c2') →
+    -- They only ever get stuck in Value States (Safety) and those Values are related by Φf
+    (∃ v1 v2, S.toVal c1'.1 = some v1 ∧ S.toVal c2'.1 = some v2 ∧ Φf (v1, c1'.2) (v2, c2'.2)))
 
 /-- Monotonicity of PRel with respect to the input and output relations. -/
-theorem PRel.mono {S : SmallStep} {Φi Φi' : (S.prog × S.state) → (S.prog × S.state) → Prop}
-    {Φf Φf' : S.val → S.val → Prop} (Hi : ∀ {c1 c2}, Φi' c1 c2 → Φi c1 c2)
+theorem PRel.mono {S : SmallStep} {Φi Φi' : (S.Prog × S.State) → (S.Prog × S.State) → Prop}
+    {Φf Φf' : S.Val × S.State → S.Val × S.State → Prop} (Hi : ∀ {c1 c2}, Φi' c1 c2 → Φi c1 c2)
     (Hf : ∀ {c1 c2}, Φf c1 c2 → Φf' c1 c2) : PRel Φi Φf → PRel Φi' Φf' := by
   intro HRel c1 c2 HΦ
   rcases (HRel (Hi HΦ)) with ⟨Hnt, Hv⟩
@@ -118,13 +217,12 @@ theorem PRel.mono {S : SmallStep} {Φi Φi' : (S.prog × S.state) → (S.prog ×
   rcases (Hv c1' c2' n m Hstuck) with ⟨v1, v2, H1, H2, H3⟩
   exact ⟨v1, v2, H1, H2, Hf H3⟩
 
-
 /-- The equality relation on configurations. -/
-def Rel.equals {S : SmallStep} : (S.prog × S.state) → (S.prog × S.state) → Prop := (· = ·)
+def Rel.equals {S : SmallStep} : (S.Prog × S.State) → (S.Prog × S.State) → Prop := (· = ·)
 
-/-- The relation that states that the starting programs are equal, and the statring states both
+/-- The relation that States that the starting Programs are equal, and the statring States both
 satisfy a unary property. -/
-def Rel.lift2 {S : SmallStep} (p : S.prog) (Rs : S.state → Prop) (c1 c2 : S.prog × S.state) : Prop :=
+def Rel.lift2 {S : SmallStep} (p : S.Prog) (Rs : S.State → Prop) (c1 c2 : S.Prog × S.State) : Prop :=
   c1.1 = p ∧ c2.1 = p ∧ Rs c1.2 ∧ Rs c2.2
 
 /-- The trivial relation on configurations. -/
@@ -132,137 +230,146 @@ def Rel.triv {T : Type _} (_ _ : T) : Prop := True
 
 /-- One relation is implied by another.
 
-markusde: use this for the static parts of verification, eg. allocation and value of input tensors in HBM.
+markusde: use this for the static parts of verification, eg. allocation and Value of input tensors in HBM.
 -/
 def Rel.implies {T : Type _} (R1 R2 : T → T → Prop) : Prop := ∀ t1 t2, R1 t1 t2 → R2 t1 t2
 
 theorem Rel.implies_triv {T : Type _} (R : T → T → Prop) : Rel.implies R Rel.triv :=
   fun _ _ _ => trivial
 
-/-- If a program is related to itself with
+/-- If a Program is related to itself with
  - The "equality" starting relation
  - the trivial terminal relation,
- then for every execution of the program with state starting in R, that execution is safe.
+ then for every execution of the Program with State starting in R, that execution is Safe.
 
 This might only make sense for deterministic semantics?
 -/
-theorem PRel.safety {S : SmallStep} p (R : S.state → Prop) (Hp : PRel (Rel.lift2 p R) Rel.triv) :
-    ∀ {s : S.state}, R s → safe (p, s) := by
-  intro s Hr n cf Hstep Hstuck
+theorem PRel.Safety {S : SmallStep} p (R : S.State → Prop) (Hp : PRel (Rel.lift2 p R) Rel.triv) :
+    ∀ {s : S.State}, R s → Safe (p, s) := by
+  intro s Hr n cf csf HStep Hstuck
   have HRi : Rel.lift2 p R (p, s) (p, s) := ⟨rfl, rfl, Hr, Hr⟩
-  rcases (Hp HRi) with ⟨Hterm, Hval⟩
-  rcases (Hval cf cf n n ⟨Hstep, Hstuck, Hstep, Hstuck⟩) with ⟨v1, _, Hv1, _, _⟩
-  rw [Hv1]; rfl
+  rcases (Hp HRi) with ⟨Hterm, HVal⟩
+  rcases (HVal (cf, csf) (cf, csf) n n ⟨HStep, Hstuck, HStep, Hstuck⟩) with ⟨v1, _, Hv1, Hv2, _⟩
+  simp_all [IsValue]
+  exact Option.IsSomeP.some
 
-/-- A relation between two programs such that: Φi holds for everything the left program can step to -/
-def Rel.bind_l {S : SmallStep} (Φi : (S.prog × S.state) → (S.prog × S.state) → Prop)
-  (cl cr : S.prog × S.state) : Prop := ∀ cl', S.step cl cl' -> Φi cl' cr
 
-/-- A relation between two programs such that: Φi holds for everything the left program can step to -/
-def Rel.bind_r {S : SmallStep} (Φi : (S.prog × S.state) → (S.prog × S.state) → Prop)
-  (cl cr : S.prog × S.state) : Prop := ∀ cr', S.step cr cr' -> Φi cl cr'
+/-- A relation between two Programs such that: Φi holds for everything the left Program can Step to -/
+def Rel.bind_l {S : SmallStep} (Φi : (S.Prog × S.State) → (S.Prog × S.State) → Prop)
+  (cl cr : S.Prog × S.State) : Prop := ∀ cl', S.Step cl cl' -> Φi cl' cr
 
-/-- Lift a relation on values to a relation on configurations, asserting that:
- - both configurations are values,
- - Φf holds on their values. -/
-def Rel.lift_values {S : SmallStep} (Φf : S.val → S.val → Prop)
-    (cl cr : S.prog × S.state) : Prop := ∃ vl vr, S.to_val cl = some vl ∧ S.to_val cr = some vr ∧ Φf vl vr
+/-- A relation between two Programs such that: Φi holds for everything the left Program can Step to -/
+def Rel.bind_r {S : SmallStep} (Φi : (S.Prog × S.State) → (S.Prog × S.State) → Prop)
+  (cl cr : S.Prog × S.State) : Prop := ∀ cr', S.Step cr cr' -> Φi cl cr'
 
-theorem Rel.lift_values_mono {S : SmallStep}  {Φ1 Φ2 : S.val → S.val → Prop}
-    (H : Rel.implies Φ1 Φ2) : Rel.implies (Rel.lift_values Φ1) (Rel.lift_values Φ2) := by
+/-- Lift a relation on Values to a relation on configurations, asserting that:
+ - both configurations are Values,
+ - Φf holds on their Values. -/
+def Rel.lift_Values {S : SmallStep} (Φf : S.Val × S.State → S.Val × S.State → Prop)
+    (cl cr : S.Prog × S.State) : Prop := ∃ vl vr, S.toVal cl.1 = some vl ∧ S.toVal cr.1 = some vr ∧ Φf (vl, cl.2) (vr, cr.2)
+
+theorem Rel.lift_Values_mono {S : SmallStep}  {Φ1 Φ2 : S.Val × S.State → S.Val × S.State → Prop}
+    (H : Rel.implies Φ1 Φ2) : Rel.implies (Rel.lift_Values Φ1) (Rel.lift_Values Φ2) := by
   intro c1 c2 Hl
   rcases Hl with ⟨v1, v2, Hv1, Hv2, Hv12⟩
   exact ⟨v1, v2, Hv1, Hv2, H _ _ Hv12⟩
 
+
 def Rel.both (P : T → Prop) (t1 t2 : T) : Prop := P t1 ∧ P t2
 
-theorem Rel.lift_values_triv_stuck_left {S : SmallStep} (cl cr : S.prog × S.state)
-    (H : Rel.lift_values Rel.triv cl cr) : S.stuck cl := by
-  rcases H with ⟨v, _, Hv, _, _⟩; intro Hs; apply Hv ▸ S.value_stuck; rfl
+theorem Rel.lift_Values_triv_stuck_left {S : SmallStep} (cl cr : S.Prog × S.State)
+    (H : Rel.lift_Values Rel.triv cl cr) : S.IsStuck cl := by
+  rcases H with ⟨v, _, Hv, _, _⟩; intro Hs; apply Hv ▸ S.toVal_isSome_isStuck; constructor
 
-theorem Rel.lift_values_triv_stuck_right {S : SmallStep} (cl cr : S.prog × S.state)
-    (H : Rel.lift_values Rel.triv cl cr) : S.stuck cr := by
-  rcases H with ⟨_, v, _, Hv, _⟩; intro Hs; apply Hv ▸ S.value_stuck; rfl
+theorem Rel.lift_Values_triv_stuck_right {S : SmallStep} (cl cr : S.Prog × S.State)
+    (H : Rel.lift_Values Rel.triv cl cr) : S.IsStuck cr := by
+  rcases H with ⟨_, v, _, Hv, _⟩; intro Hs; apply Hv ▸ S.toVal_isSome_isStuck; constructor
 
-theorem Rel.lift_values_triv_stuck_both {S : SmallStep} (cl cr : S.prog × S.state)
-  (H : Rel.lift_values Rel.triv cl cr) : Rel.both (S.stuck ·) cl cr :=
-  ⟨Rel.lift_values_triv_stuck_left cl cr H, Rel.lift_values_triv_stuck_right cl cr H⟩
+theorem Rel.lift_Values_triv_stuck_both {S : SmallStep} (cl cr : S.Prog × S.State)
+  (H : Rel.lift_Values Rel.triv cl cr) : Rel.both (S.IsStuck ·) cl cr :=
+  ⟨Rel.lift_Values_triv_stuck_left cl cr H, Rel.lift_Values_triv_stuck_right cl cr H⟩
 
-/-- If either program is not stuck, the Rel.lift_values relation cannot hold. -/
-theorem rel_lift_values_not_stuck {S : SmallStep} (cl cr : S.prog × S.state) {Φ}
-    (H : ¬S.stuck cl ∨ ¬S.stuck cr) : ¬Rel.lift_values Φ cl cr := by
+/-- If either Program is not stuck, the Rel.lift_Values relation cannot hold. -/
+theorem rel_lift_Values_not_stuck {S : SmallStep} (cl cr : S.Prog × S.State) {Φ}
+    (H : ¬S.IsStuck cl ∨ ¬S.IsStuck cr) : ¬Rel.lift_Values Φ cl cr := by
   rintro ⟨vl, vr, Hl, Hr, _⟩
   apply H.elim
   · intro H
     apply H
     intro c
-    apply Hl ▸ S.value_stuck (c := cl)
-    rfl
+    apply Hl ▸ S.toVal_isSome_isStuck
+    constructor
   · intro H
     apply H
     intro c
-    apply Hr ▸ S.value_stuck (c := cr)
-    rfl
+    apply Hr ▸ S.toVal_isSome_isStuck
+    constructor
 
-/-- If either program is nonterminating, the Rel.lift_values relation cannot hold.
-TODO: Use rel_lift_values_not_stuck
+/-- If either Program is Nonterminating, the Rel.lift_Values relation cannot hold.
+TODO: Use rel_lift_Values_not_stuck
 -/
-theorem rel_lift_values_not_nonterminating {S : SmallStep} (cl cr : S.prog × S.state) {Φ}
-    (H : nonterminating cl ∨ nonterminating cr) : ¬Rel.lift_values Φ cl cr := by
+theorem rel_lift_Values_not_Nonterminating {S : SmallStep} (cl cr : S.Prog × S.State) {Φ}
+    (H : S.Nonterminating cl ∨ S.Nonterminating cr) : ¬Rel.lift_Values Φ cl cr := by
   rintro ⟨vl, vr, Hl, Hr, _⟩
   apply H.elim
   · intro H
-    apply (H 0 cl (stepN.done rfl))
+    apply H (n := 0) (StepN.done rfl)
     intro _
-    apply Hl ▸ S.value_stuck
-    rfl
+    apply Hl ▸ S.toVal_isSome_isStuck
+    constructor
   · intro H
-    apply (H 0 cr (stepN.done rfl))
+    apply H (n := 0) (StepN.done rfl)
     intro _
-    apply Hr ▸ S.value_stuck
-    rfl
+    apply Hr ▸ S.toVal_isSome_isStuck
+    constructor
 
--- def Rel.both_stuck {S : SmallStep} (cl cr : S.prog × S.state) : Prop := S.stuck cl ∧ ¬S.stuck cr
+-- def Rel.both_stuck {S : SmallStep} (cl cr : S.Prog × S.State) : Prop := S.stuck cl ∧ ¬S.stuck cr
 
--- /-- A relation between two programs such that:
---   - Both programs can take a step, and Φi holds for everything that both programs can step to, or
---   - Both programs are stuck, and Φf holds for their stuck values.-/
--- def Rel.bind_lr_sync {S : SmallStep} (Φi : (S.prog × S.state) → (S.prog × S.state) → Prop) (Φf : S.val → S.val → Prop)
---   (cl cr : S.prog × S.state) : Prop :=
---     (Rel.lift_values Φf cl cr) ∨
---     (Rel.both (¬S.stuck ·) cl cr ∧ ∀ cl' cr', S.step cl cl' → S.step cr cr' → Φi cl cr)
+-- /-- A relation between two Programs such that:
+--   - Both Programs can take a Step, and Φi holds for everything that both Programs can Step to, or
+--   - Both Programs are stuck, and Φf holds for their stuck Values.-/
+-- def Rel.bind_lr_sync {S : SmallStep} (Φi : (S.Prog × S.State) → (S.Prog × S.State) → Prop) (Φf : S.Val → S.Val → Prop)
+--   (cl cr : S.Prog × S.State) : Prop :=
+--     (Rel.lift_Values Φf cl cr) ∨
+--     (Rel.both (¬S.stuck ·) cl cr ∧ ∀ cl' cr', S.Step cl cl' → S.Step cr cr' → Φi cl cr)
 
-/- A step-indexed version of PRel.
+/- A Step-indexed version of PRel.
 
-Both programs need to either terminate in values satisfying Φf in at most n steps,
-or take at least n steps.
+Both Programs need to either terminate in Values satisfying Φf in at most n Steps,
+or take at least n Steps.
 -/
-def PRelN {S : SmallStep} (n : Nat) (Φi : (S.prog × S.state) → (S.prog × S.state) → Prop) (Φf : S.val → S.val → Prop) : Prop :=
+def PRelN {S : SmallStep} (n : Nat) (Φi : (S.Prog × S.State) → (S.Prog × S.State) → Prop)
+  (Φf : S.Val × S.State → S.Val × S.State → Prop) : Prop :=
   match n with
   | 0 => True
   | .succ n' =>
-      -- For any two initial states that are related by Φi
+      -- For any two initial States that are related by Φi
       ∀ c1 c2, Φi c1 c2 →
-      -- Either they are both values, and satisfy Φf
-      (Rel.lift_values Φf c1 c2) ∨
-      -- or, there exist target states c1' c2
-      -- such that the left and right sides can both take >1 steps to reach the target states
+      -- Either they are both Values, and satisfy Φf
+      (Rel.lift_Values Φf c1 c2) ∨
+      -- or, there exist target States c1' c2
+      -- such that the left and right sides can both take >1 Steps to reach the target States
       (∃ n1 n2 : Nat, ∃ c1' c2',
-          S.stepN n1.succ c1 c1' ∧
-          S.stepN n2.succ c2 c2' ∧
+          S.StepN n1.succ c1 c1' ∧
+          S.StepN n2.succ c2 c2' ∧
           PRelN n' (fun ρ1 ρ2 => ρ1 = c1' ∧ ρ2 = c2) Φf)
 
--- TODO: This is monotone. Proof: Rel.lift_values and the other case are disjoint (because
--- it can't be both a value, therefore stuck, and also steppable.
 
-/-- Property of the global state which is true at every point during execution. -/
-def strong_relational_invariant {S : SmallStep} (Φi : S.prog × S.state → S.prog × S.state → Prop) : Prop :=
-    (∀ cl cr cl' : S.prog × S.state, Φi cl cr → S.step cl cl' → Φi cl' cr) ∧
-    (∀ cl cr cr' : S.prog × S.state, Φi cl cr → S.step cr cr' → Φi cl cr')
+-- TODO: This is monotone. Proof: Rel.lift_Values and the other case are disjoint (because
+-- it can't be both a Value, therefore stuck, and also Steppable.
+
+/-- Property of the global State which is true at every point during execution.
+markusde: this is actually too strong, needs to be a part of the WP not the semantic argument.
+Basically, if we want to use Φi to describe the input tensors, then we need Φi to talk about their
+values, and not overwriting these values is an extrinsic property of programs in our model.
+-/
+def strong_relational_invariant {S : SmallStep} (Φi : S.Prog × S.State → S.Prog × S.State → Prop) : Prop :=
+    (∀ cl cr cl' : S.Prog × S.State, Φi cl cr → S.Step cl cl' → Φi cl' cr) ∧
+    (∀ cl cr cr' : S.Prog × S.State, Φi cl cr → S.Step cr cr' → Φi cl cr')
 
 -- TODO: Cleanup
-theorem stepN_add_iff {S : SmallStep} {n1 n2 : Nat} {c1 c2} :
-    S.stepN (n1 + n2) c1 c2 ↔ ∃ c3, S.stepN n1 c1 c3 ∧ S.stepN n2 c3 c2 := by
+theorem StepN_add_iff {S : SmallStep} {n1 n2 : Nat} {c1 c2} :
+    S.StepN (n1 + n2) c1 c2 ↔ ∃ c3, S.StepN n1 c1 c3 ∧ S.StepN n2 c3 c2 := by
   revert n2 c1 c2
   induction n1
   · intro n2 c1 c2
@@ -271,7 +378,7 @@ theorem stepN_add_iff {S : SmallStep} {n1 n2 : Nat} {c1 c2} :
     · rw [Nat.add_zero]
       intro H
       exists c1
-      exact ⟨stepN.done rfl, H⟩
+      exact ⟨StepN.done rfl, H⟩
     · rintro ⟨c3, ⟨He⟩, _⟩
       rw [Nat.add_zero, He]
       trivial
@@ -280,40 +387,40 @@ theorem stepN_add_iff {S : SmallStep} {n1 n2 : Nat} {c1 c2} :
     · rw [Nat.add_right_comm n1 1 n2]
       intro H
       rcases H
-      rename_i c3 Hstep Hrest
+      rename_i c3 HStep Hrest
       rcases IH.mp Hrest with ⟨x, y, z⟩
       exists x
       constructor
-      · apply stepN.step Hstep y
+      · apply StepN.step HStep y
       · apply z
     · rw [Nat.add_right_comm n1 1 n2]
       rintro ⟨c3, x, y⟩
       rcases x
       rename_i a b c
-      apply stepN.step b
+      apply StepN.step b
       apply IH.mpr
       exists c3
 
 -- Note: This theorem is not true in the presence of nondeterminism because
--- nonterminating (Ω | 0) and step (Ω | 0) 0 but not nonterminating 0
-theorem nonterminating_step [Det S] {c c'} (Hn : nonterminating c) (Hs : S.step c c') :
-    nonterminating c' := by
+-- Nonterminating (Ω | 0) and Step (Ω | 0) 0 but not Nonterminating 0
+theorem Nonterminating_Step [Det S] {c c'} (Hn : S.Nonterminating c) (Hs : S.Step c c') :
+    S.Nonterminating c' := by
   intro n c'' Hs'
-  apply Hn n.succ
+  apply Hn (n := n.succ)
   rw [Nat.succ_eq_one_add]
-  apply stepN_add_iff.mpr
+  apply StepN_add_iff.mpr
   exists c'
-  exact ⟨stepN.step Hs (stepN.done rfl), Hs'⟩
+  exact ⟨StepN.step Hs (StepN.done rfl), Hs'⟩
 
+/-
+/- Deterministic Programs which satisfy PRelN for all n must be equiterminating.
 
-/- Deterministic programs which satisfy PRelN for all n must be equiterminating.
-
-Note: We require that Φi behaves like a relational invariant on the state. This can encode things
-like input tensor values, which we will be a hypothesis of our adequacy statement. -/
-theorem PRelN_terminating [Det S] {Φi Φf} {cl cr} (HΦ : Φi cl cr) (Hterm : nonterminating cl)
-    (HInv : strong_relational_invariant Φi) (Hrel : ∀ n, PRelN (S := S) n Φi Φf) : nonterminating cr := by
-  -- Sketch: (Rel.lift_values Φf c1 c2) will never be true, so PRelN gets unfolded at least N times.
-  -- This means that cr will take at least (gas + 1) steps, so executing to (gas) will not be stuck.
+Note: We require that Φi behaves like a relational invariant on the State. This can encode things
+like input tensor Values, which we will be a hypothesis of our adequacy Statement. -/
+theorem PRelN_terminating [Det S] {Φi Φf} {cl cr} (HΦ : Φi cl cr) (Hterm : S.Nonterminating cl)
+    (HInv : strong_relational_invariant Φi) (Hrel : ∀ n, PRelN (S := S) n Φi Φf) : S.Nonterminating cr := by
+  -- Sketch: (Rel.lift_Values Φf c1 c2) will never be true, so PRelN gets unfolded at least N times.
+  -- This means that cr will take at least (gas + 1) Steps, so executing to (gas) will not be stuck.
   intro gas
   revert cl cr
   induction gas
@@ -321,10 +428,10 @@ theorem PRelN_terminating [Det S] {Φi Φf} {cl cr} (HΦ : Φi cl cr) (Hterm : n
     have Hrel' := Hrel 1
     simp only [PRelN] at Hrel'
     have Hrel'' := Hrel' cl cr HΦ; clear Hrel'
-    intro c' Hstep0 Hstuck
+    intro c' HStep0 Hstuck
     rcases Hrel'' with (H|⟨n1, n2, c1', c2', H1, H2, _⟩)
-    · exact rel_lift_values_not_nonterminating cl cr (.inl Hterm) H
-    · rcases Hstep0 with ⟨Heq⟩
+    · exact rel_lift_Values_not_Nonterminating cl cr (.inl Hterm) H
+    · rcases HStep0 with ⟨Heq⟩
       rcases H2
       rename_i _ HK _
       rw [←Heq] at Hstuck
@@ -336,54 +443,54 @@ theorem PRelN_terminating [Det S] {Φi Φf} {cl cr} (HΦ : Φi cl cr) (Hterm : n
     have Hrel' := Hrel (gas + 1) cl cr HΦ <;> clear Hrel
     rcases Hrel' with (H|⟨n1, n2, c1', c2', H1, H2, _⟩)
     · intro Hk
-      apply rel_lift_values_not_stuck _ _ _ H
+      apply rel_lift_Values_not_stuck _ _ _ H
       right
       exact fun a => a c' Hs
-    -- By H1 and H2, both the left and right hadn sides can take at least 1 step.
-    rcases stepN_add_iff.mp (Nat.succ_eq_one_add n1 ▸ H1) with ⟨cl_next, Hstep_l, Hrest_l⟩
-    rcases stepN_add_iff.mp (Nat.succ_eq_one_add n2 ▸ H2) with ⟨cr_next, Hstep_r, Hrest_r⟩
+    -- By H1 and H2, both the left and right hadn sides can take at least 1 Step.
+    rcases StepN_add_iff.mp (Nat.succ_eq_one_add n1 ▸ H1) with ⟨cl_next, HStep_l, Hrest_l⟩
+    rcases StepN_add_iff.mp (Nat.succ_eq_one_add n2 ▸ H2) with ⟨cr_next, HStep_r, Hrest_r⟩
     -- By HInv, Φi holds of their left and right sides
     have Hinv : Φi cl_next cr_next := by
-      apply HInv.1 _ _ _ _ (S.stepN_one Hstep_l)
-      apply HInv.2 _ _ _ _ (S.stepN_one Hstep_r)
+      apply HInv.1 _ _ _ _ (S.stepN_one_step HStep_l)
+      apply HInv.2 _ _ _ _ (S.stepN_one_step HStep_r)
       exact HΦ
-    -- By Hterm, the new left branch is still nonterminating
-    have Hnt : nonterminating cl_next := nonterminating_step Hterm (S.stepN_one Hstep_l)
-    -- Reassociate Hs and Hsn to get that the new step takes gas steps to get to c' (det?)
-    have Hrec : S.stepN gas cr_next c := by
-      have Hstep_r' := S.stepN_one Hstep_r
-      rw [← Det.step_det Hstep_r' c' Hs]
+    -- By Hterm, the new left branch is still Nonterminating
+    have Hnt : Nonterminating cl_next := Nonterminating_Step Hterm (S.stepN_one_step HStep_l)
+    -- Reassociate Hs and Hsn to get that the new Step takes gas Steps to get to c' (det?)
+    have Hrec : S.StepN gas cr_next c := by
+      have HStep_r' := S.stepN_one_step HStep_r
+      rw [← Det.Step_det HStep_r' c' Hs]
       exact Hsn
     exact IH Hinv Hnt _ Hrec
 
 
 
-/-- Soundness of the step-indexed relation.
-If we can prove that the relation holds for all finite traces, then PRel holds between our programs. -/
+/-- Soundness of the Step-indexed relation.
+If we can prove that the relation holds for all finite traces, then PRel holds between our Programs. -/
 theorem PRelN_PRel [Det S] {Φi Φf} (HInv : strong_relational_invariant Φi) :
     (∀ n, PRelN (S := S) n Φi Φf) → PRel (S := S) Φi Φf := by
   intro HP c1 c2 HΦi
   rcases SmallStep.termination_em c1 with (Hc1 | Hc1) <;>
   rcases SmallStep.termination_em c2 with (Hc2 | Hc2)
-  · -- Both programs terminate.
+  · -- Both Programs terminate.
     constructor
-    · -- False equiv valse
+    · -- False equiv Valse
       sorry
-    · -- Prove: That for any two possible stuck states that we eventually step to,
-      -- they are values where Φf holds.
+    · -- Prove: That for any two possible stuck States that we eventually Step to,
+      -- they are Values where Φf holds.
 
       -- To do this we can prove a monotonicity lemma, it holds for all
-      -- (c1' c2' : S.prog × S.state) (n m : Nat) because it holds for Hc1.c' Hc2.c' Hc1.n Hc2.n
+      -- (c1' c2' : S.Prog × S.State) (n m : Nat) because it holds for Hc1.c' Hc2.c' Hc1.n Hc2.n
       -- This is because on terminating traces there is exactly ony such (n, c') pair where this holds.
 
       -- We need to get the Φf somehow.
-      -- We need a value for
+      -- We need a Value for
       sorry
   · exfalso
     -- TOOD: Cleanup the PRelN_terminating proof and apply it in the other direction
     sorry
   · exfalso
-    have HN : (nonterminating c2) := PRelN_terminating HΦi Hc1 HInv HP
+    have HN : (Nonterminating c2) := PRelN_terminating HΦi Hc1 HInv HP
     rcases Hc2 with ⟨n, c', H1, H2⟩
     exact HN n c' H1 H2
   · constructor
@@ -391,7 +498,7 @@ theorem PRelN_PRel [Det S] {Φi Φf} (HInv : strong_relational_invariant Φi) :
     ·
       rintro c1' c2' n m ⟨H1, H2, H3, H4⟩
       exfalso
-      -- Nonterminating can't step to a stuck state
+      -- Nonterminating can't Step to a stuck State
       sorry
 
 namespace SmallStep
@@ -404,30 +511,30 @@ namespace SmallStep
 
 
 /-
-theorem stepExactN_succ_some {n : Nat} (H : stepExactN Pgm State Val n.succ (p2', s2') (p2, s2)) :
-    (SmallStep.to_value (Val := Val) (p2', s2')).isNone := by
+theorem StepExactN_succ_some {n : Nat} (H : StepExactN Pgm State Val n.succ (p2', s2') (p2, s2)) :
+    (SmallStep.toValue (Val := Val) (p2', s2')).isNone := by
   rcases H with (_|_)
-  suffices ¬(SmallStep.to_value (Val := Val) (p2', s2')).isSome by
-    generalize HX : (SmallStep.to_value (Val := Val) (p2', s2')) = X
+  suffices ¬(SmallStep.toValue (Val := Val) (p2', s2')).isSome by
+    generalize HX : (SmallStep.toValue (Val := Val) (p2', s2')) = X
     rw [HX] at this
     cases X <;> simp_all
   intro H
-  apply (SmallStep.value_stuck H)
+  apply (SmallStep.Value_stuck H)
   rename_i c _ _; exists c
 
-/- A program terminates in a given configuration in at most n steps -/
-inductive stepTerm : Nat → Pgm × State → Pgm × State → Prop where
-| stepTerm_term : stuck Pgm State Val c → stepTerm n c c
-| stepTerm_run : SmallStep.step Val c c' → stepTerm n c' c'' → stepTerm n.succ c c''
+/- A Program terminates in a given configuration in at most n Steps -/
+inductive StepTerm : Nat → Pgm × State → Pgm × State → Prop where
+| StepTerm_term : stuck Pgm State Val c → StepTerm n c c
+| StepTerm_run : SmallStep.Step Val c c' → StepTerm n c' c'' → StepTerm n.succ c c''
 
 
-def is_value? (c : Pgm × State) : Prop := ¬ (SmallStep.to_value (Val := Val) c) = .none
+def is_Value? (c : Pgm × State) : Prop := ¬ (SmallStep.toValue (Val := Val) c) = .none
 
-/-- For the first n steps of execution, all stuck states are values. -/
-def safeN (n : Nat) : Pgm × State → Prop :=
-  satN (I := I) _ _ _ n (is_value? Pgm State Val)
+/-- For the first n Steps of execution, all stuck States are Values. -/
+def SafeN (n : Nat) : Pgm × State → Prop :=
+  satN (I := I) _ _ _ n (is_Value? Pgm State Val)
 
--- theorem safeN.mono (c : Pgm × State) (Hn : n ≤ n') (Hs : safeN _ _ n' c) : safeN _ _ n c := by
+-- theorem SafeN.mono (c : Pgm × State) (Hn : n ≤ n') (Hs : SafeN _ _ n' c) : SafeN _ _ n c := by
 --   revert n
 --   induction n'
 --   · intro n Hn
@@ -435,26 +542,26 @@ def safeN (n : Nat) : Pgm × State → Prop :=
 --     sorry
 --   sorry
 
-/-- For all terminating executions, all stuck states are values. -/
-def safe (c : Pgm × State) : Prop := ∀ n, safeN (I := I) _ _ _ n c
+/-- For all terminating executions, all stuck States are Values. -/
+def Safe (c : Pgm × State) : Prop := ∀ n, SafeN (I := I) _ _ _ n c
 
 end SmallStep
 -/
 
 /-
-/-- Lift a relation on final values to a relation on program terms, which is trivially true for all non-value terms. -/
+/-- Lift a relation on final Values to a relation on Program terms, which is trivially true for all non-Value terms. -/
 def lift_rel (R : Val × State → Val × State → Prop) (p1 p2 : Pgm × State) : Prop :=
-  match SmallStep.to_value p1, SmallStep.to_value p2 with
+  match SmallStep.toValue p1, SmallStep.toValue p2 with
   | some v1, some v2 => R ⟨v1, p1.2⟩ ⟨v2, p2.2⟩
   | _, _ => True
 
 
 -- The product doesn't introduce "more nondeterminism" in for stuck executions.
--- If we prove that a relational property holds for all at most (n+n)-step traces that end in stuck states,
--- Then we know that for all traces of both left and right programs that take at most n steps that end in
--- stuck states, their stuck states satisfy the relation R.
--- The other direction does not hold, because the (n+n) steps don't have to by evenly divided between left
--- steps and right steps.
+-- If we prove that a relational property holds for all at most (n+n)-Step traces that end in stuck States,
+-- Then we know that for all traces of both left and right Programs that take at most n Steps that end in
+-- stuck States, their stuck States satisfy the relation R.
+-- The other direction does not hold, because the (n+n) Steps don't have to by evenly divided between left
+-- Steps and right Steps.
 
 end Product
 -/
@@ -463,30 +570,30 @@ end Product
 
 Stuff for when I was trying an explicit product semantics:
 
-/-- For any of the first n steps of execution, all stuck states satisfy `Φ`. -/
-inductive satisfiesN (Φ : S.prog × S.state → Prop) : Nat → S.prog × S.state → Prop where
+/-- For any of the first n Steps of execution, all stuck States satisfy `Φ`. -/
+inductive satisfiesN (Φ : S.Prog × S.State → Prop) : Nat → S.Prog × S.State → Prop where
 | stuck : S.stuck c → Φ c → satisfiesN Φ n c
-| step  : S.step c c' → satisfiesN Φ n c' → satisfiesN Φ n.succ c
+| Step  : S.Step c c' → satisfiesN Φ n c' → satisfiesN Φ n.succ c
 
-theorem satisfiesN_stepN (H : S.satisfiesN Φ n c) : ∀ m, m ≤ n → S.stuck c' → S.stepN m c c' → Φ c' := by
+theorem satisfiesN_StepN (H : S.satisfiesN Φ n c) : ∀ m, m ≤ n → S.stuck c' → S.StepN m c c' → Φ c' := by
   revert c
   induction n
   · intro c H m Hm Hs Hs'
     rw [Nat.le_zero_eq] at Hm
     rcases H with ⟨_, H⟩
-    exact (stepN_zero_inv S (Hm▸Hs'))▸H
+    exact (StepN_zero_inv S (Hm▸Hs'))▸H
   rename_i n IH
-  rintro c H m Hm Hstuck Hstep
+  rintro c H m Hm Hstuck HStep
   cases H
   · rename_i Hs' HΦ
-    have Hz := stepN_stuck_inv S Hstep Hs'
-    have Hc := stepN_zero_inv S (Hz ▸ Hstep)
+    have Hz := stepN_isStuck_iff S HStep Hs'
+    have Hc := StepN_zero_inv S (Hz ▸ HStep)
     exact Hc ▸ HΦ
-  rename_i _ Hsat Hstep'
+  rename_i _ Hsat HStep'
   rcases m with (_|m)
-  · exact Hstuck _ (stepN_zero_inv S Hstep ▸ Hstep') |>.elim
+  · exact Hstuck _ (StepN_zero_inv S HStep ▸ HStep') |>.elim
   -- have Hm' := Nat.add_le_add_iff_right ▸ Hm
-  cases Hstep
+  cases HStep
   -- apply IH Hsat _ (Nat.le_of_lt_succ Hm) Hstuck
   sorry
 -/
@@ -496,57 +603,57 @@ theorem satisfiesN_stepN (H : S.satisfiesN Φ n c) : ∀ m, m ≤ n → S.stuck 
 Product semantics stuff
 
 
-@[simp] abbrev prod.prog (S : SmallStep) := S.prog × S.prog
-@[simp] abbrev prod.state (S : SmallStep) := S.state × S.state
-@[simp] abbrev prod.val (S : SmallStep) := S.val × S.val
+@[simp] abbrev prod.Prog (S : SmallStep) := S.Prog × S.Prog
+@[simp] abbrev prod.State (S : SmallStep) := S.State × S.State
+@[simp] abbrev prod.Val (S : SmallStep) := S.Val × S.Val
 
-inductive prod.step {S : SmallStep} : (prod.prog S) × (prod.state S) → (prod.prog S) × (prod.state S) → Prop where
-| step_l : S.step (p1, s1) (p1', s1') → prod.step ((p1, p2), (s1, s2)) ((p1, p2'), (s1, s2'))
-| step_r : S.step (p2, s2) (p2', s2') → prod.step ((p1, p2), (s1, s2)) ((p1, p2'), (s1, s2'))
+inductive prod.Step {S : SmallStep} : (prod.Prog S) × (prod.State S) → (prod.Prog S) × (prod.State S) → Prop where
+| Step_l : S.Step (p1, s1) (p1', s1') → prod.Step ((p1, p2), (s1, s2)) ((p1, p2'), (s1, s2'))
+| Step_r : S.Step (p2, s2) (p2', s2') → prod.Step ((p1, p2), (s1, s2)) ((p1, p2'), (s1, s2'))
 
-@[simp] def prod.to_val {S : SmallStep} (c : prod.prog S × prod.state S) : Option (prod.val S) :=
-  match S.to_val ⟨c.1.1, c.2.1⟩, S.to_val ⟨c.1.2, c.2.2⟩ with
+@[simp] def prod.toVal {S : SmallStep} (c : prod.Prog S × prod.State S) : Option (prod.Val S) :=
+  match S.toVal ⟨c.1.1, c.2.1⟩, S.toVal ⟨c.1.2, c.2.2⟩ with
   | some v1, some v2 => some (v1, v2)
   | _, _ => none
 
-theorem prod.value_stuck {S : SmallStep} {c c' : prod.prog S × prod.state S} :
-    (prod.to_val c).isSome → prod.step c c' → False := by
+theorem prod.Value_stuck {S : SmallStep} {c c' : prod.Prog S × prod.State S} :
+    (prod.toVal c).isSome → prod.Step c c' → False := by
   rcases c with ⟨⟨p1, p2⟩, ⟨s1, s2⟩⟩
-  simp only [to_val]
+  simp only [toVal]
   split
   · rename_i Hv1 Hv2
-    intro _ Hstep; rcases Hstep with (Hs|Hs)
-    · exact S.value_stuck (Hv1▸rfl) Hs
-    · exact S.value_stuck (Hv2▸rfl) Hs
+    intro _ HStep; rcases HStep with (Hs|Hs)
+    · exact S.Value_stuck (Hv1▸rfl) Hs
+    · exact S.Value_stuck (Hv2▸rfl) Hs
   · simp
 
 def prod (S : SmallStep) : SmallStep where
-  prog := prod.prog S
-  state := prod.state S
-  val := prod.val S
-  step := prod.step
-  to_val := prod.to_val
-  value_stuck := prod.value_stuck
+  Prog := prod.Prog S
+  State := prod.State S
+  Val := prod.Val S
+  Step := prod.Step
+  toVal := prod.toVal
+  Value_stuck := prod.Value_stuck
 
 -/
 
-/- I think I actually need this to be in the step-indexed relation...
+/- I think I actually need this to be in the Step-indexed relation...
 
 -- If we can prove a PRel starting from Rel.bind_lr_sync, then either
--- both programs are stuck, or both programs make progress and satisfy PRel Φj
+-- both Programs are stuck, or both Programs make Progress and satisfy PRel Φj
 -- Then, we can define weakestpre by Rel.bind_lr_sync (or a stuttering variant) and
 -- use this in the adequacy proof.
-theorem PRel.bind_lr_sync {S : SmallStep} {c1 c2 : S.prog × S.state}
-    {Φi Φj : (S.prog × S.state) → (S.prog × S.state) → Prop}
-    -- If c1 and c2 only ever step from states related by Φi to states related by Φj,
-    (Hij : ∀ c1' c2', S.step c1 c1' → S.step c2 c2' → Φi c1 c2 → Φj c1 c2)
-    -- And we have established that programs are Φj-related
-    {Φf : S.val → S.val → Prop} :
+theorem PRel.bind_lr_sync {S : SmallStep} {c1 c2 : S.Prog × S.State}
+    {Φi Φj : (S.Prog × S.State) → (S.Prog × S.State) → Prop}
+    -- If c1 and c2 only ever Step from States related by Φi to States related by Φj,
+    (Hij : ∀ c1' c2', S.Step c1 c1' → S.Step c2 c2' → Φi c1 c2 → Φj c1 c2)
+    -- And we have established that Programs are Φj-related
+    {Φf : S.Val → S.Val → Prop} :
     -- And we have established
     PRel (Rel.bind_lr_sync Φi Φf) Φf →
     Φi c1 c2 →
-      ((Rel.lift_values Φf) c1 c2) ∨
-      (Rel.both (¬S.stuck ·) c1 c2 ∧ PRel (fun c1' c2' => S.step c1 c1' → S.step c2 c2' → Φi c1' c2') Φf)
+      ((Rel.lift_Values Φf) c1 c2) ∨
+      (Rel.both (¬S.stuck ·) c1 c2 ∧ PRel (fun c1' c2' => S.Step c1 c1' → S.Step c2 c2' → Φi c1' c2') Φf)
     := sorry
 -/
 
@@ -558,27 +665,28 @@ section prod
 variable {S : SmallStep}
 
 
-/-- Every n-step trace in the product semantics can be thought of as two traces in the semantics
+/-- Every n-Step trace in the product semantics can be thought of as two traces in the semantics
 of the components. -/
-theorem prod.step_noninterference {n : Nat} :
-    S.prod.stepN n ((p, q), (s, t)) ((p', q'), (s', t')) ↔
-    (∃ mₗ mᵣ : Nat, n = mₗ + mᵣ ∧ S.stepN mₗ (p, s) (p', s') ∧ S.stepN mᵣ (q, t) (q', t')) :=
+theorem prod.Step_noninterference {n : Nat} :
+    S.prod.StepN n ((p, q), (s, t)) ((p', q'), (s', t')) ↔
+    (∃ mₗ mᵣ : Nat, n = mₗ + mᵣ ∧ S.StepN mₗ (p, s) (p', s') ∧ S.StepN mᵣ (q, t) (q', t')) :=
   sorry
 
-def prod.π₁ (s : S.prod.prog × S.prod.state) : S.prog × S.state := ⟨s.1.1, s.2.1⟩
-def prod.π₂ (s : S.prod.prog × S.prod.state) : S.prog × S.state := ⟨s.1.2, s.2.2⟩
-def prod.mk (sₗ sᵣ : S.prog × S.state) : S.prod.prog × S.prod.state := ⟨⟨sₗ.1, sᵣ.1⟩, ⟨sₗ.2, sᵣ.2⟩⟩
+def prod.π₁ (s : S.prod.Prog × S.prod.State) : S.Prog × S.State := ⟨s.1.1, s.2.1⟩
+def prod.π₂ (s : S.prod.Prog × S.prod.State) : S.Prog × S.State := ⟨s.1.2, s.2.2⟩
+def prod.mk (sₗ sᵣ : S.Prog × S.State) : S.prod.Prog × S.prod.State := ⟨⟨sₗ.1, sᵣ.1⟩, ⟨sₗ.2, sᵣ.2⟩⟩
 
-/-- Relational soundness of the product semantics: If every stuck product trace of at most (2n) steps
-satisfies Φ, then for every pair of stuck traces of at most n steps, the relation holds on their stuck values. -/
+/-- Relational soundness of the product semantics: If every stuck product trace of at most (2n) Steps
+satisfies Φ, then for every pair of stuck traces of at most n Steps, the relation holds on their stuck Values. -/
 theorem prod.satisfies_soundness_fin {n : Nat} :
     S.prod.satisfiesN Φ (n + n) c →
     ∀ mₗ mᵣ cₗ cᵣ,
       mₗ < n → mᵣ < n →
       S.stuck cₗ → S.stuck cᵣ →
-      S.stepN mₗ (prod.π₁ c) cₗ → S.stepN mₗ (prod.π₂ c) cᵣ →
+      S.StepN mₗ (prod.π₁ c) cₗ → S.StepN mₗ (prod.π₂ c) cᵣ →
       Φ (prod.mk cₗ cᵣ) :=
   sorry
 
 end prod
+-/
 -/

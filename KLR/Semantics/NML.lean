@@ -26,7 +26,6 @@ def Dtype.interp {DataT : Type _} : KLR.Core.Dtype → Type
 | .int8     => Int8
 | .float16 | .float32r | .float32 | .float8e5 | .float8e4 | .float8e3 | .bfloat16 => DataT
 
-
 namespace NML
 
 open KLR.Core TensorLib
@@ -66,7 +65,7 @@ structure TensorHandle extends KLR.Core.TensorName where
   /-- Interpret vectors of store-level indicies into -/
   [encoding : Encodable dtype.size UInt8 (Dtype.interp (DataT := DataT) dtype) ]
   /-- Where the tensor is being stored in our memory model -/
-  index : KLR.Core.DualMemoryStoreIndex UInt8
+  index : KLR.Core.DualMemoryStoreIndex
   /-- Multiaffine equation mapping tensor indices to Address indices (not physical)! -/
   layout : AffineMap
 
