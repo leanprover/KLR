@@ -160,12 +160,21 @@ end weakestpre
 -- Question: I wonder if there's a generic way to do this--to get assertions about the global memory from a heProp.
 -- Question: Do I need to add a soundness theorem to heProp to cope with magic wands?
 
+--
+-- Adequacy argument planning:
+--
+-- 1. go from (PRE -∗ wp prog POST) to (state_interp PRE -∗ |==>^n▷^n (PRelN n (pure PRE) (pure POST)))
+-- 2. Use heProp soundness theorem
+-- 3. Need relationship between PRelN and PRel
+--      -> Adequacy should get us ∀ n, PRelN n ...
+--         This is Because the programs are eventually constant wrt. the amount of fuel.
 
 /-- If the two terms are values, then we at the very least get a relationship between their values. -/
 theorem wp_value_value_fupd {pl pr : @prog DataT} {Φf : @val DataT → @val DataT → Prop}
     (Hpl : (NML.NMLSemantics DataT).IsValue pl) (Hpr : (NML.NMLSemantics DataT).IsValue pr) :
     wp pl pr (fun vl vr => iprop(⌜(Φf vl vr : Prop)⌝)) ⊢
       |==> ⌜∃ (vl vr : @val DataT), to_val pl = some vl ∧ to_val pr = some vr ∧ Φf vl vr⌝ := by
+  -- I need internal eq to actually do this unfolding.
   unfold wp
   sorry
 

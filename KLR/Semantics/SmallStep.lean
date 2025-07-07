@@ -413,7 +413,6 @@ theorem Nonterminating_Step [Det S] {c c'} (Hn : S.Nonterminating c) (Hs : S.Ste
   exists c'
   exact ⟨StepN.step Hs (StepN.done rfl), Hs'⟩
 
-/-
 /- Deterministic Programs which satisfy PRelN for all n must be equiterminating.
 
 Note: We require that Φi behaves like a relational invariant on the State. This can encode things
@@ -436,7 +435,7 @@ theorem PRelN_terminating [Det S] {Φi Φf} {cl cr} (HΦ : Φi cl cr) (Hterm : S
       rcases H2
       rename_i _ HK _
       rw [←Heq] at Hstuck
-      exact Hstuck _ HK
+      exact Hstuck HK
   · rename_i gas IH
     intro cl cr HΦ Hterm
     rintro c ⟨⟩; rename_i c' Hs Hsn
@@ -446,26 +445,25 @@ theorem PRelN_terminating [Det S] {Φi Φf} {cl cr} (HΦ : Φi cl cr) (Hterm : S
     · intro Hk
       apply rel_lift_Values_not_stuck _ _ _ H
       right
-      exact fun a => a c' Hs
+      exact (· Hs)
     -- By H1 and H2, both the left and right hadn sides can take at least 1 Step.
     rcases StepN_add_iff.mp (Nat.succ_eq_one_add n1 ▸ H1) with ⟨cl_next, HStep_l, Hrest_l⟩
     rcases StepN_add_iff.mp (Nat.succ_eq_one_add n2 ▸ H2) with ⟨cr_next, HStep_r, Hrest_r⟩
     -- By HInv, Φi holds of their left and right sides
     have Hinv : Φi cl_next cr_next := by
-      apply HInv.1 _ _ _ _ (S.stepN_one_step HStep_l)
-      apply HInv.2 _ _ _ _ (S.stepN_one_step HStep_r)
+      apply HInv.1 _ _ _ _ (S.step_of_stepN_one HStep_l)
+      apply HInv.2 _ _ _ _ (S.step_of_stepN_one HStep_r)
       exact HΦ
     -- By Hterm, the new left branch is still Nonterminating
-    have Hnt : Nonterminating cl_next := Nonterminating_Step Hterm (S.stepN_one_step HStep_l)
+    have Hnt : S.Nonterminating cl_next := Nonterminating_Step Hterm (S.step_of_stepN_one HStep_l)
     -- Reassociate Hs and Hsn to get that the new Step takes gas Steps to get to c' (det?)
     have Hrec : S.StepN gas cr_next c := by
-      have HStep_r' := S.stepN_one_step HStep_r
-      rw [← Det.Step_det HStep_r' c' Hs]
+      have HStep_r' := S.step_of_stepN_one HStep_r
+      rw [← step_det HStep_r' c' Hs]
       exact Hsn
-    exact IH Hinv Hnt _ Hrec
+    exact IH Hinv Hnt Hrec
 
-
-
+/-
 /-- Soundness of the Step-indexed relation.
 If we can prove that the relation holds for all finite traces, then PRel holds between our Programs. -/
 theorem PRelN_PRel [Det S] {Φi Φf} (HInv : strong_relational_invariant Φi) :
