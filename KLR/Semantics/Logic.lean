@@ -20,12 +20,11 @@ open Iris.BI.BIBase
 
 variable {DataT : Type _}
 
-
-abbrev prog := (NML.NMLSemantics DataT).prog
-abbrev state := (NML.NMLSemantics DataT).state
-abbrev val := (NML.NMLSemantics DataT).val
-abbrev step := (NML.NMLSemantics DataT).step
-abbrev to_val := (NML.NMLSemantics DataT).to_val
+abbrev prog := (NML.NMLSemantics DataT).Prog
+abbrev state := (NML.NMLSemantics DataT).State
+abbrev val := (NML.NMLSemantics DataT).Val
+abbrev step := (NML.NMLSemantics DataT).Step
+abbrev to_val := (NML.NMLSemantics DataT).toVal
 
 abbrev PNat := { n : Nat // 0 < n }
 
@@ -70,7 +69,7 @@ def state_interp (l r : @state DataT) : PROP :=
   heProp_auth _ _ _ _ (.mk l.memory r.memory)
   -- Strong relational invariant goes here?
 
-def wp_F (wp : @prog DataT → @prog DataT → (@val DataT → @val DataT→ PROP) → PROP)
+def wp_F (wp : @prog DataT → @prog DataT → (@val DataT → @val DataT → PROP) → PROP)
          (p1 p2 : @prog DataT)
          (Φf : @val DataT → @val DataT → PROP) : PROP :=
   -- For any pair of states that satisfy the state interpretation...
@@ -81,15 +80,15 @@ def wp_F (wp : @prog DataT → @prog DataT → (@val DataT → @val DataT→ PRO
       (|==>
         «exists» fun vl : @val DataT =>
         «exists» fun vr : @val DataT =>
-        iprop(⌜to_val (p1, sl) = some vl⌝ ∗ ⌜to_val (p2, sr) = some vr⌝ ∗ Φf vl vr)) ∨
+        iprop(⌜to_val p1 = some vl⌝ ∗ ⌜to_val p2 = some vr⌝ ∗ Φf vl vr)) ∨
       -- Or, for any two configurations that we can step into, in some number of steps,
       ( «forall» fun cl' : @prog DataT × @state DataT =>
         «forall» fun cr' : @prog DataT × @state DataT =>
         «exists» fun nl : Nat =>
         «exists» fun nr : Nat =>
         iprop(
-          ⌜(NML.NMLSemantics DataT).stepN nl.succ (p1, sl) cl' ∧
-            (NML.NMLSemantics DataT).stepN nr.succ (p2, sr) cr'⌝ -∗
+          ⌜(NML.NMLSemantics DataT).StepN nl.succ (p1, sl) cl' ∧
+            (NML.NMLSemantics DataT).StepN nr.succ (p2, sr) cr'⌝ -∗
             -- We can reobtain the state interp for the new state, and also
             -- prove the weakest precondition.
             ▷ |==> (state_interp cl'.2 cr'.2 ∗ wp cl'.1 cr'.1 Φf))))
@@ -103,21 +102,75 @@ def wp (p1 p2 : @prog DataT) (Φf : @val DataT → @val DataT → PROP) : PROP :
 
 end weakestpre
 
--- TODO: I really do want values to only be dependent on the expression.
--- Stuckness can still depend on the state (I think that's what I wanted anyways?) but
--- generalizing to values in the cfg is very hard.
--- To get the specs I want (ie. about the final state) I'll need a more souped up adequacy theorem.
--- Namely, I'll want an adequacy theorem that can also talk about the memory in the strong relational
--- invariant.
-theorem wp_value_value_fupd {pl pr : @prog DataT} (Φf : @val DataT → @val DataT → PROP) :
-  (⊢ wp pl pr Φf) → ⊢ (True : PROP)
-  := sorry
+-- Lemma pgl_wp_value_fupd' s E Φ v : WP of_val v @ s; E {{ Φ }} ⊣⊢ |={E}=> Φ v.
+-- Proof. rewrite pgl_wp_unfold /pgl_wp_pre to_of_val. auto. Qed.
 
 
+-- Φf is a proposition on the global state.
+-- We prove a family of adequacy theorems for different Φf.
+--
+-- Define ↦ₜ as "maps to tensor"... LHS is a TensorHandle (specifies handedness + size + location in memory), RHS is a logical tensor.
+-- Most general will be something like
+--
+--    -- Paramaters:
+--    (pl pr : Argument → Output → expr) (Φvᵢ Φvₒ Φrᵢ Φrₒ: Tensor → Tensor → Prop) (Φf : Val → Val → Prop)
+--    (llᵢ llₒ lrᵢ lrₒ : Locations in HBM) (HD : Disjointness of locations)
+--
+--    initialMemory : Handedness → HBM Loc → HBM Loc → InTensors → OutTensors → State     -- A state with everything empty, inputs loaded & locations, outputs allocated.
+--    initialProp   : Handedness → HBM Loc → HBM Loc → InTensors → OutTensors → PROP      -- Same as initialMemory, but in PROP with ownership using ↦ₜ
+--    finalMemory   : Handedness → HBM Loc → HBM Loc → InTensors → OutTensors → State     -- A state with everything empty, inputs loaded & locations, outputs allocated.
+--    finalProp     : Handedness → HBM Loc → HBM Loc → InTensors → OutTensors → PROP      -- Same as initialMemory, but in PROP with ownership using ↦ₜ
+--
+--    -- Precondition: There exist tensors satisfying the inital relations at the right locations.
+--    (∃ vlᵢ vlₒ vrᵢ vrₒ,
+--        initialProp left  llᵢ llₒ vlᵢ vlₒ ∗
+--        initialProp right lrᵢ lrₒ vrᵢ vrₒ ∗
+--        ⌜Φvᵢ vlᵢ vrᵢ⌝ ∗
+--        ⌜Φvₒ vlₒ vlₒ⌝)
+--
+--    -∗ wp (pl llᵢ llₒ) (pr lrᵢ lrₒ) (fun vl vr =>
+--
+--    -- Postcondition: There exist tensors satisfying the final relations at the right locations, and the values satisfy the value relation.
+--      ∃ vlᵢ vlₒ vrᵢ vrₒ,
+--        finalProp left  llᵢ llₒ vlᵢ vlₒ ∗
+--        finalProp right lrᵢ lrₒ vrᵢ vrₒ ∗
+--        ⌜Φrᵢ vlᵢ vrᵢ⌝ ∗
+--        ⌜Φrₒ vlₒ vlₒ⌝ ∗
+--        ⌜Φf vl vr⌝)
+--
+--
+-- Then we eventually (after going through modalities, ∀ n, PRelN n...) get...
+--
+--    PRel
+--      (fun (p1, σₗ) (p2, σᵣ) =>
+--        p1 = pl llᵢ llₒ ∧
+--        p2 = pr lrᵢ lrₒ ∧
+--        ∃ vlᵢ vlₒ vrᵢ vrₒ,
+--          initialMemory left  llᵢ llₒ vlᵢ vlₒ ∧
+--          initialMemory right lrᵢ lrₒ vrᵢ vrₒ ∧
+--          Φvᵢ vlᵢ vrᵢ ∧
+--          Φvₒ vlₒ vlₒ)
+--      (fun (vₗ, σₗ) (vᵣ, σᵣ) => ∃ vlᵢ vlₒ vrᵢ vrₒ,
+--        finalMemory left  llᵢ llₒ vlᵢ vlₒ ∧
+--        finalMemory right lrᵢ lrₒ vrᵢ vrₒ ∧
+--        Φrᵢ vlᵢ vrᵢ ∧
+--        Φrₒ vlₒ vlₒ ∧
+--        Φf vl vr)
+--
+-- Question: I wonder if there's a generic way to do this--to get assertions about the global memory from a heProp.
+-- Question: Do I need to add a soundness theorem to heProp to cope with magic wands?
 
+
+/-- If the two terms are values, then we at the very least get a relationship between their values. -/
+theorem wp_value_value_fupd {pl pr : @prog DataT} {Φf : @val DataT → @val DataT → Prop}
+    (Hpl : (NML.NMLSemantics DataT).IsValue pl) (Hpr : (NML.NMLSemantics DataT).IsValue pr) :
+    wp pl pr (fun vl vr => iprop(⌜(Φf vl vr : Prop)⌝)) ⊢
+      |==> ⌜∃ (vl vr : @val DataT), to_val pl = some vl ∧ to_val pr = some vr ∧ Φf vl vr⌝ := by
+  unfold wp
+  sorry
 
 /-- Definition for Hoare Triple -/
-def triple (pre : PROP) (p1 p2 : @prog DataT) (post : @val DataT → @val DataT → PROP) :=
+def triple (pre : PROP) (p1 p2 : @prog DataT) post :=
   iprop(pre -∗ wp p1 p2 post)
 
 macro "{{ " pre:term  " }} " p1:term " × " p2:term "{{ " x:ident  " => " post:term " }} " : term => do
