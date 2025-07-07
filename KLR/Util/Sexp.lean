@@ -43,35 +43,6 @@ def oneline : Sexp -> String
 instance : ToString Sexp where
   toString := oneline
 
-partial def fromString (s : String) : Err (List Sexp) := do
-  let mut cs := s.toList
-  let mut sexps := []
-  repeat do
-    if cs.all Char.isWhitespace then break else
-    if cs.isEmpty then impossible -- sanity check
-    let (e, cs') <- exp cs -- This must consume at least 1 character
-    cs := cs'
-    sexps := e :: sexps
-  return sexps.reverse
-where
-  exp : List Char -> Err (Sexp × List Char)
-  | [] => return (.list [], [])
-  | c :: cs =>
-    if c.isWhitespace then exp cs
-    else if c == '(' then lst [] cs
-    else atm [] (c::cs)
-  lst (es : List Sexp) : List Char -> Err (Sexp × List Char)
-  | [] => throw "expecting )"
-  | ')' :: cs => return (.list es.reverse, cs)
-  | cs => do let (e, cs) <- exp cs; lst (e::es) cs
-  atm (s : List Char) : List Char -> Err (Sexp × List Char)
-  | [] => return (.atom ⟨ s.reverse ⟩, [])
-  | ')' :: cs => if s.isEmpty then throw "mismatched )" else return (.atom ⟨ s.reverse ⟩, ')'::cs)
-  | c :: cs =>
-    if c.isWhitespace then
-    return (.atom ⟨ s.reverse ⟩, cs)
-    else atm (c :: s) cs
-
 end Sexp
 
 class ToSexp (a : Type) where
@@ -159,6 +130,8 @@ class FromSexp (a : Type) where
   fromSexp? : Sexp -> Err a
 
 export FromSexp(fromSexp?)
+
+def fromSexp! [Inhabited a] [FromSexp a] (s : Sexp) : a := get! $ fromSexp? s
 
 namespace Sexp
 

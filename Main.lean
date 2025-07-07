@@ -12,11 +12,6 @@ open Cli
 open KLR
 open System(FilePath)
 
-local instance : MonadLift Err IO where
-  monadLift
-    | .ok x => return x
-    | .error s => throw $ .userError s
-
 inductive Form where
 | json
 | pretty

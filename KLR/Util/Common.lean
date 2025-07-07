@@ -15,6 +15,11 @@ as errors.
 -/
 abbrev Err := Except String
 
+instance : MonadLift Err IO where
+  monadLift
+  | .ok x => return x
+  | .error s => throw $ .userError s
+
 instance [Monad m] [MonadExcept String m] : MonadLift Err m where
   monadLift
     | .ok x => return x
