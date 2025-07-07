@@ -1067,14 +1067,6 @@ section ConcreteMapImpl
       | 𝕊 n => s!"(𝕊 {n})"
       | 𝕌 => "𝕌"
 
-    instance : DecidableEq ℂ := by {
-      unfold DecidableEq
-      intro a b
-      by_cases h: (a=b)
-      apply isTrue; assumption
-      apply isFalse; assumption
-      }
-
     instance : Max ℂ where
       max := fun
       | 𝕄, _
