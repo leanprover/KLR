@@ -135,14 +135,17 @@ structure PureExpr where
   expr : @Expr DataT
   pure : Expr.pure? DataT expr
 
-/-- NML statements. Control flow lives here. -/
-inductive Stmt
-| ret       (_ : @Expr DataT)
-| assign    (_ : Option String) (_ : @Expr DataT)
-| loop      (I : Type _) [Iterator I (@Value DataT)] (_ : String) (_ : Option I) (body : List Stmt)
-
 structure State where
   memory : KLR.Core.NeuronMemory
+
+/-- NML statements. Control flow lives here. -/
+inductive Stmt
+| ret          (_ : @Expr DataT)
+| assign       (_ : Option String) (_ : @Expr DataT)
+| loop         (I : Type _) [Iterator I (@Value DataT)] (_ : String) (_ : Option I) (body : List Stmt)
+| edit_state   (_ : State → State)
+| ret_assert   (_ : @Expr DataT) (_ : State → Prop)
+
 
 abbrev Locals := String → Option (@Value DataT)
 
@@ -153,7 +156,6 @@ def Locals.bind (s : @Locals DataT) (x : String) (v : @Value DataT) : @Locals Da
 structure Task where
   stmt : Stmt DataT
   env : Locals DataT
-
 
 def Task.bind (T : Task DataT) (x : String) (v : Value DataT) : Task DataT := sorry
 
@@ -236,6 +238,15 @@ inductive step : ExecState DataT × State → ExecState DataT × State → Prop 
           .append (p.map (fun t => t.bind _ x (Iterator.peek i))) <|
           .cons ⟨.loop I x (Iterator.next (@Value DataT) i) b, loc⟩ <|
           p, s)
+/-- [ghost edit state] Apply a function to the current state. This is ghost code.
+This is erasable when f is a no-op. -/
+| edit_state {f : State → State} :
+    step (.run <| .cons ⟨.edit_state f, e⟩ p, s) (.run <| p, f s)
+/-- [ghost return] Returns, but gets stuck if `P` does not hold of the current state.
+ is erasable when `P` is always true. -/
+| ret_assert {P : State → Prop} :
+    P s →
+    step (.run <| .cons ⟨.ret_assert e P, loc⟩ ps, s) (.done v, s')
 
 @[simp] def to_val : ExecState DataT → Option (Value DataT)
 | .done v => .some v
@@ -255,21 +266,32 @@ def NMLSemantics : SmallStep where
     rintro H <;> cases H
 
 instance : Det (NMLSemantics DataT) where
-  step_det {c c'} := by
-    rintro ⟨⟩ _ ⟨⟩
+  step_det {c c'} := by sorry
+    /-
+    rintro ⟨⟩ ⟨⟩ ⟨⟩ <;> try rfl
     · rename_i He1 _ _ He2
       rcases expr_step_det _ He1 He2 with ⟨H1, H2⟩
       subst H1; subst H2; rfl
+    · sorry
     · congr
       rename_i He1 _ _ He2
       rcases expr_step_det _ He1 He2 with ⟨H1, H2⟩
       exact H2.symm
+    · sorry
     · congr
       rename_i He1 _ _ He2
       rcases expr_step_det _ He1 He2 with ⟨H1, H2⟩
       exact H2.symm
-    · rfl
-    · rfl
+    · sorry
+    · sorry
+    · sorry
+    · sorry
+    · sorry
+    · sorry
+    · sorry
+    · sorry
+    · sorry
+    -/
   step_progress := sorry
 
 end NML
