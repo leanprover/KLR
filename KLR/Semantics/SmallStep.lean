@@ -71,7 +71,6 @@ def Terminating (c : S.Prog × S.State) : Prop :=
 def UniquelyTerminating (c : S.Prog × S.State) : Prop :=
   ∃ N c', (S.StepN N c c') ∧ (S.IsStuck c') ∧ (∀ N'  c'', S.StepN N' c c'' → S.IsStuck c'' → N = N' ∧ c' = c'')
 
-
 /-- All finite traces of a configuration only ever get stuck in value states. -/
 def Safe {S : SmallStep} (c : S.Prog × S.State) : Prop :=
   ∀ {n p s}, S.StepN n c (p, s) → S.IsStuck (p, s) → S.IsValue p
@@ -301,7 +300,7 @@ theorem rel_lift_Values_not_stuck {S : SmallStep} (cl cr : S.Prog × S.State) {�
 /-- If either Program is Nonterminating, the Rel.lift_Values relation cannot hold.
 TODO: Use rel_lift_Values_not_stuck
 -/
-theorem rel_lift_Values_not_Nonterminating {S : SmallStep} (cl cr : S.Prog × S.State) {Φ}
+theorem rel_lift_Values_not_Nonterminating {S : SmallStep} {cl cr : S.Prog × S.State} {Φ}
     (H : S.Nonterminating cl ∨ S.Nonterminating cr) : ¬Rel.lift_Values Φ cl cr := by
   rintro ⟨vl, vr, Hl, Hr, _⟩
   apply H.elim
@@ -392,6 +391,138 @@ theorem Nonterminating_Step [Det S] {c c'} (Hn : S.Nonterminating c) (Hs : S.Ste
   apply StepN_add_iff.mpr
   exists c'
   exact ⟨StepN.step Hs (StepN.done rfl), Hs'⟩
+
+theorem nonterminating_step [Det S] {c} (H : S.Nonterminating c) : ∃ c', S.Step c c' ∧ S.Nonterminating c' := by
+  if Hem : S.IsStuck c then exact (@H 0 c (.done rfl) Hem).elim else
+  simp only [IsStuck, Classical.not_forall] at Hem; rcases Hem with ⟨c', Hc', _⟩
+  exact ⟨c', Hc', Nonterminating_Step H Hc'⟩
+
+
+theorem forall_PRelN_step [Det S] (Hr : ∀ (n : Nat), PRelN n cl cr Φf) (Hsl : S.Step cl cl') (Hsr : S.Step cr cr') :
+    ∀ (n : Nat), PRelN n cl' cr' Φf := by
+  intro n
+  induction n <;> simp only [PRelN]
+  rename_i n IH
+  have Hr' := Hr (n + 2)
+  simp only [PRelN] at Hr'
+  cases Hr'
+  · refine (S.toVal_isSome_isStuck ?_ Hsl).elim
+    apply Option.isSomeP_iff_isSome.mpr
+    rename_i H
+    rcases H with ⟨_, _, Hk, _⟩
+    rw [Hk]; rfl
+  rename_i H
+  rcases H with ⟨NL, NR, c1'', c2'', H1, H2, H3⟩
+  cases H1; rename_i c1''' Hc1c'' HstepL
+  cases H2; rename_i c2''' Hc2c'' HstepR
+  cases H3
+  · rename_i H
+    rcases H with ⟨H1, H2, H3, H4, H5⟩
+    sorry
+  · rename_i H
+    rcases H with ⟨FNL, FNR, FCL, FCR, H1, H2, H3⟩
+    sorry
+
+  -- TOOD: Diagram out the cases and try to finish this horrid proof
+
+
+
+  /-
+  cases n; simp [PRelN]
+  rename_i n
+  simp only [PRelN]
+  obtain ⟨vk, _, Hk, _⟩|⟨nl, nr, cl1, cr1, (_|⟨cl1', Hsl'⟩), (_|⟨cr1', Hsr'⟩), Hrec⟩ := Hr (n + 1)
+  · refine (S.toVal_isSome_isStuck ?_ Hsl).elim
+    apply Option.isSomeP_iff_isSome.mpr; rw [Hk]; rfl
+  · have H := (step_det Hsl _ cl1').symm; subst H
+    have H := (step_det Hsr _ cr1').symm; subst H
+    rcases nl with (_|nl); obtain ⟨rfl⟩ := Hsl'
+    all_goals (rcases nr with (_|nr); obtain ⟨rfl⟩ := Hsr')
+    · right
+      exists 0, 0
+      sorry
+    · sorry
+    · sorry
+    · sorry
+  -/
+
+    --
+    --   sorry
+    -- · sorry
+    -- · sorry
+    -- · sorry
+
+    -- exists (nl + 1)
+    -- exists (nr + 1)
+    -- exists cl1
+    -- exists cr1
+    -- refine ⟨?_, ?_, Hrec⟩
+    -- ·
+    --   sorry
+    -- · sorry
+  -- obtain H| := Hr n
+
+
+  /-
+  obtain ⟨vk, _, Hk, _⟩|⟨nl, nr, cl₁, cr₁, (_|⟨cl₁', Hcl₁'⟩), (_|⟨cr₁', Hcr₁'⟩), H₁⟩ := Hr (n + 1)
+  · refine (S.toVal_isSome_isStuck ?_ Hsl).elim
+    apply Option.isSomeP_iff_isSome.mpr; rw [Hk]; rfl
+  · rename_i ccl ccr
+    rw [← step_det Hsl _ cl₁', ← step_det Hsr _ cr₁']
+    rcases n with (_|n)
+    · simp_all [PRelN]
+    simp_all only [PRelN]
+    cases H₁
+    · -- refine .inr ⟨nl.succ, nr.succ, cl₁, cr₁, Hcl₁', ?_⟩
+      right
+      exists nl; exists nr; exists cl₁; exists cr₁
+      sorry
+    · sorry
+  -/
+
+    --
+    -- · left
+    --   sorry
+    -- · right
+    --   sorry
+    -- To use the right branch,  we need to combine the steps here with the first step of PRelN
+
+    -- simp_all only [PRelN]
+    -- rcases H₁ with H|⟨NL, NR, HL, HR, HP⟩
+    -- · simp [PRelN]
+    --   exfalso
+    --   sorry
+    -- sorry
+    -- sorry
+
+  -- rintro (_|n)
+  -- · obtain H|_ := Hr 1
+  --   · rcases H with ⟨vk, _, Hk, _⟩
+  --     refine (S.toVal_isSome_isStuck ?_ Hsl).elim
+  --     apply Option.isSomeP_iff_isSome.mpr; rw [Hk]; rfl
+  --   · simp only [PRelN]
+  -- · rcases Hr (n + 1)
+
+  --   refine .inr ⟨1, 1, ?_⟩
+
+  --   sorry
+
+/-- Nontermination is finitely approximable. -/
+theorem Nonterminating_finitely_approximable_left [Det S] {Φf} {cl cr}
+  (Hterm : S.Nonterminating cl) (Hr : ∀ n, PRelN (S := S) n cl cr Φf) :
+    S.Nonterminating cr := by
+  intro gas c
+  induction gas generalizing cl cr c
+  · rintro ⟨rfl⟩
+    obtain H|⟨_, _, _, _, _, (_|⟨H, _⟩), _⟩ := Hr 1
+    · exact (S.rel_lift_Values_not_Nonterminating (.inl Hterm) H).elim
+    · exact S.step_not_isStuck H
+  · rintro (_|⟨H, Hn⟩)
+    rename_i n IH cr'
+    obtain ⟨cl', Hcl', Hterm'⟩ := nonterminating_step (S := S) Hterm
+    refine (IH Hterm' ?_ Hn)
+
+    all_goals sorry
 
 
 
