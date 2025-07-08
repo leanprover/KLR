@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Markus de Medeiros
 -/
 
+import KLR.Semantics.Lib
 import KLR.Semantics.NML
 import KLR.Semantics.Memory
 import Iris.Algebra.OFE
@@ -26,29 +27,6 @@ abbrev state := (NML.NMLSemantics DataT).State
 abbrev val := (NML.NMLSemantics DataT).Val
 abbrev step := (NML.NMLSemantics DataT).Step
 abbrev to_val := (NML.NMLSemantics DataT).toVal
-
-structure ProdChipMemory (T : Type _) where
-  left : KLR.Core.ChipMemory T
-  right : KLR.Core.ChipMemory T
-
-inductive ProdIndex
-| left (_ : KLR.Core.DualMemoryStoreIndex)
-| right (_ : KLR.Core.DualMemoryStoreIndex)
-
-instance {T : Type _} : Heap (ProdChipMemory T) ProdIndex T where
-  get := sorry
-  set := sorry
-  of_fun := sorry
-  fresh := sorry
-  get_set_eq := sorry
-  get_set_ne := sorry
-  of_fun_get := sorry
-  point := sorry
-  fresh_get := sorry
-  point_get_eq := sorry
-  point_get_ne := sorry
-
-def TProd (H : Type _ → Type _) (T : Type _) : Type _ := H T × H T
 
 abbrev PROP : Type _ := heProp PNat ProdIndex (UCell UInt8 DataT) ProdChipMemory
 
