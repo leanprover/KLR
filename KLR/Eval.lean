@@ -341,7 +341,7 @@ private def evalTensorScalar (ts : TensorScalar) (t: ByteArray) : Err ByteArray 
 #guard
   let ts := TensorScalar.mk AluOp.add 1 false AluOp.bypass 0 false
   let res := get! $ evalTensorScalar ts (toLEByteArray (1 : Float32))
-  TensorLib.Float32.ofLEByteArray! res == 2
+  Float32.ofLEByteArray! res == 2
 
 private def evalStmt (stmt : Core.Stmt) : WithEnv Unit := match stmt with
 | .ret v => do
