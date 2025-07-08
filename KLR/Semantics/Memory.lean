@@ -4,33 +4,26 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Markus de Medeiros
 -/
 import Init.Data.Int.Basic
+import KLR.Semantics.Lib
 import KLR.Core.Basic
 import KLR.Util
 
-def List.forall {α : Type _} (L : List α) (P : α → Prop) : Prop :=
-  match L with
-  | .nil => True
-  | .cons l L => P l ∧ List.forall L P
-
-def List.dot [Mul α] [Add α] [Zero α] (L1 L2 : List α) : α :=
-  (List.zipWith (· * ·) L1 L2).sum
-
 namespace KLR.Core
 
--- NTS: Err should be handled in the operational semantics
--- NTS: An allocation is always inbounds for a LocalStore, we must do the PhyStore check
--- only if accessing the physical memory
-
+/-- A LocalStore represents an unboudned 2D region of memory. -/
 structure LocalStore (α : Type _) where
   elems : Nat × Nat → Option α
 
-instance : Inhabited (LocalStore α) where default := ⟨ fun _ => .none ⟩
+instance : Inhabited (LocalStore α) where default :=
+  ⟨ fun _ => .none ⟩
 
 @[simp] def LocalStore.get (s : LocalStore α) (c : Nat × Nat) : Option α := s.elems c
 
 @[simp] def LocalStore.set (s : LocalStore α) (c : Nat × Nat) (v : Option α) :=
   { s with elems c' := if c == c' then v else s.elems c }
 
+/-- A PhyStore represents an bounded 2D region of memory, encoeded as a LocalStore with
+an additional inbounds predicate. -/
 structure PhyStore (α : Type _) extends LocalStore α where
   pmax : Nat
   fmax : Nat
@@ -40,27 +33,32 @@ structure PhyStore (α : Type _) extends LocalStore α where
 
 /-
 A model of NeuronCore memory banks.
-The `bounded` field represents any tensors stored with explicit addresses.
-The `unbounded` field represents automatically allocated addresses.
+- The `bounded` field represents any tensors stored with explicit addresses. These correspond to
+  memory locations on the actual chip.
+- The `unbounded` field represents automatically allocated addresses. They do not correspond to
+  real memory locations.
 
 The semantics will include different allocation modes.
 This means that we can prove the following chain of equivalences:
 
-(prog A w/ realistic allocation modes)
-  ≈ (prog A w/ unbounded allocations)
+(prog A w/ only bounded allocations)         -- → If the allocation technique is known, then...
+  ≈ (prog A w/ unbounded allocations)        -- -> If DataT has an encoding, then...
+  ≈ (prog A w/ unbounded & data allocations) -- (always)
   ≈ ...
-  ≈ (prog B w/ unbounded allocations)
-  ≈ (prog B w/ realistic allocation modes)
+  ≈ (prog B w/ unbounded & data allocations) -- -> If DataT has an encoding, then...
+  ≈ (prog B w/ unbounded allocations)        -- → If the allocation technique is known, then...
+  ≈ (prog B w/ only bounded allocations)
 
 so that the difficult parts of the proof can be done using unbounded allocation,
 and equivalences to programs involving realistic allocation modes need only be done
-at the peripheries. -/
+at the peripheries.
+-/
 
 abbrev UnboundedBank (α : Type _) := Array (LocalStore α)
 abbrev UnboundedBank.inbounds (d : UnboundedBank α) (i : Nat) : Bool := i < d.size
 abbrev UnboundedBank.get (d : UnboundedBank α) (i : Nat) : LocalStore α := d[i]!
-abbrev UnboundedBank.set (d : UnboundedBank α) (i : Nat) (v : LocalStore α → LocalStore α) :
-    UnboundedBank α := d.mapIdx (fun i' s => if i' == i then v s else s)
+abbrev UnboundedBank.set (d : UnboundedBank α) (i : Nat) (v : LocalStore α → LocalStore α) : UnboundedBank α :=
+  d.mapIdx (fun i' s => if i' == i then v s else s)
 abbrev UnboundedBank.push (d : UnboundedBank α) (l : LocalStore α) : UnboundedBank α :=
   Array.push d l
 
@@ -106,4 +104,9 @@ structure ChipMemory (α : Type _) where
   psum : DualMemory α
   hbm : UnboundedBank α
 
-abbrev NeuronMemory := ChipMemory UInt8
+/-- The memory that can be stored in a UnboundedStore -/
+inductive UCell (α DataT : Type _)
+| Real (_ : α)
+| Data (_ : DataT)
+
+abbrev NeuronMemory (DataT : Type _) := ChipMemory (UCell UInt8 DataT)

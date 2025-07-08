@@ -5,15 +5,10 @@ Authors: Markus de Medeiros
 -/
 
 import KLR.Core
+import KLR.Semantics.Lib
 import KLR.Semantics.Memory
 import KLR.Semantics.SmallStep
 import TensorLib.Iterator
-
-class Encodable (dsize : Nat) (α β : Type _) where
-  read : Vector α dsize → Option β
-  write : β → Vector α dsize
-  read_write : (read v).map write = .none ∨ (read v).map write = .some v
-  write_read : read (write b) = .some b
 
 def Dtype.interp {DataT : Type _} : KLR.Core.Dtype → Type
 | .uint64   => UInt64
@@ -30,52 +25,22 @@ namespace NML
 
 open KLR.Core TensorLib
 
-/-
-# NML, Neuron Modeling Language
-
-Plan:
-The language contains a subset that is similar to the ISA, but abstracts over the lowest-level details.
-The langauge contains a subset similar to some of the higher-level operators akin to KLR, or `nki.language`.
-Finally, it contains ghost operations that are purely logical and have no concrete meaning in either
-language, such as the unbounded allocation operator.
-Like several other relational logics, this setup allows users to prove chains of equivalences where
-the intermediate programs are not constrained to any individual language.
-For us, this is enabled by the fact that all of our languages are very similar, and can all fit into a single
-operational semantics.
-
-The language is parameterized by a type of floating point numbers, see `KLR/Semantics/Float.lean` -/
-
+/-! # NML, Neuron Modeling Language
+The language is parameterized by a type of floating point numbers, see `KLR/Semantics/Float.lean`. -/
 
 variable (DataT : Type _)
 
-def Dtype.interp : KLR.Core.Dtype → Type _
-| .uint64   => UInt64
-| .uint32   => UInt32
-| .uint16   => UInt16
-| .uint8    => UInt8
-| .int64    => Int64
-| .int32    => Int32
-| .int16    => Int16
-| .int8     => Int8
-| .float16 | .float32r | .float32 | .float8e5
-| .float8e4 | .float8e3 | .bfloat16 => DataT
-
 /-- A pointer to a tensor that carries additional metadata. -/
 structure TensorHandle extends KLR.Core.TensorName where
-  /-- Interpret vectors of store-level indicies into -/
-  [encoding : Encodable dtype.size UInt8 (Dtype.interp (DataT := DataT) dtype) ]
-  /-- Where the tensor is being stored in our memory model -/
+  /-- The memory bank where the tensor is being stored in our memory model -/
   index : KLR.Core.DualMemoryStoreIndex
-  /-- Multiaffine equation mapping tensor indices to Address indices (not physical)! -/
+  /-- Is the tensor physical (UInt8) or nonphysical (DataT)? -/
+  is_physical : Bool
+  /-- Multiaffine equation mapping tensor indices to Address indices. -/
   layout : AffineMap
 
-def TensorHandle.hbm_index? (r : @TensorHandle DataT) : Option Nat :=
-  match r.index with
-  | .in_bounded => .none
-  | .in_unbounded i => .some i
-
--- DualMemory.in_memory
-def TensorHandle.get_store? (r : @TensorHandle DataT) (m : NeuronMemory) : Option (LocalStore UInt8) :=
+/-- Get the LocalStore that a TensorHandle is pointing to. -/
+def TensorHandle.get_store? (r : TensorHandle) (m : NeuronMemory DataT) : Option (LocalStore (UCell UInt8 DataT)) :=
   match r.address.memory, r.index with
   | .hbm, .in_bounded => .none
   | .hbm, .in_unbounded i => m.hbm[i]?
@@ -84,26 +49,32 @@ def TensorHandle.get_store? (r : @TensorHandle DataT) (m : NeuronMemory) : Optio
   | .pmem, _ => .none
   | .reg, _ => .none
 
-def lift_encoding_to_store (f : DataT → DataT) : LocalStore UInt8 → LocalStore UInt8 :=
-  sorry
+def TensorHandle.hbm_index? (r : TensorHandle) : Option Nat :=
+  match r.index with
+  | .in_bounded => .none
+  | .in_unbounded i => .some i
 
-def TensorHandle.upd_store? (r : @TensorHandle DataT) (m : NeuronMemory) (L : LocalStore UInt8 → LocalStore UInt8) :
-    Option NeuronMemory :=
+/-- Update a given store in the NeuronMemory. Returns None if updating a store that is out of bounds. -/
+def TensorHandle.upd_store? (r : TensorHandle) (m : NeuronMemory DataT)
+      (L : LocalStore (UCell UInt8 DataT) → LocalStore (UCell UInt8 DataT)) :
+    Option (NeuronMemory DataT) :=
   match r.address.memory, r.index with
   | .hbm, .in_bounded => .none
   | .hbm, .in_unbounded i => do
-      let x ← m.hbm[i]?
-      return { m with hbm := m.hbm }
+      let _ ← m.hbm[i]?
+      return { m with hbm := m.hbm.set i L }
   | .sbuf, .in_bounded =>
-      sorry
-      -- .some { m with sbuf := L m.sbuf.bounded.toLocalStore }
-  | .sbuf, .in_unbounded i =>
-      sorry -- m.sbuf.unbounded[i]?
+      .some { m with sbuf.bounded.toLocalStore := L m.sbuf.bounded.toLocalStore }
+  | .sbuf, .in_unbounded i => do
+      let _ ← m.sbuf.unbounded[i]?
+      return { m with sbuf.unbounded := m.sbuf.unbounded.set i L }
+  -- pmem and reg are currently not supported by NML
   | .pmem, _ => .none
   | .reg, _ => .none
 
-
-
+/-- NML state. -/
+structure State where
+  memory : KLR.Core.NeuronMemory DataT
 
 /-- NML values. These are fully-reduced expressions. -/
 inductive Value
@@ -112,9 +83,7 @@ inductive Value
 | data     (_ : DataT)
 | int      (_ : Int)
 | linfunc  (_ : AffineMap)
-| ptr      (_ : TensorHandle (DataT:=DataT))
-
-def Value.as_handle? : @Value DataT → Option (@TensorHandle DataT) | .ptr t => .some t | _ => .none
+| ptr      (_ : TensorHandle)
 
 /-- NML expressions. These are terms which reduce to a value and possibly update the state.
 There is no control flow inside expressions. -/
@@ -124,6 +93,14 @@ inductive Expr
 | load          (_ : AffineMap) (_ : Expr)
 | store         (src : Expr) (_ : AffineMap) (dst : Expr)
 | unary_scalar  (_ : Expr) (_ : DataT → DataT)
+
+/-- NML statements. Control flow lives here. -/
+inductive Stmt where
+| ret          (_ : @Expr DataT)
+| assign       (_ : Option String) (_ : @Expr DataT)
+| loop         (I : Type _) [Iterator I (@Value DataT)] (_ : String) (_ : Option I) (body : Stmt) (body : List Stmt)
+| edit_state   (_ : @State DataT → @State DataT)
+| ret_assert   (_ : @Expr DataT) (_ : @State DataT → Prop)
 
 def Expr.is_value? : Expr DataT → Prop | .val _ => True | _ => False
 
@@ -135,39 +112,35 @@ structure PureExpr where
   expr : @Expr DataT
   pure : Expr.pure? DataT expr
 
-structure State where
-  memory : KLR.Core.NeuronMemory
+def Value.as_handle? : @Value DataT → Option TensorHandle | .ptr t => .some t | _ => .none
 
-/-- NML statements. Control flow lives here. -/
-inductive Stmt
-| ret          (_ : @Expr DataT)
-| assign       (_ : Option String) (_ : @Expr DataT)
-| loop         (I : Type _) [Iterator I (@Value DataT)] (_ : String) (_ : Option I) (body : List Stmt)
-| edit_state   (_ : State → State)
-| ret_assert   (_ : @Expr DataT) (_ : State → Prop)
-
-
-abbrev Locals := String → Option (@Value DataT)
+def Locals := String → Option (@Value DataT)
 
 def Locals.bind (s : @Locals DataT) (x : String) (v : @Value DataT) : @Locals DataT :=
   fun x' => if x = x' then .some v else s x'
 
--- Allows us to write a lexically-scoped small-step semantics
+/-- Task: a Stmt that needs to be executed in particular local context. -/
 structure Task where
   stmt : Stmt DataT
   env : Locals DataT
 
-def Task.bind (T : Task DataT) (x : String) (v : Value DataT) : Task DataT := sorry
+/-- Bind a new variable in a Task-/
+def Task.bind (T : Task DataT) (x : String) (v : Value DataT) : Task DataT :=
+  { T with env := T.env.bind DataT x v }
 
+/-- A NML Program during execution. Namely, one of
+- A list of tasks to complete,
+- A completed execution, with its return value. -/
 inductive ExecState where
 | run   (_ : List (Task DataT))
 | done  (_ : Value DataT)
 
 /-- Expressions semantics -/
-inductive ExprStep : Expr DataT → Locals DataT → State → Value DataT → State → Type _ where
+inductive ExprStep : @Expr DataT → @Locals DataT → @State DataT → @Value DataT → @State DataT → Type _ where
 /-- [value] -/
 | value :
-    ExprStep (.val v) loc st v st
+    v' = v →
+    ExprStep (.val v') loc st v st
 /-- [variable] -/
 | var :
     loc x = .some v →
@@ -202,19 +175,30 @@ For now, only support trivial indexing.
               let L := (s2.memory.sbuf.get_store sbuf_tensor.index H)
               L.get (p + sbuf_tensor.address.partitionOffset.getD 0,
                      f + sbuf_tensor.address.freeOffset.getD 0)⟩ }
--- /-- [unary scalar] Idealized pure function application to a tensor, in-place.
--- Returns the address of the tensor. -/
-| unary_scalar :
-    ExprStep e l0 s0 (.ptr tensor) s1 →
-    tensor.upd_store? DataT s1.memory (lift_encoding_to_store DataT f) = .some s2 →
-    ExprStep (.unary_scalar e f) l0 s0 (.ptr tensor) { s1 with memory := s2 }
+-- -- /-- [unary scalar] Idealized pure function application to a tensor, in-place.
+-- -- Returns the address of the tensor. -/
+-- | unary_scalar :
+--     ExprStep e l0 s0 (.ptr tensor) s1 →
+--     tensor.upd_store? DataT s1.memory (lift_encoding_to_store DataT f) = .some s2 →
+--     ExprStep (.unary_scalar e f) l0 s0 (.ptr tensor) { s1 with memory := s2 }
 
 
 theorem expr_step_det : ExprStep DataT e loc s vl sl → ExprStep DataT e loc s vr sr → vl = vr ∧ sl = sr := by
-  sorry
+  induction e
+  · rintro ⟨rfl⟩ ⟨rfl⟩; exact ⟨rfl, rfl⟩
+  · rintro ⟨H1⟩ ⟨H2⟩
+    obtain ⟨rfl⟩ : some vl = some vr := by rename_i H1 H2; exact H1 ▸ H2
+    exact ⟨rfl, rfl⟩
+  · rename_i _ e IH
+    rintro H1 H2
+    apply IH <;> clear IH
+    · sorry
+    · sorry
+  · sorry
+  · sorry
 
 
-inductive step : ExecState DataT × State → ExecState DataT × State → Prop where
+inductive step : ExecState DataT × State DataT → ExecState DataT × State DataT → Prop where
 /-- [ Return ] -/
 | ret :
     ExprStep DataT e loc s v s' →
@@ -229,22 +213,22 @@ inductive step : ExecState DataT × State → ExecState DataT × State → Prop 
     step (.run <| .cons ⟨.assign .none e, loc⟩ p, s) (.run p, s')
 /-- [ Loop termination ] -/
 | loop_exit {I : Type _} [Iterator I (@Value DataT)] :
-    step (.run <| .cons ⟨.loop I _ .none _, _⟩ p, s) (.run p, s)
+    step (.run <| .cons ⟨.loop I _ .none _ _, _⟩ p, s) (.run p, s)
 /-- [ Loop enter body ] -/
 | loop_nter {I : Type _} [Iterator I (@Value DataT)] (i : I) :
     step
-      (.run <| .cons ⟨.loop I x (.some i) b, loc⟩ p, s)
+      (.run <| .cons ⟨.loop I x (.some i) b _, loc⟩ p, s)
       (.run <|
           .append (p.map (fun t => t.bind _ x (Iterator.peek i))) <|
-          .cons ⟨.loop I x (Iterator.next (@Value DataT) i) b, loc⟩ <|
+          .cons ⟨.loop I x (Iterator.next (@Value DataT) i) b _, loc⟩ <|
           p, s)
 /-- [ghost edit state] Apply a function to the current state. This is ghost code.
 This is erasable when f is a no-op. -/
-| edit_state {f : State → State} :
+| edit_state {f : State DataT → State DataT} :
     step (.run <| .cons ⟨.edit_state f, e⟩ p, s) (.run <| p, f s)
 /-- [ghost return] Returns, but gets stuck if `P` does not hold of the current state.
  is erasable when `P` is always true. -/
-| ret_assert {P : State → Prop} :
+| ret_assert {P : State DataT → Prop} :
     P s →
     step (.run <| .cons ⟨.ret_assert e P, loc⟩ ps, s) (.done v, s')
 
@@ -254,7 +238,7 @@ This is erasable when f is a no-op. -/
 
 def NMLSemantics : SmallStep where
   Prog := ExecState DataT
-  State := State
+  State := State DataT
   Val := Value DataT
   Step := step DataT
   toVal := to_val DataT
@@ -295,3 +279,8 @@ instance : Det (NMLSemantics DataT) where
   step_progress := sorry
 
 end NML
+
+/-
+def lift_encoding_to_store (f : DataT → DataT) : LocalStore UInt8 → LocalStore UInt8 :=
+  sorry
+-/
