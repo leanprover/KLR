@@ -7,6 +7,7 @@ import Init.Data.Int.Basic
 import KLR.Semantics.Lib
 import KLR.Core.Basic
 import KLR.Util
+import Iris.Instances.heProp
 
 namespace KLR.Core
 
@@ -110,3 +111,30 @@ inductive UCell (α DataT : Type _)
 | Data (_ : DataT)
 
 abbrev NeuronMemory (DataT : Type _) := ChipMemory (UCell UInt8 DataT)
+
+
+structure ProdChipMemory (T : Type _) where
+  left : KLR.Core.ChipMemory T
+  right : KLR.Core.ChipMemory T
+
+inductive ProdIndex
+| left (_ : KLR.Core.DualMemoryStoreIndex)
+| right (_ : KLR.Core.DualMemoryStoreIndex)
+
+section iris
+-- TODO: Stabilize Heap in Iris-Lean
+instance {T : Type _} : Heap (ProdChipMemory T) ProdIndex T where
+  get := sorry
+  set := sorry
+  of_fun := sorry
+  fresh := sorry
+  get_set_eq := sorry
+  get_set_ne := sorry
+  of_fun_get := sorry
+  point := sorry
+  fresh_get := sorry
+  point_get_eq := sorry
+  point_get_ne := sorry
+end iris
+
+-- def TProd (H : Type _ → Type _) (T : Type _) : Type _ := H T × H T
