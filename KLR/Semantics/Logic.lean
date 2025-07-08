@@ -102,9 +102,24 @@ def wp (p1 p2 : @prog DataT) (Φf : @val DataT → @val DataT → PROP) : PROP :
 
 end weakestpre
 
--- Lemma pgl_wp_value_fupd' s E Φ v : WP of_val v @ s; E {{ Φ }} ⊣⊢ |={E}=> Φ v.
--- Proof. rewrite pgl_wp_unfold /pgl_wp_pre to_of_val. auto. Qed.
+/-- If the two terms are values, then we at the very least get a relationship between their values. -/
+theorem wp_value_value_fupd {pl pr : @prog DataT} {Φf : @val DataT → @val DataT → Prop}
+    (Hpl : (NML.NMLSemantics DataT).IsValue pl) (Hpr : (NML.NMLSemantics DataT).IsValue pr) :
+    wp pl pr (fun vl vr => iprop(⌜(Φf vl vr : Prop)⌝)) ⊢
+      |==> ⌜∃ (vl vr : @val DataT), to_val pl = some vl ∧ to_val pr = some vr ∧ Φf vl vr⌝ := by
+  -- I need internal eq to actually do this unfolding.
+  unfold wp
+  sorry
 
+/-- Definition for Hoare Triple -/
+def triple (pre : PROP) (p1 p2 : @prog DataT) post :=
+  iprop(pre -∗ wp p1 p2 post)
+
+macro "{{ " pre:term  " }} " p1:term " × " p2:term "{{ " x:ident  " => " post:term " }} " : term => do
+  ``(triple $pre $p1 $p2 (fun $x => $post))
+
+
+-- Below: OUTDATED
 
 -- Φf is a proposition on the global state.
 -- We prove a family of adequacy theorems for different Φf.
@@ -168,19 +183,3 @@ end weakestpre
 -- 3. Need relationship between PRelN and PRel
 --      -> Adequacy should get us ∀ n, PRelN n ...
 --         This is Because the programs are eventually constant wrt. the amount of fuel.
-
-/-- If the two terms are values, then we at the very least get a relationship between their values. -/
-theorem wp_value_value_fupd {pl pr : @prog DataT} {Φf : @val DataT → @val DataT → Prop}
-    (Hpl : (NML.NMLSemantics DataT).IsValue pl) (Hpr : (NML.NMLSemantics DataT).IsValue pr) :
-    wp pl pr (fun vl vr => iprop(⌜(Φf vl vr : Prop)⌝)) ⊢
-      |==> ⌜∃ (vl vr : @val DataT), to_val pl = some vl ∧ to_val pr = some vr ∧ Φf vl vr⌝ := by
-  -- I need internal eq to actually do this unfolding.
-  unfold wp
-  sorry
-
-/-- Definition for Hoare Triple -/
-def triple (pre : PROP) (p1 p2 : @prog DataT) post :=
-  iprop(pre -∗ wp p1 p2 post)
-
-macro "{{ " pre:term  " }} " p1:term " × " p2:term "{{ " x:ident  " => " post:term " }} " : term => do
-  ``(triple $pre $p1 $p2 (fun $x => $post))

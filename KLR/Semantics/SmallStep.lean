@@ -194,11 +194,14 @@ We consider two programs equivalent when:
 - All stuck states obey the relational invariant Φf.
 -/
 def PRel {S : SmallStep}
-    (Φi : (S.Prog × S.State) → (S.Prog × S.State) → Prop)
+    -- TODO: Needs changing.
+    -- For one, we need to fix the individual programs.
+    -- I'm not sure about the relation on states. Do we care at all that the states are related?
+    -- We don't in approxis, the ghost state rules out the cases where we can't step (stuck, etc.)
+    -- and the resulting relation does't explicitly depend on the relationship between states.
+    (c1 c2 : S.Prog × S.State)
     (Φf : (S.Val × S.State) → (S.Val × S.State) → Prop) : Prop :=
-  -- For all starting configurations that are related by Φi,
-  ∀ {c1 c2}, Φi c1 c2 →
-  -- They are equiterminating,
+  -- c1 and c2 are equiterminating
   (S.Nonterminating c1 ↔ S.Nonterminating c2) ∧
   -- and for any two finite executions,
   (∀ c1' c2' n m,
@@ -206,6 +209,7 @@ def PRel {S : SmallStep}
     -- They only ever get stuck in Value States (Safety) and those Values are related by Φf
     (∃ v1 v2, S.toVal c1'.1 = some v1 ∧ S.toVal c2'.1 = some v2 ∧ Φf (v1, c1'.2) (v2, c2'.2)))
 
+/-
 /-- Monotonicity of PRel with respect to the input and output relations. -/
 theorem PRel.mono {S : SmallStep} {Φi Φi' : (S.Prog × S.State) → (S.Prog × S.State) → Prop}
     {Φf Φf' : S.Val × S.State → S.Val × S.State → Prop} (Hi : ∀ {c1 c2}, Φi' c1 c2 → Φi c1 c2)
@@ -216,6 +220,7 @@ theorem PRel.mono {S : SmallStep} {Φi Φi' : (S.Prog × S.State) → (S.Prog ×
   intro c1' c2' n m Hstuck
   rcases (Hv c1' c2' n m Hstuck) with ⟨v1, v2, H1, H2, H3⟩
   exact ⟨v1, v2, H1, H2, Hf H3⟩
+-/
 
 /-- The equality relation on configurations. -/
 def Rel.equals {S : SmallStep} : (S.Prog × S.State) → (S.Prog × S.State) → Prop := (· = ·)
@@ -244,15 +249,12 @@ theorem Rel.implies_triv {T : Type _} (R : T → T → Prop) : Rel.implies R Rel
 
 This might only make sense for deterministic semantics?
 -/
-theorem PRel.Safety {S : SmallStep} p (R : S.State → Prop) (Hp : PRel (Rel.lift2 p R) Rel.triv) :
-    ∀ {s : S.State}, R s → Safe (p, s) := by
-  intro s Hr n cf csf HStep Hstuck
-  have HRi : Rel.lift2 p R (p, s) (p, s) := ⟨rfl, rfl, Hr, Hr⟩
-  rcases (Hp HRi) with ⟨Hterm, HVal⟩
+theorem PRel.Safety (c : S.Prog × S.State) (Hp : PRel (S := S) c c Rel.triv) : Safe c := by
+  intro n cf csf HStep Hstuck
+  rcases Hp with ⟨Hterm, HVal⟩
   rcases (HVal (cf, csf) (cf, csf) n n ⟨HStep, Hstuck, HStep, Hstuck⟩) with ⟨v1, _, Hv1, Hv2, _⟩
   simp_all [IsValue]
   exact Option.IsSomeP.some
-
 
 /-- A relation between two Programs such that: Φi holds for everything the left Program can Step to -/
 def Rel.bind_l {S : SmallStep} (Φi : (S.Prog × S.State) → (S.Prog × S.State) → Prop)
@@ -265,15 +267,14 @@ def Rel.bind_r {S : SmallStep} (Φi : (S.Prog × S.State) → (S.Prog × S.State
 /-- Lift a relation on Values to a relation on configurations, asserting that:
  - both configurations are Values,
  - Φf holds on their Values. -/
-def Rel.lift_Values {S : SmallStep} (Φf : S.Val × S.State → S.Val × S.State → Prop)
-    (cl cr : S.Prog × S.State) : Prop := ∃ vl vr, S.toVal cl.1 = some vl ∧ S.toVal cr.1 = some vr ∧ Φf (vl, cl.2) (vr, cr.2)
+def Rel.lift_Values {S : SmallStep} (Φf : S.Val → S.Val → Prop)
+    (cl cr : S.Prog × S.State) : Prop := ∃ vl vr, S.toVal cl.1 = some vl ∧ S.toVal cr.1 = some vr ∧ Φf vl vr
 
-theorem Rel.lift_Values_mono {S : SmallStep}  {Φ1 Φ2 : S.Val × S.State → S.Val × S.State → Prop}
+theorem Rel.lift_Values_mono {S : SmallStep}  {Φ1 Φ2 : S.Val → S.Val → Prop}
     (H : Rel.implies Φ1 Φ2) : Rel.implies (Rel.lift_Values Φ1) (Rel.lift_Values Φ2) := by
   intro c1 c2 Hl
   rcases Hl with ⟨v1, v2, Hv1, Hv2, Hv12⟩
   exact ⟨v1, v2, Hv1, Hv2, H _ _ Hv12⟩
-
 
 def Rel.both (P : T → Prop) (t1 t2 : T) : Prop := P t1 ∧ P t2
 
@@ -339,34 +340,21 @@ Assuming both programs start in Φi-related states,
   they terminate in values satisfying Φf in at most n Steps,
   or take at least n Steps.
 -/
-def PRelN {S : SmallStep} (n : Nat) (Φi : (S.Prog × S.State) → (S.Prog × S.State) → Prop)
-  (Φf : S.Val × S.State → S.Val × S.State → Prop) : Prop :=
+def PRelN {S : SmallStep} (n : Nat) (c1 c2 : S.Prog × S.State)
+  (Φf : S.Val → S.Val → Prop) : Prop :=
   match n with
   | 0 => True
   | .succ n' =>
-      -- For any two initial States that are related by Φi
-      ∀ c1 c2, Φi c1 c2 →
       -- Either they are both Values, and satisfy Φf
       (Rel.lift_Values Φf c1 c2) ∨
       -- or, there exist target States c1' c2
       -- such that the left and right sides can both take >1 Steps to reach the target States
-      (∃ n1 n2 : Nat, ∃ c1' c2',
-          S.StepN n1.succ c1 c1' ∧
-          S.StepN n2.succ c2 c2' ∧
-          PRelN n' (fun ρ1 ρ2 => ρ1 = c1' ∧ ρ2 = c2) Φf)
+      (∃ n1 n2 : Nat, ∃ c1' c2', S.StepN n1.succ c1 c1' ∧ S.StepN n2.succ c2 c2' ∧ PRelN n' c1' c2' Φf)
 
 
 -- TODO: This is monotone. Proof: Rel.lift_Values and the other case are disjoint (because
 -- it can't be both a Value, therefore stuck, and also Steppable.
 
-/-- Property of the global State which is true at every point during execution.
-markusde: this is actually too strong, needs to be a part of the WP not the semantic argument.
-Basically, if we want to use Φi to describe the input tensors, then we need Φi to talk about their
-values, and not overwriting these values is an extrinsic property of programs in our model.
--/
-def strong_relational_invariant {S : SmallStep} (Φi : S.Prog × S.State → S.Prog × S.State → Prop) : Prop :=
-    (∀ cl cr cl' : S.Prog × S.State, Φi cl cr → S.Step cl cl' → Φi cl' cr) ∧
-    (∀ cl cr cr' : S.Prog × S.State, Φi cl cr → S.Step cr cr' → Φi cl cr')
 
 -- TODO: Cleanup
 theorem StepN_add_iff {S : SmallStep} {n1 n2 : Nat} {c1 c2} :
@@ -413,18 +401,24 @@ theorem Nonterminating_Step [Det S] {c c'} (Hn : S.Nonterminating c) (Hs : S.Ste
   exists c'
   exact ⟨StepN.step Hs (StepN.done rfl), Hs'⟩
 
+
+
+
+
+/-
+
 /- Deterministic Programs which satisfy PRelN for all n must be equiterminating.
 
 Note: We require that Φi behaves like a relational invariant on the State. This can encode things
 like input tensor Values, which we will be a hypothesis of our adequacy Statement. -/
 theorem PRelN_terminating [Det S] {Φi Φf} {cl cr} (HΦ : Φi cl cr) (Hterm : S.Nonterminating cl)
-    (HInv : strong_relational_invariant Φi) (Hrel : ∀ n, PRelN (S := S) n Φi Φf) : S.Nonterminating cr := by
+     (Hrel : ∀ n, PRelN (S := S) n Φi Φf) : S.Nonterminating cr := by
   -- Sketch: (Rel.lift_Values Φf c1 c2) will never be true, so PRelN gets unfolded at least N times.
   -- This means that cr will take at least (gas + 1) Steps, so executing to (gas) will not be stuck.
   intro gas
-  revert cl cr
+  revert cl cr Φi
   induction gas
-  · intro cl cr HΦ Hterm
+  · intro Φi cl cr HΦ Hterm Hrel
     have Hrel' := Hrel 1
     simp only [PRelN] at Hrel'
     have Hrel'' := Hrel' cl cr HΦ; clear Hrel'
@@ -437,10 +431,10 @@ theorem PRelN_terminating [Det S] {Φi Φf} {cl cr} (HΦ : Φi cl cr) (Hterm : S
       rw [←Heq] at Hstuck
       exact Hstuck HK
   · rename_i gas IH
-    intro cl cr HΦ Hterm
+    intro Φi cl cr HΦ Hterm Hrel
     rintro c ⟨⟩; rename_i c' Hs Hsn
     -- Use Hrel to unfold once
-    have Hrel' := Hrel (gas + 1) cl cr HΦ <;> clear Hrel
+    have Hrel' := Hrel (gas + 1) cl cr HΦ
     rcases Hrel' with (H|⟨n1, n2, c1', c2', H1, H2, _⟩)
     · intro Hk
       apply rel_lift_Values_not_stuck _ _ _ H
@@ -450,10 +444,10 @@ theorem PRelN_terminating [Det S] {Φi Φf} {cl cr} (HΦ : Φi cl cr) (Hterm : S
     rcases StepN_add_iff.mp (Nat.succ_eq_one_add n1 ▸ H1) with ⟨cl_next, HStep_l, Hrest_l⟩
     rcases StepN_add_iff.mp (Nat.succ_eq_one_add n2 ▸ H2) with ⟨cr_next, HStep_r, Hrest_r⟩
     -- By HInv, Φi holds of their left and right sides
-    have Hinv : Φi cl_next cr_next := by
-      apply HInv.1 _ _ _ _ (S.step_of_stepN_one HStep_l)
-      apply HInv.2 _ _ _ _ (S.step_of_stepN_one HStep_r)
-      exact HΦ
+    -- have Hinv : Φi cl_next cr_next := by
+    --   apply HInv.1 _ _ _ _ (S.step_of_stepN_one HStep_l)
+    --   apply HInv.2 _ _ _ _ (S.step_of_stepN_one HStep_r)
+    --   exact HΦ
     -- By Hterm, the new left branch is still Nonterminating
     have Hnt : S.Nonterminating cl_next := Nonterminating_Step Hterm (S.step_of_stepN_one HStep_l)
     -- Reassociate Hs and Hsn to get that the new Step takes gas Steps to get to c' (det?)
@@ -461,14 +455,31 @@ theorem PRelN_terminating [Det S] {Φi Φf} {cl cr} (HΦ : Φi cl cr) (Hterm : S
       have HStep_r' := S.step_of_stepN_one HStep_r
       rw [← step_det HStep_r' c' Hs]
       exact Hsn
-    exact IH Hinv Hnt Hrec
+    apply IH ?G1 Hnt Hrel Hrec
+    skip
+    all_goals sorry
 
-/-
+
 /-- Soundness of the Step-indexed relation.
 If we can prove that the relation holds for all finite traces, then PRel holds between our Programs. -/
 theorem PRelN_PRel [Det S] {Φi Φf} (HInv : strong_relational_invariant Φi) :
     (∀ n, PRelN (S := S) n Φi Φf) → PRel (S := S) Φi Φf := by
   intro HP c1 c2 HΦi
+  rcases uniquelyTerminating_em c1 with (Hc1 | Hc1)  <;>
+  rcases uniquelyTerminating_em c2 with (Hc2 | Hc2)
+  · -- Both programs terminate
+
+    sorry
+  · -- Left terminates, right doesn't. Impossible.
+    exfalso
+    obtain Hc1' : S.Nonterminating c1 := sorry
+
+    sorry
+  · sorry
+  · sorry
+
+  /-
+
   rcases SmallStep.termination_em c1 with (Hc1 | Hc1) <;>
   rcases SmallStep.termination_em c2 with (Hc2 | Hc2)
   · -- Both Programs terminate.
@@ -499,6 +510,7 @@ theorem PRelN_PRel [Det S] {Φi Φf} (HInv : strong_relational_invariant Φi) :
       exfalso
       -- Nonterminating can't Step to a stuck State
       sorry
+  -/
 
 namespace SmallStep
 
@@ -687,5 +699,15 @@ theorem prod.satisfies_soundness_fin {n : Nat} :
   sorry
 
 end prod
+
+
+/- Property of the global State which is true at every point during execution.
+markusde: this is actually too strong, needs to be a part of the WP not the semantic argument.
+Basically, if we want to use Φi to describe the input tensors, then we need Φi to talk about their
+values, and not overwriting these values is an extrinsic property of programs in our model.
+-/
+def strong_relational_invariant {S : SmallStep} (Φi : S.Prog × S.State → S.Prog × S.State → Prop) : Prop :=
+    (∀ cl cr cl' : S.Prog × S.State, Φi cl cr → S.Step cl cl' → Φi cl' cr) ∧
+    (∀ cl cr cr' : S.Prog × S.State, Φi cl cr → S.Step cr cr' → Φi cl cr')
 -/
 -/
