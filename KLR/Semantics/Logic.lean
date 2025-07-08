@@ -27,19 +27,6 @@ abbrev val := (NML.NMLSemantics DataT).Val
 abbrev step := (NML.NMLSemantics DataT).Step
 abbrev to_val := (NML.NMLSemantics DataT).toVal
 
-abbrev PNat := { n : Nat // 0 < n }
-
-instance : DFractional PNat where
-  proper n := n.1 = 1
-  add := sorry
-  add_comm := sorry
-  add_assoc := sorry
-  add_left_cancel := sorry
-  add_ne := sorry
-  proper_add_mono_left := sorry
-  one := sorry
-  whole_iff_one := sorry
-
 structure ProdChipMemory (T : Type _) where
   left : KLR.Core.ChipMemory T
   right : KLR.Core.ChipMemory T
