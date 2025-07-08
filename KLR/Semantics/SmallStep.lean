@@ -4,15 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Markus de Medeiros
 -/
 
--- TODO: Move
-/-- Prop-Valued version of `Option.isSome`; easier to do cases on. -/
-inductive Option.IsSomeP : Option α → Prop where
-| some : IsSomeP (some v)
-
-theorem Option.isSomeP_iff_isSome {v : Option α} : v.IsSomeP ↔ v.isSome = true := by
-  constructor
-  · rintro ⟨⟩; rfl
-  · cases v <;> rintro ⟨⟩; exact Option.IsSomeP.some
+import KLR.Semantics.Lib
 
 /- # Mechanization of a generic nondeterministic small-Step semantics -/
 

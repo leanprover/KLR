@@ -5,6 +5,7 @@ Authors: Markus de Medeiros
 -/
 
 import KLR.Semantics.NML
+import KLR.Semantics.Memory
 import Iris.Algebra.OFE
 import Iris.Algebra.UPred
 import Iris.Instances.UPred
@@ -16,7 +17,7 @@ import Iris.BI.BI
 -- Need to port some more of the upred rules most likely
 
 section weakestpre
-open Iris.BI.BIBase
+open Iris.BI.BIBase KLR.Core
 
 variable {DataT : Type _}
 
@@ -62,16 +63,16 @@ instance {T : Type _} : Heap (ProdChipMemory T) ProdIndex T where
 
 def TProd (H : Type _ → Type _) (T : Type _) : Type _ := H T × H T
 
-abbrev PROP : Type _ := heProp PNat ProdIndex UInt8 ProdChipMemory
+abbrev PROP : Type _ := heProp PNat ProdIndex (UCell UInt8 DataT) ProdChipMemory
 
 -- The state interpretation, ie the global version of the program state.
-def state_interp (l r : @state DataT) : PROP :=
+def state_interp (l r : @state DataT) : @PROP DataT :=
   heProp_auth _ _ _ _ (.mk l.memory r.memory)
   -- Strong relational invariant goes here?
 
-def wp_F (wp : @prog DataT → @prog DataT → (@val DataT → @val DataT → PROP) → PROP)
+def wp_F (wp : @prog DataT → @prog DataT → (@val DataT → @val DataT → @PROP DataT) → @PROP DataT)
          (p1 p2 : @prog DataT)
-         (Φf : @val DataT → @val DataT → PROP) : PROP :=
+         (Φf : @val DataT → @val DataT → @PROP DataT) : @PROP DataT :=
   -- For any pair of states that satisfy the state interpretation...
   «forall» fun sl : @state DataT =>
   «forall» fun sr : @state DataT =>
@@ -93,11 +94,11 @@ def wp_F (wp : @prog DataT → @prog DataT → (@val DataT → @val DataT → PR
             -- prove the weakest precondition.
             ▷ |==> (state_interp cl'.2 cr'.2 ∗ wp cl'.1 cr'.1 Φf))))
 
-instance : Iris.OFE.Contractive (α := @prog DataT → @prog DataT → (@val DataT → @val DataT → PROP) → PROP) wp_F := by
+instance : Iris.OFE.Contractive (α := @prog DataT → @prog DataT → (@val DataT → @val DataT → @PROP DataT) → @PROP DataT) wp_F := by
   sorry
 
 /-- Definition of the weakest precondition -/
-def wp (p1 p2 : @prog DataT) (Φf : @val DataT → @val DataT → PROP) : PROP :=
+def wp (p1 p2 : @prog DataT) (Φf : @val DataT → @val DataT → @PROP DataT) : @PROP DataT :=
   (Iris.fixpoint wp_F) p1 p2 Φf
 
 end weakestpre
@@ -112,7 +113,7 @@ theorem wp_value_value_fupd {pl pr : @prog DataT} {Φf : @val DataT → @val Dat
   sorry
 
 /-- Definition for Hoare Triple -/
-def triple (pre : PROP) (p1 p2 : @prog DataT) post :=
+def triple (pre : @PROP DataT) (p1 p2 : @prog DataT) post :=
   iprop(pre -∗ wp p1 p2 post)
 
 macro "{{ " pre:term  " }} " p1:term " × " p2:term "{{ " x:ident  " => " post:term " }} " : term => do
@@ -132,9 +133,9 @@ macro "{{ " pre:term  " }} " p1:term " × " p2:term "{{ " x:ident  " => " post:t
 --    (llᵢ llₒ lrᵢ lrₒ : Locations in HBM) (HD : Disjointness of locations)
 --
 --    initialMemory : Handedness → HBM Loc → HBM Loc → InTensors → OutTensors → State     -- A state with everything empty, inputs loaded & locations, outputs allocated.
---    initialProp   : Handedness → HBM Loc → HBM Loc → InTensors → OutTensors → PROP      -- Same as initialMemory, but in PROP with ownership using ↦ₜ
+--    initialProp   : Handedness → HBM Loc → HBM Loc → InTensors → OutTensors → PROP DataT      -- Same as initialMemory, but in PROP DataT with ownership using ↦ₜ
 --    finalMemory   : Handedness → HBM Loc → HBM Loc → InTensors → OutTensors → State     -- A state with everything empty, inputs loaded & locations, outputs allocated.
---    finalProp     : Handedness → HBM Loc → HBM Loc → InTensors → OutTensors → PROP      -- Same as initialMemory, but in PROP with ownership using ↦ₜ
+--    finalProp     : Handedness → HBM Loc → HBM Loc → InTensors → OutTensors → PROP DataT      -- Same as initialMemory, but in PROP DataT with ownership using ↦ₜ
 --
 --    -- Precondition: There exist tensors satisfying the inital relations at the right locations.
 --    (∃ vlᵢ vlₒ vrᵢ vrₒ,
