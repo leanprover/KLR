@@ -1345,4 +1345,45 @@ section ConcreteMapImpl
   end ConcreteSolution
 end ConcreteMapImpl
 
+section UseDefChains
+  variable (num_nodes num_keys : ℕ)
+  variable (start_node : ℕ)
+  variable (edges : ℕ → ℕ → Bool)
+
+  inductive UseDef where
+    | Use : ℕ → UseDef
+    | Def : ℕ → UseDef
+    deriving DecidableEq
+
+  def UseDef.isUse := fun
+    | UseDef.Use _ => true
+    | _ => false
+
+  def UseDef.isDef := fun
+    | UseDef.Def _ => true
+    | _ => false
+
+  variable (labels : ℕ → UseDef)
+
+  structure trace (last : ℕ) where
+    path : List ℕ
+    start_sound : path[0]? = some start_node
+    last_sound : path.getLast? = some last
+
+  def trace.lastDefOf {n} (t : trace start_node n) (k : ℕ) : Option ℕ :=
+    let rec lastOf := fun
+      | List.nil => none
+      | List.cons n tail =>
+        if labels n = UseDef.Def k then some n else lastOf tail
+    lastOf t.path
+
+  def solution : Type := (use_defs : (n : ℕ) → (labels n).isUse → List ℕ) ×'
+                         (∀ (x n last)
+                         (h_last : (labels last).isUse)
+                         (t : trace start_node last)
+                         (_ : t.lastDefOf start_node labels x = some n),
+                            n ∈ use_defs last h_last)
+end UseDefChains
+
+
 -- thanks for reading! - Julia 💕
