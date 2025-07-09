@@ -1042,7 +1042,7 @@ end InnerMapImpl
 
   wooo!!! 🎉
 -/
-section ConcreteMapImpl
+namespace ConcreteMapImpl
   /-
     Section `IsConstImpl` defines the "constancy type" `ℂ`, and all
     needed structure on `ℂ` to eventually construct a `DataflowProblem ℕ ⟦ℕ, ℂ⟧`.
@@ -1345,7 +1345,10 @@ section ConcreteMapImpl
   end ConcreteSolution
 end ConcreteMapImpl
 
-section UseDefChains
+/-
+  This section (WIP) computes use def chains
+-/
+namespace UseDefImpl
   variable (num_nodes num_keys : ℕ)
   variable (start_node : ℕ)
   variable (edges : ℕ → ℕ → Bool)
@@ -1368,9 +1371,10 @@ section UseDefChains
   structure trace (last : ℕ) where
     path : List ℕ
     start_sound : path[0]? = some start_node
+    path_sound : ∀ n (h : n < path.length - 1), edges path[n] path[n+1]
     last_sound : path.getLast? = some last
 
-  def trace.lastDefOf {n} (t : trace start_node n) (k : ℕ) : Option ℕ :=
+  def trace.lastDefOf {n} (t : trace start_node edges n) (k : ℕ) : Option ℕ :=
     let rec lastOf := fun
       | List.nil => none
       | List.cons n tail =>
@@ -1380,10 +1384,44 @@ section UseDefChains
   def solution : Type := (use_defs : (n : ℕ) → (labels n).isUse → List ℕ) ×'
                          (∀ (x n last)
                          (h_last : (labels last).isUse)
-                         (t : trace start_node last)
-                         (_ : t.lastDefOf start_node labels x = some n),
+                         (t : trace start_node edges last)
+                         (_ : t.lastDefOf start_node edges labels x = some n),
                             n ∈ use_defs last h_last)
-end UseDefChains
+
+
+  /-
+    This section defines an instance of dataflow used to compute the usedef relation
+  -/
+  section DataflowInstance
+   abbrev ρ := Vector Bool num_nodes
+
+   def ρ1 (n : ℕ) : Vector Bool num_nodes := Vector.ofFn (fun n' ↦ n = n'.val)
+
+    instance : Preorder (ρ num_nodes) where
+      le_refl := sorry
+      le_trans := sorry
+
+    instance : Max (ρ num_nodes) where
+      max := Vector.zipWith Bool.or
+
+    instance : HasBot (ρ num_nodes) where
+      bot := Vector.replicate num_nodes False
+
+    def 𝕏 := Solution
+      (ρ:=ρ num_nodes)
+      (le_supl:=sorry)
+      (le_supr:=sorry)
+      (num_nodes:=num_nodes)
+      (num_keys:=num_keys)
+      (edges:=edges)
+      (transitions:=fun n k ρ =>
+        match labels n with
+          | UseDef.Def k' => if k = k' then ρ1 num_nodes n else ρ
+          | _ => ρ)
+
+
+  end DataflowInstance
+end UseDefImpl
 
 
 -- thanks for reading! - Julia 💕
