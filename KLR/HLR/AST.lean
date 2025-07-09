@@ -12,7 +12,7 @@ import TensorLib.Shape
 import TensorLib.Slice
 import TensorLib.Tensor
 
-open TensorLib (Shape Dtype)
+open TensorLib (Tensor Shape Dtype Slice)
 
 /-
 The definition of the High-Level Representation (HLR) IR. The goal of this IR is to
@@ -46,7 +46,7 @@ inductive UnaryOp where
   | exp
   | sqrt
   | neg
-  | convert (dtype : TensorLib.Dtype)
+  | convert (dtype : Dtype)
 deriving Inhabited, Repr
 
 /-
@@ -80,25 +80,31 @@ inductive Operator where
   -- select elements from two tensors based on a condition tensor
   | select (cond a b : Var)
   -- create a tensor filled with a specific value, with the given shape
-  | full (value : Float32) (shape : Shape)
+  -- Note: the tensor is always a scalar-array
+  | full (value : Tensor) (shape : Shape)
   -- transpose a tensor with the provided permutation of dimensions
   | transpose (a : Var) (dims : List Nat)
   -- unused
   | split_with_sizes (a : Var) (sizes : List Nat) -- ??
   -- reshape a tensor to the specified shape
   | reshape (a : Var) (shape : Shape)
-  -- broadcast a tensor to the specified shape
-  -- TODO: broadcasting is very complicated and we haven't figured it out yet,
-  -- so this instruction just passes through the semantics of HLO's broadcasting
-  | broadcast (a : Var) (shape : Shape) (broadcastDims : List Nat)
+  /-
+    broadcast a tensor to the specified shape
+
+    It must be the case that `len(shape(a)) = len(shape)` and that
+    `∀ i, shape(a)[i] != shape[i] => shape(a)[i] == 1`
+    In other words, the broadcast cannot produce new dimensions, only expand
+    existing ones of size 1.
+  -/
+  | broadcast (a : Var) (shape : Shape)
   -- create a constant tensor with the given values and shape
-  | const (values : TensorLib.Tensor) (shape : Shape) (dtype : TensorLib.Dtype)
+  | const (values : Tensor) (shape : Shape) (dtype : Dtype)
   -- gather elements from a tensor using the provided indices and offset dimensions
   -- TODO: gather is complicated and not used except for in llama, so for now
   -- we just pass through the semantics of HLO's gather
   | gather (input indices : Var) (offsetDims collapsedSliceDims startIndexMap : List Nat) (indexVectorDim : Nat)
   -- slice a tensor along specified dimensions, with start, limit, and stride
-  | slice (a : Var) (slice : List TensorLib.Slice)
+  | slice (a : Var) (slice : List Slice)
   -- call another function, passing input values and receiving outputs
   | call (callee : String) (inputValues : List Var)
 deriving Inhabited, Repr
@@ -170,7 +176,7 @@ def findVar (f : Function) (v : Var) : Option Operator :=
     | _ => .none)
 
 -- TODO: move these toString instances to the TensorLib repo
-instance : ToString TensorLib.Slice where
+instance : ToString Slice where
   toString s :=
     let {start, stop, step, ..} := s
     let start := start.map toString |>.getD ""
@@ -178,11 +184,11 @@ instance : ToString TensorLib.Slice where
     let step := step.map toString |>.getD ""
     s!"{start}:{stop}:{step}"
 
-instance : ToString TensorLib.Shape where
+instance : ToString Shape where
   toString s :=
     s.val.map toString |> "x".intercalate |> fun x => s!"[{x}]"
 
-instance : ToString TensorLib.Dtype where
+instance : ToString Dtype where
   toString
     | .bool => "bool"
     | .int8 => "i8"
@@ -231,7 +237,7 @@ instance : ToString Operator where
     | .transpose a dims => s!"transpose({a}, dims={dims})"
     | .split_with_sizes a sizes => s!"split_with_sizes({a}, sizes={sizes})"
     | .reshape a shape => s!"reshape({a}, shape={shape})"
-    | .broadcast a shape dims => s!"broadcast({a}, shape={shape}, dims={dims})"
+    | .broadcast a shape => s!"broadcast({a}, shape={shape})"
     | .const t shape dtype => s!"const({repr t}, shape={shape}, dtype={dtype})"
     | .gather a indices offsetDims collapsedSliceDims startIndexMap indexVectorDim
       => s!" gather({a}, indices={indices}, offsetDims={offsetDims}, collapsedSliceDims={collapsedSliceDims}, startIndexMap={startIndexMap}, indexVectorDim={indexVectorDim})"

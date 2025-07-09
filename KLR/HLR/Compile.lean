@@ -11,6 +11,8 @@ import SHerLOC
 import TensorLib.Shape
 import TensorLib.Slice
 import TensorLib.Tensor
+import TensorLib.Bytes
+import TensorLib.ByteArray
 
 open TensorLib (Dtype Shape Tensor)
 
@@ -84,37 +86,49 @@ def parseFloat (c : StableHLO.Parsing.FloatLiteral) : Float32 :=
     else
       (true, exponent.natAbs)
     sign * OfScientific.ofScientific mantissa exponentSign exponent
-  | .hexaDecimal _ => panic! "Hexadecimal float literals are not supported yet."
+  | .hexaDecimal n => UInt32.ofNat n |> Float32.ofBits
 
 #guard parseFloat (.decimal { integerPart := ⟨ .plus,  4 ⟩, fractionalPart := ⟨ .plus, 785980 ⟩, scientificPart := ⟨ .plus,  3 ⟩}) == 4785.980
 #guard parseFloat (.decimal { integerPart := ⟨ .minus, 4 ⟩, fractionalPart := ⟨ .plus, 785980 ⟩, scientificPart := ⟨ .minus, 1 ⟩}) == -0.4785980
 #guard parseFloat (.decimal { integerPart := ⟨ .minus, 3 ⟩, fractionalPart := ⟨ .plus, 597620 ⟩, scientificPart := ⟨ .minus, 3 ⟩}) == -0.003597620
 
--- Parse a StableHLO element literal to a Float32.
-def parseFloatFromElementLiteral (c : StableHLO.Parsing.ElementLiteral) : Compile Float32 :=
-  match c with
-  |(.floatLiteral f) => pure (parseFloat f)
-  | _ => throw s!"Expected a float literal, but got {repr c}."
+/-
+Parses a hex string (starting with "0x" and preceded by a multipleof 8 hex characters)
+into a tensor of int32 values.
 
--- Convert a list of Float32 values to a TensorLib tensor.
-def ofFloatList (ns : List Float32) : Compile Tensor := do
-  let dtype := TensorLib.Dtype.float32
-  let size := dtype.itemsize
-  let arr := Tensor.zeros dtype (Shape.mk [ns.length])
-  let mut data := arr.data
-  let mut posn := 0
-  for n in ns do
-    let v <- dtype.byteArrayOfFloat32 n
-    data := v.copySlice 0 data posn size
-    posn := posn + size
-  .ok { arr with data := data }
+Assumes bytes are in big-endian order.
+-/
+def parseInt32TensorFromHex (s : String) : Compile Tensor := do
+  -- Tail recursive helper to convert a list of hex characters to a list of BitVec 32 values.
+  let rec toBitVec32List (str : List Char) (acc : List (BitVec 32)) : Compile (List (BitVec 32)):= do
+    match str with
+    | c0 :: c1 :: c2 :: c3 :: c4 :: c5 :: c6 :: c7 :: rest =>
+      match KLR.Util.Hex.hexCharsToBitVecBE c0 c1 c2 c3 c4 c5 c6 c7 with
+      | some v => toBitVec32List rest (v :: acc)
+      | none => throw s!"Invalid hex character sequence: {c0}{c1}{c2}{c3}."
+    | [] => pure acc.reverse
+    | _ => throw s!"Hex string must have a number of characters divisible by 8, but got {str}."
+
+  -- Trim off the leading "0x" and convert the rest to a list of BitVec 32 values.
+  let bvs ← match s.toList with
+  | '0' :: 'x' :: rest => toBitVec32List rest []
+  | _ => throw s!"Hex string must start with '0x', but got {s}."
+  -- Concatenate the bitvecs to create a little-endian bytearray
+  let data := bvs.foldr (fun new acc => (TensorLib.toLEByteArray new) ++ acc) ByteArray.empty
+  pure {
+    dtype := TensorLib.Dtype.int32,
+    shape := Shape.mk [bvs.length],
+    data
+  }
 
 -- Convert a list of tensors to a single tensor by concatenating them along a new first dimension.
-def ofTensorList (ns : List Tensor) : Compile Tensor :=
+def tensorOfTensorList (ns : List Tensor) : Compile Tensor :=
   match ns with
   | f :: r => do
     if ! (r.all fun t => t.shape == f.shape) then
       throw s!"All tensors in the list must have the same shape, but got {repr ns}."
+    else if ! (r.all fun t => t.dtype == f.dtype) then
+      throw s!"All tensors in the list must have the same dtype, but got {repr ns}."
     else
       let newShape := Shape.mk (ns.length :: f.shape.val)
       let dtype := f.dtype
@@ -128,12 +142,33 @@ def ofTensorList (ns : List Tensor) : Compile Tensor :=
       .ok { arr with data := data }
   | [] => pure (TensorLib.Tensor.empty TensorLib.Dtype.float32 (Shape.mk []))
 
+/-
+Parse a StableHLO string literal to a Tensor
+
+Note that the meaning of string literals in StableHLO is not well-defined,
+but in practice JAX uses them to hex encode integer tensors.
+-/
+def parseStringLiteral := parseInt32TensorFromHex
+-- Parse a StableHLO boolean literal to a Bool.
+def parseBoolLiteral : StableHLO.Parsing.BooleanLiteral → Bool
+  | .true  => true
+  | .false => false
+-- Parse a StableHLO element literal to an HLR tensor.
+def parseElementLiteral : StableHLO.Parsing.ElementLiteral → Compile TensorLib.Tensor
+  | .floatLiteral f => f |> parseFloat |> TensorLib.Tensor.arrayScalarFloat32! |> pure
+  | .stringLiteral s => s |> parseStringLiteral
+  | .booleanLiteral b => b |> parseBoolLiteral |> TensorLib.Tensor.arrayScalarBool! |> pure
+  | .complexLiteral _ =>  impossible "unimplemented"
+
 -- Parse a StableHLO dense literal to an HLR tensor.
 def parseTensorLiteral : StableHLO.Parsing.DenseLiteral → Compile Tensor
-  | .denseDimension values => do
-    ofTensorList (← values.mapM parseTensorLiteral)
-  | .denseElements elems => do
-    (← elems.mapM parseFloatFromElementLiteral) |> ofFloatList
+  -- special case for singleton tensors so we don't create an extra dimension
+  | .denseElements [v] => do
+    parseElementLiteral v
+  | .denseElements l => do
+    tensorOfTensorList (← l.mapM parseElementLiteral)
+  | .denseDimension l => do
+    tensorOfTensorList (← l.mapM parseTensorLiteral)
 
 -- Convert a StableHLO tensor type to an HLR TensorTy.
 def parseTensorType (t : StableHLO.Parsing.TensorType) : Compile TensorTy := do
@@ -142,6 +177,16 @@ def parseTensorType (t : StableHLO.Parsing.TensorType) : Compile TensorTy := do
       | .unknown => throw "Can't support tensors with dynamic shape")
     let dtype ← match t.tensorElementTypeGen with
       | .classic (.floatType .f32) => pure TensorLib.Dtype.float32
+      | .classic (.floatType .f64) => pure TensorLib.Dtype.float64
+      | .classic (.integerType {sign := .signed, size := .b8}) => pure TensorLib.Dtype.int8
+      | .classic (.integerType {sign := .unsigned, size := .b8}) => pure TensorLib.Dtype.uint8
+      | .classic (.integerType {sign := .signed, size := .b16}) => pure TensorLib.Dtype.int16
+      | .classic (.integerType {sign := .unsigned, size := .b16}) => pure TensorLib.Dtype.uint16
+      | .classic (.integerType {sign := .signed, size := .b32}) => pure TensorLib.Dtype.int32
+      | .classic (.integerType {sign := .unsigned, size := .b32}) => pure TensorLib.Dtype.uint32
+      | .classic (.integerType {sign := .signed, size := .b64}) => pure TensorLib.Dtype.int64
+      | .classic (.integerType {sign := .unsigned, size := .b64}) => pure TensorLib.Dtype.uint64
+      | .classic (.booleanType) => pure TensorLib.Dtype.bool
       | _ => throw s!"Unsupported tensor element type: {repr t.tensorElementTypeGen}"
     pure (.mk (.mk shape) dtype)
 
@@ -168,7 +213,7 @@ def parseArray (c : StableHLO.Parsing.Literal) : Compile (List Nat) :=
 Parse a Nat from a StableHLO float literal.
 We need this because integers are often represented as floats in StableHLO.
 -/
-def parseNatFromFloat (c : StableHLO.Parsing.Literal) : Compile Nat :=
+def parseNatFromElementLiteral (c : StableHLO.Parsing.Literal) : Compile Nat :=
   match c with
   | .element (.floatLiteral (.decimal {integerPart, fractionalPart, scientificPart})) =>
     match (fractionalPart.decimal == 0, scientificPart.decimal == 0, integerPart.sign) with
@@ -295,10 +340,19 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
       log "Compiling constant operation"
       let valueAttr ← lookupAttributeValue inputAttributes "value"
       match valueAttr with
-      | (.tensor (.denseElements [(.floatLiteral f)])) =>
-        pure [.assign output (.full (parseFloat f) outputTy.shape) outputTy]
-      | (.tensor lit) =>
-        pure [.assign output (.const (← parseTensorLiteral lit) outputTy.shape outputTy.dtype) outputTy]
+      | (.tensor t) => do
+        let t ← parseTensorLiteral t
+        if t.shape == Shape.empty then
+          -- If the tensor is a scalar-array, we use a `full` operation
+          -- to create a tensor of the same shape as the output.
+          pure [.assign output (.full t outputTy.shape) outputTy]
+        else
+          -- If the tensor is not a scalar-array, it corresponds to a
+          -- `const` operation.
+          if t.shape.count != outputTy.shape.count then
+            throw s!"Tensor literal shape {t.shape} does not match expected output shape {outputTy.shape}."
+          let t ← t.reshape outputTy.shape
+          pure [.assign output (.const t outputTy.shape outputTy.dtype) outputTy]
       | _ => throw "Constant operation requires a 'value' attribute with tensor literal."
     -- tensor unary operators
     | .reshape => do
@@ -333,10 +387,29 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
       let dims ← (← lookupAttributeValue inputAttributes "dimensions") |> parseArray
       pure [.assign output (.reductionOp op inputValues[0]! inputValues[1]! dims) outputTy] -- TODO: init value
     | .broadcastInDim => do
+      /-
+      We compile a broadcast by first reshaping to a new tensor `t` with added
+      dimensions of size 1 such that the rank is equal to the output rank, then
+      we broadcast `t` to the output shape which expands some of those
+      dimensions of size 1
+      -/
       log "Compiling broadcastInDim operation"
       let input := inputValues[0]!
+      let inputTy := ← parseTensorTypeFromValueTypes signature.domain 0
       let broadcastDims ← (← lookupAttributeValue inputAttributes "broadcast_dimensions") |> parseArray
-      pure [.assign output (.broadcast input outputTy.shape broadcastDims) outputTy]
+      let reshaped := input ++ "_reshaped" -- TODO: need fresh var name here
+      -- A shape that has the same number of dimensions as the output, but where
+      -- specified dimensions match the input shape, and others are 1.
+      let newShape := outputTy.shape.ndim |> List.range |> List.map (fun n =>
+        if let .some i := broadcastDims.idxOf? n then
+          inputTy.shape.val[i]!
+        else
+          1)
+        |> .mk
+      pure [
+        .assign reshaped (.reshape input newShape) ⟨ newShape, inputTy.dtype ⟩,
+        .assign output (.broadcast reshaped outputTy.shape) outputTy
+      ]
     | .transpose => do
       log "Compiling transpose operation"
       let input := inputValues[0]!
@@ -406,7 +479,7 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
     | .concatenate =>
       log "Compiling concatenate operation"
       let tensors := inputValues
-      let dim ← (← lookupAttributeValue inputAttributes "dimension") |> parseNatFromFloat
+      let dim ← (← lookupAttributeValue inputAttributes "dimension") |> parseNatFromElementLiteral
       pure [.assign output (.concat tensors dim) outputTy]
     -- tensor ternary operators
     | .select =>
