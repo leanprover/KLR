@@ -418,7 +418,7 @@ def klrCmd : Cmd := `[Cli|
     infoCmd;
     nkiToKLRCmd;
     traceCmd;
-    typecheckCmd
+    typecheckCmd;
     hloToHLRCmd
 ]
 
