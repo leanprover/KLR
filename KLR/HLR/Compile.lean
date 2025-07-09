@@ -19,12 +19,15 @@ open TensorLib (Dtype Shape Tensor)
 -- This module compiles a StableHLO program into an HLR program.
 namespace KLR.HLR.Compile
 
+abbrev SymbolEnv := List (String × Nat)
+
 -- Context for the compilation process, to be stored in a state monad.
 structure Ctx where
   -- the program being compiled
   program : Program
   -- the log of messages generated during compilation (for debugging)
   log : List String
+  gensymEnv : SymbolEnv
 deriving Inhabited, Repr
 
 -- Compilation requires tracking state and also potentially returning errors.
@@ -38,6 +41,21 @@ def log (msg : String) : Compile Unit :=
 def addFunction (func : Function) : Compile Unit := do
   modify (fun ctx =>
     { ctx with program := { ctx.program with functions := ctx.program.functions ++ [func] } })
+
+/-
+Generate a fresh variable name based on a given name.
+
+TODO: This does not actually guarantee that the name is unique, since it
+only checks the gensymEnv. We also need to check against all existing
+variables in the program.
+-/
+def gensym (name : String) : Compile Var := do
+  let ctx ← get
+  let idx := match ctx.gensymEnv.find? (fun ⟨ n, _ ⟩ => n == name) with
+    | some (_, i) => i + 1
+    | none => 0
+  modify (fun ctx => { ctx with gensymEnv := (name, idx) :: ctx.gensymEnv })
+  pure s!"{name}_{idx}"
 
 -- Permute `l` according to the indices in `permutation`.
 def permute {T : Type} (l : List T) (permutation : List Nat) : Option (List T) :=
@@ -397,7 +415,7 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
       let input := inputValues[0]!
       let inputTy := ← parseTensorTypeFromValueTypes signature.domain 0
       let broadcastDims ← (← lookupAttributeValue inputAttributes "broadcast_dimensions") |> parseArray
-      let reshaped := input ++ "_reshaped" -- TODO: need fresh var name here
+      let reshaped ← gensym (input ++ "_reshaped")
       -- A shape that has the same number of dimensions as the output, but where
       -- specified dimensions match the input shape, and others are 1.
       let newShape := outputTy.shape.ndim |> List.range |> List.map (fun n =>
@@ -454,16 +472,15 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
       let rhsResultSize := if rhsResultShape.isEmpty then 1 else rhsResultShape.foldl (· * ·) (1 : Nat)
       let contractingSize := if contractingShape.isEmpty then 1 else contractingShape.foldl (· * ·) 1
       -- Create fresh variable names for intermediate results
-      -- TODO: this is currently not correct, since the names are not unique
-      let lhsTransposedName := lhs ++ "_transposed"
-      let rhsTransposedName := rhs ++ "_transposed"
-      let lhsReshapedName := lhs ++ "_reshaped"
+      let lhsTransposedName ← gensym (lhs ++ "_transposed")
+      let rhsTransposedName ← gensym (rhs ++ "_transposed")
+      let lhsReshapedName ← gensym (lhs ++ "_reshaped")
       let lhsReshapedShape := [batchSize, lhsResultSize, contractingSize]
       let lhsReshapedTy := TensorTy.mk (.mk lhsReshapedShape) dtype
-      let rhsReshapedName := rhs ++ "_reshaped"
+      let rhsReshapedName ← gensym (rhs ++ "_reshaped")
       let rhsReshapedShape := [batchSize, rhsResultSize, contractingSize]
       let rhsReshapedTy := TensorTy.mk (.mk rhsReshapedShape) dtype
-      let resultReshapedName := output ++ "_reshaped"
+      let resultReshapedName ← gensym (output ++ "_reshaped")
       let resultReshapedShape := [batchSize, lhsResultSize, rhsResultSize]
       let resultReshapedType := TensorTy.mk (.mk resultReshapedShape) dtype
       -- Emit the HLR statements for the dotGeneral operation
