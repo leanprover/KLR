@@ -397,7 +397,7 @@ theorem nonterminating_step [Det S] {c} (H : S.Nonterminating c) : ∃ c', S.Ste
   simp only [IsStuck, Classical.not_forall] at Hem; rcases Hem with ⟨c', Hc', _⟩
   exact ⟨c', Hc', Nonterminating_Step H Hc'⟩
 
-
+/-
 theorem forall_PRelN_step [Det S] (Hr : ∀ (n : Nat), PRelN n cl cr Φf) (Hsl : S.Step cl cl') (Hsr : S.Step cr cr') :
     ∀ (n : Nat), PRelN n cl' cr' Φf := by
   intro n
@@ -506,11 +506,22 @@ theorem forall_PRelN_step [Det S] (Hr : ∀ (n : Nat), PRelN n cl cr Φf) (Hsl :
   --   refine .inr ⟨1, 1, ?_⟩
 
   --   sorry
+-/
+
+
+
 
 /-- Nontermination is finitely approximable. -/
 theorem Nonterminating_finitely_approximable_left [Det S] {Φf} {cl cr}
   (Hterm : S.Nonterminating cl) (Hr : ∀ n, PRelN (S := S) n cl cr Φf) :
     S.Nonterminating cr := by
+  refine S.uniquelyTerminating_em cr |>.elim ?_ (·)
+  rename_i n c'
+  -- rintro ⟨Nf, cf, Hcrcf, Hcf_stuck, Hdet⟩ H Hs
+  sorry
+
+/-
+
   intro gas c
   induction gas generalizing cl cr c
   · rintro ⟨rfl⟩
@@ -524,7 +535,7 @@ theorem Nonterminating_finitely_approximable_left [Det S] {Φf} {cl cr}
 
     all_goals sorry
 
-
+-/
 
 
 
