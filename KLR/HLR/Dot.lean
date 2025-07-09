@@ -29,7 +29,7 @@ def makeReturnNode (funcName : String) : Vertex :=
       ("fillcolor", "lightgray"),
       ("color", "gray")
     ])
-def makeOpNode (op : Operator) (output : String) : Vertex :=
+def makeOpNode (op : Operator) (output : String) (ty : KLR.HLR.TensorTy): Vertex :=
   let attrs := match op with
   | .arg .. => [
       ("shape", "diamond"),
@@ -51,7 +51,7 @@ def makeOpNode (op : Operator) (output : String) : Vertex :=
   .mk
     (sanitize output)
     (.mk ([
-      ("label", s!"{opName op}\\n{output}"),
+      ("label", s!"{opName op}\\n{output}\n{ty.shape}"),
     ] ++ attrs))
 
 def makeConstNode (name : String) (usedAt : String): Vertex :=
@@ -104,10 +104,10 @@ def graph (f : HLR.Function) : Graph := Id.run do
   for s in f.statements do
     match s with
     | .assign _ (.const _ _ _) _ => ()
-    | .assign v op _ =>
+    | .assign v op ty =>
       let deps := dependencies op |>.map sanitize
       let (newVertices, newEdges) := makeEdges deps (sanitize v)
-      vertices := [makeOpNode op v] ++ newVertices ++ vertices
+      vertices := [makeOpNode op v ty] ++ newVertices ++ vertices
       edges := newEdges ++ edges
     | .ret vars =>
       let node := makeReturnNode f.name
