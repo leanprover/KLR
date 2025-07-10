@@ -236,6 +236,23 @@ structure Reciprocal where
 --     pub dst_mem_pattern:       MemPattern4d,    // 20   (44 - 63)
 -- }
 
+structure Copy where
+-- pub struct s4d4_tr_struct {
+--     pub header:                Header,          // 4    ( 0 -  3)
+--     pub events:                Events,          // 8    ( 4 - 11)
+--     pub src_mem_pattern:       MemPattern4d,    // 20   (12 - 31)
+--     pub in_dtype:              Dtype,           // 1    (32     )
+--     pub out_dtype:             Dtype,           // 1    (33     )
+--     pub num_active_channels:   u8,              // 1    (34     )
+--     pub negated:               u8,              // 1    (35     )
+--     pub op:                    AluOp,           // 1    (36     )
+--     pub op_dim:                TensorSubdim,    // 1    (37     )
+--     pub mask_enable:           u8,              // 1    (38     )
+--     pub reserved1:             [u8;5],          // 5    (39 - 43)
+--     pub dst_mem_pattern:       MemPattern4d,    // 20   (44 - 63)
+-- }
+
+
 -- All of the operators
 inductive Operator where
   | load : Operator
