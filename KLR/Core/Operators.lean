@@ -312,6 +312,40 @@ structure Transpose where
   dst:                  OutputTensor3d
   src:                  InputTensor3d
 
+/-
+d4_mr.md
+-/
+structure MemSet where
+    dst:    OutputTensor3d
+    value : UInt32
+    count:     Nat
+
+/-
+d4_iota.rs
+-/
+structure Iota where
+  dst: OutputTensor3d
+  src: DataPattern
+
+/-
+Indicates whether this is the first, middle, or last matmul
+instruction that is accumulating into a region of psum
+-/
+inductive MatmulGroupElement where
+  | first
+  | middle
+  | last
+
+/-
+s3d3_mm.rs
+
+This gets turned into a load stationary and then a matmul instruction.
+-/
+structure MatMul where
+    dst:                   OutputTensor3d
+    stationary:            InputTensor3d
+    moving:                InputTensor3d
+    psum_accumulate_flags: MatmulGroupElement
 
 inductive IndexMissBehavior where
 | ImmediateWrite
