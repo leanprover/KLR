@@ -87,6 +87,9 @@ instance : ToSexp Sexp where
 instance : ToSexp String where
   toSexp n := atom n
 
+instance : ToSexp Name where
+  toSexp n := atom n.toString
+
 instance : ToSexp Bool where
   toSexp | true => atom "true"
          | false => atom "false"
@@ -165,6 +168,11 @@ instance : FromSexp Sexp where
 instance : FromSexp String where
   fromSexp? s := do match s with
   | atom a => return a
+  | list _ => throw "Expected Atom, got List"
+
+instance : FromSexp Name where
+  fromSexp? s := do match s with
+  | atom a => return a.toName
   | list _ => throw "Expected Atom, got List"
 
 instance : FromSexp Bool where

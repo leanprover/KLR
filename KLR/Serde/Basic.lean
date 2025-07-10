@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 -/
 import KLR.Util
+import Lean
 import Plausible
 import TensorLib  -- for all the nice conversion functions
 
@@ -520,6 +521,20 @@ warning: declaration uses 'sorry'
 #guard_msgs in
   example (x : String) :
     roundtrip x == true := by plausible
+
+/-
+# Names
+
+Names are just a special case of Strings
+-/
+
+instance : ToCBOR Lean.Name where
+  toCBOR n := toCBOR n.toString
+
+instance : FromCBOR Lean.Name where
+  parse arr := do
+    let (sz, s) <- @parse String _ arr
+    return (sz, s.toName)
 
 /-
 # Pairs
