@@ -47,8 +47,8 @@ abbrev PNat := { n : Nat // 0 < n }
 section iris_lib
 open Iris
 
-instance : DFractional PNat where
-  proper n := n.1 = 1
+instance : UFraction PNat where
+  Proper n := n.1 = 1
   add := PNat.add
   add_comm := by
     rintro ⟨n1, _⟩ ⟨n2, _⟩; ext
@@ -72,16 +72,15 @@ instance : DFractional PNat where
     simp_all [HAdd.hAdd, PNat.add]
     trivial
   one := PNat.one
-  whole_iff_one := by
-    rintro ⟨n1, _⟩
-    simp_all [whole, Subtype.val, One.one, HAdd.hAdd, PNat.add, PNat.one, One.toOfNat1, OfNat.ofNat]
-    intro rfl
-    simp [whole, Subtype.val, One.one, HAdd.hAdd, PNat.add]
-    intro x H Hk
-    cases x
-    · exfalso
+  one_whole := by
+    simp [Fraction.Whole, Subtype, Fraction.Fractional, Subtype.val]
+    constructor
+    · rfl
+    · simp_all [Subtype.val, One.one, HAdd.hAdd, PNat.add, PNat.one, One.toOfNat1, OfNat.ofNat]
+      intro n
+      simp [Subtype.val, One.one, HAdd.hAdd, PNat.add]
+      intro x H
+      have _ : (1 + n = 1) := H
       omega
-    · rename_i n
-      obtain ⟨⟩ : (n + 1) = 0 := Nat.left_eq_add.mp Hk.symm
 
 end iris_lib

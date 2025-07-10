@@ -123,7 +123,7 @@ inductive ProdIndex
 
 section iris
 -- TODO: Stabilize Heap in Iris-Lean
-instance {T : Type _} : Heap (ProdChipMemory T) ProdIndex T where
+instance {T : Type _} : AllocHeap (ProdChipMemory T) ProdIndex T where
   get := sorry
   set := sorry
   of_fun := sorry
