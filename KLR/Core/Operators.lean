@@ -461,22 +461,23 @@ structure BatchNormStats where
     src_mem_pattern:       InputTensor3d
     dst_mem_pattern:       OutputTensor3d
 
-structure Reciprocal where
--- pub struct s4d4_tr_struct {
---     pub header:                Header,          // 4    ( 0 -  3)
---     pub events:                Events,          // 8    ( 4 - 11)
---     pub src_mem_pattern:       MemPattern4d,    // 20   (12 - 31)
---     pub in_dtype:              Dtype,           // 1    (32     )
---     pub out_dtype:             Dtype,           // 1    (33     )
---     pub num_active_channels:   u8,              // 1    (34     )
---     pub negated:               u8,              // 1    (35     )
---     pub op:                    AluOp,           // 1    (36     )
---     pub op_dim:                TensorSubdim,    // 1    (37     )
---     pub mask_enable:           u8,              // 1    (38     )
---     pub reserved1:             [u8;5],          // 5    (39 - 43)
---     pub dst_mem_pattern:       MemPattern4d,    // 20   (44 - 63)
--- }
 
+-- TODO: Not sure about these next two, To support dynamic copy
+-- it needs to replicate the dynamic behaviors in Addr4.
+
+structure OutputTensor4d where -- TODO
+  freePattern: List APPair
+  offset : Nat := 0
+  dtype : Dtype
+
+structure InputTensor4d extends OutputTensor4d where
+  parNum : Nat
+
+-- Not sure if negated field is allowed or not
+structure Reciprocal where
+  src : InputTensor4d
+  dst : OutputTensor4d
+  dtype : Dtype
 
 inductive TensorSubDim where
 | Unused
@@ -488,10 +489,9 @@ inductive TensorSubDim where
 def TensorSubDim.IsCopySubDim : TensorSubDim → Prop
 | Unused | X => True | _ => False
 
-
 structure Copy where
-  dst:                   OutputTensor3d
-  src:                   InputTensor3d
+  dst:                   OutputTensor4d
+  src:                   InputTensor4d
   dtype : Dtype
   op_dim : TensorSubDim
   copy_dim : op_dim.IsCopySubDim
@@ -514,13 +514,13 @@ def AluOp.IsTensorReduceBitwiseOp : AluOp → Prop
 
 /-- Negated flag is ignored for non-arithmetic operations. -/
 structure TensorReduce where
-  src         : InputTensor3d
+  src         : InputTensor4d
   src_dtype   : Dtype
   dst_dtype   : Dtype
   op          : AluOp
   op_dim      : TensorSubDim
   negated     : op.IsTensorReduceArithOp → Bool
-  dst         : OutputTensor3d
+  dst         : OutputTensor4d
 
 -- All of the operators
 inductive Operator where
