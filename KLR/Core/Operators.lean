@@ -373,9 +373,9 @@ structure FindIndex8 where
     src_mem_pattern:       InputTensor3d
     dst_mem_pattern:       OutputTensor3d
 
-structure MatchReplace8
+structure MatchReplace8 where
     src_mem_pattern:       InputTensor3d
-    immediate:             f32
+    immediate:             Float32
     dst_mem_pattern:       OutputTensor3d
 
 structure Max8 where
@@ -388,7 +388,7 @@ inductive CustomOpArgLocation where
 | Sbuf
 | Hbm
 
-abbrev TPBAddr := Uint32
+abbrev TPBAddr := UInt32
 
 inductive CustomOpTensorShape where
 | InlineShape8d (data: List UInt16) -- there are 8 of these
@@ -396,8 +396,8 @@ inductive CustomOpTensorShape where
 | InlineShape4d (data: List UInt32) -- there are 4 of these
 
 inductive CustomOpTensorStorage where
-| tpb (addr: TPBAddr, num_elem: Uint32, num_partitions: UInt8, num_elemens_per_block: UInt32)
-| hbm (addr: SundaAddr, num_elem: UInt32)
+| tpb (addr: TPBAddr) (num_elem: Uint32) (num_partitions: UInt8) (num_elemens_per_block: UInt32)
+| hbm (addr: SundaAddr) (num_elem: UInt32)
 
 structure CustomOpArgTensor where
   location: CustomOpArgLocation
