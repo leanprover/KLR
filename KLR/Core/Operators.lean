@@ -317,6 +317,40 @@ structure Copy where
 --     pub dst_mem_pattern:       MemPattern4d,    // 20   (44 - 63)
 -- }
 
+inductive ArithNegated : AluOp → Type _
+
+
+def AluOp.IsArith : AluOp → Prop
+| IsArith abs, add, average, bypass, divide, is_equal, is_ge, is_gt, is_le, is_lt, max, min, mod, mult, not_equal, pow, rsqrt, subtract => True
+| _ => False
+
+/-- The ALUOps for a TensorReduceArithOp -/
+def AluOp.IsTensorReduceArithOp : AluOp → Prop
+| abs, add, average, bypass, is_equal, is_ge, is_gt, is_le, is_lt, max, min, mult, not_equal, subtract => True
+| _ => False
+
+/-- The ALUOps for a TensorReduceBitvecOp -/
+def AluOp.IsTensorReduceBitwiseOp : AluOp → Bool
+| arith_shift_left, arith_shift_right, bitwise_and, bitwise_or, bitwise_xor, logical_and, logical_or, logical_shift_left, logical_shift_right, logical_xor => true
+| _ => False
+
+inductive TensorSubDim where
+| Unused
+| X
+| XY
+| XYZ
+| XYZW
+
+/-- Negated flag is ignored for non-arithmetic operations. -/
+structure TensorReduce where
+  src         : InputTensor3d
+  src_dtype   : Dtype
+  dst_dtype   : Dtype
+  negated     : Bool
+  op          : AluOp
+  op_dim      : TensorSubDim
+  negated     : op.AluOp.IsTensorReduceArithOp → Bool
+  dst         : OutputTensor3d
 
 -- All of the operators
 inductive Operator where
