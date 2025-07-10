@@ -220,6 +220,21 @@ structure Activate where
     dst_mem_pattern:       OutputTensor3d
 }
 
+inductive ActivationFunc where
+| unknown -- TODO: what activation funcs are valid?
+
+-- s3_d3_ac.rs
+-- performs the operation `OUT accum= activate_func( (IN * scale_value)] + bias, imm )`
+structure Activate2 where
+  dst:                   OutputTensor3d
+  src:                   InputTensor3d
+  accumulator_cmd:       AccumCmd
+  activation_func:       ActivationFunc
+  scale:                 Immediate
+  bias:                  Immediate
+  imm:                   Immediate
+
+
 structure Reciprocal where
 -- pub struct s4d4_tr_struct {
 --     pub header:                Header,          // 4    ( 0 -  3)
