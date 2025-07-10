@@ -313,6 +313,21 @@ structure Transpose where
   src:                  InputTensor3d
 
 /-
+s4d4_tr.rs or s3d3_mm.rs
+
+Uses the DVE engine to do a transpose on 32x32 tiles of tensors up to 4d.
+The total size of the accesses must be a multiple of 32x32, and the src and dest
+must be the same size. The number of partitions must be a multiple of 32.
+
+OR use the PE engine to do a transpose on 2d tensors, where the normal PE engine restrictions apply.
+-/
+structure Shuffle where
+  dst:                  OutputTensor3d
+  src:                  InputTensor3d
+  shuffle_pattern:      List Nat -- TODO: this is exactly 32 elements
+
+
+/-
 d4_mr.md
 -/
 structure MemSet where
