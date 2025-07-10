@@ -24,8 +24,6 @@ The choice of argument or parameter may seem arbitrary; these definitions
 follow the hardware ISA as close as possible.
 -/
 
-import KLR.Core
-
 namespace KLR.Core
 
 -- Compute Engines
@@ -176,7 +174,7 @@ structure OutputTensor3d where -- TODO
   offset : Nat := 0
   dtype : Dtype
 
-structure InputTensor3d extends PseudoTensor3d where  -- TOOD
+structure InputTensor3d extends OutputTensor3d where  -- TOOD
   parNum : Nat
 
 inductive Immediate where
@@ -218,7 +216,6 @@ structure Activate where
     bias:                  Immediate
     imm:                   Immediate
     dst_mem_pattern:       OutputTensor3d
-}
 
 inductive ActivationFunc where
 | unknown -- TODO: what activation funcs are valid?
@@ -269,6 +266,11 @@ inductive DgeComputeOp
   | MAX
   | MIN
 
+-- Paul look at this pls
+inductive DMABounds
+| check (_ : DmaBoundCheck)
+| reg (_ : Reg)
+
 -- dma_direct2d.rs
 /-
 TODO: there are constraints around how many dimensions you can use
@@ -281,8 +283,8 @@ structure DmaCopy where
   dst:                   OutputTensor3d
   src:                   InputTensor3d
   compute_op:            DgeComputeOp
-  dst_bounds_checked:  DmaBoundCheck | Reg
-  src_bounds_checked:  DmaBoundCheck | Reg
+  dst_bounds_checked:  DMABounds
+  src_bounds_checked:  DMABounds
 
 
 structure Reciprocal where
@@ -321,17 +323,17 @@ inductive ArithNegated : AluOp → Type _
 
 
 def AluOp.IsArith : AluOp → Prop
-| IsArith abs, add, average, bypass, divide, is_equal, is_ge, is_gt, is_le, is_lt, max, min, mod, mult, not_equal, pow, rsqrt, subtract => True
+| .abs | .add | .average | .bypass | .divide | .is_equal | .is_ge | .is_gt | .is_le | .is_lt | .max | .min | .mod | .mult | .not_equal | .pow | .rsqrt | .subtract => True
 | _ => False
 
 /-- The ALUOps for a TensorReduceArithOp -/
 def AluOp.IsTensorReduceArithOp : AluOp → Prop
-| abs, add, average, bypass, is_equal, is_ge, is_gt, is_le, is_lt, max, min, mult, not_equal, subtract => True
+| abs | add | average | bypass | is_equal | is_ge | is_gt | is_le | is_lt | max | min | mult | not_equal | subtract => True
 | _ => False
 
 /-- The ALUOps for a TensorReduceBitvecOp -/
-def AluOp.IsTensorReduceBitwiseOp : AluOp → Bool
-| arith_shift_left, arith_shift_right, bitwise_and, bitwise_or, bitwise_xor, logical_and, logical_or, logical_shift_left, logical_shift_right, logical_xor => true
+def AluOp.IsTensorReduceBitwiseOp : AluOp → Prop
+| arith_shift_left | arith_shift_right | bitwise_and | bitwise_or | bitwise_xor | logical_and | logical_or | logical_shift_left | logical_shift_right | logical_xor => True
 | _ => False
 
 inductive TensorSubDim where
@@ -346,10 +348,9 @@ structure TensorReduce where
   src         : InputTensor3d
   src_dtype   : Dtype
   dst_dtype   : Dtype
-  negated     : Bool
   op          : AluOp
   op_dim      : TensorSubDim
-  negated     : op.AluOp.IsTensorReduceArithOp → Bool
+  negated     : op.IsTensorReduceArithOp → Bool
   dst         : OutputTensor3d
 
 -- All of the operators
