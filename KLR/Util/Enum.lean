@@ -172,6 +172,20 @@ where
         toString x := ((reprStr x).splitOn ".").reverse.head!
     )
     elabCommand toStringInstance
+    let mut cases2 : Array (TSyntax `Lean.Parser.Term.matchAltExpr) := #[]
+    for (c, _) in values do
+      let c := mkIdent (c.raw.getIdAt 3)
+      let cstr : TSyntax `str := Syntax.mkStrLit c.getId.toString
+      let case <- `(matchAltExpr| | $cstr:str => some .$c)
+      cases2 := cases2.push case
+    let other <- `(matchAltExpr| | _ => none)
+    cases2 := cases2.push other
+    let fromStringName := mkIdent (.str typeName "fromString")
+    let fromString <- `(
+      def $fromStringName (s : String) : Option $name := match s with
+        $cases2:matchAlt*
+    )
+    elabCommand fromString
 
 section Test
 
@@ -195,6 +209,8 @@ private enum Foo where
 #guard toString Foo.x == "x"
 #guard toJson Foo.x == Json.str "x"
 #guard get! (fromJson? "x") == Foo.x
+#guard Foo.fromString "x" == some Foo.x
+#guard (Foo.fromString "k").isNone
 
 private enum Bar where
   | x
