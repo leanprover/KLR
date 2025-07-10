@@ -313,6 +313,120 @@ structure Transpose where
   src:                  InputTensor3d
 
 
+inductive IndexMissBehavior where
+| ImmediateWrite
+| SkipWrite
+
+structure LocalGather where
+    src_mem_pattern:       InputTensor3d
+    index_miss_behavior:   IndexMissBehavior
+    free_pool_buffer:      u8
+    immediate:             Immediate
+    dst_mem_pattern:       OutputTensor3d
+
+
+structure RangeSelect where
+    reduce_cmd:            AccumCmd
+    reduce_op:             AluOp
+    base:                  f32
+    fill_val:              f32
+    src_mem_pattern:       InputTensor3d
+    comp_op0:              AluOp
+    comp_op1:              AluOp
+    bound0:                Immediate
+    bound1:                Immediate
+    dst_mem_pattern:       OutputTensor3d
+
+inductive TensScalarRevOps
+| None
+| First
+| Second
+| Both
+
+structure ScalarTensorTensor where
+    src0_mem_pattern:      InputTensor3d
+    src1_mem_pattern:      InputTensor3d
+    op0:                   AluOp
+    op1:                   AluOp
+    reverse_operands:      TensScalarRevOps
+    imm0_src:              Immediate
+    accumulator_cmd:       AccumCmd
+    dst_mem_pattern:       OutputTensor3d
+
+structure CopyPredicated where
+    op:                    AluOp
+    src0_mem_pattern:      InputTensor3d
+    src1_mem_pattern:      InputTensor3d
+    dst_mem_pattern:       OutputTensor3d
+
+structure TensorTensorScan where
+    src0_mem_pattern:      InputTensor3d
+    src1_mem_pattern:      InputTensor3d
+    op0:                   AluOp
+    op1:                   AluOp
+    reverse_operands:      TensScalarRevOps
+    imm0_src:              Immediate
+    accumulator_cmd:       AccumCmd
+    dst_mem_pattern:       OutputTensor3d
+
+structure FindIndex8 where
+    src_mem_pattern:       InputTensor3d
+    dst_mem_pattern:       OutputTensor3d
+
+structure MatchReplace8
+    src_mem_pattern:       InputTensor3d
+    immediate:             f32
+    dst_mem_pattern:       OutputTensor3d
+
+structure Max8 where
+    src_mem_pattern:       InputTensor3d
+    dst_mem_pattern:       OutputTensor3d
+
+
+inductive CustomOpArgLocation where
+| Invalid
+| Sbuf
+| Hbm
+
+abbrev TPBAddr := Uint32
+
+inductive CustomOpTensorShape where
+| InlineShape8d (data: List UInt16) -- there are 8 of these
+| OutOfLineShape (addr: TPBAddr)
+| InlineShape4d (data: List UInt32) -- there are 4 of these
+
+inductive CustomOpTensorStorage where
+| tpb (addr: TPBAddr, num_elem: Uint32, num_partitions: UInt8, num_elemens_per_block: UInt32)
+| hbm (addr: SundaAddr, num_elem: UInt32)
+
+structure CustomOpArgTensor where
+  location: CustomOpArgLocation
+  framework_shape: CustomOpTensorShape
+  storage : CustomOpTensorStorage
+
+structure CustomOpArgArrayOfTensor where
+  num_object : Uint32
+
+inductive CustomOpArgType where
+| Invalid
+| Tensor
+| ArrayOfTensor
+
+inductive CustomOpargUnion where
+| tensor (t: CustomOpArgTensor)
+| array_of_tensor (ar: CustomOpArgArrayOfTensor)
+
+structure CustomOpPayload where
+    arg:                            CustomOpArgUnion
+
+structure BatchNormAggregate where
+    src_mem_pattern:       InputTensor3d
+    dst_mem_pattern:       OutputTensor3d
+
+structure BatchNormStats where
+    src_mem_pattern:       InputTensor3d
+    dst_mem_pattern:       OutputTensor3d
+
 structure Reciprocal where
 -- pub struct s4d4_tr_struct {
 --     pub header:                Header,          // 4    ( 0 -  3)
