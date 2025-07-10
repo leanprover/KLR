@@ -44,6 +44,16 @@ variable (S : SmallStep)
 /-- A program is a value. -/
 def IsValue (p : S.Prog) : Prop := S.toVal p |>.IsSomeP
 
+theorem IsValue_value {p : S.Prog} (H : S.IsValue p) : ∃ v, S.toVal p = some v := by
+  simp_all [IsValue]
+  generalize Hx : S.toVal p = x
+  rw [Hx] at H
+  cases x
+  · cases H
+  · rcases H
+    rename_i v
+    exists v
+
 /-- A configuration is stuck. -/
 def IsStuck (c : S.Prog × S.State) : Prop := ∀ {c'}, S.Step c c' → False
 
