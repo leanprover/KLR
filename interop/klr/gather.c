@@ -309,6 +309,7 @@ static void add_global(struct state *st, char *name, PyObject *obj) {
 
   struct Python_Keyword_List *node = region_alloc(st->region, sizeof(*node));
   struct Python_Keyword *kw = region_alloc(st->region, sizeof(*kw));
+  mkPos(kw->pos, 0, 0, 0, 0);
   kw->value = const_expr(st, obj);
   if (kw->value) {
     kw->id = name;
