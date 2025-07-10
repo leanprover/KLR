@@ -234,6 +234,29 @@ structure Activate2 where
   bias:                  Immediate
   imm:                   Immediate
 
+inductive AffineSelectCmp where
+  | GreaterThan
+  | GreaterThanEq
+  | Eq
+  | NotEq
+
+/-
+Used for Iota and AffineSelect, represents something similar to an
+access pattern but that is only used to generate data, not to index
+-/
+structure DataPattern where
+  offset : Nat
+  pattern : List APPair
+
+-- s2d2_ts_as.rs
+-- out[k] = (mask[k] <op> 0) ? in[k] : fill_value
+structure AffineSelect where
+    dst:       OutputTensor3d
+    src:       InputTensor3d
+    fill_mode:             AffineSelectCmp
+    fill_reg:              Reg -- must be a float value
+    mask_pattern:          DataPattern
+    channel_multiplier:    i32 -- TODO: not documented
 
 structure Reciprocal where
 -- pub struct s4d4_tr_struct {
