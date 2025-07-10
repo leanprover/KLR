@@ -7,6 +7,7 @@ Authors: Paul Govereau, Sean McLaughlin
 /-
 # Definition of operators
 
+
 Operators can appear in a call node, and can be thought of as functions that
 take arguments and return results. However, an operator may have several
 variations, and these variations show up as parameters within the operator and
@@ -22,6 +23,9 @@ where `ts` contains the tensor scalar parameters:
 The choice of argument or parameter may seem arbitrary; these definitions
 follow the hardware ISA as close as possible.
 -/
+
+import KLR.Core
+
 namespace KLR.Core
 
 -- Compute Engines
@@ -164,6 +168,57 @@ structure TensorScalarAddr where
   op1 : AluOp
   reverse1 : Bool
   deriving Repr, BEq
+
+abbrev Opcode := UInt16
+
+structure OutputTensor3d where -- TODO
+  freePattern: List APPair
+  offset : Nat := 0
+  dtype : Dtype
+
+structure InputTensor3d extends PseudoTensor3d where  -- TOOD
+  parNum : Nat
+
+inductive Immediate where
+| register -- : TODO
+| pointer -- : TODO
+| int (i : Int32)
+| float (f : Float32)
+deriving BEq, Repr
+
+inductive ActivationImm where
+| register -- : TODO
+| pointer -- : TODO
+| float (f : Float32)
+deriving BEq, Repr
+
+inductive DropoutThresholdType
+| DropRate
+| KeepRate
+
+structure Dropout where
+    src_mem_pattern:       InputTensor3d
+    dst_mem_pattern:       OutputTensor3d
+    threshold_type:        DropoutThresholdType
+    threshold:             Immediate
+
+inductive AccumCmd where
+| Idle
+| Zero
+| Accumulate
+| ZeroAccumulate
+| LoadAccumulate
+
+structure Activate where
+    accumulator_cmd:       AccumCmd
+    src_mem_pattern:       InputTensor3d
+    in_bias_dtype:         (Dtype × Dtype)
+    activation_func:       u8
+    scale_value:           Immediate
+    bias:                  Immediate
+    imm:                   Immediate
+    dst_mem_pattern:       OutputTensor3d
+}
 
 -- All of the operators
 inductive Operator where
