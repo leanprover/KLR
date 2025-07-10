@@ -256,7 +256,34 @@ structure AffineSelect where
     fill_mode:             AffineSelectCmp
     fill_reg:              Reg -- must be a float value
     mask_pattern:          DataPattern
-    channel_multiplier:    i32 -- TODO: not documented
+
+inductive DmaBoundCheck where
+  | disable
+  | enable
+
+-- RMW Ops for DMA
+inductive DgeComputeOp
+  | NONE
+  | ADD
+  | MULTIPLY
+  | MAX
+  | MIN
+
+-- dma_direct2d.rs
+/-
+TODO: there are constraints around how many dimensions you can use
+and whether theyre stored in immediates or registers, but at the KLR
+level it's probably easiest to just have a simple model of DMA copies
+and we can figure out how to turn them into ISA instructions when
+compiling out of KLR.
+-/
+structure DmaCopy where
+  dst:                   OutputTensor3d
+  src:                   InputTensor3d
+  compute_op:            DgeComputeOp
+  dst_bounds_checked:  DmaBoundCheck | Reg
+  src_bounds_checked:  DmaBoundCheck | Reg
+
 
 structure Reciprocal where
 -- pub struct s4d4_tr_struct {
