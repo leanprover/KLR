@@ -439,6 +439,32 @@ instance : ToString Const where
 
 end Const
 
+inductive Reg where
+  -- register number
+  | reg (r : Nat)
+deriving BEq, Repr
+
+inductive Immediate where
+  | register (reg : Reg)
+  | pointer -- TODO
+  | int (i : Int32)
+  | float (f : Float32)
+deriving BEq, Repr
+
+inductive ActivationImm where
+  | register (reg : Reg)
+  | pointer -- : TODO
+  | float (f : Float32)
+deriving BEq, Repr
+
 inductive TensorView where
   | literal (freePattern: List APPair) (offset : Nat := 0) (dtype : Dtype) (parNum : Nat)
   | reg (_ : Reg)
+
+/-
+Used for Iota and AffineSelect, represents something similar to an
+TensorView but that is only used to generate data, not to index
+-/
+structure DataPattern where
+  offset  : Nat
+  pattern  : List APPair
