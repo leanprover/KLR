@@ -11,10 +11,36 @@ namespace KLR.NKI.Types
 
 /-!
 # NKI's Type System
+
+Tensor terminology:
+- Dimension: The number of axes/directions along which data is arranged.
+- Rank: The number dimensions in a tensor.
+- Size: The number of things in a dimension.
+- Shape: A list of sizes, one for each dimension in a tensor.
+
+Examples:
+
+The vector
+[1, 2, 3, 4, 5]:
+- has 1 dimension
+- is of rank 1
+- has size 5 in the 1st dimension
+- has shape [5]
+
+The matrix
+[
+  [1, 2],
+  [3, 4],
+  [5, 6],
+]:
+- has 2 dimensions
+- is of rank 2
+- has size 3 in the 1st dimension, 2 in the 2nd dimension
+- has shape [3, 2]
 -/
 
 inductive Kind
-  | dim
+  | size
   | shape
   | typ
 deriving DecidableEq, BEq, Repr
@@ -37,15 +63,15 @@ inductive Typ
   | prim (p : Prim)
   /-- Function types -/
   | func (dom ran : Typ)
-  /-- Dimension literals -/
-  | dim (n : Nat)
+  /-- Size literals -/
+  | size (n : Nat)
   /-- Tensor shapes -/
-  | shape (dims : List Typ)
+  | shape (sizes : List Typ)
   /-- Tensor types with shape and data type -/
   | tensor (shape : Typ) (dt : Core.Dtype)
   -- Dimension operations
-  /-- Dimension addition -/
-  | dimAdd (x y : Typ)
+  /-- Size addition -/
+  | sizeAdd (x y : Typ)
   -- Shape operations
   /-- Shape concatenation -/
   | shapeAppend (s1 s2 : Typ)
@@ -54,7 +80,7 @@ inductive Typ
 deriving BEq
 
 def Kind.toString : Kind → String
-  | .dim => "dim"
+  | .size => "size"
   | .shape => "shape"
   | .typ => "⋆"
 
@@ -89,13 +115,13 @@ def Typ.reprPrec (t : Typ) (n : Nat) : Std.Format :=
       fmt
     else
       Std.Format.paren fmt
-  | .dim n => s!"dim({n})"
+  | .size n => s!"size({n})"
   | .shape dims =>
     let dims := Std.Format.join (dims.map fun t => (Typ.reprPrec t 1000) ++ ", ")
     s!"shape[{dims}]"
   | .tensor sh dt =>
     s!"tensor[{sh.reprPrec 1000}, {dt}]"
-  | .dimAdd x y =>
+  | .sizeAdd x y =>
     let fmt := s!"{x.reprPrec (n + 1)} + {y.reprPrec n}"
     if n > 50 then
       fmt
@@ -128,10 +154,10 @@ Variables are accessible as `Typ.var 0` (for `ι`), `Typ.var 1` (for `κ`), etc.
 scoped macro "Π " κs:term,+ " ⇒ " body:term : term => do
   κs.getElems.foldrM (fun arg body => `(Types.Typ.pi $arg $body)) body
 
-instance {n} : OfNat (Types.Typ) n := ⟨.dim n⟩
+instance {n} : OfNat (Types.Typ) n := ⟨.size n⟩
 
 instance : Add (Types.Typ) where
-  add := Types.Typ.dimAdd
+  add := Types.Typ.sizeAdd
 
 instance : Append (Types.Typ) where
   append := Types.Typ.shapeAppend
@@ -158,10 +184,10 @@ def Typ.subst (x : Typ) (i : Nat) : Typ → Typ
   | pi κ typ => pi κ (typ[i + 1 := x])
   | prim p => prim p
   | func dom ran => func (dom[i := x]) (ran[i := x])
-  | dim n => dim n
+  | size n => size n
   | shape dims => shape (dims.map (·[i := x]))
   | tensor sh dt => tensor (sh[i := x]) dt
-  | dimAdd d1 d2 => dimAdd (d1[i := x]) (d2[i := x])
+  | sizeAdd d1 d2 => sizeAdd (d1[i := x]) (d2[i := x])
   | shapeAppend s1 s2 => shapeAppend (s1[i := x]) (s2[i := x])
   | shapeTail s => shapeTail (s[i := x])
 
@@ -207,13 +233,13 @@ inductive Typ.HasKind : TypCtx → Typ → Kind → Prop
   | prim {Φ : TypCtx} {p : Prim} : Φ ⊢⋆ .prim p:⋆
   | func {Φ : TypCtx} {dom ran : Typ}
     : (Φ ⊢⋆ dom : ⋆) → (Φ ⊢⋆ ran : ⋆) → Φ ⊢⋆ dom ⟶ ran : ⋆
-  | dim {Φ : TypCtx} {n : Nat} : Φ ⊢⋆ .dim n : .dim
-  | shape {Φ : TypCtx} {dims : List Typ}
-    : (∀ dim ∈ dims, Φ ⊢⋆ dim : .dim) → Φ ⊢⋆ .shape dims : .shape
+  | size {Φ : TypCtx} {n : Nat} : Φ ⊢⋆ .size n : .size
+  | shape {Φ : TypCtx} {sizes : List Typ}
+    : (∀ size ∈ sizes, Φ ⊢⋆ size : .size) → Φ ⊢⋆ .shape sizes : .shape
   | tensor {Φ : TypCtx} {shape : Typ} {dt : Core.Dtype}
     : (Φ ⊢⋆ shape : .shape) → Φ ⊢⋆ .tensor shape dt : ⋆
-  | dimAdd {Φ : TypCtx} {x y : Typ}
-    : (Φ ⊢⋆ x : .dim) → (Φ ⊢⋆ y : .dim) → Φ ⊢⋆ .dimAdd x y : .dim
+  | sizeAdd {Φ : TypCtx} {x y : Typ}
+    : (Φ ⊢⋆ x : .size) → (Φ ⊢⋆ y : .size) → Φ ⊢⋆ .sizeAdd x y : .size
   | shapeAppend {Φ : TypCtx} {s1 s2 : Typ}
     : (Φ ⊢⋆ s1 : .shape) → (Φ ⊢⋆ s2 : .shape) → Φ ⊢⋆ .shapeAppend s1 s2 : .shape
   | shapeTail {Φ : TypCtx} {s : Typ}
@@ -302,20 +328,20 @@ instance Typ.decHasKind (Φ : TypCtx) (α : Typ) (κ : Kind) : Decidable (Φ ⊢
     case pos =>
       dec_has_kind_ih Φ, dom, ⋆
       dec_has_kind_ih Φ, ran, ⋆
-  | dim _ => dec_has_kind_match_kind κ, .dim
-  | shape dims =>
+  | size _ => dec_has_kind_match_kind κ, .size
+  | shape sizes =>
     dec_has_kind_match_kind κ, .shape
     case pos =>
-      dec_has_kind_ih_list Φ, dims, .dim
+      dec_has_kind_ih_list Φ, sizes, .size
   | tensor s dt =>
     dec_has_kind_match_kind κ, ⋆
     case pos =>
       dec_has_kind_ih Φ, s, .shape
-  | dimAdd x y =>
-    dec_has_kind_match_kind κ, .dim
+  | sizeAdd x y =>
+    dec_has_kind_match_kind κ, .size
     case pos =>
-      dec_has_kind_ih Φ, x, .dim
-      dec_has_kind_ih Φ, y, .dim
+      dec_has_kind_ih Φ, x, .size
+      dec_has_kind_ih Φ, y, .size
   | shapeAppend s1 s2 =>
     dec_has_kind_match_kind κ, .shape
     case pos =>
@@ -331,9 +357,9 @@ end
 abbrev TypCheck := Compile.Pass.PosM Typ
 
 def Typ.reduceShape (Φ : TypCtx) : Typ → TypCheck
-  | .shape dims =>
-    if ∀ d ∈ dims, Φ ⊢⋆ d : .dim then
-      return .shape dims
+  | .shape sizes =>
+    if ∀ s ∈ sizes, Φ ⊢⋆ s : .size then
+      return .shape sizes
     else
       throw "tensor dimension must have kind dim"
   | .shapeAppend s1 s2 => do
@@ -373,7 +399,7 @@ def matmul(x, y):
 ```
 -/
 def matMul (dtype : Core.Dtype) : Typ :=
-  Π .dim, .dim, .dim ⇒
+  Π .size, .size, .size ⇒
     let M := var 2
     let N := var 1
     let K := var 0
@@ -402,7 +428,7 @@ def batch_matmul(x, y):
 ```
 -/
 def batchMatMul (dtype : Core.Dtype) : Typ :=
-  Π .dim, .dim, .dim, .shape ⇒
+  Π .size, .size, .size, .shape ⇒
     let M := var 3
     let N := var 2
     let K := var 1
@@ -432,7 +458,7 @@ def concat_last_axis(x, y):
 ```
 -/
 def concatLastAxis (dtype : Core.Dtype) : Typ :=
-  Π .dim, .dim, .shape ⇒
+  Π .size, .size, .shape ⇒
     let M := var 2
     let N := var 1
     let s := var 0

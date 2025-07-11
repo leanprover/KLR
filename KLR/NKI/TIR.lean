@@ -181,7 +181,7 @@ def Value.typ : Value → Typ
   | .int _ => .prim .int
   | .float _ => .prim .float
   | .string _ => .prim .string
-  | .tensor shape dtype => .tensor (.shape <| shape.map .dim) dtype
+  | .tensor shape dtype => .tensor (.shape <| shape.map .size) dtype
 
 def Const.typ : Const → Typ
   -- logical
