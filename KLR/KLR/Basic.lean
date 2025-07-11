@@ -439,10 +439,10 @@ instance : ToString Const where
 
 end Const
 
-structure OutputTensor3d where -- TODO
+structure OutputTensor where -- TODO
   freePattern: List APPair
   offset : Nat := 0
   dtype : Dtype
 
-structure InputTensor3d extends OutputTensor3d where  -- TOOD
+structure InputTensor extends OutputTensor where  -- TOOD
   parNum : Nat

@@ -29,8 +29,8 @@ inductive DropoutThresholdType
 | KeepRate
 
 structure Dropout where
-    src_mem_pattern:       InputTensor3d
-    dst_mem_pattern:       OutputTensor3d
+    src_mem_pattern:       InputTensor
+    dst_mem_pattern:       OutputTensor
     threshold_type:        DropoutThresholdType
     threshold:             Immediate
 
@@ -43,13 +43,13 @@ inductive AccumCmd where
 
 structure Activate where
     accumulator_cmd:       AccumCmd
-    src_mem_pattern:       InputTensor3d
+    src_mem_pattern:       InputTensor
     in_bias_dtype:         (Dtype × Dtype)
     activation_func:       u8
     scale_value:           Immediate
     bias:                  Immediate
     imm:                   Immediate
-    dst_mem_pattern:       OutputTensor3d
+    dst_mem_pattern:       OutputTensor
 
 inductive ActivationFunc where
 | unknown -- TODO: what activation funcs are valid?
@@ -57,8 +57,8 @@ inductive ActivationFunc where
 -- s3_d3_ac.rs
 -- performs the operation `OUT accum= activate_func( (IN * scale_value)] + bias, imm )`
 structure Activate2 where
-  dst:                   OutputTensor3d
-  src:                   InputTensor3d
+  dst:                   OutputTensor
+  src:                   InputTensor
   accumulator_cmd:       AccumCmd
   activation_func:       ActivationFunc
   scale:                 Immediate
@@ -82,8 +82,8 @@ structure DataPattern where
 -- s2d2_ts_as.rs
 -- out[k] = (mask[k] <op> 0) ? in[k] : fill_value
 structure AffineSelect where
-    dst:       OutputTensor3d
-    src:       InputTensor3d
+    dst:       OutputTensor
+    src:       InputTensor
     fill_mode:             AffineSelectCmp
     fill_reg:              Reg -- must be a float value
     mask_pattern:          DataPattern
@@ -114,8 +114,8 @@ and we can figure out how to turn them into ISA instructions when
 compiling out of KLR.
 -/
 structure DmaCopy where
-  dst:                   OutputTensor3d
-  src:                   InputTensor3d
+  dst:                   OutputTensor
+  src:                   InputTensor
   compute_op:            DgeComputeOp
   dst_bounds_checked:  DMABounds
   src_bounds_checked:  DMABounds
@@ -130,8 +130,8 @@ Here, transpose means "reverse the order of the dimensions".
 TODO: this may be more complicated than described above
 -/
 structure DmaTranspose where
-  dst:                  OutputTensor3d
-  src:                  InputTensor3d
+  dst:                  OutputTensor
+  src:                  InputTensor
 
 /-
 s4d4_tr.rs or s3d3_mm.rs
@@ -143,8 +143,8 @@ must be the same size. The number of partitions must be a multiple of 32.
 OR use the PE engine to do a transpose on 2d tensors, where the normal PE engine restrictions apply.
 -/
 structure Transpose where
-  dst:                  OutputTensor3d
-  src:                  InputTensor3d
+  dst:                  OutputTensor
+  src:                  InputTensor
 
 /-
 s4d4_tr.rs or s3d3_mm.rs
@@ -156,8 +156,8 @@ must be the same size. The number of partitions must be a multiple of 32.
 OR use the PE engine to do a transpose on 2d tensors, where the normal PE engine restrictions apply.
 -/
 structure Shuffle where
-  dst:                  OutputTensor3d
-  src:                  InputTensor3d
+  dst:                  OutputTensor
+  src:                  InputTensor
   shuffle_pattern:      List Nat -- TODO: this is exactly 32 elements
 
 
@@ -165,7 +165,7 @@ structure Shuffle where
 d4_mr.md
 -/
 structure MemSet where
-    dst:    OutputTensor3d
+    dst:    OutputTensor
     value : UInt32
     count:     Nat
 
@@ -173,7 +173,7 @@ structure MemSet where
 d4_iota.rs
 -/
 structure Iota where
-  dst: OutputTensor3d
+  dst: OutputTensor
   src: DataPattern
 
 /-
@@ -191,9 +191,9 @@ s3d3_mm.rs
 This gets turned into a load stationary and then a matmul instruction.
 -/
 structure MatMul where
-    dst:                   OutputTensor3d
-    stationary:            InputTensor3d
-    moving:                InputTensor3d
+    dst:                   OutputTensor
+    stationary:            InputTensor
+    moving:                InputTensor
     psum_accumulate_flags: MatmulGroupElement
 
 inductive IndexMissBehavior where
@@ -201,11 +201,11 @@ inductive IndexMissBehavior where
 | SkipWrite
 
 structure LocalGather where
-    src_mem_pattern:       InputTensor3d
+    src_mem_pattern:       InputTensor
     index_miss_behavior:   IndexMissBehavior
     free_pool_buffer: UInt8
     immediate:             Immediate
-    dst_mem_pattern:       OutputTensor3d
+    dst_mem_pattern:       OutputTensor
 
 
 structure RangeSelect where
@@ -213,12 +213,12 @@ structure RangeSelect where
     reduce_op:             AluOp
     base:                  f32
     fill_val:              f32
-    src_mem_pattern:       InputTensor3d
+    src_mem_pattern:       InputTensor
     comp_op0:              AluOp
     comp_op1:              AluOp
     bound0:                Immediate
     bound1:                Immediate
-    dst_mem_pattern:       OutputTensor3d
+    dst_mem_pattern:       OutputTensor
 
 inductive TensScalarRevOps
 | None
@@ -227,43 +227,43 @@ inductive TensScalarRevOps
 | Both
 
 structure ScalarTensorTensor where
-    src0_mem_pattern:      InputTensor3d
-    src1_mem_pattern:      InputTensor3d
+    src0_mem_pattern:      InputTensor
+    src1_mem_pattern:      InputTensor
     op0:                   AluOp
     op1:                   AluOp
     reverse_operands:      TensScalarRevOps
     imm0_src:              Immediate
     accumulator_cmd:       AccumCmd
-    dst_mem_pattern:       OutputTensor3d
+    dst_mem_pattern:       OutputTensor
 
 structure CopyPredicated where
     op:                    AluOp
-    src0_mem_pattern:      InputTensor3d
-    src1_mem_pattern:      InputTensor3d
-    dst_mem_pattern:       OutputTensor3d
+    src0_mem_pattern:      InputTensor
+    src1_mem_pattern:      InputTensor
+    dst_mem_pattern:       OutputTensor
 
 structure TensorTensorScan where
-    src0_mem_pattern:      InputTensor3d
-    src1_mem_pattern:      InputTensor3d
+    src0_mem_pattern:      InputTensor
+    src1_mem_pattern:      InputTensor
     op0:                   AluOp
     op1:                   AluOp
     reverse_operands:      TensScalarRevOps
     imm0_src:              Immediate
     accumulator_cmd:       AccumCmd
-    dst_mem_pattern:       OutputTensor3d
+    dst_mem_pattern:       OutputTensor
 
 structure FindIndex8 where
-    src_mem_pattern:       InputTensor3d
-    dst_mem_pattern:       OutputTensor3d
+    src_mem_pattern:       InputTensor
+    dst_mem_pattern:       OutputTensor
 
 structure MatchReplace8 where
-    src_mem_pattern:       InputTensor3d
+    src_mem_pattern:       InputTensor
     immediate:             Float32
-    dst_mem_pattern:       OutputTensor3d
+    dst_mem_pattern:       OutputTensor
 
 structure Max8 where
-    src_mem_pattern:       InputTensor3d
-    dst_mem_pattern:       OutputTensor3d
+    src_mem_pattern:       InputTensor
+    dst_mem_pattern:       OutputTensor
 
 
 inductive CustomOpArgLocation where
@@ -303,12 +303,12 @@ structure CustomOpPayload where
     arg:                            CustomOpArgUnion
 
 structure BatchNormAggregate where
-    src_mem_pattern:       InputTensor3d
-    dst_mem_pattern:       OutputTensor3d
+    src_mem_pattern:       InputTensor
+    dst_mem_pattern:       OutputTensor
 
 structure BatchNormStats where
-    src_mem_pattern:       InputTensor3d
-    dst_mem_pattern:       OutputTensor3d
+    src_mem_pattern:       InputTensor
+    dst_mem_pattern:       OutputTensor
 
 
 -- TODO: Not sure about these next two, To support dynamic copy
