@@ -185,6 +185,31 @@ theorem uniquelyTerminating_em c : S.UniquelyTerminating c ∨ S.Nonterminating 
 
 end det
 
+open Classical in
+/-- Program equivalence.
+
+Two programs are equivlent when they are equiterminating,
+and if they terminate, they terminate in values, that are related by Φf.
+-/
+def PRel {S : SmallStep} (p1 p2 : S.Prog) (Φf : S.Val → S.Val → Prop) : Prop :=
+  ∀ (s1 s2 : S.State),
+    if S.Nonterminating (p1, s1) ∧ S.Nonterminating (p2, s2) then True else
+    if S.UniquelyTerminating (p1, s1) ∧ S.UniquelyTerminating (p2, s2)
+      then ∃ v1 v2, S.toVal p1 = some v1 ∧ S.toVal p2 = some v2 ∧ Φf v1 v2
+      else False
+
+def PRelN {S : SmallStep} (n : Nat) (p1 p2 : S.Prog) (Φf : S.Val → S.Val → Prop) : Prop :=
+  ∀ (s1 s2 : S.State),
+  match n with
+  | .zero => True
+  | .succ n' => sorry
+
+
+
+
+
+/-
+
 
 /-- Our definition of program equivalence.
 
@@ -337,9 +362,12 @@ theorem rel_lift_Values_not_Nonterminating {S : SmallStep} {cl cr : S.Prog × S.
 
 /- A Step-indexed version of PRel.
 
-Assuming both programs start in Φi-related states,
-  they terminate in values satisfying Φf in at most n Steps,
-  or take at least n Steps.
+PRelN n means that:
+  then the state is a value,
+  and the value satisfies Φf.
+
+For programs that terminate, PRelN is eventually trivial (because no trace
+  will take at least n steps for sufficiently large n)
 -/
 def PRelN {S : SmallStep} (n : Nat) (c1 c2 : S.Prog × S.State)
   (Φf : S.Val → S.Val → Prop) : Prop :=
@@ -406,6 +434,143 @@ theorem nonterminating_step [Det S] {c} (H : S.Nonterminating c) : ∃ c', S.Ste
   if Hem : S.IsStuck c then exact (@H 0 c (.done rfl) Hem).elim else
   simp only [IsStuck, Classical.not_forall] at Hem; rcases Hem with ⟨c', Hc', _⟩
   exact ⟨c', Hc', Nonterminating_Step H Hc'⟩
+
+theorem forall_PRelN_step [Det S] {cl cr cl' cr' : S.Prog × S.State} {Φf}
+    (Hterm : ∀ (n : Nat), PRelN n cl cr Φf) (Hl : S.Step cl cl') (Hr : S.Step cr cr') :
+    ∀ (n : Nat), PRelN n cl' cr' Φf := by
+  intro n
+  have Hterm' := Hterm (n+1)
+  cases Hterm'
+  · exfalso
+    -- Can't be values
+    sorry
+  · rename_i H
+    rcases H with ⟨n1, n2, cl'', cr'', Hstep_l, Hstep_r, Hrel⟩
+    rcases n with (_|n); simp [PRelN]
+    -- If n1 = n2 = 0 then cl' = cl'', cr' = cr'', and we are done.
+    cases (Classical.em (n1 = 0 ∧ n2 = 0))
+    · sorry
+    -- If at least one of then isn't zero, then at least one side can step, so
+    -- it definitely is not a value.
+    rename_i H
+    right
+    -- What if one is zero but the other one isn't?
+
+
+
+
+
+
+    sorry
+
+theorem PRelN_terminating [Det S] {Φf} {cl cr} /- (HΦ : Φi cl cr) -/ (Hterm : S.Nonterminating cl)
+    /- (HInv : strong_relational_invariant Φi) -/ (Hrel : ∀ n, PRelN (S := S) n cl cr Φf) : S.Nonterminating cr := by
+  -- Sketch: (Rel.lift_values Φf c1 c2) will never be true, so PRelN gets unfolded at least N times.
+  -- This means that cr will take at least (gas + 1) steps, so executing to (gas) will not be stuck.
+  intro gas
+  revert cl cr
+  induction gas
+  · intro cl cr HΦ Hrel Hterm
+    have Hrel' := Hrel 1
+    simp only [PRelN] at Hrel'
+    /- have Hrel'' := Hrel' cl cr HΦ; clear Hrel'-/
+    intro c' Hstep0 /-Hstuck-/
+    rcases Hrel'/-'-/ with (H|⟨n1, n2, c1', c2', H1, H2, _⟩)
+    · sorry  -- OK
+      -- exact rel_lift_values_not_nonterminating cl cr (.inl Hterm) H
+    · sorry -- OK
+      -- rcases Hstep0 Heq
+      -- rcases H2
+      -- rename_i _ HK _
+      -- rw [←Heq] at Hstuck
+      -- exact Hstuck _ HK
+  · rename_i gas IH
+    intro cl cr Hterm Hrel c
+    -- rintro c ⟨⟩; rename_i c' Hs Hsn
+    rintro ⟨⟩
+    -- Use Hrel to unfold once
+    -- have Hrel' := Hrel (gas + 1) cl cr HΦ <;> clear Hrel
+    have Hrel' := Hrel (gas + 1) <;> clear Hrel
+    rcases Hrel' with (H|⟨n1, n2, c1', c2', H1, H2, _⟩)
+    · intro Hk -- OK
+      sorry
+      -- apply rel_lift_values_not_stuck _ _ _ H
+      -- right
+      -- exact fun a => a c' Hs
+    -- By H1 and H2, both the left and right hadn sides can take at least 1 step.$
+    rcases StepN_add_iff.mp (Nat.succ_eq_one_add n1 ▸ H1) with ⟨cl_next, Hstep_l, Hrest_l⟩
+    rcases StepN_add_iff.mp (Nat.succ_eq_one_add n2 ▸ H2) with ⟨cr_next, Hstep_r, Hrest_r⟩
+    -- By HInv, Φi holds of their left and right sides
+    -- have Hinv : Φi cl_next cr_next := by
+    --   apply HInv.1 _ _ _ _ (S.stepN_one Hstep_l)
+    --   apply HInv.2 _ _ _ _ (S.stepN_one Hstep_r)
+    --   exact HΦ
+    -- By Hterm, the new left branch is still nonterminating
+    have Hnt : S.Nonterminating cl_next := by
+      have Hstep_l' := S.stepN_1_iff_step.mp Hstep_l
+      rw [Prod.eta, Prod.eta] at Hstep_l'
+      exact @S.Nonterminating_Step _ cl cl_next Hterm Hstep_l'
+    -- Reassociate Hs and Hsn to get that the new step takes gas steps to get to c' (det?)
+    have Hrec : S.StepN gas cr_next c := by
+      have Hstep_r' := S.stepN_1_iff_step.mp Hstep_r
+      rename_i H _ _
+      have HR  := Det.step_det (S := S) Hstep_r' _ H
+      rw [Prod.eta] at HR
+      rw [← HR]
+      trivial
+    apply IH Hnt _ Hrec
+    sorry
+
+
+/-
+/-- Soundness of the step-indexed relation.
+If we can prove that the relation holds for all finite traces, then PRel holds between our programs. -/
+theorem PRelN_PRel [Det S] {Φi Φf} (HInv : strong_relational_invariant Φi) :
+    (∀ n, PRelN (S := S) n Φi Φf) → PRel (S := S) Φi Φf := by
+  intro HP c1 c2 HΦi
+  rcases SmallStep.termination_em c1 with (Hc1 | Hc1) <;>
+  rcases SmallStep.termination_em c2 with (Hc2 | Hc2)
+  · -- Both programs terminate.
+    constructor
+    · -- False equiv valse
+      sorry
+    · -- Prove: That for any two possible stuck states that we eventually step to,
+      -- they are values where Φf holds.
+      -- intro c1' c2' n m ⟨H1, H2, H3, H4⟩
+      -- have HP' := HP (Nat.max n m)
+      sorry
+  · exfalso
+    -- TOOD: Cleanup the PRelN_terminating proof and apply it in the other direction
+    sorry
+  · exfalso
+    have HN : (nonterminating c2) := PRelN_terminating HΦi Hc1 HInv HP
+    rcases Hc2 with ⟨n, c', H1, H2⟩
+    exact HN n c' H1 H2
+  · constructor
+    · simp_all
+    ·
+      rintro c1' c2' n m ⟨H1, H2, H3, H4⟩
+      exfalso
+      -- Nonterminating can't step to a stuck state
+      sorry
+-/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /-
 theorem forall_PRelN_step [Det S] (Hr : ∀ (n : Nat), PRelN n cl cr Φf) (Hsl : S.Step cl cl') (Hsr : S.Step cr cr') :
@@ -529,6 +694,7 @@ theorem Nonterminating_finitely_approximable_left [Det S] {Φf} {cl cr}
   rename_i n c'
   -- rintro ⟨Nf, cf, Hcrcf, Hcf_stuck, Hdet⟩ H Hs
   sorry
+
 
 /-
 
@@ -853,5 +1019,6 @@ values, and not overwriting these values is an extrinsic property of programs in
 def strong_relational_invariant {S : SmallStep} (Φi : S.Prog × S.State → S.Prog × S.State → Prop) : Prop :=
     (∀ cl cr cl' : S.Prog × S.State, Φi cl cr → S.Step cl cl' → Φi cl' cr) ∧
     (∀ cl cr cr' : S.Prog × S.State, Φi cl cr → S.Step cr cr' → Φi cl cr')
+-/
 -/
 -/
