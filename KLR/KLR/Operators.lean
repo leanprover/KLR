@@ -29,8 +29,8 @@ inductive DropoutThresholdType
 | KeepRate
 
 structure Dropout where
-    src_mem_pattern:       InputTensor
-    dst_mem_pattern:       OutputTensor
+    src_mem_pattern:       TensorView
+    dst_mem_pattern:       TensorView
     threshold_type:        DropoutThresholdType
     threshold:             Immediate
 
@@ -43,22 +43,21 @@ inductive AccumCmd where
 
 structure Activate where
     accumulator_cmd:       AccumCmd
-    src_mem_pattern:       InputTensor
+    src_mem_pattern:       TensorView
     in_bias_dtype:         (Dtype × Dtype)
     activation_func:       u8
     scale_value:           Immediate
     bias:                  Immediate
     imm:                   Immediate
-    dst_mem_pattern:       OutputTensor
+    dst_mem_pattern:       TensorView
 
 inductive ActivationFunc where
 | unknown -- TODO: what activation funcs are valid?
 
--- s3_d3_ac.rs
 -- performs the operation `OUT accum= activate_func( (IN * scale_value)] + bias, imm )`
 structure Activate2 where
-  dst:                   OutputTensor
-  src:                   InputTensor
+  dst:                   TensorView
+  src:                   TensorView
   accumulator_cmd:       AccumCmd
   activation_func:       ActivationFunc
   scale:                 Immediate
@@ -79,13 +78,12 @@ structure DataPattern where
   offset : Nat
   pattern : List APPair
 
--- s2d2_ts_as.rs
 -- out[k] = (mask[k] <op> 0) ? in[k] : fill_value
 structure AffineSelect where
-    dst:       OutputTensor
-    src:       InputTensor
+    dst:                   TensorView
+    src:                   TensorView
     fill_mode:             AffineSelectCmp
-    fill_reg:              Reg -- must be a float value
+    fill_reg:              Reg
     mask_pattern:          DataPattern
 
 inductive DmaBoundCheck where
@@ -100,12 +98,10 @@ inductive DgeComputeOp
   | MAX
   | MIN
 
--- Paul look at this pls
 inductive DMABounds
 | check (_ : DmaBoundCheck)
 | reg (_ : Reg)
 
--- dma_direct2d.rs
 /-
 TODO: there are constraints around how many dimensions you can use
 and whether theyre stored in immediates or registers, but at the KLR
@@ -114,28 +110,24 @@ and we can figure out how to turn them into ISA instructions when
 compiling out of KLR.
 -/
 structure DmaCopy where
-  dst:                   OutputTensor
-  src:                   InputTensor
+  dst:                   TensorView
+  src:                   TensorView
   compute_op:            DgeComputeOp
   dst_bounds_checked:  DMABounds
   src_bounds_checked:  DMABounds
 
 
 /-
-dma_direct2d_expose.rs
-
 Perform arbitrary dimension (up to 4d) DMA transposes from hbm/sbuf to sbuf.
 Here, transpose means "reverse the order of the dimensions".
 
 TODO: this may be more complicated than described above
 -/
 structure DmaTranspose where
-  dst:                  OutputTensor
-  src:                  InputTensor
+  dst:                  TensorView
+  src:                  TensorView
 
 /-
-s4d4_tr.rs or s3d3_mm.rs
-
 Uses the DVE engine to do a transpose on 32x32 tiles of tensors up to 4d.
 The total size of the accesses must be a multiple of 32x32, and the src and dest
 must be the same size. The number of partitions must be a multiple of 32.
@@ -143,12 +135,10 @@ must be the same size. The number of partitions must be a multiple of 32.
 OR use the PE engine to do a transpose on 2d tensors, where the normal PE engine restrictions apply.
 -/
 structure Transpose where
-  dst:                  OutputTensor
-  src:                  InputTensor
+  dst:                  TensorView
+  src:                  TensorView
 
 /-
-s4d4_tr.rs or s3d3_mm.rs
-
 Uses the DVE engine to do a transpose on 32x32 tiles of tensors up to 4d.
 The total size of the accesses must be a multiple of 32x32, and the src and dest
 must be the same size. The number of partitions must be a multiple of 32.
@@ -156,25 +146,26 @@ must be the same size. The number of partitions must be a multiple of 32.
 OR use the PE engine to do a transpose on 2d tensors, where the normal PE engine restrictions apply.
 -/
 structure Shuffle where
-  dst:                  OutputTensor
-  src:                  InputTensor
-  shuffle_pattern:      List Nat -- TODO: this is exactly 32 elements
+  dst:                  TensorView
+  src:                  TensorView
+  --shuffle_pattern:      Reg
 
+-- TODO: This instruction only needs to exist if the `shuffle_pattern` variant above
+-- is absent. @govereau what to do about this
+structure LoadMaskRegister where
+  regNum : Reg
 
-/-
-d4_mr.md
--/
 structure MemSet where
-    dst:    OutputTensor
+    /- this is an input tensor because it needs to include how many active partition
+    dimensions we're using -/
+    dst:    TensorView
     value : UInt32
     count:     Nat
 
-/-
-d4_iota.rs
--/
 structure Iota where
-  dst: OutputTensor
+  dst: TensorView
   src: DataPattern
+  activeChannels : UInt8
 
 /-
 Indicates whether this is the first, middle, or last matmul
@@ -185,86 +176,95 @@ inductive MatmulGroupElement where
   | middle
   | last
 
-/-
-s3d3_mm.rs
+/- Loads a matrix into the PE -/
+structure LoadStationary where
+    src : TensorView
+    isTranspose : Bool
 
-This gets turned into a load stationary and then a matmul instruction.
--/
 structure MatMul where
-    dst:                   OutputTensor
-    stationary:            InputTensor
-    moving:                InputTensor
+    dst:                   TensorView
+    stationary:            TensorView
+    moving:                TensorView
     psum_accumulate_flags: MatmulGroupElement
 
 inductive IndexMissBehavior where
-| ImmediateWrite
+| ImmediateWrite (value: Immediate)
 | SkipWrite
 
 structure LocalGather where
-    src_mem_pattern:       InputTensor
+    dst:       TensorView
+    src:       TensorView
     index_miss_behavior:   IndexMissBehavior
-    free_pool_buffer: UInt8
-    immediate:             Immediate
-    dst_mem_pattern:       OutputTensor
-
+    /- Set to true when this is the last local gather operation in a group -/
+    free_pool_buffer: Bool
 
 structure RangeSelect where
+    dst:       TensorView
+    src:       TensorView
     reduce_cmd:            AccumCmd
     reduce_op:             AluOp
-    base:                  f32
-    fill_val:              f32
-    src_mem_pattern:       InputTensor
+    base:                  Float32
+    fill_val:              Float32
     comp_op0:              AluOp
     comp_op1:              AluOp
     bound0:                Immediate
     bound1:                Immediate
-    dst_mem_pattern:       OutputTensor
 
-inductive TensScalarRevOps
+inductive TensorScalarReverseOps where
 | None
 | First
 | Second
 | Both
 
 structure ScalarTensorTensor where
-    src0_mem_pattern:      InputTensor
-    src1_mem_pattern:      InputTensor
+    dst:       TensorView
+    src0:      TensorView
+    src1:      TensorView
     op0:                   AluOp
     op1:                   AluOp
-    reverse_operands:      TensScalarRevOps
+    reverse_operands:      TensorScalarReverseOps
     imm0_src:              Immediate
     accumulator_cmd:       AccumCmd
-    dst_mem_pattern:       OutputTensor
 
+/- Copies each element from src to dst for which predicate is not 0 -/
 structure CopyPredicated where
-    op:                    AluOp
-    src0_mem_pattern:      InputTensor
-    src1_mem_pattern:      InputTensor
-    dst_mem_pattern:       OutputTensor
+    dst:       TensorView
+    src:      TensorView
+    predicate:      TensorView
 
 structure TensorTensorScan where
-    src0_mem_pattern:      InputTensor
-    src1_mem_pattern:      InputTensor
+    dst:       TensorView
+    src0:      TensorView
+    src1:      TensorView
     op0:                   AluOp
     op1:                   AluOp
-    reverse_operands:      TensScalarRevOps
-    imm0_src:              Immediate
+    reverse_operands:      TensorScalarReverseOps
+    imm0:              Immediate
     accumulator_cmd:       AccumCmd
-    dst_mem_pattern:       OutputTensor
 
+/- Loads values into the DVE's MatchValue registers -/
+structure MatchValueLoad where
+    src : TensorView
+/- For each element in MatchValue register, find the first element of src that
+matches and stores its index in dst. -/
 structure FindIndex8 where
-    src_mem_pattern:       InputTensor
-    dst_mem_pattern:       OutputTensor
+    dst:       TensorView
+    src:       TensorView
 
+/- Same as FindIndex8, but replaces the found values in src with `replaceValue`-/
 structure MatchReplace8 where
-    src_mem_pattern:       InputTensor
-    immediate:             Float32
-    dst_mem_pattern:       OutputTensor
+    dst:       TensorView
+    src:       TensorView
+    replaceValue:             Float32
 
+/- Finds the 8 largest values in src and writes them to dst -/
 structure Max8 where
-    src_mem_pattern:       InputTensor
-    dst_mem_pattern:       OutputTensor
+    dst:       TensorView
+    src:       TensorView
 
+-- TODO: @govereau do we need to support these custom ops if they're Sunda-specific?
+
+inductive SundaAddr
 
 inductive CustomOpArgLocation where
 | Invalid
@@ -303,30 +303,17 @@ structure CustomOpPayload where
     arg:                            CustomOpArgUnion
 
 structure BatchNormAggregate where
-    src_mem_pattern:       InputTensor
-    dst_mem_pattern:       OutputTensor
+    dst:       TensorView
+    src:       TensorView
 
 structure BatchNormStats where
-    src_mem_pattern:       InputTensor
-    dst_mem_pattern:       OutputTensor
-
-
--- TODO: Not sure about these next two, To support dynamic copy
--- it needs to replicate the dynamic behaviors in Addr4.
-
-structure OutputTensor4d where -- TODO
-  freePattern: List APPair
-  offset : Nat := 0
-  dtype : Dtype
-
-structure InputTensor4d extends OutputTensor4d where
-  parNum : Nat
+    dst:       TensorView
+    src:       TensorView
 
 -- Not sure if negated field is allowed or not
 structure Reciprocal where
-  src : InputTensor4d
-  dst : OutputTensor4d
-  dtype : Dtype
+  dst : TensorView
+  src : TensorView
 
 inductive TensorSubDim where
 | Unused
@@ -339,11 +326,10 @@ def TensorSubDim.IsCopySubDim : TensorSubDim → Prop
 | Unused | X => True | _ => False
 
 structure Copy where
-  dst:                   OutputTensor4d
-  src:                   InputTensor4d
-  dtype : Dtype
+  dst:                   TensorView
+  src:                   TensorView
   op_dim : TensorSubDim
-  copy_dim : op_dim.IsCopySubDim
+  --copy_dim : op_dim.IsCopySubDim
 
 inductive ArithNegated : AluOp → Type _
 
@@ -361,16 +347,13 @@ def AluOp.IsTensorReduceBitwiseOp : AluOp → Prop
 | arith_shift_left | arith_shift_right | bitwise_and | bitwise_or | bitwise_xor | logical_and | logical_or | logical_shift_left | logical_shift_right | logical_xor => True
 | _ => False
 
-/-- Negated flag is ignored for non-arithmetic operations. -/
 structure TensorReduce where
-  src         : InputTensor4d
-  src_dtype   : Dtype
-  dst_dtype   : Dtype
+  dst         : TensorView
+  src         : TensorView
   op          : AluOp
   op_dim      : TensorSubDim
-  negated     : op.IsTensorReduceArithOp → Bool
-  dst         : OutputTensor4d
+  -- the negated field is only relevant for arithmetic operations
+  negated     : Bool
 
-inductive Operator where
-  -- TODO
-  deriving Repr, BEq
+inductive Operator
+-- todo: add a variant for each op struct

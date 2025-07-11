@@ -439,10 +439,6 @@ instance : ToString Const where
 
 end Const
 
-structure OutputTensor where -- TODO
-  freePattern: List APPair
-  offset : Nat := 0
-  dtype : Dtype
-
-structure InputTensor extends OutputTensor where  -- TOOD
-  parNum : Nat
+inductive TensorView where
+  | literal (freePattern: List APPair) (offset : Nat := 0) (dtype : Dtype) (parNum : Nat)
+  | reg (_ : Reg)
