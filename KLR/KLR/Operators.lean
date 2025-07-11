@@ -10,7 +10,6 @@ namespace KLR.KLR
 
 /-
 ALU operations supported by the HW
-Only used by: TensorScalar, TensorScalarPtr, TensorReduce, TensorTensor
 -/
 
 inductive AluOp where
@@ -68,6 +67,8 @@ instance : ToString AluOp where
 
 end AluOp
 
+/- Whether the dropout rate is how many values should be dropped or how many
+values should be kept -/
 inductive DropoutThresholdType
   | DropRate
   | KeepRate
@@ -90,24 +91,24 @@ inductive AffineSelectCmp where
   | Eq
   | NotEq
 
+/- Whether DMA operations should be bounds checked -/
 inductive DmaBoundCheck where
   | disable
   | enable
 
--- RMW Ops for DMA
+/- RMW ops for DMA -/
 inductive DgeComputeOp
   | NONE
   | ADD
 
-/- The DMA bounds value can either be an immediate or in a register -/
+/- The DMA bounds check flag can either be an immediate or in a register -/
 inductive DmaBounds
   | check (_  : DmaBoundCheck)
   | reg (_  : Reg)
 
-/-
-Indicates whether this is the first, middle, or last matmul
-instruction that is accumulating into a region of psum
--/
+/- Indicates whether this is the first, middle, or last matmul
+instruction in a series of instructions that are accumulating into a region
+of psum -/
 inductive MatmulGroupElement where
   | first
   | middle
@@ -118,7 +119,8 @@ inductive IndexMissBehavior where
 | ImmediateWrite (value : Immediate)
 | SkipWrite
 
-/- Which of the ops to TensorScalar should be reversed -/
+/- Which of the ops to TensorScalar should be reversed (only matters for
+non-commutative operators)-/
 inductive TensorScalarReverseOps where
 | None
 | First
@@ -151,14 +153,16 @@ def AluOp.IsTensorReduceBitwiseOp  : AluOp → Prop
 | arith_shift_left | arith_shift_right | bitwise_and | bitwise_or | bitwise_xor | logical_and | logical_or | logical_shift_left | logical_shift_right | logical_xor => True
 | _ => False
 
-
+/- Dropout instruction -/
 structure Dropout where
   dst           : TensorRef
   src           : TensorRef
   thresholdType : DropoutThresholdType
   threshold     : Immediate
 
-/- performs the operation
+/- Activate instruction
+
+Performs the operation
 `OUT accum= activate_func( (IN * scale_value)] + bias, imm )`
 -/
 structure Activate where
@@ -170,9 +174,10 @@ structure Activate where
   bias            : Immediate
   imm             : Immediate
 
-/- Generates values using the `maskPattern` and runs them through `op`. If
-the comparison is true, the value from `in` is used, otherwise `fill_value` is used.
+/- AffineSelect instruction
 
+Generates values using the `maskPattern` and runs them through `op`. If
+the comparison is true, the value from `in` is used, otherwise `fill_value` is used.
 out[k] = (mask[k] <op> 0) ? in[k]  : fill_value
 -/
 structure AffineSelect where
@@ -182,8 +187,9 @@ structure AffineSelect where
   fillReg     : Reg
   maskPattern : DataPattern
 
-/-
-Use the DMA to perform a copy.
+/- DmaCopy instruction
+
+Generate descriptors to use the DMA to perform a copy.
 
 TODO: this operation is stateful since it uses the DMA queues. How
 do we represent that at the KLR level?
@@ -192,33 +198,30 @@ structure DmaCopy where
   dst            : TensorRef
   src            : TensorRef
   compute_op     : DgeComputeOp
-  dstBoundsCheck : DMABounds
-  srcBoundsCheck : DMABounds
+  dstBoundsCheck : DmaBounds
+  srcBoundsCheck : DmaBounds
 
-/-
+/- DmaTranspose instruction
 Use the DMA to reverse the dimensions of a tensor.
 -/
 structure DmaTranspose where
   dst : TensorRef
   src : TensorRef
 
-/-
+/- Transpose Instructino
+
 Uses the DVE engine to do a transpose on 32x32 tiles of tensors up to 4d.
 The total size of the accesses must be a multiple of 32x32, and the src and dest
 must be the same size. The number of partitions must be a multiple of 32.
-
-OR use the PE engine to do a transpose on 2d tensors, where the normal PE engine restrictions apply.
 -/
 structure Transpose where
   dst : TensorRef
   src : TensorRef
-  engine : Engine
 
-/-
-Loads a register into the MaskRegister
+/- LoadMaskRegister instruction
 
-TODO : This instruction only needs to exist if the `shuffle_pattern` variant below
-is absent. @govereau what to do about this-/
+Sets a register to be the MaskRegister in the DVE
+-/
 structure LoadMaskRegister where
   regNum : Reg
 
@@ -228,30 +231,40 @@ Use the DVE to shuffle the data in src into dst based on MaskRegister
 structure Shuffle where
   dst : TensorRef
   src : TensorRef
-  --shuffle_pattern : Reg
 
-/- Sets `count` elements of `dst` to `value` -/
+/- MemSet instruction
+
+Sets `count` elements of `dst` to `value`
+-/
 structure MemSet where
   dst   : TensorRef
   value : UInt32
   count : Nat
 
-/- Generates values using `src` and writes them to `dst` -/
+/- Iota Instruction
+Generates values using `pattern` and writes them to `dst` -/
 structure Iota where
   dst : TensorRef
-  src : DataPattern
+  pattern : DataPattern
 
-/- Loads a matrix into the PE -/
+/- LoadStationary Instruction
+
+Loads a matrix into the PE.
+-/
 structure LoadStationary where
   src         : TensorRef
   isTranspose : Bool
 
-/- Performs a matmul using the PE -/
+/- MatMul instruction
+
+Performs a matmul against the currently loaded tensor using the PE -/
 structure MatMul where
   dst                : TensorRef
   moving             : TensorRef
   psumAccumulateFlag : MatmulGroupElement
 
+/- LocalGather instruction
+-/
 structure LocalGather where
   dst               : TensorRef
   src               : TensorRef
@@ -260,6 +273,8 @@ structure LocalGather where
   to free the pool buffer -/
   freePoolBuffer    : Bool
 
+/- RangeSelect instruction
+-/
 structure RangeSelect where
   dst            : TensorRef
   src            : TensorRef
@@ -272,7 +287,8 @@ structure RangeSelect where
   bound0         : Immediate
   bound1         : Immediate
 
-/-
+/- ScalarTensorTensor instruction
+
 ```
 if accumulator_cmd == ZeroAccumulator:
     accum_value = 0
@@ -292,13 +308,16 @@ structure ScalarTensorTensor where
   imm0            : Immediate
   accumulatorCmd  : AccumCmd
 
-/- Copies each element from src to dst for which predicate is not 0 -/
+/- CopyPredicated instruction
+
+Copies each element from src to dst for which predicate is not 0 -/
 structure CopyPredicated where
   dst       : TensorRef
   src       : TensorRef
   predicate : TensorRef
 
-/-
+/- TensorTensorScan instruction
+
 for lane_id in range(num_active_channels):
     internal_state = imm0
     for src0_elem, src1_elem in packed(src0_mem_pattern, src1_mem_pattern):
@@ -316,23 +335,32 @@ structure TensorTensorScan where
   imm0            : Immediate
   accumulatorCmd  : AccumCmd
 
-/- Loads values into the DVE's MatchValue registers -/
+/- MatchValueLoad instruction
+
+Loads values into the DVE's MatchValue registers -/
 structure MatchValueLoad where
   src : TensorRef
 
-/- For each element in MatchValue register, find the first element of src that
+
+/- FindIndex8 instruction
+
+For each element in MatchValue register, find the first element of src that
 matches and stores its index in dst. -/
 structure FindIndex8 where
   dst : TensorRef
   src : TensorRef
 
-/- Same as FindIndex8, but replaces the found values in src with `replaceValue`-/
+/- MatchReplace8 instruction
+
+Same as FindIndex8, but replaces the found values in src with `replaceValue`-/
 structure MatchReplace8 where
   dst          : TensorRef
   src          : TensorRef
   replaceValue : Float32
 
-/- Finds the 8 largest values in src and writes them to dst -/
+/- Max8 instruction
+
+Finds the 8 largest values in src and writes them to dst -/
 structure Max8 where
   dst : TensorRef
   src : TensorRef
@@ -369,27 +397,35 @@ structure CustomOpPayload where
   arg : CustomOpArgUnion
 -/
 
+/- BatchNormAggregate instruction
+-/
 structure BatchNormAggregate where
   dst : TensorRef
   src : TensorRef
 
+/- BatchNormStats instruction
+-/
 structure BatchNormStats where
   dst : TensorRef
   src : TensorRef
 
+/- Reciprocal instruction
+-/
 structure Reciprocal where
   dst  : TensorRef
   src  : TensorRef
 
-/- Copy src to dst -/
+/- Copy instruction
+Copy src to dst -/
 structure Copy where
   dst   : TensorRef
   src   : TensorRef
   /- TODO: what is this for? -/
   opDim : Option TensorSubDim
-  --copy_dim  : op_dim.IsCopySubDim
 
-/- Reduces a tensor along specified dimensions -/
+/- TensorReduce instruction
+
+Reduces a tensor along specified dimensions -/
 structure TensorReduce where
   dst          : TensorRef
   src          : TensorRef
