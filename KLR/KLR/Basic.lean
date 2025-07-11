@@ -4,7 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 -/
 import Init.Data.Int.Basic
-import KLR.KLR.Operators
 import KLR.Serde.Attr
 import KLR.Serde.Elab
 import KLR.Util
@@ -20,6 +19,45 @@ namespace KLR.KLR
 open Lean (FromJson ToJson)
 open Serde (FromCBOR ToCBOR)
 open Util (FromSexp ToSexp)
+
+-- Compute Engines
+inductive Engine where
+  | unassigned
+  | act | dma | dve | pe | pool | sp
+  deriving BEq, Repr
+
+-- Memory types
+inductive Memory where
+  | hbm | sbuf | pmem | reg
+  deriving Repr, BEq
+
+/-
+Tensor element types supported by HW and available from NKI.
+
+The HW always performs operations on 32-bit types. However, when reading from
+or writing to memory, automatic conversion to and from the following types is
+supported.
+-/
+inductive Dtype where
+  | bfloat16
+  | float8e3 | float8e4 | float8e5
+  | float16 | float32 | float32r
+  | int8 | int16 | int64 | int32
+  | uint8 | uint16 | uint32 | uint64
+  with
+    @[computed_field]
+    size : Dtype -> Nat
+    | .uint8 | .int8 | .float8e3 | .float8e4 | .float8e5 => 1
+    | .uint16 | .int16 | .bfloat16 | .float16 => 2
+    | .uint32 | .int32 | .float32 | .float32r => 4
+    | .uint64 | .int64 => 8
+    @[computed_field]
+    isInt : Dtype -> Bool
+    | .int8 | .int16 | .int64 | .int32
+    | .uint8 | .uint16 | .uint32 | .uint64 => true
+    | _ => false
+
+  deriving Repr, BEq
 
 /-
 A tensor shape is a list of the sizes of each dimension of the tensor. By
@@ -319,76 +357,92 @@ def Access.shapePure (a : Access) : Shape :=
      nomatch h
 
 /-
-Fully reduced values
-
-While it may seem strange, an `Access` is really a value. It succinctly
-describes an (admittedly complex) set of physical memory locations. However,
-we only lookup or set the bits in those locations when applied to an operator.
+ALU operations supported by the HW
+Only used by: TensorScalar, TensorScalarPtr, TensorReduce, TensorTensor
 -/
-inductive Value where
-  | var (x : String)
-  | bool (value : Bool)
-  | int (value : Int)
-  | float (value : Float)
-  | access (a : Access)
-  deriving Repr, BEq
 
-/--
-Expressions are trivial right now, waiting on dynamic loops.
+inductive AluOp where
+  | abs
+  | add
+  | arith_shift_left
+  | arith_shift_right
+  | average
+  | bitwise_and
+  | bitwise_not
+  | bitwise_or
+  | bitwise_xor
+  | bypass
+  | divide
+  | is_equal
+  | is_ge
+  | is_gt
+  | is_le
+  | is_lt
+  | logical_and
+  | logical_or
+  | logical_shift_left
+  | logical_shift_right
+  | logical_xor
+  | max
+  | min
+  | mod
+  | mult
+  | not_equal
+  | pow
+  | rsqrt
+  | subtract
+  deriving BEq, Repr
 
-The call expression would only appear in a KLR program if the tracer
-encountered an unknown function.
--/
-inductive Expr where
-  | value (v : Value)
-  | call (f : String) (args : List Value) (kwargs : List (String × Value))
-  deriving Repr, BEq
+namespace AluOp
 
-inductive Stmt where
-  | ret (v : Value)
-  | assign (x : String) (e : Expr)
-  | store (dst : Access) (op : Operator) (args : List Value)
-  deriving Repr
+def isBitwise : AluOp -> Bool
+  | arith_shift_left
+  | arith_shift_right
+  | bitwise_not
+  | bitwise_and
+  | bitwise_or
+  | bitwise_xor
+  | logical_shift_left
+  | logical_shift_right
+  | bypass => true
+  | _ => false
 
-structure Kernel where
-  name : String
-  inputs : List TensorName
-  outputs : List TensorName
-  body : List Stmt
-  deriving Repr
+def isArith : AluOp -> Bool
+  | .bypass => true
+  | op => not op.isBitwise
 
--- Utilities
+instance : ToString AluOp where
+  toString op := reprStr op
 
-class Tensors (a : Type) where
-  tensors : a -> List TensorName
-export Tensors (tensors)
+end AluOp
 
-instance : Tensors TensorName where
-  tensors tn := [tn]
+-- TODO: should these be Int32 and Float32?
+-- At the python level: no, after tracing: yes.
+-- Perhaps FromNKI can check for overflow and raise an error?
+inductive Const where
+  | int (i : Int32)
+  | float (f : Float32)
+  deriving BEq, Repr
 
--- TODO: not efficient
-instance [inst : Tensors a] : Tensors (List a) where
-  tensors l := (l.flatMap tensors).eraseDups
+namespace Const
 
-instance : Tensors Access where
-  tensors a := [a.tensor]
+def isInt : Const -> Bool
+  | .int _ => true | _ => false
 
-instance : Tensors Value where
-  tensors
-  | .access a => tensors a
-  | _ => []
+def isFloat : Const -> Bool
+  | .float _ => true | _ => false
 
-instance : Tensors Expr where
-  tensors
-  | .value v => tensors v
-  | .call _ args kwargs => tensors (args ++ kwargs.map Prod.snd)
+instance : ToString Const where
+  toString
+  | .int i => toString i
+  | .float f => toString f
 
-instance : Tensors Stmt where
-  tensors
-  | .ret v => tensors v
-  | .assign _ e => tensors e
-  | .store dst _ vs => tensors (tensors dst :: vs.map tensors)
+end Const
 
-def Kernel.internal (k : Kernel) : List TensorName :=
-  let ts := (k.body.map tensors).flatten.eraseDups
-  (ts.removeAll k.inputs).removeAll k.outputs
+structure OutputTensor3d where -- TODO
+  freePattern: List APPair
+  offset : Nat := 0
+  dtype : Dtype
+
+structure InputTensor3d extends OutputTensor3d where  -- TOOD
+  parNum : Nat
