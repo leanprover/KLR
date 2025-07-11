@@ -56,7 +56,7 @@ To demonstrate the Python API, we will use a simple function that adds two
 numbers. To follow along, copy the code below into a new file called `test.py`.
 
 ```python
-def kernel(a, b):
+def kernel_function(a, b):
   return a + b
 ```
 
@@ -68,10 +68,10 @@ two steps using the KLR API by adding the following to our `test.py` file.
 
 ```python
 if __name__ == "__main__":
-  import klr.frontend as fs
+  import klr.frontend as fe
 
-  # Create KLR kernel object for "kernel" function
-  kernel = fe.Kernel(kernel)
+  # Create KLR kernel object for kernel function
+  kernel = fe.Kernel(kernel_function)
 
   # Specialize to specific arguments
   kernel.specialize(1, 2)
