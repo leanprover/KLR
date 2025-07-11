@@ -18,6 +18,7 @@ structure Dropout where
   thresholdType : DropoutThresholdType
   threshold     : Immediate
 
+/- Control how data is accumulated at destination locations -/
 inductive AccumCmd where
   | Idle
   | Zero
@@ -25,10 +26,12 @@ inductive AccumCmd where
   | ZeroAccumulate
   | LoadAccumulate
 
-inductive ActivationFunc where
-  | unknown -- TODO : what activation funcs are valid?
+/- TODO: we need a way to represent activation function tables -/
+inductive ActivationFunc
 
--- performs the operation `OUT accum= activate_func( (IN * scale_value)] + bias, imm )`
+/- performs the operation
+`OUT accum= activate_func( (IN * scale_value)] + bias, imm )`
+-/
 structure Activate where
   dst             : TensorView
   src             : TensorView
@@ -44,7 +47,11 @@ inductive AffineSelectCmp where
   | Eq
   | NotEq
 
--- out[k] = (mask[k] <op> 0) ? in[k]  : fill_value
+/- Generates values using the `maskPattern` and runs them through `op`. If
+the comparison is true, the value from `in` is used, otherwise `fill_value` is used.
+
+out[k] = (mask[k] <op> 0) ? in[k]  : fill_value
+-/
 structure AffineSelect where
   dst         : TensorView
   src         : TensorView
@@ -61,16 +68,17 @@ inductive DgeComputeOp
   | NONE
   | ADD
 
+/- The DMA bounds value can either be an immediate or in a register
+-/
 inductive DMABounds
   | check (_  : DmaBoundCheck)
   | reg (_  : Reg)
 
 /-
-TODO : there are constraints around how many dimensions you can use
-and whether theyre stored in immediates or registers, but at the KLR
-level it's probably easiest to just have a simple model of DMA copies
-and we can figure out how to turn them into ISA instructions when
-compiling out of KLR.
+Use the DMA to perform a copy.
+
+TODO: this operation is stateful since it uses the DMA queues. How
+do we represent that at the KLR level?
 -/
 structure DmaCopy where
   dst            : TensorView
@@ -80,10 +88,7 @@ structure DmaCopy where
   srcBoundsCheck : DMABounds
 
 /-
-Perform arbitrary dimension (up to 4d) DMA transposes from hbm/sbuf to sbuf.
-Here, transpose means "reverse the order of the dimensions".
-
-TODO : this may be more complicated than described above
+Use the DMA to reverse the dimensions of a tensor.
 -/
 structure DmaTranspose where
   dst : TensorView
@@ -99,29 +104,31 @@ OR use the PE engine to do a transpose on 2d tensors, where the normal PE engine
 structure Transpose where
   dst : TensorView
   src : TensorView
+  engine : Engine
 
+/-
+Loads a register into the MaskRegister
 
--- TODO : This instruction only needs to exist if the `shuffle_pattern` variant below
--- is absent. @govereau what to do about this
+TODO : This instruction only needs to exist if the `shuffle_pattern` variant below
+is absent. @govereau what to do about this-/
 structure LoadMaskRegister where
   regNum : Reg
-/-
-Uses the DVE engine to do a transpose on 32x32 tiles of tensors up to 4d.
-The total size of the accesses must be a multiple of 32x32, and the src and dest
-must be the same size. The number of partitions must be a multiple of 32.
 
-OR use the PE engine to do a transpose on 2d tensors, where the normal PE engine restrictions apply.
+/-
+Use the DVE to shuffle the data in src into dst based on MaskRegister
 -/
 structure Shuffle where
   dst : TensorView
   src : TensorView
   --shuffle_pattern : Reg
 
+/- Sets `count` elements of `dst` to `value` -/
 structure MemSet where
   dst   : TensorView
   value : UInt32
   count : Nat
 
+/- Generates values using `src` and writes them to `dst` -/
 structure Iota where
   dst : TensorView
   src : DataPattern
@@ -140,11 +147,13 @@ structure LoadStationary where
   src         : TensorView
   isTranspose : Bool
 
+/- Performs a matmul using the PE -/
 structure MatMul where
   dst                : TensorView
   moving             : TensorView
   psumAccumulateFlag : MatmulGroupElement
 
+/- Whether an immediate should be written, or nothing should be written, when an index misses -/
 inductive IndexMissBehavior where
 | ImmediateWrite (value : Immediate)
 | SkipWrite
@@ -169,12 +178,23 @@ structure RangeSelect where
   bound0         : Immediate
   bound1         : Immediate
 
+/- Which of the ops to TensorScalar should be reversed -/
 inductive TensorScalarReverseOps where
 | None
 | First
 | Second
 | Both
 
+/-
+```
+if accumulator_cmd == ZeroAccumulator:
+    accum_value = 0
+scalar_result = src0 op_0 imm0 # broadcast imm0 onto src0
+dst = scalar_result op_1 src1
+if (accumulator_cmd == ZeroAccumulator) or (accumulator_cmd == Accumulator):
+    accum_value += dst
+```
+-/
 structure ScalarTensorTensor where
   dst             : TensorView
   src0            : TensorView
@@ -191,6 +211,14 @@ structure CopyPredicated where
   src       : TensorView
   predicate : TensorView
 
+/-
+for lane_id in range(num_active_channels):
+    internal_state = imm0
+    for src0_elem, src1_elem in packed(src0_mem_pattern, src1_mem_pattern):
+        new_result = (src0_elem op0 internal_state) op1 src1_elem
+        internal_state = new_result
+        dst_mem_pattern.append(new_result)
+-/
 structure TensorTensorScan where
   dst             : TensorView
   src0            : TensorView
@@ -269,7 +297,6 @@ structure BatchNormStats where
   dst : TensorView
   src : TensorView
 
--- Not sure if negated field is allowed or not
 structure Reciprocal where
   dst  : TensorView
   src  : TensorView
@@ -284,9 +311,11 @@ inductive TensorSubDim where
 def TensorSubDim.IsCopySubDim  : TensorSubDim → Prop
 | Unused | X => True | _ => False
 
+/- Copy src to dst -/
 structure Copy where
   dst   : TensorView
   src   : TensorView
+  /- TODO: what is this for? -/
   opDim : TensorSubDim
   --copy_dim  : op_dim.IsCopySubDim
 
@@ -306,6 +335,7 @@ def AluOp.IsTensorReduceBitwiseOp  : AluOp → Prop
 | arith_shift_left | arith_shift_right | bitwise_and | bitwise_or | bitwise_xor | logical_and | logical_or | logical_shift_left | logical_shift_right | logical_xor => True
 | _ => False
 
+/- Reduces a tensor along specified dimensions -/
 structure TensorReduce where
   dst          : TensorView
   src          : TensorView
@@ -315,4 +345,3 @@ structure TensorReduce where
   negated      : Bool
 
 inductive Operator
--- todo : add a variant for each op struct
