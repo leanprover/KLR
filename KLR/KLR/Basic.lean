@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2024 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+Copyright (c) 2025 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Paul Govereau, Sean McLaughlin
+Authors: Paul Biberstein, Paul Govereau Pavel Potapov, Sean McLaughlin, Markus De Medeiros
 -/
 import Init.Data.Int.Basic
 import KLR.Serde.Attr
@@ -9,12 +9,6 @@ import KLR.Serde.Elab
 import KLR.Util
 import Lean
 
-/-!
-# Abstract syntax of Core NKL language
-
-This language is the result of "tracing", and is used as the
-portable format, a.k.a. Kernel Language Representation (KLR).
--/
 namespace KLR.KLR
 open Lean (FromJson ToJson)
 open Serde (FromCBOR ToCBOR)
@@ -28,7 +22,7 @@ inductive Engine where
 
 -- Memory types
 inductive Memory where
-  | hbm | sbuf | pmem | reg
+  | hbm | sbuf | pmem
   deriving Repr, BEq
 
 /-
@@ -60,184 +54,14 @@ inductive Dtype where
   deriving Repr, BEq
 
 /-
-A tensor shape is a list of the sizes of each dimension of the tensor. By
-convention, the first dimension is always the "partition" dimension, and the
-remaining dimensions are "free" dimensions. When laid out in memory, the
-partition dimension will correspond to the memory partition.
+A tensor in HBM. The address is an offset into HBM.
 -/
-
-structure Shape where
-  parDim : Nat
-  freeDims : List Nat
-  deriving Repr, BEq, Inhabited
-
-def Shape.toList (shape : Shape) : List Nat :=
-  shape.parDim :: shape.freeDims
-
-def Shape.fromList : List Nat -> Err Shape
-  | [] => throw "invalid shape"
-  | p :: f => return ⟨ p, f ⟩
-
-instance : ToString Shape where
-  toString shape := toString shape.toList
-
-def Shape.freeElements (shape : Shape) : Nat :=
-  shape.freeDims.foldl (. * .) 1
-
-/-
-An Address represents a region of memory. Each address has a memory type, and
-the starting location and size of the memory region. The memory regions are
-always two-dimensional and the start and size are expressed in bytes. The
-starting location can be omitted to have the compiler choose this for you.
-
-An address may have a parent, in which case the start is relative to the
-parent's start location. This allows the user to declare a memory region with
-no start address, but containing subregions with specific relative positions.
-
-The Address structure is represented as a "pointer" term during tracing.
--/
-
-structure Address where
-  memory : Memory
-  size : Nat × Nat
-  partitionOffset : Option Nat := none
-  freeOffset : Option Nat := none
-  parent : Option Address := none
-  deriving Repr, BEq
-
-namespace Address
-
-def defaultSize (shape : Shape) (dtype : Dtype) : (Nat × Nat) :=
-  (shape.parDim, shape.freeElements * dtype.size)
-
-def withDefaultSize (addr : Address) (shape : Shape) (dtype : Dtype) : Address :=
-  { addr with size := defaultSize shape dtype }
-
-end Address
-
-/--
-TensorName represents a tensor in memory at runtime. Each runtime tensor has a
-dtype, shape, and address. The address size must be large enough to hold the
-tensor.
--/
-
-structure TensorName where
-  name    : String
+structure Tensor where
   dtype   : Dtype
-  shape   : Shape
-  address : Address
-  parWF   : shape.parDim <= address.size.fst
-  freeWF  : shape.freeElements * dtype.size <= address.size.snd
-  deriving Repr
-
-namespace TensorName
-
-def make (name : String)
-         (dtype : Dtype)
-         (shape : Shape)
-         (addr : Option Address) : Err TensorName := do
-  let addr := addr.getD { memory := .sbuf, size := Address.defaultSize shape dtype }
-  if parWF: shape.parDim <= addr.size.fst then
-    if freeWF: shape.freeElements * dtype.size <= addr.size.snd then
-      return ⟨ name, dtype, shape, addr, parWF, freeWF ⟩
-  throw "Invalid tensor"
-
-def withShape (name : TensorName) (shape : Shape) : Err TensorName :=
-  make name.name name.dtype shape (name.address.withDefaultSize shape name.dtype)
-
-instance : BEq TensorName where
-  beq l r := l.name == r.name &&
-             l.dtype == r.dtype &&
-             l.shape == r.shape &&
-             l.address == r.address
-
-end TensorName
-
-/--
-Basic indexing elements: integers and slices.
-These are used for basic indexing, such as:
-  t[1, 2]
-  t[0:10, :]
-  t[5, 0:10:2]
-
-The tracing process will generate Indexes relative to a given shape,
-and therefore we do not have `None` or `...` as possibilities.
--/
-structure Slice where
-  l : Nat
-  u : Nat
-  step : Int
-  wf : step ≠ 0
-deriving Repr
-
-namespace Slice
-
-def make (l u : Nat) (step : Int) : Err Slice :=
-  if H : step == 0 then throw "step can't be 0"
-  else return Slice.mk l u step (by simp_all)
-
-instance : Inhabited Slice where
-  default := Slice.mk 0 1 1 (by omega)
-
-def make! (l u : Nat) (step : Int) : Slice := get! $  make l u step
-
-instance : BEq Slice where
-  beq s1 s2 := s1.l == s2.l && s1.u == s2.u && s1.step == s2.step
-
-def size (slice : Slice) : Nat :=
-  let step := slice.step
-    if step < 0 then (slice.l - slice.u) / step.natAbs
-    else natDivCeil (slice.u - slice.l) step.toNat
-
-#guard (make! 0 10 1).size == 10
-#guard (make! 10 0 (-1)).size == 10
-#guard (make! 0 10 (-1)).size == 0
-#guard (make! 10 0 1).size == 0
-
-end Slice
-
-inductive Index where
-  | coord (e : Nat)
-  | slice (slice : Slice)
-  deriving Repr, BEq
-
--- Compute the number of elements an index represents
-def Index.size : Index -> Nat
- | .coord _ => 1
- | .slice s => s.size
-
-/--
-Complete Basic Indexing expression
-
-The number of indexes must match the dimension of the tensor.
--/
-
-structure AccessBasic where
-  tensor : TensorName
-  indexes : List Index
-  lenWF : tensor.shape.freeDims.length + 1 = indexes.length
-  deriving Repr
-
-instance : BEq AccessBasic where
-  beq l r := l.tensor == r.tensor && l.indexes == r.indexes
-
-def AccessBasic.make (t : TensorName) (i : List Index) : Err AccessBasic := do
-  if lenWF : t.shape.freeDims.length + 1 = i.length then
-    return ⟨ t, i, lenWF ⟩
-  throw "invalid basic access"
-
-def AccessBasic.shape (a : AccessBasic) : Err Shape :=
-  if let p::l := a.indexes then
-    .ok ⟨ p.size, l.map Index.size ⟩
-  else .error "invalid access"
-
-theorem AccessBasic.shape.noFail :
-  forall (a : AccessBasic), AccessBasic.shape a ≠ Except.error s := by
-  intro a
-  unfold AccessBasic.shape
-  let { tensor, indexes, lenWF : AccessBasic } := a
-  induction indexes <;> simp ; trivial
-  done
+  address : Nat
+  shape   : TensorLib.Shape
+  strides : List Nat
+deriving BEq, Repr
 
 /--
 Access pattern elements.
@@ -258,190 +82,12 @@ which is equivalent to the basic index [0:2,0:3] for a standard tensor layout.
 -/
 structure APPair where
   step : Int := 1
-  num : Nat := 1
-  deriving Repr, BEq
+  size : Nat := 1
+deriving Repr, BEq
 
-/--
-Complete access patterns
-
-A complete access pattern has a list of APPairs, a number of partitions, and an
-offset. In NKI, the first access pattern pair corresponds to the partition
-dimension, and the step size of this first pair must be one. So, in the
-complete access pattern, we only store the `num` field of the first pair. The
-offset field allows for an arbitrary offset to be applied to each partition.
-
-Put together, a complete access pattern would be written as:
-
-  t[[ offset, (1, parNum), (step1,num1), (step2,num2), ... ]]
-
-With a meaning of:
-
-  forall p < parNum, x < num1, y < num2, ...
-    offset + p + x * step1 + y * step2 + ...
-
-The elements generated above are multiplied by the dtype size of the tensor to
-get the final memory addresses.
--/
-
-structure AccessPattern where
-  tensor : TensorName
-  parNum : Nat
-  freePattern : List APPair
-  offset : Nat := 0
-  deriving Repr, BEq
-
-namespace AccessPattern
-
-def shape (ap : AccessPattern) : Shape :=
-  .mk ap.parNum $ ap.freePattern.map fun pair => pair.num
-
-private def withNoParents (ap : AccessPattern) (f : AccessPattern -> a) : Err a :=
-  if ap.tensor.address.parent.isSome
-    then throw "Please compile away the parent indirections"
-  else return f ap
-
--- Partitions are not counted in bytes or elements; I'll call them logical "rows".
-def partitionRowOffset (ap : AccessPattern) : Err Nat := ap.withNoParents fun ap =>
-  ap.tensor.address.partitionOffset.getD 0
-
-private def freeByteOffset' (ap : AccessPattern) := ap.tensor.address.freeOffset.getD 0 + ap.offset
-
-def freeByteOffset (ap : AccessPattern) : Err Nat := ap.withNoParents freeByteOffset'
-
--- We can't find documentation that the free offset must be aligned by dtype size, but we think
--- it's probably the case. It certainly makes calculating indexes easier so we're going with it
--- for now.
-def freeElementOffset (ap : AccessPattern) : Err Nat := ap.withNoParents fun ap =>
-  ap.freeByteOffset' / ap.tensor.dtype.size
-
-end AccessPattern
-
--- Tensor access: whole tensor (simple), basic indexing, or access pattern
--- TODO: add advanced indexing (tensor indirect) inductive Access where
-
-inductive Access where
-  | simple  : TensorName -> Access
-  | basic   : AccessBasic -> Access
-  | pattern : AccessPattern -> Access
-  deriving Repr, BEq
-
-def Access.mkBasic (t : TensorName) (i : List Index) : Err Access :=
-  return .basic (<- AccessBasic.make t i)
-
-def Access.tensor : Access -> TensorName
-  | simple tensor | basic {tensor, ..} | pattern {tensor, ..} => tensor
-
-def Access.shape : Access -> Err Shape
-  | .simple t => return t.shape
-  | .basic b => b.shape
-  | .pattern ap => return ap.shape
-
-theorem Access.shape.noFail :
-  forall (a : Access), Access.shape a ≠ Except.error s := by
-  unfold Access.shape pure
-  unfold Applicative.toPure
-  unfold Monad.toApplicative
-  unfold Except.instMonad Except.pure
-  intro a
-  induction a <;> simp
-  apply AccessBasic.shape.noFail
-  done
-
--- We could make a pure variant of shape, but proofs about this
--- function may be difficult due to the dependent matching
-def Access.shapePure (a : Access) : Shape :=
-  match m:a.shape with
-  | .ok x => x
-  | .error _ =>
-     have h : False := by apply (shape.noFail a); trivial
-     nomatch h
-
-/-
-ALU operations supported by the HW
-Only used by: TensorScalar, TensorScalarPtr, TensorReduce, TensorTensor
--/
-
-inductive AluOp where
-  | abs
-  | add
-  | arith_shift_left
-  | arith_shift_right
-  | average
-  | bitwise_and
-  | bitwise_not
-  | bitwise_or
-  | bitwise_xor
-  | bypass
-  | divide
-  | is_equal
-  | is_ge
-  | is_gt
-  | is_le
-  | is_lt
-  | logical_and
-  | logical_or
-  | logical_shift_left
-  | logical_shift_right
-  | logical_xor
-  | max
-  | min
-  | mod
-  | mult
-  | not_equal
-  | pow
-  | rsqrt
-  | subtract
-  deriving BEq, Repr
-
-namespace AluOp
-
-def isBitwise : AluOp -> Bool
-  | arith_shift_left
-  | arith_shift_right
-  | bitwise_not
-  | bitwise_and
-  | bitwise_or
-  | bitwise_xor
-  | logical_shift_left
-  | logical_shift_right
-  | bypass => true
-  | _ => false
-
-def isArith : AluOp -> Bool
-  | .bypass => true
-  | op => not op.isBitwise
-
-instance : ToString AluOp where
-  toString op := reprStr op
-
-end AluOp
-
--- TODO: should these be Int32 and Float32?
--- At the python level: no, after tracing: yes.
--- Perhaps FromNKI can check for overflow and raise an error?
-inductive Const where
-  | int (i : Int32)
-  | float (f : Float32)
-  deriving BEq, Repr
-
-namespace Const
-
-def isInt : Const -> Bool
-  | .int _ => true | _ => false
-
-def isFloat : Const -> Bool
-  | .float _ => true | _ => false
-
-instance : ToString Const where
-  toString
-  | .int i => toString i
-  | .float f => toString f
-
-end Const
-
-inductive Reg where
+structure Reg where
   -- register number
-  | reg (r : Nat)
+  number : Nat
 deriving BEq, Repr
 
 inductive Immediate where
@@ -457,13 +103,54 @@ inductive ActivationImm where
   | float (f : Float32)
 deriving BEq, Repr
 
-inductive TensorView where
-  | literal (freePattern: List APPair) (offset : Nat := 0) (dtype : Dtype) (parNum : Nat)
+inductive parQuadrant where
+  | par0 | par32 | par64 | par96
+  deriving Repr, BEq
+
+/- A struct representing the layout of a tensor in the SBUF. This maps very
+closely to the way that the ISA expects tensor accesses to be expressed.
+Specifically, it separates the parallel dimension from the rest of the dimensions
+and includes constraints like the fact that the parallel dimension stride is always 1.
+
+              0┌──────────────────────┐
+               │                      │
+             32│                      │
+               │                      │
+             64│                      │
+               │                      │
+parQuadrant─►96│    ┌───────┐│        │
+               │    └───────┘│parSize │
+               └──────────────────────┘
+                    ▲
+                    │
+               parOffset
+-/
+structure TensorView where
+    /- Which parallel dimension channel this tensor starts at -/
+    (parQuadrant : Nat)
+    /- The size of this tensor in the parallel dimension -/
+    (parSize : Nat)
+    /- The offset in the partition channel of this tensor -/
+    (parOffset : Nat := 0)
+    /- The length and stride of each dimension besides the first, whose length
+    is reprented by `parNum` above and whose stride is always 1 -/
+    (freePattern: List APPair)
+    (dtype : Dtype)
+
+/-
+The type that is passed to instructions to refer to a tensor in SBUF. We abstract
+over whether the tensor is a literal or stored in a shape register.
+-/
+inductive TensorRef where
+  /- A shape can be a literal -/
+  | literal (_ : TensorView)
+  /- A shape can be stored in a shape register -/
   | reg (_ : Reg)
 
 /-
 Used for Iota and AffineSelect, represents something similar to an
-TensorView but that is only used to generate data, not to index
+TensorView but that is only used to generate data, not to index. Much like
+LEA in x86.
 -/
 structure DataPattern where
   offset  : Nat
