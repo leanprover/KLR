@@ -12,12 +12,6 @@ inductive DropoutThresholdType
   | DropRate
   | KeepRate
 
-structure Dropout where
-  dst           : TensorView
-  src           : TensorView
-  thresholdType : DropoutThresholdType
-  threshold     : Immediate
-
 /- Control how data is accumulated at destination locations -/
 inductive AccumCmd where
   | Idle
@@ -28,6 +22,81 @@ inductive AccumCmd where
 
 /- TODO: we need a way to represent activation function tables -/
 inductive ActivationFunc
+
+/- The comparator for an affine select -/
+inductive AffineSelectCmp where
+  | GreaterThan
+  | GreaterThanEq
+  | Eq
+  | NotEq
+
+inductive DmaBoundCheck where
+  | disable
+  | enable
+
+-- RMW Ops for DMA
+inductive DgeComputeOp
+  | NONE
+  | ADD
+
+/- The DMA bounds value can either be an immediate or in a register -/
+inductive DmaBounds
+  | check (_  : DmaBoundCheck)
+  | reg (_  : Reg)
+
+/-
+Indicates whether this is the first, middle, or last matmul
+instruction that is accumulating into a region of psum
+-/
+inductive MatmulGroupElement where
+  | first
+  | middle
+  | last
+
+/- Whether an immediate should be written, or nothing should be written, when an index misses -/
+inductive IndexMissBehavior where
+| ImmediateWrite (value : Immediate)
+| SkipWrite
+
+/- Which of the ops to TensorScalar should be reversed -/
+inductive TensorScalarReverseOps where
+| None
+| First
+| Second
+| Both
+
+/- A representation of a contiguous set of axes of a tensor -/
+inductive TensorSubDim where
+| X
+| XY
+| XYZ
+| XYZW
+
+def TensorSubDim.IsCopySubDim  : TensorSubDim → Prop
+| X => True | _ => False
+
+inductive ArithNegated  : AluOp → Type _
+
+def AluOp.IsArith  : AluOp → Prop
+| .abs | .add | .average | .bypass | .divide | .is_equal | .is_ge | .is_gt | .is_le | .is_lt | .max | .min | .mod | .mult | .not_equal | .pow | .rsqrt | .subtract => True
+| _ => False
+
+/-- The ALUOps for a TensorReduceArithOp -/
+def AluOp.IsTensorReduceArithOp  : AluOp → Prop
+| abs | add | average | bypass | is_equal | is_ge | is_gt | is_le | is_lt | max | min | mult | not_equal | subtract => True
+| _ => False
+
+/-- The ALUOps for a TensorReduceBitvecOp -/
+def AluOp.IsTensorReduceBitwiseOp  : AluOp → Prop
+| arith_shift_left | arith_shift_right | bitwise_and | bitwise_or | bitwise_xor | logical_and | logical_or | logical_shift_left | logical_shift_right | logical_xor => True
+| _ => False
+
+
+structure Dropout where
+  dst           : TensorView
+  src           : TensorView
+  thresholdType : DropoutThresholdType
+  threshold     : Immediate
 
 /- performs the operation
 `OUT accum= activate_func( (IN * scale_value)] + bias, imm )`
@@ -41,12 +110,6 @@ structure Activate where
   bias            : Immediate
   imm             : Immediate
 
-inductive AffineSelectCmp where
-  | GreaterThan
-  | GreaterThanEq
-  | Eq
-  | NotEq
-
 /- Generates values using the `maskPattern` and runs them through `op`. If
 the comparison is true, the value from `in` is used, otherwise `fill_value` is used.
 
@@ -58,21 +121,6 @@ structure AffineSelect where
   fillMode    : AffineSelectCmp
   fillReg     : Reg
   maskPattern : DataPattern
-
-inductive DmaBoundCheck where
-  | disable
-  | enable
-
--- RMW Ops for DMA
-inductive DgeComputeOp
-  | NONE
-  | ADD
-
-/- The DMA bounds value can either be an immediate or in a register
--/
-inductive DMABounds
-  | check (_  : DmaBoundCheck)
-  | reg (_  : Reg)
 
 /-
 Use the DMA to perform a copy.
@@ -133,15 +181,6 @@ structure Iota where
   dst : TensorView
   src : DataPattern
 
-/-
-Indicates whether this is the first, middle, or last matmul
-instruction that is accumulating into a region of psum
--/
-inductive MatmulGroupElement where
-  | first
-  | middle
-  | last
-
 /- Loads a matrix into the PE -/
 structure LoadStationary where
   src         : TensorView
@@ -152,11 +191,6 @@ structure MatMul where
   dst                : TensorView
   moving             : TensorView
   psumAccumulateFlag : MatmulGroupElement
-
-/- Whether an immediate should be written, or nothing should be written, when an index misses -/
-inductive IndexMissBehavior where
-| ImmediateWrite (value : Immediate)
-| SkipWrite
 
 structure LocalGather where
   dst               : TensorView
@@ -177,13 +211,6 @@ structure RangeSelect where
   compOp1        : AluOp
   bound0         : Immediate
   bound1         : Immediate
-
-/- Which of the ops to TensorScalar should be reversed -/
-inductive TensorScalarReverseOps where
-| None
-| First
-| Second
-| Both
 
 /-
 ```
@@ -301,39 +328,13 @@ structure Reciprocal where
   dst  : TensorView
   src  : TensorView
 
-inductive TensorSubDim where
-| Unused
-| X
-| XY
-| XYZ
-| XYZW
-
-def TensorSubDim.IsCopySubDim  : TensorSubDim → Prop
-| Unused | X => True | _ => False
-
 /- Copy src to dst -/
 structure Copy where
   dst   : TensorView
   src   : TensorView
   /- TODO: what is this for? -/
-  opDim : TensorSubDim
+  opDim : Option TensorSubDim
   --copy_dim  : op_dim.IsCopySubDim
-
-inductive ArithNegated  : AluOp → Type _
-
-def AluOp.IsArith  : AluOp → Prop
-| .abs | .add | .average | .bypass | .divide | .is_equal | .is_ge | .is_gt | .is_le | .is_lt | .max | .min | .mod | .mult | .not_equal | .pow | .rsqrt | .subtract => True
-| _ => False
-
-/-- The ALUOps for a TensorReduceArithOp -/
-def AluOp.IsTensorReduceArithOp  : AluOp → Prop
-| abs | add | average | bypass | is_equal | is_ge | is_gt | is_le | is_lt | max | min | mult | not_equal | subtract => True
-| _ => False
-
-/-- The ALUOps for a TensorReduceBitvecOp -/
-def AluOp.IsTensorReduceBitwiseOp  : AluOp → Prop
-| arith_shift_left | arith_shift_right | bitwise_and | bitwise_or | bitwise_xor | logical_and | logical_or | logical_shift_left | logical_shift_right | logical_xor => True
-| _ => False
 
 /- Reduces a tensor along specified dimensions -/
 structure TensorReduce where
