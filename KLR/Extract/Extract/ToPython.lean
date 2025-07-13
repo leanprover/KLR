@@ -34,6 +34,7 @@ where
 
 -- Return the name of the conversion function for a given simple type
 private def fnName : SimpleType -> String
+  | .const `Lean.Name => "String_topy"
   | t => s!"{t.name}_topy"
 
 private def genSimpleSig (ty : SimpleType) (term : String := ";") : MetaM Unit := do

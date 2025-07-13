@@ -33,6 +33,8 @@ private def serName : SimpleType -> String
   | .nat => "cbor_encode_uint"
   | .int => "cbor_encode_int"
   | .float => "cbor_encode_float"
+  | .const `Lean.Name => "String_ser"
+  | .const `KLR.Core.Reg => "cbor_encode_uint"
   | t => s!"{t.name}_ser"
 
 private def genSimpleSig (ty : SimpleType) (term : String := ";") : MetaM Unit := do
@@ -112,8 +114,10 @@ end Ser
 namespace Des
 
 -- Return the name of the serialization function for a given simple type
-private def desName : SimpleType -> String :=
-  fun t => s!"{t.name}_des"
+private def desName : SimpleType -> String
+  | .const `Lean.Name => "String_des"
+  | .const `KLR.Core.Reg => "Nat_des"
+  | t => s!"{t.name}_des"
 
 private def genSimpleSig (ty : SimpleType) (term : String := ";") : MetaM Unit := do
   if term != ";" then
@@ -251,3 +255,11 @@ def generateNkiH : MetaM Unit := do
 def generateNkiC : MetaM Unit := do
   IO.println <| C.headerC ["cbor.h", "serde_common.h", "serde_nki.h"]
   genC (<- C.nkiAST)
+
+def generateKlrH : MetaM Unit := do
+  IO.println <| C.headerH ["ast_common.h", "ast_klir.h"]
+  genH (<- C.klrAST)
+
+def generateKlrC : MetaM Unit := do
+  IO.println <| C.headerC ["cbor.h", "serde_common.h", "serde_klir.h"]
+  genC (<- C.klrAST)

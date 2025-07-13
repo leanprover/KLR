@@ -15,7 +15,7 @@ limitations under the License.
 -/
 
 import Extract.Basic
-import KLR.Core.Basic
+import KLR.Core
 import KLR.File
 import KLR.NKI.Basic
 import KLR.Python
@@ -40,6 +40,7 @@ where
   | "Float" | "float" => "f"
   | "String" | "string" => "s"
   | "Const" | "const" => "c"
+  | "register" => "r"
   | s => s
 
 private def cName (name : Name) : String :=
@@ -67,10 +68,14 @@ def genType (t : SimpleType) : String :=
   | .int => "i32"
   | .float => "f32"
   | .string => "char*"
+  | .prop => "struct Prop"
+  | .const `Lean.Name => "char*"
+  | .const `KLR.Core.Reg => "u32"
   | .const name => s!"struct {name}*"
   | .enum name => s!"enum {name}"
   | .option t => genType t
   | .list _ => s!"struct {t.name}*"
+  | .pair .. => panic! "TODO"
 
 private def genStruct (name : Name)
                       (fields : List Field)
@@ -204,6 +209,7 @@ def nkiAST : MetaM (List LeanType) := do
     `KLR.NKI.Expr,
     `KLR.NKI.Index,
     `KLR.NKI.Keyword,
+    --`KLR.NKI.Pattern,
     `KLR.NKI.Stmt',
     `KLR.NKI.Stmt,
     `KLR.NKI.Param,
@@ -211,6 +217,77 @@ def nkiAST : MetaM (List LeanType) := do
     `KLR.NKI.Arg,
     `KLR.NKI.Kernel,
   ]
+
+def klrAST: MetaM (List LeanType) := do
+  collectTypes [
+    -- Core.Tensor
+    `KLR.Core.Memory,
+    `KLR.Core.Dtype,
+    `KLR.Core.Shape,
+    `KLR.Core.Address,
+    `KLR.Core.TensorSram,
+    `KLR.Core.Slice,
+    `KLR.Core.Index,
+    `KLR.Core.AccessBasic,
+    `KLR.Core.APPair,
+    `KLR.Core.AccessPattern,
+    `KLR.Core.Access,
+    `KLR.Core.TensorHbm,
+    `KLR.Core.ParQuadrant,
+    `KLR.Core.TensorView,
+    `KLR.Core.TensorRef,
+    `KLR.Core.TensorArg,
+    -- Core.Operators (Parameters)
+    `KLR.Core.Engine,
+    `KLR.Core.Immediate,
+    `KLR.Core.ActivationImm,
+    `KLR.Core.DataPattern,
+    `KLR.Core.AluOp,
+    `KLR.Core.DropoutThresholdType,
+    `KLR.Core.AccumCmd,
+    `KLR.Core.ActivationFunc,
+    `KLR.Core.AffineSelectCmp,
+    `KLR.Core.DgeComputeOp,
+    `KLR.Core.DmaBounds,
+    `KLR.Core.MatmulGroupElement,
+    `KLR.Core.IndexMissBehavior,
+    `KLR.Core.TensorScalarReverseOps,
+    `KLR.Core.TensorSubDim,
+    -- Core.Operators (Instructions)
+    `KLR.Core.Dropout,
+    `KLR.Core.Activate,
+    `KLR.Core.AffineSelect,
+    `KLR.Core.DmaCopy,
+    `KLR.Core.DmaTranspose,
+    `KLR.Core.Transpose,
+    `KLR.Core.LoadMaskRegister,
+    `KLR.Core.Shuffle,
+    `KLR.Core.MemSet,
+    `KLR.Core.Iota,
+    `KLR.Core.LoadStationary,
+    `KLR.Core.MatMul,
+    `KLR.Core.LocalGather,
+    `KLR.Core.RangeSelect,
+    `KLR.Core.ScalarTensorTensor,
+    `KLR.Core.CopyPredicated,
+    `KLR.Core.TensorTensorScan,
+    `KLR.Core.MatchValueLoad,
+    `KLR.Core.FindIndex8,
+    `KLR.Core.MatchReplace8,
+    `KLR.Core.Max8,
+    `KLR.Core.BatchNormAggregate,
+    `KLR.Core.BatchNormStats,
+    `KLR.Core.Reciprocal,
+    `KLR.Core.Copy,
+    `KLR.Core.TensorReduce,
+    `KLR.Core.Operator,
+    -- Core.Basic
+    `KLR.Core.Value,
+    `KLR.Core.Keyword,
+    `KLR.Core.Expr,
+    `KLR.Core.Stmt,
+    `KLR.Core.Kernel,
+   ]
 
 private def header (isH : Bool) (includes : List String := []) : String :=
   let inc := includes.map fun file => s!"#include \"{file}\""
@@ -266,3 +343,9 @@ def generateNkiAST : MetaM Unit := do
   genTypes tys
   genAlloc tys `KLR.NKI.Expr `KLR.NKI.Expr'
   genAlloc tys `KLR.NKI.Stmt `KLR.NKI.Stmt'
+
+def generateKlrAST : MetaM Unit := do
+  let tys <- klrAST
+  IO.println (headerH ["ast_common.h"])
+  IO.println "// KLR.Core Abstract Syntax"
+  genTypes tys
