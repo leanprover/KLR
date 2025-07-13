@@ -18,7 +18,8 @@ namespace KLR.Trace
 -- Limits come from:
 -- https://awsdocs-neuron.readthedocs-hosted.com/en/latest/general/nki/nki_arch_guides.html
 def keywords : List (Name × Term) :=
-  let ptr s memory size := (Lean.Name.mkStr1 s, Term.pointer { memory, size })
+  let ptr s memory size :=
+    (Lean.Name.mkStr1 s, Term.pointer { memory, parSize := size.1, freeSize := size.2 })
   let const s := const_var (.mkStr1 s)
   let int s := const_int (.mkStr1 s)
   [ int "arch" 2

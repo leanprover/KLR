@@ -209,11 +209,11 @@ the following stuff (excerpted from a matmul example):
 If advanced indexing returns a copy of the view, the store statement does not
 make sense. Therefore, advanced indexing in NKI must have view semantics.
 -/
-def advancedAccessPattern (tensor : Core.TensorName) : Term -> Err Core.AccessPattern
+def advancedAccessPattern (tensor : Core.TensorSram) : Term -> Err Core.AccessPattern
   | .tuple l | .list l => mkAccessPattern tensor l
   | t => mkAccessPattern tensor [t]
 where
-  mkAccessPattern (tensor : Core.TensorName) (inds: List Term) : Err Core.AccessPattern
+  mkAccessPattern (tensor : Core.TensorSram) (inds: List Term) : Err Core.AccessPattern
   := do
     let sizes := tensor.shape.toList
     if sizes.length ≠ inds.length
@@ -288,8 +288,8 @@ where
 #guard
   match do
     let shape <- Core.Shape.fromList [/-parnum-/2,3,4]
-    Core.TensorName.make "x" Core.Dtype.int8 shape none with
-  | .ok (tensor:Core.TensorName) =>
+    Core.TensorSram.make "x" Core.Dtype.int8 shape none with
+  | .ok (tensor:Core.TensorSram) =>
     let mk (ls:List Int): TensorLib.Tensor :=
       let t := TensorLib.Tensor.ofIntList! TensorLib.Dtype.int64 ls
       let t3d := t.reshape! (TensorLib.Shape.mk [2,3,4])
@@ -330,8 +330,8 @@ def pointerAccess (addr : Core.Address) (i : Term) : Err Term := do
   let chkPdim (p : Nat) : Err Nat := do
     if p != 0 && p != 32 && p != 64 && p != 96 then
       throw "partition dimension must be 0, 32, 64, or 96"
-    if p > addr.size.fst then
-      throw s!"partition dimension {p} is larger than the pointer size {addr.size.fst}"
+    if p > addr.parSize then
+      throw s!"partition dimension {p} is larger than the pointer size {addr.parSize}"
     return p
 
   let chkFdim (f : Nat) : Err Nat := do
@@ -339,15 +339,15 @@ def pointerAccess (addr : Core.Address) (i : Term) : Err Term := do
       throw s!"free dimension {f} must be positive"
     if f % 2 != 0 then
       throw s!"free dimension {f} must be even"
-    if f > addr.size.snd then
-      throw s!"free dimension {f} is larger than pointer size {addr.size.snd}"
+    if f > addr.freeSize then
+      throw s!"free dimension {f} is larger than pointer size {addr.freeSize}"
     return f
 
   let chkPslice (s : Slice) : Err (Option Nat × Nat) := do
     if s.u < 0 then
       throw s!"partition size {s.u} must be positive"
-    if s.u > addr.size.fst then
-      throw s!"partition size {s.u} is larger than the pointer size {addr.size.fst}"
+    if s.u > addr.parSize then
+      throw s!"partition size {s.u} is larger than the pointer size {addr.parSize}"
     if s.step != 1 then
       throw "pointer step size must be 1"
     let a <- chkPdim s.l
@@ -367,15 +367,15 @@ def pointerAccess (addr : Core.Address) (i : Term) : Err Term := do
       throw s!"free start {s.l} is larger than free end {b}"
     return (s.l, b - s.l)
 
-  let ptr (partitionOffset freeOffset : Option Nat) (size : Nat × Nat) : Term :=
+  let ptr (parOffset freeOffset : Option Nat) (size : Nat × Nat) : Term :=
     .pointer { memory := addr.memory
-               size
-               partitionOffset,
+               parSize := size.1
+               freeSize := size.2
+               parOffset,
                freeOffset,
-               parent := addr
              }
 
-  match <- termToIndex [addr.size.fst, addr.size.snd] i with
+  match <- termToIndex [addr.parSize, addr.freeSize] i with
   | [.coord p, .coord f] => do
       let p <- chkPdim p
       let f <- chkFdim f
@@ -431,7 +431,7 @@ def access (t : Term) (i : Term) : Err Term := do
       -- tensor does not have such fields.
       return .tensor res
   | .expr .. => do
-      let tensor : Core.TensorName <- fromNKI? t
+      let tensor : Core.TensorSram <- fromNKI? t
       -- Try basic indexing first
       tryCatch
          (do
@@ -675,20 +675,14 @@ partial def fnCall (f:Expr) (args:List Expr) (kws:List Keyword)
   | .expr (.value (.var f)) _ =>
       let kwargs <- kws.mapM (keyword expr)
       let kwargs <- expand_kwargs_from_assign kwargs
-      let kwargs <- kwargs.mapM (λ(x,y) => do let y' <- fromNKI? y; return (x, y'))
+      let kwargs <- kwargs.mapM (λ(x,y) => do let y' <- fromNKI? y; return ⟨x, y'⟩)
       return .expr (.call f (<- args.mapM expr) kwargs) default
   | _ => throw "not a callable type"
 
 
 partial def expr' : Expr' -> Trace Term
   | .const c => return const c
-  | .tensor s dty => do
-      let shape <- s.mapM expr
-      let shape <- Core.Shape.fromList shape
-      let name <- genName "t".toName
-      let dtype <- fromNKI? (.expr (.value $ .var dty) .none)
-      let tensor <- Core.TensorName.make name.toString dtype shape none
-      return .expr (.value $ .access $ .simple tensor) (.tensor dtype shape)
+  | .tensor .. => throw "unimplemented"
   | .name id _ => lookup id.toName
   | .attr e id _ => do ((<- expr e : Term).attr id)
   | .tuple l _ => return .tuple (<- l.mapM expr)
@@ -842,7 +836,7 @@ where
   | .simple t => return .simple (renameTN s t)
   | .basic { tensor, indexes, .. } => Core.Access.mkBasic (renameTN s tensor) indexes
   | .pattern ap => return .pattern { ap with tensor := renameTN s ap.tensor }
-  renameTN (s : String) (t : Core.TensorName) : Core.TensorName := { t with name := s }
+  renameTN (s : String) (t : Core.TensorSram) : Core.TensorSram := { t with name := s }
 
 /-
 Function calls are split into two parts because we need to handle the top-level
@@ -937,9 +931,10 @@ def traceKernel (k : Kernel) : Trace Core.Kernel := do
       let args <- k.args.mapM expr
       let kwargs <- k.kwargs.mapM fun kw => return (kw.id, <- expr kw.value)
       let args <- bind_args f args kwargs (rename := true)
-      let res <- call f args
-      let inputs := tensors (args.map fun x => x.snd)
-      let outputs := tensors res
+      -- TODO: fix this after modifying Python AST to take TensorArg
+      let _res <- call f args
+      let inputs := [] --tensors (args.map fun x => x.snd)
+      let outputs := [] --tensors res
       return {
         name := k.entry
         inputs := inputs

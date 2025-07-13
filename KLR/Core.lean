@@ -4,8 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 -/
 import KLR.Core.Basic
--- TODO: fix encoder
---import KLR.Core.Encode
-import KLR.Core.FromToJson
-import KLR.Core.Pretty
+-- TODO fix pretty printer
+--import KLR.Core.Pretty
 import KLR.Core.Indexing

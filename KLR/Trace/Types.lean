@@ -57,10 +57,7 @@ tracing monads.
 
 namespace KLR.Trace
 open KLR.Core
-
--- Lean already has a perfectly nice hierarchical string type
-export Lean (Name)
-deriving instance Ord for Name
+export Core (Name)
 
 -- Bring in some Python types for convenience
 export Python (Pos BoolOp CmpOp UnaryOp BinOp)
@@ -147,7 +144,7 @@ namespace Term
 -- TODO: not efficient!
 -- TODO: this is partial because of the use of flatMap
 -- the ▷ syntax in Util could be updated to handle this case.
-partial def tensor_list : Term -> List Core.TensorName
+partial def tensor_list : Term -> List Core.TensorSram
   | .module _ | .builtin .. | .source _ | .mgrid
   | .none | .string _
   | .ellipsis | .slice ..

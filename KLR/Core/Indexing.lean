@@ -206,7 +206,7 @@ theorem AccessBasic.getShape_length (a : AccessBasic) :
   · rename_i heq; apply (AccessBasic.shape.noFail _ heq).elim
 
 @[simp] def Shape.freeDim (s : Shape) : Nat := s.freeDims.length
-@[simp] def TensorName.freeDim (s : TensorName) : Nat := s.shape.freeDim
+@[simp] def TensorSram.freeDim (s : TensorSram) : Nat := s.shape.freeDim
 @[simp] def AccessBasic.freeDim (b : AccessBasic) : Nat := b.getShape.freeDim
 @[simp] def AccessPattern.freeDim (p : AccessPattern) : Nat := p.shape.freeDim
 
@@ -555,10 +555,10 @@ def Index.toIndexSpan (i : Index) (size : Nat) : IndexSpan :=
   | .coord x => coordToIndexSpan x
   | .slice s => s.toIndexSpan size
 
-def simpleInterpPar (t : TensorName) : IndexSpan :=
+def simpleInterpPar (t : TensorSram) : IndexSpan :=
   .full t.shape.parDim
 
-def simpleInterpFree (t : TensorName) : LayoutMap t.freeDim :=
+def simpleInterpFree (t : TensorSram) : LayoutMap t.freeDim :=
   let F : FreeSpans t.freeDim := ⟨t.shape.freeDims.map .full, by simp⟩
   lcomp.comp F
 
@@ -611,7 +611,7 @@ in this representation, because it makes it impossible have a slice that decreme
 
 The construction may need to be lifted to Err & exclude the "decrement down to 0" case.
 -/
-def CompileIndex.par (t : TensorName) (s : IndexSpan) : AccessBasic where
+def CompileIndex.par (t : TensorSram) (s : IndexSpan) : AccessBasic where
     tensor := t
     indexes :=
       let parIndex := .slice ⟨s.start, s.extreme, s.step, s.step_nz⟩
@@ -621,7 +621,7 @@ def CompileIndex.par (t : TensorName) (s : IndexSpan) : AccessBasic where
 
 /-- After applying all of your FreeSpans to a Layout you end up with another layout.
 Construct an AccessPattern that will extract these values from each row. -/
-def CompileIndex.freePairs (t : TensorName) (parNum : Nat) (l : Layout d) : AccessPattern where
+def CompileIndex.freePairs (t : TensorSram) (parNum : Nat) (l : Layout d) : AccessPattern where
   tensor := t
   parNum := parNum
   freePattern := List.zipWith APPair.mk l.steps l.nums

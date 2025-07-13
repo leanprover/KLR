@@ -11,6 +11,31 @@ namespace KLR.Util.Json
 open Lean(FromJson fromJson? Json ToJson toJson)
 open Std(HashMap)
 
+instance : ToJson Float32 where
+  toJson f32 := ToJson.toJson f32.toFloat
+
+instance : FromJson Float32 where
+  fromJson? j := do
+    let f : Float <- FromJson.fromJson? j
+    return f.toFloat32
+
+instance : ToJson Int32 where
+  toJson i32 := ToJson.toJson i32.toInt
+
+instance : FromJson Int32 where
+  fromJson? j := do
+    let i : Int <- FromJson.fromJson? j
+    return i.toInt32
+
+instance : ToJson UInt32 where
+  toJson u := ToJson.toJson u.toNat
+
+instance : FromJson UInt32 where
+  fromJson? j := do
+    let n : Nat <- FromJson.fromJson? j
+    return n.toUInt32
+
+
 partial def removeNullValues : Json -> Json
 | .arr a => .arr (a.map removeNullValues)
 | .obj o =>

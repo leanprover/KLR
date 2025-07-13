@@ -154,7 +154,8 @@ private def evalKlrTensors
   let npys <- inputs.mapM TensorLib.Npy.parseFile
   let inputs <- npys.mapM fun npy => TensorLib.Tensor.ofNpy npy
   dbg_trace s!"npy-inputs: {repr inputs}"
-  let _ <- KLR.Eval.eval klr inputs
+  --let _ <- KLR.Eval.eval klr inputs
+  IO.println "TODO: UNIMPLEMENTED"
   return []
 
 def gather (p : Parsed) : IO UInt32 := do

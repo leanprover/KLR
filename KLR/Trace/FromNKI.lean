@@ -99,12 +99,12 @@ instance : FromNKI Float32 where
     | .expr (.value $ .float f) _ => return f.toFloat32
     | _ => throw "expecting float32"
 
-instance : FromNKI Const where
+instance : FromNKI Immediate where
   fromNKI?
     | .expr (.value $ .bool true) _ => return .int 1
     | .expr (.value $ .bool false) _ => return .int 0
     | .expr (.value $ .int i) _ => return .int i
-    | .expr (.value $ .float f) _ => return .float f
+    | .expr (.value $ .float f) _ => return .float f.toFloat32
     | _ => throw "expecting int or float"
 
 instance : FromNKI String where
@@ -192,7 +192,7 @@ instance : FromNKI Access where
     | .expr (.value $ .access a) _ => return a
     | _ => throw "expecting tensor access"
 
-instance : FromNKI TensorName where
+instance : FromNKI TensorSram where
   fromNKI?
     | .expr (.value (.access (.simple t))) _ => return t
     | _ => throw "expecting tensor"

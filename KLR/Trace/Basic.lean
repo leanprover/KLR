@@ -267,8 +267,8 @@ where
 
 def Term.attr : Term -> String -> Trace Term
   | .module n, id => lookup (n.str id)
-  | .pointer addr, "start" => return tuple [addr.partitionOffset, addr.freeOffset]
-  | .pointer addr, "size" => return tuple [addr.size.fst, addr.size.snd]
+  | .pointer addr, "start" => return tuple [addr.parOffset, addr.freeOffset]
+  | .pointer addr, "size" => return tuple [addr.parSize, addr.freeSize]
   | .pointer addr, "view" => return memViewBuiltin addr
   | .expr _ (.tensor d _), "dtype" => return (dtype d)
   | .expr _ (.tensor _ s), "shape" => return (tuple $ s.toList.map some)
@@ -276,7 +276,7 @@ def Term.attr : Term -> String -> Trace Term
   | _, id => throw s!"unsupported attribute {id}"
 where
   dtype dty :=
-    let name := "nki.language." ++ toString (Std.format dty)
+    let name := "nki.language." ++ reprStr dty
     .expr (.value $ .var name) (.obj name.toName)
   tuple (l : List (Option Nat)) : Term :=
     Term.tuple $ l.map fun
@@ -287,8 +287,8 @@ where
 
 nki memView (self : Address) (dtype : Dtype) (shape : Shape) (name : String := "tensor") := do
   let name := (<- genName (.mkStr1 name)).toString
-  if parWF: shape.parDim <= self.size.fst then
-    if freeWF: shape.freeElements * dtype.size <= self.size.snd then
+  if parWF: shape.parDim <= self.parSize then
+    if freeWF: shape.freeElements * dtype.size <= self.freeSize then
       let tensor := ⟨ name, dtype, shape, self, parWF, freeWF ⟩
       let ty := TermType.tensor dtype shape
       return .expr (.value (.access (.simple tensor))) ty

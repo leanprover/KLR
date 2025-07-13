@@ -36,44 +36,51 @@ these represent the memory we need to allocate in the dram, sbuf, etc.
 -/
 def declare (name : String)
             (dtype : Dtype) (shape : Shape) (memory : Memory)
-            : Trace TensorName := do
+            : Trace TensorSram := do
   let pos := (<- get).pos
   let tname := s!"{name}.{pos.line}.{pos.column}"
-  TensorName.make tname dtype shape $ some {
+  let size := Address.defaultSize shape dtype
+  TensorSram.make tname dtype shape $ some {
     memory := memory
-    size   := Address.defaultSize shape dtype
+    parSize := size.1
+    freeSize := size.2
   }
 
 -- APIs
+-- TODO  update once store is removed from KLR.Core
 
-nki load (src : Access) (dtype : Dtype := .float32) := do
-  let shape <- src.shape
-  let dst <- declare "load" dtype shape .sbuf
-  return .store (.simple dst) .load [.access src]
+nki load (_src : Access) (_dtype : Dtype := .float32) := do
+  --let shape <- src.shape
+  --let dst <- declare "load" dtype shape .sbuf
+  --return .store (.simple dst) .load [.access src]
+  throw "unimp"
 
-nki store (dst : Access) (value : Core.Value) := do
-  return Term.store dst .save [value]
+nki store (_dst : Access) (_value : Core.Value) := do
+  --return Term.store dst .save [value]
+  throw "unimp"
 
-nki zeros (shape : Shape) (dtype : Dtype) (buffer : Memory := .sbuf)
-          (name : String := "") := do
-  let dst <- declare ("zeros_" ++ name) dtype shape buffer
-  return .store (.simple dst) (.memset 0) []
+nki zeros (_shape : Shape) (_dtype : Dtype) (_buffer : Memory := .sbuf)
+          (_name : String := "") := do
+  --let dst <- declare ("zeros_" ++ name) dtype shape buffer
+  --return .store (.simple dst) (.memset 0) []
+  throw "unimp"
 
-nki tensor_scalar (data : Access)
-                  (op0 : AluOp)
-                  (operand0 : Float32)
-                  (reverse0 : Bool := False)
-                  (op1 : AluOp := .bypass)
-                  (operand1 : Float32 := 0.0)
-                  (reverse1 : Bool := false)
-                  (dtype : Dtype := .float32) := do
-  let shape <- data.shape
-  let op := Operator.tensorScalar {
-    op0, const0 := operand0, reverse0,
-    op1, const1 := operand1, reverse1,
-  }
-  let dst <- declare "tsc" dtype shape .sbuf
-  return .store (.simple dst) op [.access data]
+nki tensor_scalar (_data : Access)
+                  (_op0 : AluOp)
+                  (_operand0 : Float32)
+                  (_reverse0 : Bool := False)
+                  (_op1 : AluOp := .bypass)
+                  (_operand1 : Float32 := 0.0)
+                  (_reverse1 : Bool := false)
+                  (_dtype : Dtype := .float32) := do
+  --let shape <- data.shape
+  --let op := Operator.tensorScalar {
+  --  op0, const0 := operand0, reverse0,
+  --  op1, const1 := operand1, reverse1,
+  --}
+  --let dst <- declare "tsc" dtype shape .sbuf
+  --return .store (.simple dst) op [.access data]
+  throw "unimp"
 
 end Tensor
 
