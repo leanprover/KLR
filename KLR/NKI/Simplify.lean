@@ -26,23 +26,29 @@ Simplification pass: convert from Python Core to NKI.
 namespace KLR.NKI
 open Compile.Pass
 
--- No extra state needed: use PosM instead of PassM
-abbrev Simplify := PosM
+structure SimplifyState where
+  statements : Array Stmt := #[]
+
+abbrev Simplify := Pass SimplifyState
+
+private def addStmt (s : Stmt) : Simplify Unit :=
+  modify fun st => { st with statements := st.statements.push s }
+
+private def getAndClearStmts : Simplify (List Stmt) := do
+  modifyGet fun st => (st.statements.toList, {st with statements := #[]})
 
 /-
 # Value Simplification
-
-Note: Tensor values are handled as part of the expressions.
-We can change this: it is controlled by gather.
 -/
 
-private def value : Python.Const -> Value
-  | .none => .none
-  | .bool b => .bool b
-  | .int i => .int i
-  | .float f => .float f
-  | .string s => .string s
-  | .ellipsis => .ellipsis
+private def value : Python.Const -> Simplify Value
+  | .none => return .none
+  | .bool b => return .bool b
+  | .int i => return .int i
+  | .float f => return .float f
+  | .string s => return .string s
+  | .ellipsis => throw "invalid use of ellipsis"
+  | .tensor s dty => return .tensor s dty
 
 /-
 # Operator Simplification
@@ -62,18 +68,24 @@ private def cmpOp : Python.CmpOp -> Simplify BinOp
   | .le => return .le
   | .gt => return .gt
   | .ge => return .ge
-  | .is | .isNot => throw "the is operator is not supported in NKI, use =="
-  | .isIn | .notIn => throw "the in operator is not supported in NKI"
+  | .is => do
+    warn "the 'is' operator is not supported in NKI, use =="
+    return .eq
+  | .isNot => do
+    warn "the 'is not' operator is not supported in NKI, use !="
+    return .ne
+  | .isIn | .notIn =>
+    throw "the 'in' operator is not supported in NKI"
 
 -- Use of unary operators should be rare; we convert them into function calls.
 -- TODO: what names should we use for these functions?
 private def unaryOp (op : Python.UnaryOp) : Simplify (Expr -> Expr') :=
   let call s e := .call ⟨.var s, e.pos⟩ [e] []
   match op with
-  | .invert => return call "invert"
-  | .not => return call "not"
+  | .invert => return call `builtin.op.invert
+  | .not => return call `builtin.op.not
   | .uadd => return fun e => e.expr
-  | .usub => return call "negate"
+  | .usub => return call `builtin.op.negate
 
 private def binOp : Python.BinOp -> Simplify BinOp
   | .add => return .add
@@ -100,17 +112,6 @@ private def compare : Expr -> List BinOp -> List Expr -> Simplify Expr
   | l, op :: ops, e :: es => return ⟨ .binOp op l (<- compare e ops es), l.pos ⟩
   | _, _, _ => throw "invalid comparison expression"
 
-
--- nat and shape are only used for tensor values
--- TODO: fix this in gather.
-private def nat : Python.Expr' -> Simplify Nat
-  | .const (.int (.ofNat n)) => return n
-  | _ => throw "expecting positive interger"
-
-private def shape : List Python.Expr -> Simplify (List Nat)
-  | [] => return []
-  | ⟨ e, p ⟩ :: xs => return (<- withPos p (nat e)) :: (<- shape xs)
-
 /-
 # Expression simplification
 
@@ -135,13 +136,16 @@ private def exprs (es : List Python.Expr) : Simplify (List Expr) :=
 
 private def expr' (e' : Python.Expr') : Simplify Expr' :=
   match e' with
-  | .const c => return .value (value c)
-  | .tensor s dtype => return .value (.tensor (<- shape s) dtype)
-  | .name s _ => return .var s
+  | .const c => return .value (<- value c)
+  | .name s _ => return .var s.toName
   | .attr e id _ => do
       match <- expr e with
-      | ⟨ .var s, _ ⟩ => return .var (s ++ "." ++ id)
-      | e => return .proj e id
+      | ⟨ .var s, _ ⟩ => return .var (.str s id)
+      | e =>
+        let n <- freshName `x
+        let s := Stmt'.letM (.var n) none e
+        addStmt { stmt := s, pos := e.pos }
+        return .var (n.str id)
   | .tuple l _
   | .list l _ => return .tuple (<- exprs l)
   | .subscript e ndx _ => return .access (<- expr e) (<- indexes ndx)
@@ -162,16 +166,23 @@ private def expr' (e' : Python.Expr') : Simplify Expr' :=
       return .call f args kws
   termination_by sizeOf e'
 
+private def index (e : Python.Expr) : Simplify Index := do
+  match e with
+  | ⟨ .const .ellipsis, _ ⟩ => return .ellipsis
+  | ⟨ e', p ⟩ => withPos p do return .coord ⟨ <- expr' e', p ⟩
+  termination_by sizeOf e
+
 private def indexes (e : Python.Expr) : Simplify (List Index) := do
   match e with
   | ⟨ e', p ⟩ => withPos p do
     match e' with
+    | .const .ellipsis => return [.ellipsis]
     | .slice l u step => do
       let l <- l.attach.mapM fun ⟨ e, _ ⟩ => expr e
       let u <- u.attach.mapM fun ⟨ e, _ ⟩ => expr e
       let step <- step.attach.mapM fun ⟨ e, _ ⟩ => expr e
       return [.slice l u step]
-    | .tuple l _ | .list l _ => return (<- exprs l).map .coord
+    | .tuple l _ | .list l _ => l.mapM index
     | e' => return [.coord ⟨ <- expr' e', p⟩]
   termination_by sizeOf e
 
@@ -185,30 +196,63 @@ end
 /-
 # Statement Simplification
 -/
-def var (x : Python.Expr) : Simplify Expr := do
-  match <- expr x with
-  | ⟨ .var s, p ⟩ => return ⟨ .var s, p ⟩
-  | _ => throw "cannot assign to expression"
 
-def vars : List Python.Expr -> Simplify (List Expr)
-  | [] => return []
-  | x :: xs =>  return (<- var x) :: (<- vars xs)
+def isSimpleName : Name -> Bool
+  | .str .anonymous _ => true
+  | .num n _ => isSimpleName n
+  | _ => false
+
+def isLetPattern (e : Expr) : Bool :=
+  match e.expr with
+  | .var n => isSimpleName n
+  | .tuple _ => true
+  | _ => false
+
+def pattern (e : Expr) : Simplify Pattern :=
+  withPos e.pos do match e with
+  | ⟨ .var n, _ ⟩ =>
+    if isSimpleName n
+    then return .var n
+    else throw "expecting simple variable"
+  | ⟨ .tuple xs, _ ⟩ =>
+    let xs <- xs.mapM pattern
+    return .tuple xs
+  | _ => throw "expecting pattern"
+
+def letSet (es : List Expr) : Simplify (List Pattern × Option Expr) := do
+  let (lets, sets) := es.partition isLetPattern
+  match lets, sets with
+  | [], [] => throw "invalid assignment"
+  | xs, [] => return (<- xs.mapM pattern, none)
+  | xs, [x] => return (<- xs.mapM pattern, some x)
+  | _, _ => throw "mutating assignments must be in separate statements"
+
+def findVarPattern (ps : List Pattern) : Simplify (Name × List Pattern) :=
+  match ps.partition Pattern.isVar with
+  | ([], ps) => return (<- freshName, ps)
+  | (.var n :: vs, ps) => return (n, vs ++ ps)
+  | _ => throw "invalid pattern"
 
 def assign (xs : List Expr) (e : Expr) : Simplify (List Stmt') := do
-  let asn x e : Stmt' := .assign x none (some e)
-  match xs with
-  | [] => throw "invalid assignment"
-  | [x] => return [ asn x e ]
-  | x :: xs =>
-      let first := asn x e
-      let rest := xs.map fun y => asn y x
-      return first :: rest
+  match <- letSet xs with
+  | (xs, some s) =>
+    return .setM s e (accum := false) ::
+            xs.map fun x => .letM x none e
+  | ([], none) => throw "invalid assignment statement"
+  | ([x], none) => return [.letM x none e]
+  | (xs, none) =>
+    let (n, xs) <- findVarPattern xs
+    let first := .letM (.var n) none e
+    let e' : Expr := ⟨ .var n, e.pos ⟩
+    let rest := xs.map fun x' => .letM x' none e'
+    return first :: rest
 
 mutual
 private def stmt (s : Python.Stmt) : Simplify (List Stmt) := do
   let p := s.pos
   let l <- withPos p (stmt' s.stmt)
-  return l.map fun s => ⟨ s, p ⟩
+  let extra <- getAndClearStmts
+  return extra ++ l.map fun s => ⟨ s, p ⟩
   termination_by sizeOf s
   decreasing_by cases s; simp; omega
 
@@ -223,18 +267,21 @@ private def stmt' (s : Python.Stmt') : Simplify (List Stmt') := do
   | .expr e => return [.expr (<- expr e)]
   | .assert e => return [.assert (<- expr e)]
   | .ret e => return [.ret (<- expr e)]
-  | .assign xs e => do assign (<- vars xs) (<- expr e)
+  | .assign xs e => do assign (<- exprs xs) (<- expr e)
   | .augAssign x op e => do
-      let x <- var x
+      let x <- expr x
       let e <- expr e
       let rhs := Expr'.binOp (<- binOp op) x e
       assign [x] ⟨ rhs, x.pos ⟩
   | .annAssign x t e => do
-      let x <- var x
+      let x <- expr x
       let t <- expr t
       match e with
-      | none => return [.assign x (some t) none]
       | some e => assign [x] (<- expr e)
+      | none =>
+        if let ⟨ .var n, _ ⟩ := x then
+          return [.declare n t]
+        else throw "invalid declaration"
   | .ifStm c t e => return [.ifStm (<- expr c) (<- stmts t) (<- stmts e)]
   | .forLoop x iter body orelse => do
       if orelse.length > 0 then
@@ -323,6 +370,6 @@ private def kernel (py : Python.Kernel) : Simplify Kernel := do
 
 -- TODO: capture warnings, make sure to call finalize
 def simplify (py : Python.Kernel) : Err Kernel :=
-  match (kernel py).run {} with
-  | .ok x _ => .ok x
+  match (kernel py).run {} {} with
+  | .ok (x, _) _ => .ok x
   | .error e _ => .error (toString e)

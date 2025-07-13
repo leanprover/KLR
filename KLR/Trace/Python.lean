@@ -33,6 +33,7 @@ def const : Const -> Term
   | .float f  => .expr (.value $ .float f)  .float
   | .string s => .string s
   | .ellipsis => .ellipsis
+  | .tensor .. => panic! "Untranslated tensor value"
 
 /-
 # Evaluating index expressions
@@ -692,8 +693,13 @@ partial def fnCall (f:Expr) (args:List Expr) (kws:List Keyword)
 
 
 partial def expr' : Expr' -> Trace Term
+  | .const (.tensor s dty) => do
+      let shape <- Core.Shape.fromList s
+      let name <- genName "t".toName
+      let dtype <- fromNKI? (.expr (.value $ .var dty) .none)
+      let tensor <- Core.TensorSram.make name.toString dtype shape none
+      return .expr (.value $ .access $ .simple tensor) (.tensor dtype shape)
   | .const c => return const c
-  | .tensor .. => throw "unimplemented"
   | .name id _ => lookup id.toName
   | .attr e id _ => do ((<- expr e : Term).attr id)
   | .tuple l _ => return .tuple (<- l.mapM expr)

@@ -239,15 +239,6 @@ PyObject *NKI_Value_topy(struct NKI_Value *x) {
     return res;
     break;
   }
-  case NKI_Value_ellipsis: {
-    PyObject *tup = PyTuple_New(0);
-    if (!tup)
-      return NULL;
-    PyObject *res = construct("Value_ellipsis", tup);
-    Py_DECREF(tup);
-    return res;
-    break;
-  }
   case NKI_Value_tensor: {
     PyObject *tup = PyTuple_New(2);
     if (!tup)
@@ -489,25 +480,6 @@ PyObject *NKI_Expr__topy(struct NKI_Expr_ *x) {
     return res;
     break;
   }
-  case NKI_Expr_proj: {
-    PyObject *tup = PyTuple_New(2);
-    if (!tup)
-      return NULL;
-    {
-      PyObject *obj = NKI_Expr_topy(x->proj.expr);
-      if (!obj || PyTuple_SetItem(tup, 0, obj) == -1)
-        return NULL;
-    }
-    {
-      PyObject *obj = String_topy(x->proj.name);
-      if (!obj || PyTuple_SetItem(tup, 1, obj) == -1)
-        return NULL;
-    }
-    PyObject *res = construct("Expr_proj", tup);
-    Py_DECREF(tup);
-    return res;
-    break;
-  }
   case NKI_Expr_tuple: {
     PyObject *tup = PyTuple_New(1);
     if (!tup)
@@ -677,6 +649,15 @@ PyObject *NKI_Index_topy(struct NKI_Index *x) {
     return res;
     break;
   }
+  case NKI_Index_ellipsis: {
+    PyObject *tup = PyTuple_New(0);
+    if (!tup)
+      return NULL;
+    PyObject *res = construct("Index_ellipsis", tup);
+    Py_DECREF(tup);
+    return res;
+    break;
+  }
   default:
     return NULL;
   }
@@ -699,6 +680,41 @@ PyObject *NKI_Keyword_topy(struct NKI_Keyword *x) {
   PyObject *res = construct("Keyword", tup);
   Py_DECREF(tup);
   return res;
+}
+
+PyObject *NKI_Pattern_topy(struct NKI_Pattern *x) {
+  switch (x->tag) {
+  case NKI_Pattern_var: {
+    PyObject *tup = PyTuple_New(1);
+    if (!tup)
+      return NULL;
+    {
+      PyObject *obj = String_topy(x->var.name);
+      if (!obj || PyTuple_SetItem(tup, 0, obj) == -1)
+        return NULL;
+    }
+    PyObject *res = construct("Pattern_var", tup);
+    Py_DECREF(tup);
+    return res;
+    break;
+  }
+  case NKI_Pattern_tuple: {
+    PyObject *tup = PyTuple_New(1);
+    if (!tup)
+      return NULL;
+    {
+      PyObject *obj = NKI_Pattern_List_topy(x->tuple.xs);
+      if (!obj || PyTuple_SetItem(tup, 0, obj) == -1)
+        return NULL;
+    }
+    PyObject *res = construct("Pattern_tuple", tup);
+    Py_DECREF(tup);
+    return res;
+    break;
+  }
+  default:
+    return NULL;
+  }
 }
 
 PyObject *NKI_Stmt__topy(struct NKI_Stmt_ *x) {
@@ -745,26 +761,69 @@ PyObject *NKI_Stmt__topy(struct NKI_Stmt_ *x) {
     return res;
     break;
   }
-  case NKI_Stmt_assign: {
-    PyObject *tup = PyTuple_New(3);
+  case NKI_Stmt_declare: {
+    PyObject *tup = PyTuple_New(2);
     if (!tup)
       return NULL;
     {
-      PyObject *obj = NKI_Expr_topy(x->assign.x);
+      PyObject *obj = String_topy(x->declare.x);
       if (!obj || PyTuple_SetItem(tup, 0, obj) == -1)
         return NULL;
     }
     {
-      PyObject *obj = NKI_Expr_Option_topy(x->assign.ty);
+      PyObject *obj = NKI_Expr_topy(x->declare.ty);
+      if (!obj || PyTuple_SetItem(tup, 1, obj) == -1)
+        return NULL;
+    }
+    PyObject *res = construct("Stmt_declare", tup);
+    Py_DECREF(tup);
+    return res;
+    break;
+  }
+  case NKI_Stmt_letM: {
+    PyObject *tup = PyTuple_New(3);
+    if (!tup)
+      return NULL;
+    {
+      PyObject *obj = NKI_Pattern_topy(x->letM.p);
+      if (!obj || PyTuple_SetItem(tup, 0, obj) == -1)
+        return NULL;
+    }
+    {
+      PyObject *obj = NKI_Expr_Option_topy(x->letM.ty);
       if (!obj || PyTuple_SetItem(tup, 1, obj) == -1)
         return NULL;
     }
     {
-      PyObject *obj = NKI_Expr_Option_topy(x->assign.e);
+      PyObject *obj = NKI_Expr_topy(x->letM.e);
       if (!obj || PyTuple_SetItem(tup, 2, obj) == -1)
         return NULL;
     }
-    PyObject *res = construct("Stmt_assign", tup);
+    PyObject *res = construct("Stmt_letM", tup);
+    Py_DECREF(tup);
+    return res;
+    break;
+  }
+  case NKI_Stmt_setM: {
+    PyObject *tup = PyTuple_New(3);
+    if (!tup)
+      return NULL;
+    {
+      PyObject *obj = NKI_Expr_topy(x->setM.x);
+      if (!obj || PyTuple_SetItem(tup, 0, obj) == -1)
+        return NULL;
+    }
+    {
+      PyObject *obj = NKI_Expr_topy(x->setM.e);
+      if (!obj || PyTuple_SetItem(tup, 1, obj) == -1)
+        return NULL;
+    }
+    {
+      PyObject *obj = Bool_topy(x->setM.accum);
+      if (!obj || PyTuple_SetItem(tup, 2, obj) == -1)
+        return NULL;
+    }
+    PyObject *res = construct("Stmt_setM", tup);
     Py_DECREF(tup);
     return res;
     break;
@@ -1005,6 +1064,19 @@ PyObject *NKI_Expr_Option_topy(struct NKI_Expr *x) {
   } else {
     return NKI_Expr_topy(x);
   }
+}
+
+PyObject *NKI_Pattern_List_topy(struct NKI_Pattern_List *x) {
+  PyObject *list = PyList_New(0);
+  if (!list)
+    return NULL;
+  for (struct NKI_Pattern_List *node = x; node; node = node->next) {
+    PyObject *obj = NKI_Pattern_topy(node->pattern);
+    if (!obj || PyList_Append(list, obj) == -1)
+      return NULL;
+    Py_DECREF(obj);
+  }
+  return list;
 }
 
 PyObject *NKI_Stmt_List_topy(struct NKI_Stmt_List *x) {

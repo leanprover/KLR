@@ -209,7 +209,7 @@ def nkiAST : MetaM (List LeanType) := do
     `KLR.NKI.Expr,
     `KLR.NKI.Index,
     `KLR.NKI.Keyword,
-    --`KLR.NKI.Pattern,
+    `KLR.NKI.Pattern,
     `KLR.NKI.Stmt',
     `KLR.NKI.Stmt,
     `KLR.NKI.Param,

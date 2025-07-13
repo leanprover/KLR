@@ -42,6 +42,8 @@ inductive Const where
   | float (value : Float)
   | string (value : String)
   | ellipsis
+  -- TODO handle tensor data as well
+  | tensor (shape : List Nat) (dtype : String)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /-
@@ -98,8 +100,6 @@ structure Expr where
 @[serde tag = 8]
 inductive Expr' where
   | const (value : Const)
-    -- TODO we don't need tensor here, it can be NKI only
-  | tensor (shape : List Expr) (dtype : String)
   | name (id : String) (ctx : Ctx)
   | attr (value : Expr) (id : String) (ctx : Ctx)
   | tuple (xs: List Expr) (ctx : Ctx)
@@ -248,7 +248,6 @@ where
   inferArgs : Option (List Expr) := do
     let f <- k.funcs.find? fun f => f.name == k.entry
     let args := f.args.required
-    let ten := { expr := .const (.int 10), pos := { line := 0 } }
     let dtype := "nki.language.float32"
-    let tensors := args.map fun _ => { expr := .tensor [ten,ten] dtype, pos := { line := 0 } }
+    let tensors := args.map fun _ => { expr := .const $ .tensor [10,10] dtype, pos := { line := 0 } }
     return tensors

@@ -25,14 +25,11 @@ class Value_float(NamedTuple):
 class Value_string(NamedTuple):
   value : str
 
-class Value_ellipsis(NamedTuple):
-  pass
-
 class Value_tensor(NamedTuple):
   shape : list[int]
   dtype : str
 
-Value = Value_tensor | Value_ellipsis | Value_string | Value_float | Value_int | Value_bool | Value_none
+Value = Value_tensor | Value_string | Value_float | Value_int | Value_bool | Value_none
 
 class BinOp(Enum):
   Land = auto()
@@ -81,11 +78,7 @@ class Expr_value(NamedTuple):
   value : "Value"
 
 class Expr_var(NamedTuple):
-  name : str
-
-class Expr_proj(NamedTuple):
-  expr : "Expr"
-  name : str
+  name : "Name"
 
 class Expr_tuple(NamedTuple):
   elements : list["Expr"]
@@ -109,7 +102,7 @@ class Expr_call(NamedTuple):
   args : list["Expr"]
   keywords : list["Keyword"]
 
-Expr_ = Expr_call | Expr_ifExp | Expr_binOp | Expr_access | Expr_tuple | Expr_proj | Expr_var | Expr_value
+Expr_ = Expr_call | Expr_ifExp | Expr_binOp | Expr_access | Expr_tuple | Expr_var | Expr_value
 
 class Expr(NamedTuple):
   expr : "Expr_"
@@ -123,11 +116,22 @@ class Index_slice(NamedTuple):
   u : Optional["Expr"]
   step : Optional["Expr"]
 
-Index = Index_slice | Index_coord
+class Index_ellipsis(NamedTuple):
+  pass
+
+Index = Index_ellipsis | Index_slice | Index_coord
 
 class Keyword(NamedTuple):
   name : str
   expr : "Expr"
+
+class Pattern_var(NamedTuple):
+  name : "Name"
+
+class Pattern_tuple(NamedTuple):
+  xs : list["Pattern"]
+
+Pattern = Pattern_tuple | Pattern_var
 
 class Stmt_expr(NamedTuple):
   e : "Expr"
@@ -138,10 +142,19 @@ class Stmt_assert(NamedTuple):
 class Stmt_ret(NamedTuple):
   e : "Expr"
 
-class Stmt_assign(NamedTuple):
-  x : "Expr"
+class Stmt_declare(NamedTuple):
+  x : "Name"
+  ty : "Expr"
+
+class Stmt_letM(NamedTuple):
+  p : "Pattern"
   ty : Optional["Expr"]
-  e : Optional["Expr"]
+  e : "Expr"
+
+class Stmt_setM(NamedTuple):
+  x : "Expr"
+  e : "Expr"
+  accum : bool
 
 class Stmt_ifStm(NamedTuple):
   e : "Expr"
@@ -159,7 +172,7 @@ class Stmt_breakLoop(NamedTuple):
 class Stmt_continueLoop(NamedTuple):
   pass
 
-Stmt_ = Stmt_continueLoop | Stmt_breakLoop | Stmt_forLoop | Stmt_ifStm | Stmt_assign | Stmt_ret | Stmt_assert | Stmt_expr
+Stmt_ = Stmt_continueLoop | Stmt_breakLoop | Stmt_forLoop | Stmt_ifStm | Stmt_setM | Stmt_letM | Stmt_declare | Stmt_ret | Stmt_assert | Stmt_expr
 
 class Stmt(NamedTuple):
   stmt : "Stmt_"
