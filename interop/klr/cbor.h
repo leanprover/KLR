@@ -36,8 +36,24 @@ static inline bool String_ser(FILE *out, const char *s) {
   return cbor_encode_string(out, s, 0);
 }
 
+struct Prop {};
+
+static inline bool Prop_ser(FILE *out, struct Prop p) {
+  (void)out;
+  (void)p;
+  return true;
+}
+
+static inline bool Prop_des(FILE *out, struct region *region, struct Prop *p) {
+  (void)out;
+  (void)region;
+  (void)p;
+  return true;
+}
+
 bool Bool_des(FILE *out, struct region *region, bool *x);
 bool Nat_des(FILE *out, struct region *region, u32 *x);
 bool Int_des(FILE *out, struct region *region, i32 *x);
 bool Float_des(FILE *out, struct region *region, float *x);
 bool String_des(FILE *out, struct region *region, char **s);
+

@@ -71,15 +71,15 @@ static bool test_simplify_failure(struct Python_Kernel *py_kernel, const char *e
 }
 
 // Helper function to create a position structure
-static struct Python_Pos *make_python_pos(struct region *region) {
-  struct Python_Pos *pos = region_alloc(region, sizeof(*pos));
+static struct Core_Pos *make_python_pos(struct region *region) {
+  struct Core_Pos *pos = region_alloc(region, sizeof(*pos));
   if (!pos)
     return NULL;
 
-  pos->lineno = 1;
-  pos->col_offset = 0;
-  pos->end_lineno = 1;
-  pos->end_col_offset = 0;
+  pos->line = 1;
+  pos->column = 0;
+  pos->lineEnd = 1;
+  pos->columnEnd = 0;
 
   return pos;
 }
