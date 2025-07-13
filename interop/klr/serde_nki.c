@@ -43,12 +43,8 @@ bool NKI_Value_ser(FILE *out, struct NKI_Value *x) {
     if (!String_ser(out, x->s.value))
       return false;
     break;
-  case NKI_Value_ellipsis:
-    if (!cbor_encode_tag(out, 1, 5, 0))
-      return false;
-    break;
   case NKI_Value_tensor:
-    if (!cbor_encode_tag(out, 1, 6, 2))
+    if (!cbor_encode_tag(out, 1, 5, 2))
       return false;
     if (!Nat_List_ser(out, x->tensor.shape))
       return false;
@@ -163,22 +159,14 @@ bool NKI_Expr__ser(FILE *out, struct NKI_Expr_ *x) {
     if (!String_ser(out, x->var.name))
       return false;
     break;
-  case NKI_Expr_proj:
-    if (!cbor_encode_tag(out, 4, 2, 2))
-      return false;
-    if (!NKI_Expr_ser(out, x->proj.expr))
-      return false;
-    if (!String_ser(out, x->proj.name))
-      return false;
-    break;
   case NKI_Expr_tuple:
-    if (!cbor_encode_tag(out, 4, 3, 1))
+    if (!cbor_encode_tag(out, 4, 2, 1))
       return false;
     if (!NKI_Expr_List_ser(out, x->tuple.elements))
       return false;
     break;
   case NKI_Expr_access:
-    if (!cbor_encode_tag(out, 4, 4, 2))
+    if (!cbor_encode_tag(out, 4, 3, 2))
       return false;
     if (!NKI_Expr_ser(out, x->access.expr))
       return false;
@@ -186,7 +174,7 @@ bool NKI_Expr__ser(FILE *out, struct NKI_Expr_ *x) {
       return false;
     break;
   case NKI_Expr_binOp:
-    if (!cbor_encode_tag(out, 4, 5, 3))
+    if (!cbor_encode_tag(out, 4, 4, 3))
       return false;
     if (!NKI_BinOp_ser(out, x->binOp.op))
       return false;
@@ -196,7 +184,7 @@ bool NKI_Expr__ser(FILE *out, struct NKI_Expr_ *x) {
       return false;
     break;
   case NKI_Expr_ifExp:
-    if (!cbor_encode_tag(out, 4, 6, 3))
+    if (!cbor_encode_tag(out, 4, 5, 3))
       return false;
     if (!NKI_Expr_ser(out, x->ifExp.test))
       return false;
@@ -206,7 +194,7 @@ bool NKI_Expr__ser(FILE *out, struct NKI_Expr_ *x) {
       return false;
     break;
   case NKI_Expr_call:
-    if (!cbor_encode_tag(out, 4, 7, 3))
+    if (!cbor_encode_tag(out, 4, 6, 3))
       return false;
     if (!NKI_Expr_ser(out, x->call.f))
       return false;
@@ -249,6 +237,10 @@ bool NKI_Index_ser(FILE *out, struct NKI_Index *x) {
     if (!NKI_Expr_Option_ser(out, x->slice.step))
       return false;
     break;
+  case NKI_Index_ellipsis:
+    if (!cbor_encode_tag(out, 5, 2, 0))
+      return false;
+    break;
   default:
     return false;
   }
@@ -265,38 +257,76 @@ bool NKI_Keyword_ser(FILE *out, struct NKI_Keyword *x) {
   return true;
 }
 
+bool NKI_Pattern_ser(FILE *out, struct NKI_Pattern *x) {
+  switch (x->tag) {
+  case NKI_Pattern_var:
+    if (!cbor_encode_tag(out, 7, 0, 1))
+      return false;
+    if (!String_ser(out, x->var.name))
+      return false;
+    break;
+  case NKI_Pattern_tuple:
+    if (!cbor_encode_tag(out, 7, 1, 1))
+      return false;
+    if (!NKI_Pattern_List_ser(out, x->tuple.xs))
+      return false;
+    break;
+  default:
+    return false;
+  }
+  return true;
+}
+
 bool NKI_Stmt__ser(FILE *out, struct NKI_Stmt_ *x) {
   switch (x->tag) {
   case NKI_Stmt_expr:
-    if (!cbor_encode_tag(out, 8, 0, 1))
+    if (!cbor_encode_tag(out, 9, 0, 1))
       return false;
     if (!NKI_Expr_ser(out, x->expr.e))
       return false;
     break;
   case NKI_Stmt_assert:
-    if (!cbor_encode_tag(out, 8, 1, 1))
+    if (!cbor_encode_tag(out, 9, 1, 1))
       return false;
     if (!NKI_Expr_ser(out, x->assert.e))
       return false;
     break;
   case NKI_Stmt_ret:
-    if (!cbor_encode_tag(out, 8, 2, 1))
+    if (!cbor_encode_tag(out, 9, 2, 1))
       return false;
     if (!NKI_Expr_ser(out, x->ret.e))
       return false;
     break;
-  case NKI_Stmt_assign:
-    if (!cbor_encode_tag(out, 8, 3, 3))
+  case NKI_Stmt_declare:
+    if (!cbor_encode_tag(out, 9, 3, 2))
       return false;
-    if (!NKI_Expr_ser(out, x->assign.x))
+    if (!String_ser(out, x->declare.x))
       return false;
-    if (!NKI_Expr_Option_ser(out, x->assign.ty))
+    if (!NKI_Expr_ser(out, x->declare.ty))
       return false;
-    if (!NKI_Expr_Option_ser(out, x->assign.e))
+    break;
+  case NKI_Stmt_letM:
+    if (!cbor_encode_tag(out, 9, 4, 3))
+      return false;
+    if (!NKI_Pattern_ser(out, x->letM.p))
+      return false;
+    if (!NKI_Expr_Option_ser(out, x->letM.ty))
+      return false;
+    if (!NKI_Expr_ser(out, x->letM.e))
+      return false;
+    break;
+  case NKI_Stmt_setM:
+    if (!cbor_encode_tag(out, 9, 5, 3))
+      return false;
+    if (!NKI_Expr_ser(out, x->setM.x))
+      return false;
+    if (!NKI_Expr_ser(out, x->setM.e))
+      return false;
+    if (!cbor_encode_bool(out, x->setM.accum))
       return false;
     break;
   case NKI_Stmt_ifStm:
-    if (!cbor_encode_tag(out, 8, 4, 3))
+    if (!cbor_encode_tag(out, 9, 6, 3))
       return false;
     if (!NKI_Expr_ser(out, x->ifStm.e))
       return false;
@@ -306,7 +336,7 @@ bool NKI_Stmt__ser(FILE *out, struct NKI_Stmt_ *x) {
       return false;
     break;
   case NKI_Stmt_forLoop:
-    if (!cbor_encode_tag(out, 8, 5, 3))
+    if (!cbor_encode_tag(out, 9, 7, 3))
       return false;
     if (!NKI_Expr_ser(out, x->forLoop.x))
       return false;
@@ -316,11 +346,11 @@ bool NKI_Stmt__ser(FILE *out, struct NKI_Stmt_ *x) {
       return false;
     break;
   case NKI_Stmt_breakLoop:
-    if (!cbor_encode_tag(out, 8, 6, 0))
+    if (!cbor_encode_tag(out, 9, 8, 0))
       return false;
     break;
   case NKI_Stmt_continueLoop:
-    if (!cbor_encode_tag(out, 8, 7, 0))
+    if (!cbor_encode_tag(out, 9, 9, 0))
       return false;
     break;
   default:
@@ -330,7 +360,7 @@ bool NKI_Stmt__ser(FILE *out, struct NKI_Stmt_ *x) {
 }
 
 bool NKI_Stmt_ser(FILE *out, struct NKI_Stmt *x) {
-  if (!cbor_encode_tag(out, 7, 0, 2))
+  if (!cbor_encode_tag(out, 8, 0, 2))
     return false;
   if (!NKI_Stmt__ser(out, x->stmt))
     return false;
@@ -340,7 +370,7 @@ bool NKI_Stmt_ser(FILE *out, struct NKI_Stmt *x) {
 }
 
 bool NKI_Param_ser(FILE *out, struct NKI_Param *x) {
-  if (!cbor_encode_tag(out, 9, 0, 2))
+  if (!cbor_encode_tag(out, 10, 0, 2))
     return false;
   if (!String_ser(out, x->name))
     return false;
@@ -350,7 +380,7 @@ bool NKI_Param_ser(FILE *out, struct NKI_Param *x) {
 }
 
 bool NKI_Fun_ser(FILE *out, struct NKI_Fun *x) {
-  if (!cbor_encode_tag(out, 10, 0, 5))
+  if (!cbor_encode_tag(out, 11, 0, 5))
     return false;
   if (!String_ser(out, x->name))
     return false;
@@ -366,7 +396,7 @@ bool NKI_Fun_ser(FILE *out, struct NKI_Fun *x) {
 }
 
 bool NKI_Arg_ser(FILE *out, struct NKI_Arg *x) {
-  if (!cbor_encode_tag(out, 11, 0, 2))
+  if (!cbor_encode_tag(out, 12, 0, 2))
     return false;
   if (!String_ser(out, x->name))
     return false;
@@ -376,7 +406,7 @@ bool NKI_Arg_ser(FILE *out, struct NKI_Arg *x) {
 }
 
 bool NKI_Kernel_ser(FILE *out, struct NKI_Kernel *x) {
-  if (!cbor_encode_tag(out, 12, 0, 4))
+  if (!cbor_encode_tag(out, 13, 0, 4))
     return false;
   if (!String_ser(out, x->entry))
     return false;
@@ -431,6 +461,18 @@ bool NKI_Expr_Option_ser(FILE *out, struct NKI_Expr *x) {
   } else {
     return cbor_encode_option(out, true) && NKI_Expr_ser(out, x);
   }
+  return true;
+}
+
+bool NKI_Pattern_List_ser(FILE *out, struct NKI_Pattern_List *x) {
+  u64 count = 0;
+  for (struct NKI_Pattern_List *node = x; node; node = node->next)
+    count++;
+  if (!cbor_encode_array_start(out, count))
+    return false;
+  for (struct NKI_Pattern_List *node = x; node; node = node->next)
+    if (!NKI_Pattern_ser(out, node->pattern))
+      return false;
   return true;
 }
 
@@ -524,11 +566,6 @@ bool NKI_Value_des(FILE *in, struct region *region, struct NKI_Value **x) {
     (*x)->tag = NKI_Value_string;
     break;
   case 5:
-    if (l != 0)
-      return false;
-    (*x)->tag = NKI_Value_ellipsis;
-    break;
-  case 6:
     if (l != 2)
       return false;
     if (!Nat_List_des(in, region, &(*x)->tensor.shape))
@@ -680,22 +717,13 @@ bool NKI_Expr__des(FILE *in, struct region *region, struct NKI_Expr_ **x) {
     (*x)->tag = NKI_Expr_var;
     break;
   case 2:
-    if (l != 2)
-      return false;
-    if (!NKI_Expr_des(in, region, &(*x)->proj.expr))
-      return false;
-    if (!String_des(in, region, &(*x)->proj.name))
-      return false;
-    (*x)->tag = NKI_Expr_proj;
-    break;
-  case 3:
     if (l != 1)
       return false;
     if (!NKI_Expr_List_des(in, region, &(*x)->tuple.elements))
       return false;
     (*x)->tag = NKI_Expr_tuple;
     break;
-  case 4:
+  case 3:
     if (l != 2)
       return false;
     if (!NKI_Expr_des(in, region, &(*x)->access.expr))
@@ -704,7 +732,7 @@ bool NKI_Expr__des(FILE *in, struct region *region, struct NKI_Expr_ **x) {
       return false;
     (*x)->tag = NKI_Expr_access;
     break;
-  case 5:
+  case 4:
     if (l != 3)
       return false;
     if (!NKI_BinOp_des(in, region, &(*x)->binOp.op))
@@ -715,7 +743,7 @@ bool NKI_Expr__des(FILE *in, struct region *region, struct NKI_Expr_ **x) {
       return false;
     (*x)->tag = NKI_Expr_binOp;
     break;
-  case 6:
+  case 5:
     if (l != 3)
       return false;
     if (!NKI_Expr_des(in, region, &(*x)->ifExp.test))
@@ -726,7 +754,7 @@ bool NKI_Expr__des(FILE *in, struct region *region, struct NKI_Expr_ **x) {
       return false;
     (*x)->tag = NKI_Expr_ifExp;
     break;
-  case 7:
+  case 6:
     if (l != 3)
       return false;
     if (!NKI_Expr_des(in, region, &(*x)->call.f))
@@ -783,6 +811,11 @@ bool NKI_Index_des(FILE *in, struct region *region, struct NKI_Index **x) {
       return false;
     (*x)->tag = NKI_Index_slice;
     break;
+  case 2:
+    if (l != 0)
+      return false;
+    (*x)->tag = NKI_Index_ellipsis;
+    break;
   default:
     return false;
   }
@@ -803,11 +836,39 @@ bool NKI_Keyword_des(FILE *in, struct region *region, struct NKI_Keyword **x) {
   return true;
 }
 
+bool NKI_Pattern_des(FILE *in, struct region *region, struct NKI_Pattern **x) {
+  u8 t, c, l;
+  if (!cbor_decode_tag(in, &t, &c, &l))
+    return false;
+  if (t != 7)
+    return false;
+  *x = region_alloc(region, sizeof(**x));
+  switch (c) {
+  case 0:
+    if (l != 1)
+      return false;
+    if (!String_des(in, region, &(*x)->var.name))
+      return false;
+    (*x)->tag = NKI_Pattern_var;
+    break;
+  case 1:
+    if (l != 1)
+      return false;
+    if (!NKI_Pattern_List_des(in, region, &(*x)->tuple.xs))
+      return false;
+    (*x)->tag = NKI_Pattern_tuple;
+    break;
+  default:
+    return false;
+  }
+  return true;
+}
+
 bool NKI_Stmt__des(FILE *in, struct region *region, struct NKI_Stmt_ **x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 8)
+  if (t != 9)
     return false;
   *x = region_alloc(region, sizeof(**x));
   switch (c) {
@@ -833,17 +894,37 @@ bool NKI_Stmt__des(FILE *in, struct region *region, struct NKI_Stmt_ **x) {
     (*x)->tag = NKI_Stmt_ret;
     break;
   case 3:
-    if (l != 3)
+    if (l != 2)
       return false;
-    if (!NKI_Expr_des(in, region, &(*x)->assign.x))
+    if (!String_des(in, region, &(*x)->declare.x))
       return false;
-    if (!NKI_Expr_Option_des(in, region, &(*x)->assign.ty))
+    if (!NKI_Expr_des(in, region, &(*x)->declare.ty))
       return false;
-    if (!NKI_Expr_Option_des(in, region, &(*x)->assign.e))
-      return false;
-    (*x)->tag = NKI_Stmt_assign;
+    (*x)->tag = NKI_Stmt_declare;
     break;
   case 4:
+    if (l != 3)
+      return false;
+    if (!NKI_Pattern_des(in, region, &(*x)->letM.p))
+      return false;
+    if (!NKI_Expr_Option_des(in, region, &(*x)->letM.ty))
+      return false;
+    if (!NKI_Expr_des(in, region, &(*x)->letM.e))
+      return false;
+    (*x)->tag = NKI_Stmt_letM;
+    break;
+  case 5:
+    if (l != 3)
+      return false;
+    if (!NKI_Expr_des(in, region, &(*x)->setM.x))
+      return false;
+    if (!NKI_Expr_des(in, region, &(*x)->setM.e))
+      return false;
+    if (!Bool_des(in, region, &(*x)->setM.accum))
+      return false;
+    (*x)->tag = NKI_Stmt_setM;
+    break;
+  case 6:
     if (l != 3)
       return false;
     if (!NKI_Expr_des(in, region, &(*x)->ifStm.e))
@@ -854,7 +935,7 @@ bool NKI_Stmt__des(FILE *in, struct region *region, struct NKI_Stmt_ **x) {
       return false;
     (*x)->tag = NKI_Stmt_ifStm;
     break;
-  case 5:
+  case 7:
     if (l != 3)
       return false;
     if (!NKI_Expr_des(in, region, &(*x)->forLoop.x))
@@ -865,12 +946,12 @@ bool NKI_Stmt__des(FILE *in, struct region *region, struct NKI_Stmt_ **x) {
       return false;
     (*x)->tag = NKI_Stmt_forLoop;
     break;
-  case 6:
+  case 8:
     if (l != 0)
       return false;
     (*x)->tag = NKI_Stmt_breakLoop;
     break;
-  case 7:
+  case 9:
     if (l != 0)
       return false;
     (*x)->tag = NKI_Stmt_continueLoop;
@@ -885,7 +966,7 @@ bool NKI_Stmt_des(FILE *in, struct region *region, struct NKI_Stmt **x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 7 || c != 0 || l != 2)
+  if (t != 8 || c != 0 || l != 2)
     return false;
   *x = region_alloc(region, sizeof(**x));
   if (!NKI_Stmt__des(in, region, &(*x)->stmt))
@@ -899,7 +980,7 @@ bool NKI_Param_des(FILE *in, struct region *region, struct NKI_Param **x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 9 || c != 0 || l != 2)
+  if (t != 10 || c != 0 || l != 2)
     return false;
   *x = region_alloc(region, sizeof(**x));
   if (!String_des(in, region, &(*x)->name))
@@ -913,7 +994,7 @@ bool NKI_Fun_des(FILE *in, struct region *region, struct NKI_Fun **x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 10 || c != 0 || l != 5)
+  if (t != 11 || c != 0 || l != 5)
     return false;
   *x = region_alloc(region, sizeof(**x));
   if (!String_des(in, region, &(*x)->name))
@@ -933,7 +1014,7 @@ bool NKI_Arg_des(FILE *in, struct region *region, struct NKI_Arg **x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 11 || c != 0 || l != 2)
+  if (t != 12 || c != 0 || l != 2)
     return false;
   *x = region_alloc(region, sizeof(**x));
   if (!String_des(in, region, &(*x)->name))
@@ -947,7 +1028,7 @@ bool NKI_Kernel_des(FILE *in, struct region *region, struct NKI_Kernel **x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 12 || c != 0 || l != 4)
+  if (t != 13 || c != 0 || l != 4)
     return false;
   *x = region_alloc(region, sizeof(**x));
   if (!String_des(in, region, &(*x)->entry))
@@ -1032,6 +1113,27 @@ bool NKI_Expr_Option_des(FILE *in, struct region *region, struct NKI_Expr **x) {
     *x = 0;
   else
     return NKI_Expr_des(in, region, x);
+  return true;
+}
+
+bool NKI_Pattern_List_des(FILE *in, struct region *region,
+                          struct NKI_Pattern_List **x) {
+  u64 count = 0;
+  if (!cbor_decode_array_start(in, &count))
+    return false;
+  struct NKI_Pattern_List *current = *x = NULL;
+  for (; count > 0; count--) {
+    struct NKI_Pattern_List *node = region_alloc(region, sizeof(*node));
+    node->next = NULL;
+    if (!current) {
+      *x = current = node;
+    } else {
+      current->next = node;
+      current = node;
+    }
+    if (!NKI_Pattern_des(in, region, &node->pattern))
+      return false;
+  }
   return true;
 }
 

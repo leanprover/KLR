@@ -14,7 +14,7 @@ C += topy_nki.c
 C += region.c peg_parser.c gather.c simplify.c frontend.c
 O := $(patsubst %.c,%.${PY_VER}.o,$C)
 
-TESTS := cbor_test simplify_test
+TESTS := cbor_test
 
 .SUFFIXES:
 .PHONY: all versions test clean

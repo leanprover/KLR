@@ -47,6 +47,14 @@ bool Python_Const_ser(FILE *out, struct Python_Const *x) {
     if (!cbor_encode_tag(out, 1, 5, 0))
       return false;
     break;
+  case Python_Const_tensor:
+    if (!cbor_encode_tag(out, 1, 6, 2))
+      return false;
+    if (!Nat_List_ser(out, x->tensor.shape))
+      return false;
+    if (!String_ser(out, x->tensor.dtype))
+      return false;
+    break;
   default:
     return false;
   }
@@ -229,16 +237,8 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
     if (!Python_Const_ser(out, x->c.value))
       return false;
     break;
-  case Python_Expr_tensor:
-    if (!cbor_encode_tag(out, 8, 1, 2))
-      return false;
-    if (!Python_Expr_List_ser(out, x->tensor.shape))
-      return false;
-    if (!String_ser(out, x->tensor.dtype))
-      return false;
-    break;
   case Python_Expr_name:
-    if (!cbor_encode_tag(out, 8, 2, 2))
+    if (!cbor_encode_tag(out, 8, 1, 2))
       return false;
     if (!String_ser(out, x->name.id))
       return false;
@@ -246,7 +246,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_attr:
-    if (!cbor_encode_tag(out, 8, 3, 3))
+    if (!cbor_encode_tag(out, 8, 2, 3))
       return false;
     if (!Python_Expr_ser(out, x->attr.value))
       return false;
@@ -256,7 +256,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_tuple:
-    if (!cbor_encode_tag(out, 8, 4, 2))
+    if (!cbor_encode_tag(out, 8, 3, 2))
       return false;
     if (!Python_Expr_List_ser(out, x->tuple.xs))
       return false;
@@ -264,7 +264,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_list:
-    if (!cbor_encode_tag(out, 8, 5, 2))
+    if (!cbor_encode_tag(out, 8, 4, 2))
       return false;
     if (!Python_Expr_List_ser(out, x->list.xs))
       return false;
@@ -272,7 +272,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_subscript:
-    if (!cbor_encode_tag(out, 8, 6, 3))
+    if (!cbor_encode_tag(out, 8, 5, 3))
       return false;
     if (!Python_Expr_ser(out, x->subscript.tensor))
       return false;
@@ -282,7 +282,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_slice:
-    if (!cbor_encode_tag(out, 8, 7, 3))
+    if (!cbor_encode_tag(out, 8, 6, 3))
       return false;
     if (!Python_Expr_Option_ser(out, x->slice.l))
       return false;
@@ -292,7 +292,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_boolOp:
-    if (!cbor_encode_tag(out, 8, 8, 2))
+    if (!cbor_encode_tag(out, 8, 7, 2))
       return false;
     if (!Python_BoolOp_ser(out, x->boolOp.op))
       return false;
@@ -300,7 +300,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_binOp:
-    if (!cbor_encode_tag(out, 8, 9, 3))
+    if (!cbor_encode_tag(out, 8, 8, 3))
       return false;
     if (!Python_BinOp_ser(out, x->binOp.op))
       return false;
@@ -310,7 +310,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_unaryOp:
-    if (!cbor_encode_tag(out, 8, 10, 2))
+    if (!cbor_encode_tag(out, 8, 9, 2))
       return false;
     if (!Python_UnaryOp_ser(out, x->unaryOp.op))
       return false;
@@ -318,7 +318,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_compare:
-    if (!cbor_encode_tag(out, 8, 11, 3))
+    if (!cbor_encode_tag(out, 8, 10, 3))
       return false;
     if (!Python_Expr_ser(out, x->compare.left))
       return false;
@@ -328,7 +328,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_ifExp:
-    if (!cbor_encode_tag(out, 8, 12, 3))
+    if (!cbor_encode_tag(out, 8, 11, 3))
       return false;
     if (!Python_Expr_ser(out, x->ifExp.test))
       return false;
@@ -338,7 +338,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_call:
-    if (!cbor_encode_tag(out, 8, 13, 3))
+    if (!cbor_encode_tag(out, 8, 12, 3))
       return false;
     if (!Python_Expr_ser(out, x->call.f))
       return false;
@@ -643,6 +643,15 @@ bool Python_Const_des(FILE *in, struct region *region,
       return false;
     (*x)->tag = Python_Const_ellipsis;
     break;
+  case 6:
+    if (l != 2)
+      return false;
+    if (!Nat_List_des(in, region, &(*x)->tensor.shape))
+      return false;
+    if (!String_des(in, region, &(*x)->tensor.dtype))
+      return false;
+    (*x)->tag = Python_Const_tensor;
+    break;
   default:
     return false;
   }
@@ -899,22 +908,13 @@ bool Python_Expr__des(FILE *in, struct region *region,
   case 1:
     if (l != 2)
       return false;
-    if (!Python_Expr_List_des(in, region, &(*x)->tensor.shape))
-      return false;
-    if (!String_des(in, region, &(*x)->tensor.dtype))
-      return false;
-    (*x)->tag = Python_Expr_tensor;
-    break;
-  case 2:
-    if (l != 2)
-      return false;
     if (!String_des(in, region, &(*x)->name.id))
       return false;
     if (!Python_Ctx_des(in, region, &(*x)->name.ctx))
       return false;
     (*x)->tag = Python_Expr_name;
     break;
-  case 3:
+  case 2:
     if (l != 3)
       return false;
     if (!Python_Expr_des(in, region, &(*x)->attr.value))
@@ -925,7 +925,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     (*x)->tag = Python_Expr_attr;
     break;
-  case 4:
+  case 3:
     if (l != 2)
       return false;
     if (!Python_Expr_List_des(in, region, &(*x)->tuple.xs))
@@ -934,7 +934,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     (*x)->tag = Python_Expr_tuple;
     break;
-  case 5:
+  case 4:
     if (l != 2)
       return false;
     if (!Python_Expr_List_des(in, region, &(*x)->list.xs))
@@ -943,7 +943,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     (*x)->tag = Python_Expr_list;
     break;
-  case 6:
+  case 5:
     if (l != 3)
       return false;
     if (!Python_Expr_des(in, region, &(*x)->subscript.tensor))
@@ -954,7 +954,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     (*x)->tag = Python_Expr_subscript;
     break;
-  case 7:
+  case 6:
     if (l != 3)
       return false;
     if (!Python_Expr_Option_des(in, region, &(*x)->slice.l))
@@ -965,7 +965,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     (*x)->tag = Python_Expr_slice;
     break;
-  case 8:
+  case 7:
     if (l != 2)
       return false;
     if (!Python_BoolOp_des(in, region, &(*x)->boolOp.op))
@@ -974,7 +974,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     (*x)->tag = Python_Expr_boolOp;
     break;
-  case 9:
+  case 8:
     if (l != 3)
       return false;
     if (!Python_BinOp_des(in, region, &(*x)->binOp.op))
@@ -985,7 +985,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     (*x)->tag = Python_Expr_binOp;
     break;
-  case 10:
+  case 9:
     if (l != 2)
       return false;
     if (!Python_UnaryOp_des(in, region, &(*x)->unaryOp.op))
@@ -994,7 +994,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     (*x)->tag = Python_Expr_unaryOp;
     break;
-  case 11:
+  case 10:
     if (l != 3)
       return false;
     if (!Python_Expr_des(in, region, &(*x)->compare.left))
@@ -1005,7 +1005,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     (*x)->tag = Python_Expr_compare;
     break;
-  case 12:
+  case 11:
     if (l != 3)
       return false;
     if (!Python_Expr_des(in, region, &(*x)->ifExp.test))
@@ -1016,7 +1016,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     (*x)->tag = Python_Expr_ifExp;
     break;
-  case 13:
+  case 12:
     if (l != 3)
       return false;
     if (!Python_Expr_des(in, region, &(*x)->call.f))
