@@ -37,7 +37,8 @@ abbrev PROP : Type _ := heProp PNat ProdIndex (UCell UInt8 DataT) ProdChipMemory
 def state_interp (left right : @state DataT) : @PROP DataT :=
   heProp_auth _ _ _ _ (.mk left.memory right.memory)
 
-def wp_F (wp : @prog DataT → @prog DataT → (@val DataT → @val DataT → @PROP DataT) → @PROP DataT)
+def wp_F (wp : LeibnizO Nat → @prog DataT → @prog DataT → (@val DataT → @val DataT → @PROP DataT) → @PROP DataT)
+         (K : LeibnizO Nat)
          (p1 p2 : @prog DataT)
          (Φf : @val DataT → @val DataT → @PROP DataT) : @PROP DataT :=
   -- For any pair of states that satisfy the state interpretation...
@@ -46,27 +47,29 @@ def wp_F (wp : @prog DataT → @prog DataT → (@val DataT → @val DataT → @P
       (|==> ∃ vl, ∃ vr, ⌜to_val p1 = some vl⌝ ∗ ⌜to_val p2 = some vr⌝ ∗ Φf vl vr) ∨
       -- Or, they're not values, and for any two configurations that we can step into, in some number of steps,
       ( ⌜to_val p1 = none ∨ to_val p2 = none⌝ ∗
-        ∀ cl', ∀ cr', ∀ nl, ∀ nr,
-          ⌜StepN (Nat.succ nl) (p1, sl) cl' ∧ StepN (Nat.succ nr) (p2, sr) cr'⌝ -∗
+        ∃ cl', ∃ cr', ∃ nl, ∃ nr,
+          ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K.car ∧ nr ≤ K.car ∧
+            StepN nl (p1, sl) cl' ∧ StepN nr (p2, sr) cr'⌝ -∗
             -- We can reobtain the state interp for the new state, and also
             -- prove the weakest precondition.
-            ▷ |==> (state_interp cl'.2 cr'.2 ∗ wp cl'.1 cr'.1 Φf)))
+            ▷ |==> (state_interp cl'.2 cr'.2 ∗ wp K cl'.1 cr'.1 Φf)))
 
-instance wp_contractive : Iris.OFE.Contractive (α := @prog DataT → @prog DataT → (@val DataT → @val DataT → @PROP DataT) → @PROP DataT) wp_F := by
+instance wp_contractive : Iris.OFE.Contractive (α := LeibnizO Nat → @prog DataT → @prog DataT → (@val DataT → @val DataT → @PROP DataT) → @PROP DataT) wp_F := by
   sorry
 
 /-- Definition of the weakest precondition -/
-def wp (p1 p2 : @prog DataT) (Φf : @val DataT → @val DataT → @PROP DataT) : @PROP DataT :=
-  (Iris.fixpoint wp_F) p1 p2 Φf
+def wp (K : LeibnizO Nat) (p1 p2 : @prog DataT) (Φf : @val DataT → @val DataT → @PROP DataT) : @PROP DataT :=
+  (Iris.fixpoint wp_F) K p1 p2 Φf
 
-theorem wp_unfold {p1 p2 : @prog DataT} {Φf : @val DataT → @val DataT → @PROP DataT} :
-    wp p1 p2 Φf ≡
+theorem wp_unfold {K : LeibnizO Nat} {p1 p2 : @prog DataT} {Φf : @val DataT → @val DataT → @PROP DataT} :
+    wp K p1 p2 Φf ≡
     iprop(∀ sl, ∀ sr, state_interp sl sr -∗
       (|==> ∃ vl, ∃ vr, ⌜to_val p1 = some vl⌝ ∗ ⌜to_val p2 = some vr⌝ ∗ Φf vl vr) ∨
       ( ⌜to_val p1 = none ∨ to_val p2 = none⌝ ∗
-        ∀ cl', ∀ cr', ∀ nl, ∀ nr,
-          ⌜StepN (Nat.succ nl) (p1, sl) cl' ∧ StepN (Nat.succ nr) (p2, sr) cr'⌝ -∗
-            ▷ |==> (state_interp cl'.2 cr'.2 ∗ wp cl'.1 cr'.1 Φf))) := by
+        ∃ cl', ∃ cr', ∃ nl, ∃ nr,
+          ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K.car ∧ nr ≤ K.car ∧
+            StepN nl (p1, sl) cl' ∧ StepN nr (p2, sr) cr'⌝ -∗
+            ▷ |==> (state_interp cl'.2 cr'.2 ∗ wp K cl'.1 cr'.1 Φf))) := by
   apply fixpoint_unfold (f := ⟨wp_F, OFE.ne_of_contractive wp_F⟩)
 
 end weakestpre
@@ -74,7 +77,7 @@ end weakestpre
 /-- If the two terms are values, then we at the very least get a relationship between their values. -/
 theorem wp_value_value_fupd {pl pr : @prog DataT} {sl sr : @state DataT} {Φf : @val DataT → @val DataT → Prop}
     (Hpl : (NML.NMLSemantics DataT).IsValue pl) (Hpr : (NML.NMLSemantics DataT).IsValue pr) :
-    state_interp sl sr ∗ wp pl pr (fun vl vr => iprop(⌜(Φf vl vr : Prop)⌝)) ⊢
+    state_interp sl sr ∗ wp K pl pr (fun vl vr => iprop(⌜(Φf vl vr : Prop)⌝)) ⊢
             |==> ⌜∃ (vl vr : @val DataT), to_val pl = some vl ∧ to_val pr = some vr ∧ Φf vl vr⌝ := by
   apply Iris.BI.entails_trans.trans (Iris.BI.equiv_iff.mp (Iris.BI.sep_ne.eqv .rfl wp_unfold)).mp
   istart
@@ -100,8 +103,8 @@ theorem wp_value_value_fupd {pl pr : @prog DataT} {sl sr : @state DataT} {Φf : 
 
 
 /-- Definition for Hoare Triple -/
-def triple (pre : @PROP DataT) (p1 p2 : @prog DataT) post :=
-  iprop(pre -∗ wp p1 p2 post)
+def triple (pre : @PROP DataT) K (p1 p2 : @prog DataT) post :=
+  iprop(pre -∗ wp K p1 p2 post)
 
 macro "{{ " pre:term  " }} " p1:term " × " p2:term "{{ " x:ident  " => " post:term " }} " : term => do
   ``(triple $pre $p1 $p2 (fun $x => $post))
