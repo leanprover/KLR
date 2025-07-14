@@ -218,13 +218,25 @@ theorem StepN_add_iff {S : SmallStep} {n1 n2 : Nat} {c1 c2} :
       apply IH.mpr
       exists c3
 
+theorem stepN_eq [Det S] {n c c1 c2} : S.StepN n c c1 → S.StepN n c c2 → c1 = c2 := by
+  revert c
+  induction n with | zero => ?_ | succ n IH => ?_
+  · intro _ H1 H2; rw [← S.stepN_zero_inv H1, ← S.stepN_zero_inv H2]
+  · intro c H1 H2
+    rw [Nat.add_comm] at H1 H2
+    obtain ⟨c1', Hc1', H1⟩ := StepN_add_iff.mp H1
+    obtain ⟨c2', Hc2', H2⟩ := StepN_add_iff.mp H2
+    obtain rfl : c1' = c2' := Det.step_det (S.step_of_stepN_one Hc2') _ (S.step_of_stepN_one Hc1')
+    exact IH H1 H2
+
 theorem Nonterminating_step [Det S] {c : S.Prog × S.State} (H : S.Nonterminating c) :
     ∃ c', S.Step c c' := by
-  sorry
+  if h : S.IsStuck c
+    then exact H (.done rfl) h |>.elim
+    else exact Classical.not_forall_not.mp h
 
 theorem Nonterminating_step_Nonterminating [Det S] {c : S.Prog × S.State} (H : S.Nonterminating c) (Hs : S.Step c c'):
-    S.Nonterminating c' := by
-  sorry
+    S.Nonterminating c' := fun HS HK' => (H (.step Hs HS) HK').elim
 
 /-- A program steps to a value in exactly n steps -/
 def StepsToValue {S : SmallStep} (n : Nat) (c : S.Prog × S.State) (v : S.Val) :=
@@ -238,8 +250,11 @@ theorem StepsAtLeast_zero {S : SmallStep} {c : S.Prog × S.State} : S.StepsAtLea
   ⟨c, StepN.done rfl⟩
 
 theorem StepsAtLeast_succ [Det S] {c c' : S.Prog × S.State} (Hs : S.Step c c') (H : S.StepsAtLeast n c') :
-    S.StepsAtLeast (n + 1) c :=
-  sorry
+    S.StepsAtLeast (n + 1) c := by
+  rcases H with ⟨c'', Hc''⟩
+  exists c''
+  rw [Nat.add_comm, StepN_add_iff]
+  exact ⟨c', ⟨S.stepN_1_iff_step.mpr Hs, Hc''⟩⟩
 
 theorem Nonterminating_StepsAtLeast [Det S] {c : S.Prog × S.State} (H : S.Nonterminating c) :
     S.StepsAtLeast n c := by
@@ -248,6 +263,34 @@ theorem Nonterminating_StepsAtLeast [Det S] {c : S.Prog × S.State} (H : S.Nonte
   intro c H
   rcases (Nonterminating_step H) with ⟨c', Hstep_c'⟩
   exact StepsAtLeast_succ Hstep_c' (IH <| Nonterminating_step_Nonterminating H Hstep_c')
+
+theorem Nonterminating_not_StepsToValue [Det S] {c : S.Prog × S.State} {n : Nat} {v : S.Val}
+    (Hn : S.Nonterminating c) (H : S.StepsToValue n c v) : False := by
+  obtain ⟨cf, Hk⟩ := @S.Nonterminating_StepsAtLeast (n + 1) _ _ Hn
+  rw [StepN_add_iff] at Hk; rcases Hk with ⟨cf', H1, H2⟩
+  obtain ⟨cf'', H3, H4⟩ := H
+  obtain rfl := stepN_eq H1 H3
+  apply @S.toVal_isSome_isStuck cf'.1 cf.1 cf'.2 cf.2
+  · rw [H4]; exact Option.IsSomeP.some
+  · exact S.stepN_1_iff_step.mp H2
+
+theorem stepN_isStuck_stepAtLeast_le [Det S] {n1 n2 : Nat} {c c' : S.Prog × S.State}
+    (Hs : S.StepN n1 c c') (Hst : S.IsStuck c') (HL : S.StepsAtLeast n2 c) : n2 ≤ n1 := by
+  false_or_by_contra; rename_i HK
+  have HR : n2 = n1 + ((n2 - n1 - 1) + 1) := by omega
+  rw [HR] at HL
+  unfold StepsAtLeast at HL
+  rcases HL with  ⟨c1', Hc1'⟩
+  rw [StepN_add_iff] at Hc1'
+  rcases Hc1' with ⟨c3, Hc3, H4⟩
+  obtain rfl : c' = c3 := stepN_eq Hs Hc3
+  rw [Nat.add_comm, StepN_add_iff] at H4
+  rcases H4 with ⟨_, HK, _⟩
+  exact Hst (S.step_of_stepN_one HK)
+
+theorem stepN_isStuck_stepAtLeast_false [Det S] {n1 n2 : Nat} {c c' : S.Prog × S.State}
+    (Hs : S.StepN n1 c c') (Hst : S.IsStuck c') (HL : S.StepsAtLeast n2 c) : n1 < n2 → False := by
+  have _ := stepN_isStuck_stepAtLeast_le Hs Hst HL; omega
 
 /-- Program equivalence.
 
@@ -288,18 +331,18 @@ theorem PrelNLimit [Det S] (K : Nat) {c1 c2 : S.Prog × S.State} {Φf : S.Val �
       rcases H with ⟨n1', n2', v1', v2', _, _, _, _, _⟩
       exists n1'; exists n2'; exists v1'; exists v2'
     · exfalso
-      -- Can't be the case, becase c2 gets stuck after n2 steps
-      sorry
+      apply S.stepN_isStuck_stepAtLeast_false HStep2 HStuck2 H.2
+      omega
   · rcases Hrel (n1 + 1) with (H|H)  <;> exfalso
-    ·  -- Can't be the case, because c2 steps to a value but is also nonterminating
-      sorry
-    ·  -- Can't be the case, because c1 gets stuck after n1 steps
-      sorry
+    · rcases H with ⟨_, _, _, _, _, _, _, HK, _⟩
+      exact S.Nonterminating_not_StepsToValue H2 HK
+    · exact S.stepN_isStuck_stepAtLeast_false HStep1 HStuck1 H.1 n1.lt_add_one
   · rcases Hrel (n2 + 1) with (H|H)  <;> exfalso
     ·  -- Can't be the case, because c1 steps to a value but is also nonterminating
-      sorry
-    ·  -- Can't be the case, because c2 gets stuck after n2 steps
-      sorry
+      rcases H with ⟨_, _, _, _, _, _, HK, _⟩
+      exact S.Nonterminating_not_StepsToValue H1 HK
+    · apply S.stepN_isStuck_stepAtLeast_false HStep2 HStuck2 H.2
+      exact n2.lt_add_one
   · exact .inr ⟨H1, H2⟩
 
 
@@ -369,35 +412,48 @@ theorem PRelNS [Det S] {c1 c2 : S.Prog × S.State} {Φf : S.Val → S.Val → Pr
       · rw [Nat.right_distrib, Nat.one_mul]
         exact Nat.add_le_add Hn2r Hn2K
       refine ⟨?_, ?_⟩
-      · -- StepsToValue stepN add lemma
-        sorry
+      · rcases Hstep1r with ⟨cv1, Hcv1, Hcv2⟩
+        refine ⟨cv1, ?_, Hcv2⟩
+        rw [Nat.add_comm]; apply StepN_add_iff.mpr; exists c1'
       refine ⟨?_, ?_⟩
-      · -- StepsToValue stepN add lemma
-        sorry
+      · rcases Hstep2r with ⟨cv1, Hcv1, Hcv2⟩
+        refine ⟨cv1, ?_, Hcv2⟩
+        rw [Nat.add_comm]; apply StepN_add_iff.mpr; exists c2'
       exact HΦ
-    · -- They step to states with a LB on their steps
-      right
+    · right
+      rcases H with ⟨⟨z1,Hz1⟩,⟨z2,Hz2⟩⟩
+      have HFL : S.StepN (n1 + n) c1 z1 := by apply StepN_add_iff.mpr; exists c1'
+      have HFR : S.StepN (n2 + n) c2 z2 := by apply StepN_add_iff.mpr; exists c2'
+      rcases n1 with (_|n1); omega
+      rcases n2 with (_|n2); omega
+      obtain X : n1 + 1 + n = n + 1 + n1 := by omega
+      rw [X] at HFL; clear X
+      obtain X : n2 + 1 + n = n + 1 + n2 := by omega
+      rw [X] at HFR; clear X
       refine ⟨?_, ?_⟩
-      · -- StepsAtLeast StepN lemma + Hpos
-        sorry
-      · -- StepsAtLeast StepN lemma + Hpos
-        sorry
+      · obtain ⟨z, _, _⟩ := StepN_add_iff.mp HFL
+        exists z
+      · obtain ⟨z, _, _⟩ := StepN_add_iff.mp HFR
+        exists z
   · exfalso
-    -- c2 is a value, so is stuck, but HrelS says it takes a step
-    sorry
+    rcases HrelS with ⟨_, nk, _, _, _, _, _, _, _, HK, _⟩
+    cases nk; omega
+    obtain ⟨z, HK1, _⟩ := StepN_add_iff.mp (Nat.add_comm _ _ ▸ HK)
+    apply @S.toVal_isSome_isStuck c2.1 z.1 c2.2 z.2
+    · rw [H2]; exact Option.IsSomeP.some
+    · exact S.stepN_1_iff_step.mp HK1
   · exfalso
-    -- c1 is a value, so is stuck, but HrelS says it takes a step
-    sorry
-  · -- They both are values, and need to take zero steps
-    left
+    rcases HrelS with ⟨nk, _, _, _, _, _, _, _, HK, _⟩
+    cases nk; omega
+    obtain ⟨z, HK1, _⟩ := StepN_add_iff.mp (Nat.add_comm _ _ ▸ HK)
+    apply @S.toVal_isSome_isStuck c1.1 z.1 c1.2 z.2
+    · rw [H1]; exact Option.IsSomeP.some
+    · exact S.stepN_1_iff_step.mp HK1
+  · left
     rename_i v1 v2
     exists 0; exists 0; exists v1; exists v2
     refine ⟨Nat.zero_le _, ?_⟩
     refine ⟨Nat.zero_le _, ?_⟩
-    refine ⟨?_, ?_⟩
-    · -- StepsToValue value 0 lemma
-      sorry
-    refine ⟨?_, ?_⟩
-    · -- StepsToValue value 0 lemma
-      sorry
+    refine ⟨⟨c1, StepN.done rfl, H1⟩, ?_⟩
+    refine ⟨⟨c2, StepN.done rfl, H2⟩, ?_⟩
     exact HrelS
