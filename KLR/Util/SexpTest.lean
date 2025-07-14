@@ -30,7 +30,6 @@ private def roundTrip [BEq a] [ToSexp a] [FromSexp a] (x : a) : Bool :=
   | .error _ => false
   | .ok z => x == z
 
-
 #guard roundTrip (HashMap.ofList [(1, 2), (3, 4)])
 
 #guard roundTrip true
@@ -55,6 +54,7 @@ deriving BEq, FromSexp, Repr, ToSexp
 -- non-named field syntax
 #guard fromSexp? (sexp% (5 7)) == .ok (Foo.mk 5 7)
 #guard !(@fromSexp? Foo _ (sexp% (5 7 8))).isOk
+#guard @fromSexp? Foo _ (sexp% ((x 5) (z 9))) == .error "No field named z in Foo"
 
 -- named field syntax
 #guard fromSexp? (sexp% ((x 5) (y 7))) == .ok (Foo.mk 5 7)
@@ -83,6 +83,8 @@ deriving BEq, FromSexp, ToSexp, Repr, Lean.ToJson, Lean.FromJson
 #guard roundTrip (A1.z 5 6)
 #guard fromSexp? (sexp% (x (n 5))) == .ok (A1.x 5)
 
+#guard (@fromSexp? A1 _ (sexp% (x (n 5) (zzz 9)))) == .error "No field named zzz in A1.x"
+
 private inductive A2 where
 | x : Nat -> A2
 | y (n : Nat)
@@ -100,7 +102,6 @@ deriving BEq, FromSexp, Repr, ToSexp
 #guard toSexp (Bar.x 5 7) == sexp% (x (n 5) (k 7))
 #guard toSexp (Bar.y (Foo.mk 5 10)) == sexp% (y (m ((x 5) (y 10))))
 #guard fromSexp? (sexp% (x (n 5) (k 7))) == .ok (Bar.x 5 7)
--- unnamed syntax
 #guard fromSexp? (sexp% (x (n 5) (k 7))) == .ok (Bar.x 5 7)
 #guard fromSexp? (sexp% (x 5 7)) == .ok (Bar.x 5 7)
 #guard roundTrip (Bar.x 5 7)

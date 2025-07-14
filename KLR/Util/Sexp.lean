@@ -10,6 +10,7 @@ import TensorLib
 import Util.Common
 import Util.Float
 import Util.Hex
+import Util.Meta
 
 open Lean(Command ConstructorVal CoreM Expr Ident InductiveVal Macro Name Syntax TSyntax Term getConstInfoCtor getConstInfoInduct getEnv getStructureFieldsFlattened isInductive isStructure mkIdent quote)
 open Lean.Core(mkFreshUserName)
@@ -261,6 +262,11 @@ def length? : Sexp -> Err Nat
 | atom _ => throw "calling length on atom"
 | list es => return es.length
 
+def tag : Sexp -> Err String
+| atom a => return a
+| list (atom a :: _) => return a
+| _ => throw "not a tag"
+
 def tail : Sexp -> Err Sexp
 | list (_ :: xs) => return list xs
 | _ => throw "tail"
@@ -296,23 +302,34 @@ def hasTag (sexp : Sexp) (tag : String) : Bool := match sexp with
 | list (atom tag' :: _) => tag == tag'
 | _ => false
 
+def alistToList : Sexp -> Err (List (String × Sexp))
+| list [] => return []
+| list (list [atom k, v] :: xs) => return (k, v) :: (<- (list xs).alistToList)
+| _ => throw "not an alist"
+
+def isAlist : Sexp -> Bool
+| list [] => true
+| list (list [_, _] :: xs) => (list xs).isAlist
+| _ => false
+
+def alistKeys (s : Sexp) : Err (List String) :=
+  s.alistToList.map fun l => l.map fun (x, _) => x
+
+def alistValues (s : Sexp) : Err (List Sexp) :=
+  s.alistToList.map fun l => l.map fun (_, v) => v
+
 private def mkToSexpHeader (indVal : InductiveVal) : TermElabM Header := do
   mkHeader ``ToSexp 1 indVal
 
 private def mkFromSexpHeader (indVal : InductiveVal) : TermElabM Header := do
   let header ← mkHeader ``FromSexp 0 indVal
   let sexpArg ← `(bracketedBinderF|(sexp : Sexp))
-  return {header with
-    binders := header.binders.push sexpArg}
-
-private def mkSexpField (n : Name) : CoreM Term := do
-  let .str .anonymous s := n | throwError "invalid sexp field name {n}"
-  return Syntax.mkStrLit s
+  return { header with binders := header.binders.push sexpArg }
 
 private def mkToSexpBodyForStruct (header : Header) (indName : Name) : TermElabM Term := do
   let fields := getStructureFieldsFlattened (← getEnv) indName (includeSubobjectFields := false)
-  let fields ← fields.mapM fun field => do
-    let nm ← mkSexpField field
+  let fields <- fields.mapM fun field => do
+    let nm <- Meta.nameToStrLit field
     let target := mkIdent header.targetNames[0]!
     ``(list [atom $nm, toSexp ($target).$(mkIdent field)])
   `(list <| [$fields,*])
@@ -373,9 +390,11 @@ where
         alts := alts.push alt
       return alts
 
+-- TODO: captures `sexp`. Make this hygenic
 private def mkFromSexpBodyForStruct (indName : Name) : TermElabM Term := do
   let env <- getEnv
   let fields := getStructureFieldsFlattened env indName (includeSubobjectFields := false)
+  let fieldStrings := fields.map fun f => Syntax.mkStrLit f.getString!
   -- Handle named arguments
   let getNamed ← fields.mapM (fun field => do
     let default : TermElabM (Option Term) := match Lean.getDefaultFnForField? env indName field with
@@ -387,8 +406,8 @@ private def mkFromSexpBodyForStruct (indName : Name) : TermElabM Term := do
       some syn
     let default <- default
     let getter ← match default with
-    | none => `(assoc _ sexp $(← mkSexpField field))
-    | some default => `(assocWithDefault _ sexp $(← mkSexpField field) $(default))
+    | none => `(assoc _ sexp $(← Meta.nameToStrLit field))
+    | some default => `(assocWithDefault _ sexp $(← Meta.nameToStrLit field) $(default))
     let getter ← `(doElem| Except.mapError (fun s => (toString $(quote indName)) ++ "." ++ (toString $(quote field)) ++ ": " ++ s) <| $getter)
     return getter
   )
@@ -399,9 +418,15 @@ private def mkFromSexpBodyForStruct (indName : Name) : TermElabM Term := do
       return getter
   )
   let fields := fields.map mkIdent
+  let name <- Meta.nameToStrLit indName
   `(do
       let n <- sexp.length?
       if $(Syntax.mkNatLit fields.size) < n then throw "length mismatch for struct" else
+      match sexp.alistKeys with
+      | .error _ => pure ()
+      | .ok keys => match keys.find? fun k => !([ $fieldStrings,* ].contains k) with
+        | some k => throw s!"No field named {k} in {$name}"
+        | none => pure ()
       try
         $[let $fields:ident ← $getNamed]*
         return { $[$fields:ident := $(id fields)],* }
@@ -425,17 +450,18 @@ deriving Inhabited
 
 namespace TagArgInfo
 
-def nameToStringTerm (name : Name) : Term := Syntax.mkStrLit name.getString!
-
 -- Captures 'sexp'
-def rhsNamed (info : TagArgInfo) : TermElabM Term := match info.username, info.default with
-| some k, none => `(
-  <- sexp.assoc _ $(nameToStringTerm k)
-)
-| some k, some d => `(
-  <- sexp.assocWithDefault _ $(nameToStringTerm k) $(d)
-)
-| _, _ => impossible "invariant violation"
+def rhsNamed (info : TagArgInfo) : TermElabM Term := match info.username with
+| some k => do
+  let name <- Meta.nameToStrLit k
+  match info.default with
+  | none => `(
+      <- sexp.assoc _ $name
+    )
+  | some d => `(
+      <- sexp.assocWithDefault _ $name $d
+    )
+| _ => impossible "invariant violation"
 
 -- Captures 'sexp'
 def rhsIndex (info : TagArgInfo) : TermElabM Term := `(
@@ -445,6 +471,7 @@ def rhsIndex (info : TagArgInfo) : TermElabM Term := `(
 end TagArgInfo
 
 structure TagInfo where
+  typName : Name
   ctorName : Name
   arr : Array TagArgInfo
 
@@ -463,6 +490,9 @@ def ctorIdent (tagInfo : TagInfo) : Ident := mkIdent tagInfo.ctorName
 
 def isNamed (tagInfo : TagInfo) : Bool := tagInfo.arr.all fun info => info.username.isSome
 
+def usernames! (tagInfo : TagInfo) : Array String :=
+  tagInfo.arr.map fun i => i.username.get!.getString!
+
 def isEnum (tagInfo : TagInfo) : Bool := tagInfo.arr.size == 0
 
 def tag (tagInfo : TagInfo) : Term := quote tagInfo.ctorString
@@ -475,10 +505,20 @@ def toSyntax (tagInfo : TagInfo) : TermElabM Term :=
     | _ => Except.error s!"incorrect tagged union: {sexp}"
   ) else if tagInfo.isNamed then do
       let rhssNamed : Array Term <- tagInfo.arr.mapM fun info => info.rhsNamed
+      let usernames := tagInfo.usernames!.map Syntax.mkStrLit
+      let tname <- Meta.nameToStrLit tagInfo.typName
+      let name <- Meta.nameToStrLit tagInfo.ctorName
       let rhssIndex : Array Term <- tagInfo.arr.mapM fun info => info.rhsIndex
-      `(if sexp.hasTag $(tagInfo.tag) then do
-          try return $(tagInfo.ctorIdent):ident $rhssNamed* catch _ => return $(tagInfo.ctorIdent):ident $rhssIndex*
-        else throw s!"incorrect tag")
+      `(do
+          let tl <- sexp.tail
+          if tl.isAlist then
+            let keys <- tl.alistKeys
+            match keys.find? fun k => !([ $usernames,* ].contains k) with
+            | some k => throw s!"No field named {k} in {$tname}.{$name}"
+            | none => pure ()
+              return $(tagInfo.ctorIdent):ident $rhssNamed*
+          else return $(tagInfo.ctorIdent):ident $rhssIndex*
+       )
 
     else do
       let rhss : Array Term <- tagInfo.arr.mapM fun info => info.rhsIndex
@@ -487,42 +527,47 @@ def toSyntax (tagInfo : TagInfo) : TermElabM Term :=
 end TagInfo
 
 private def mkFromSexpBodyForInduct (indName : Name) : TermElabM Term := do
-  let indVal ← getConstInfoInduct indName
-  let alts ← mkAlts indVal
-  let auxTerm ← alts.foldrM (fun xs x => `(Except.orElseLazy $xs (fun _ => $x))) (← `(Except.error "no inductive constructor matched"))
-  `($auxTerm)
-where
-  mkAlts (indVal : InductiveVal) : TermElabM (Array Term) := do
-  let mut alts := #[]
-  for ctorName in indVal.ctors do
-    let ctorInfo ← getConstInfoCtor ctorName
-    let n := ctorInfo.numFields
-    let alt ← do forallTelescopeReducing ctorInfo.type fun xs _ => do
-      let mut infos : Array TagArgInfo := #[]
-      let mut binders   := #[]
-      let mut userNames := #[]
-      for i in [:n] do
-        let x := xs[indVal.numParams + i]!
-        let localDecl ← x.fvarId!.getDecl
-        let default <- match localDecl.type.getOptParamDefault? with
-        | none => pure none
-        | some d => do
-          let c <- Lean.PrettyPrinter.delab d
-          pure (some c)
-        let username := if !localDecl.userName.hasMacroScopes then some localDecl.userName else none
-        match username with
-        | some name => userNames := userNames.push name
-        | none => pure ()
-        let a := mkIdent (← mkFreshUserName `a)
-        binders := binders.push (a, localDecl.type)
-        infos := infos.push (TagArgInfo.mk a localDecl.type username default i)
-      let tagInfo := TagInfo.mk ctorName infos
-      let stx ← tagInfo.toSyntax
-      pure (stx, ctorInfo.numFields)
-    alts := alts.push alt
-  -- the smaller cases, especially the ones without fields are likely faster
-  let alts' := alts.qsort (fun (_, x) (_, y) => x < y)
-  return alts'.map Prod.fst
+  let indVal <- getConstInfoInduct indName
+  let alts : Array (Name × Term) <- mkAlts indVal
+  let ms : Array (TSyntax `Lean.Parser.Term.matchAltExpr) <- alts.mapM fun (n, xs) => do
+    let s : Term <- Meta.nameToStrLit n
+    `(matchAltExpr| | .ok $s => $xs )
+  let ms := ms.push (<- `(matchAltExpr| | _ => throw "no inductive constructor matched"))
+  let res : Term <- `(
+    match sexp.tag with
+      $ms:matchAlt*
+  )
+  return res
+ where
+  mkAlts (indVal : InductiveVal) : TermElabM (Array (Name × Term)) := do
+    let mut alts : Array (Name × Term) := #[]
+    for ctorName in indVal.ctors do
+      let ctorInfo ← getConstInfoCtor ctorName
+      let n := ctorInfo.numFields
+      let alt ← do forallTelescopeReducing ctorInfo.type fun xs _ => do
+        let mut infos : Array TagArgInfo := #[]
+        let mut binders   := #[]
+        let mut userNames := #[]
+        for i in [:n] do
+          let x := xs[indVal.numParams + i]!
+          let localDecl ← x.fvarId!.getDecl
+          let default <- match localDecl.type.getOptParamDefault? with
+          | none => pure none
+          | some d => do
+            let c <- Lean.PrettyPrinter.delab d
+            pure (some c)
+          let username := if !localDecl.userName.hasMacroScopes then some localDecl.userName else none
+          match username with
+          | some name => userNames := userNames.push name
+          | none => pure ()
+          let a := mkIdent (← mkFreshUserName `a)
+          binders := binders.push (a, localDecl.type)
+          infos := infos.push (TagArgInfo.mk a localDecl.type username default i)
+        let tagInfo := TagInfo.mk indName ctorName infos
+        let stx ← tagInfo.toSyntax
+        pure (ctorName, stx)
+      alts := alts.push alt
+    return alts
 
 private def mkToSexpBody (ctx : Context) (header : Header) (e : Expr): TermElabM Term := do
   let indName := e.getAppFn.constName!
