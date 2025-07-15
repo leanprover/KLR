@@ -16,8 +16,10 @@ limitations under the License.
 
 import Extract.Basic
 import Extract.C
+import Extract.Cpp
 import Extract.Python
 import Extract.Serde
+import Extract.SerdeCpp
 import Extract.ToPython
 import Lean
 
@@ -50,3 +52,7 @@ run_meta do
   withFile s!"{dir}/serde_klir.c" Serde.generateKlrC
   withFile s!"{dir}/topy_nki.h" ToPython.generateNkiH
   withFile s!"{dir}/topy_nki.c" ToPython.generateNkiC
+  -- C++
+  withFile s!"{dir}/klir_ast.hpp" Cpp.generateKlrAST
+  withFile s!"{dir}/klir_serde.hpp" SerdeCpp.generateKlrH
+  withFile s!"{dir}/klir_serde.cpp" SerdeCpp.generateKlrC

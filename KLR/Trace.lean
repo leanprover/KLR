@@ -34,7 +34,7 @@ def keywords : List (Name × Term) :=
   let const s := const_var (.mkStr1 s)
   let int s := const_int (.mkStr1 s)
   [ int "arch" 2
-  , const "hbm"
+  , ptr "hbm"  .hbm  (0xffffffff, 0xffffffff) -- TODO: size of HBM?
   , ptr "sbuf" .sbuf (128, 0x30000)
   , ptr "pmem" .pmem (128, 0x4000)
   , const "range"

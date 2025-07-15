@@ -248,6 +248,6 @@ where
   inferArgs : Option (List Expr) := do
     let f <- k.funcs.find? fun f => f.name == k.entry
     let args := f.args.required
-    let dtype := "nki.language.float32"
+    let dtype := "float32"
     let tensors := args.map fun _ => { expr := .const $ .tensor [10,10] dtype, pos := { line := 0 } }
     return tensors

@@ -13,6 +13,7 @@ Authors: Paul Govereau, Sean McLaughlin
 #include "ast_common.h"
 #include "ast_python_core.h"
 #include "ast_nki.h"
+#include "ast_klir.h"
 
 // KLR File Formats
 
@@ -26,21 +27,30 @@ struct Serde_KLRMetaData {
   char *format;
 };
 
+enum File_Contents_Tag {
+  File_Contents_python = 1,
+  File_Contents_nki,
+  File_Contents_klir,
+  File_Contents_hlo,
+};
+struct File_Contents_python {
+  struct Python_Kernel *kernel;
+};
+struct File_Contents_nki {
+  struct NKI_Kernel *kernel;
+};
+struct File_Contents_klir {
+  struct Core_Kernel *kernel;
+};
+struct File_Contents_hlo {
+  char *name;
+};
 struct File_Contents {
-  enum File_Contents_Tag {
-    File_Contents_python = 1,
-    File_Contents_nki,
-    File_Contents_hlo,
-  } tag;
+  enum File_Contents_Tag tag;
   union {
-    struct File_Contents_python {
-      struct Python_Kernel *kernel;
-    } python;
-    struct File_Contents_nki {
-      struct NKI_Kernel *kernel;
-    } nki;
-    struct File_Contents_hlo {
-      char *name;
-    } hlo;
+    struct File_Contents_python python;
+    struct File_Contents_nki nki;
+    struct File_Contents_klir klir;
+    struct File_Contents_hlo hlo;
   };
 };

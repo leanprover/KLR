@@ -312,7 +312,7 @@ Uses the DMA to load a tensor from HBM into SBUF.
 @[serde tag = 148]
 structure DmaHbmLoad where
   dst            : TensorRef
-  src            : HbmTensor
+  src            : TensorHbm
   compute_op     : DgeComputeOp
   dstBoundsCheck : DmaBounds
   srcBoundsCheck : DmaBounds
@@ -324,7 +324,7 @@ Uses the DMA to load a tensor from HBM into SBUF.
 -/
 @[serde tag = 148]
 structure DmaHbmStore where
-  dst            : HbmTensor
+  dst            : TensorHbm
   src            : TensorRef
   compute_op     : DgeComputeOp
   dstBoundsCheck : DmaBounds
@@ -603,34 +603,34 @@ structure TensorTensor where
 
 @[serde tag = 173]
 inductive Operator where
-  | Activate (op : Activate)
-  | AffineSelect (op : AffineSelect)
-  | BatchNormAggregate (op : BatchNormAggregate)
-  | BatchNormStats (op : BatchNormStats)
-  | Copy (op : Copy)
-  | CopyPredicated (op : CopyPredicated)
-  | DmaCopy (op : DmaCopy)
-  | DmaHbmLoad (op : DmaHbmLoad)
-  | DmaHbmStore (op : DmaHbmStore)
-  | DmaTranspose (op : DmaTranspose)
-  | Dropout (op : Dropout)
-  | FindIndex8 (op : FindIndex8)
-  | Iota (op : Iota)
-  | LoadMaskRegister (op : LoadMaskRegister)
-  | LoadStationary (op : LoadStationary)
-  | LocalGather (op : LocalGather)
-  | MatMul (op : MatMul)
-  | MatchReplace8 (op : MatchReplace8)
-  | MatchValueLoad (op : MatchValueLoad)
-  | Max8 (op : Max8)
-  | MemSet (op : MemSet)
-  | RangeSelect (op : RangeSelect)
-  | Reciprocal (op : Reciprocal)
-  | ScalarTensorTensor (op : ScalarTensorTensor)
-  | Shuffle (op : Shuffle)
-  | TensorReduce (op : TensorReduce)
-  | TensorScalar (op : TensorScalar)
-  | TensorTensor (op : TensorTensor)
-  | TensorTensorScan (op : TensorTensorScan)
-  | Transpose (op : Transpose)
+  | activate (op : Activate)
+  | affineSelect (op : AffineSelect)
+  | batchNormAggregate (op : BatchNormAggregate)
+  | batchNormStats (op : BatchNormStats)
+  | copy (op : Copy)
+  | copyPredicated (op : CopyPredicated)
+  | dmaCopy (op : DmaCopy)
+  | dmaHbmLoad (op : DmaHbmLoad)
+  | dmaHbmStore (op : DmaHbmStore)
+  | dmaTranspose (op : DmaTranspose)
+  | dropout (op : Dropout)
+  | findIndex8 (op : FindIndex8)
+  | iota (op : Iota)
+  | loadMaskRegister (op : LoadMaskRegister)
+  | loadStationary (op : LoadStationary)
+  | localGather (op : LocalGather)
+  | matMul (op : MatMul)
+  | matchReplace8 (op : MatchReplace8)
+  | matchValueLoad (op : MatchValueLoad)
+  | max8 (op : Max8)
+  | memSet (op : MemSet)
+  | rangeSelect (op : RangeSelect)
+  | reciprocal (op : Reciprocal)
+  | scalarTensorTensor (op : ScalarTensorTensor)
+  | shuffle (op : Shuffle)
+  | tensorReduce (op : TensorReduce)
+  | tensorScalar (op : TensorScalar)
+  | tensorTensor (op : TensorTensor)
+  | tensorTensorScan (op : TensorTensorScan)
+  | transpose (op : Transpose)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp

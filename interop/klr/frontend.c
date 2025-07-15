@@ -67,6 +67,7 @@ static PyObject* kernel_specialize(struct kernel *self, PyObject *args, PyObject
   if (!specialize(self, args, kws))
     return NULL;
 
+  /*
   struct SimpResult res = simplify(self->python_kernel);
   if (!res.ok) {
     PyErr_SetString(PyExc_RuntimeError, res.err);
@@ -76,6 +77,7 @@ static PyObject* kernel_specialize(struct kernel *self, PyObject *args, PyObject
   self->nki_region = res.region;
   self->nki_kernel = res.kernel;
   self->specialized = true;
+  */
   return Py_None;
 }
 

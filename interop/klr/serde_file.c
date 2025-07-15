@@ -12,6 +12,7 @@ Authors: Paul Govereau, Sean McLaughlin
 #include "serde_file.h"
 #include "serde_python_core.h"
 #include "serde_nki.h"
+#include "serde_klir.h"
 
 bool Serde_KLRFile_ser(FILE *out, struct Serde_KLRFile *x) {
   if (!cbor_encode_tag(out, 217, 247, 3))
@@ -47,8 +48,14 @@ bool File_Contents_ser(FILE *out, struct File_Contents *x) {
     if (!NKI_Kernel_ser(out, x->nki.kernel))
       return false;
     break;
-  case File_Contents_hlo:
+  case File_Contents_klir:
     if (!cbor_encode_tag(out, 236, 2, 1))
+      return false;
+    if (!Core_Kernel_ser(out, x->klir.kernel))
+      return false;
+    break;
+  case File_Contents_hlo:
+    if (!cbor_encode_tag(out, 236, 3, 1))
       return false;
     if (!String_ser(out, x->hlo.name))
       return false;
@@ -113,6 +120,13 @@ bool File_Contents_des(FILE *in, struct region *region,
     (*x)->tag = File_Contents_nki;
     break;
   case 2:
+    if (l != 1)
+      return false;
+    if (!Core_Kernel_des(in, region, &(*x)->klir.kernel))
+      return false;
+    (*x)->tag = File_Contents_klir;
+    break;
+  case 3:
     if (l != 1)
       return false;
     if (!String_des(in, region, &(*x)->hlo.name))

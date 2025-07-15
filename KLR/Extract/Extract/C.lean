@@ -77,22 +77,14 @@ def genType (t : SimpleType) : String :=
   | .list _ => s!"struct {t.name}*"
   | .pair .. => panic! "TODO"
 
-private def genStruct (name : Name)
-                      (fields : List Field)
-                      (var : Option String := none)
-                      : IO Unit := do
+private def genStruct (name : Name) (fields : List Field) : IO Unit := do
   IO.println s!"struct {name} \{"
   fields.forM fun f => do
     let ty := genType f.type
     IO.println s!"  {ty} {f.name};"
-  match var with
-  | some x => IO.println s!"} {x};"
-  | none => IO.println "};"
+  IO.println "};"
 
-private def genEnum (name : Name)
-                    (variants : List LeanType)
-                    (var : Option String := none)
-                    : IO Unit := do
+private def genEnum (name : Name) (variants : List LeanType) : IO Unit := do
   IO.println s!"enum {name} \{"
   match variants with
   | [] => pure ()
@@ -100,19 +92,25 @@ private def genEnum (name : Name)
     IO.println s!"{v.name} = 1,"
     for v in rest do
       IO.println s!"{v.name},"
-  match var with
-  | some x => IO.println s!"} {x};"
-  | none => IO.println "};"
+    IO.println "};"
 
 private def genUnion (name : Name) (variants : List LeanType) : MetaM Unit := do
+  let tagName := Name.str name "Tag"
+  genEnum tagName variants
+  for t in variants do
+    match t with
+    | .simple .. => pure ()
+    | .prod _ [] => pure ()
+    | .prod n fs => genStruct n fs
+    | .sum .. => throwError "unexpected union nesting"
   IO.println s!"struct {name} \{"
-  genEnum (.str name "Tag") variants "tag"
+  IO.println s!"enum {tagName} tag;"
   IO.println "union {"
   for t in variants do
     match t with
     | .simple t => IO.println s!"{t.name} {varName t.name};"
     | .prod _ [] => pure ()
-    | .prod n fs => genStruct n fs (varName n)
+    | .prod n .. => IO.println s!"struct {n} {varName n};"
     | .sum .. => throwError "unexpected union nesting"
   IO.println "};"
   IO.println "};"
@@ -258,6 +256,8 @@ def klrAST: MetaM (List LeanType) := do
     `KLR.Core.Activate,
     `KLR.Core.AffineSelect,
     `KLR.Core.DmaCopy,
+    `KLR.Core.DmaHbmLoad,
+    `KLR.Core.DmaHbmStore,
     `KLR.Core.DmaTranspose,
     `KLR.Core.Transpose,
     `KLR.Core.LoadMaskRegister,
@@ -280,6 +280,8 @@ def klrAST: MetaM (List LeanType) := do
     `KLR.Core.Reciprocal,
     `KLR.Core.Copy,
     `KLR.Core.TensorReduce,
+    `KLR.Core.TensorScalar,
+    `KLR.Core.TensorTensor,
     `KLR.Core.Operator,
     -- Core.Basic
     `KLR.Core.Value,
@@ -324,7 +326,7 @@ def generateCommonAST: MetaM Unit := do
   genTypes (<- commonAST)
 
 def generateFileAST: MetaM Unit := do
-  IO.println (headerH ["ast_common.h", "ast_python_core.h", "ast_nki.h"])
+  IO.println (headerH ["ast_common.h", "ast_python_core.h", "ast_nki.h", "ast_klir.h"])
   IO.println "// KLR File Formats"
   genTypes (<- fileAST)
 
@@ -333,16 +335,16 @@ def generatePythonAST : MetaM Unit := do
   IO.println (headerH ["ast_common.h"])
   IO.println "// KLR.Python Abstract Syntax"
   genTypes tys
-  genAlloc tys `KLR.Python.Expr `KLR.Python.Expr'
-  genAlloc tys `KLR.Python.Stmt `KLR.Python.Stmt'
+  --genAlloc tys `KLR.Python.Expr `KLR.Python.Expr'
+  --genAlloc tys `KLR.Python.Stmt `KLR.Python.Stmt'
 
 def generateNkiAST : MetaM Unit := do
   let tys <- nkiAST
   IO.println (headerH ["ast_common.h"])
   IO.println "// KLR.NKI Abstract Syntax"
   genTypes tys
-  genAlloc tys `KLR.NKI.Expr `KLR.NKI.Expr'
-  genAlloc tys `KLR.NKI.Stmt `KLR.NKI.Stmt'
+  --genAlloc tys `KLR.NKI.Expr `KLR.NKI.Expr'
+  --genAlloc tys `KLR.NKI.Stmt `KLR.NKI.Stmt'
 
 def generateKlrAST : MetaM Unit := do
   let tys <- klrAST

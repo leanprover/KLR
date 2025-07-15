@@ -237,7 +237,7 @@ def generateFileH : MetaM Unit := do
   genH (<- C.fileAST)
 
 def generateFileC : MetaM Unit := do
-  IO.println <| C.headerC ["serde_file.h", "serde_python_core.h", "serde_nki.h"]
+  IO.println <| C.headerC ["serde_file.h", "serde_python_core.h", "serde_nki.h", "serde_klir.h"]
   genC (<- C.fileAST)
 
 def generatePythonH : MetaM Unit := do

@@ -8,7 +8,7 @@ import KLR.Trace.Types
 import KLR.Trace.Builtin
 import KLR.Trace.Tensor
 
-namespace KLR.KLR.Trace
+namespace KLR.Trace.Isa
 open KLR.Core
 
 def converRevOps (reverse0 : Bool) (reverse1 : Bool) : TensorScalarReverseOps :=
@@ -65,7 +65,7 @@ nki nc_matmul
     let accFlag : MatmulGroupElement := .whole -- TODO: need to figure out which one it is
     let ls : LoadStationary := ⟨ stationaryT, is_transpose ⟩
     let mm : MatMul := ⟨ dstT, movingT, accFlag ⟩
-    return .oper [(.LoadStationary ls), (.MatMul mm)]
+    return .oper [(.loadStationary ls), (.matMul mm)]
 
 nki nc_transpose
  (dst : TensorSram)
@@ -77,7 +77,7 @@ nki nc_transpose
   let dstT : TensorRef := .abstract $ .simple dst
   let srcT : TensorRef := .abstract $ .simple data
   let trn : Transpose := ⟨ dstT, srcT ⟩
-  return .oper [.Transpose trn]
+  return .oper [.transpose trn]
 
 nki activation
  (dst : TensorSram)
@@ -93,8 +93,7 @@ nki activation
   let dstT : TensorRef := .abstract $ .simple dst
   let dataT : TensorRef := .abstract $ .simple data
   let ac : Activate :=  ⟨ dstT, dataT, reduce_cmd, op, scale, bias, .float 0 ⟩ -- FIXME scale is probably wrong
-  return .oper [.Activate ac]
-
+  return .oper [.activate ac]
 
 --  nki activation_reduce
 --   (dst: TensorSram)
@@ -152,7 +151,7 @@ nki tensor_reduce
     let dataT : TensorRef := .abstract $ .simple data
     let opDim := .X -- FIXME - get actual value
     let reduce : TensorReduce := ⟨ dstT, dataT, op, opDim, negate ⟩
-    return .oper [.TensorReduce reduce]
+    return .oper [.tensorReduce reduce]
 
 -- nki tensor_partition_reduce
 --   (dst: TensorSram)
@@ -229,7 +228,7 @@ nki tensor_tensor_scan
     let imm := <- initial.getLeft?
 
     let tts : TensorTensorScan := ⟨ dstT, data0T, data1T, op0, op1, rev, imm, .Idle ⟩
-    return .oper [.TensorTensorScan tts]
+    return .oper [.tensorTensorScan tts]
 
 
 -- nki scalar_tensor_tensor
@@ -346,7 +345,7 @@ nki tensor_copy
     let dstT := .abstract $ .simple dst
     let srcT := .abstract $ .simple src
     let copy := ⟨ dstT, srcT, .none ⟩
-    return .oper [.Copy copy]
+    return .oper [.copy copy]
 
 -- nki tensor_copy_dynamic_src
 --  (dst : TensorSram)
@@ -409,7 +408,7 @@ nki tensor_copy_predicated
     let srcT : TensorRef := .abstract $ .simple src
     let predicateT : TensorRef := .abstract $ .simple predicate
     let cp : CopyPredicated := ⟨ dstT, srcT, predicateT ⟩
-    return .oper [.CopyPredicated cp]
+    return .oper [.copyPredicated cp]
 
 nki reciprocal
  (dst: TensorSram)
@@ -419,7 +418,7 @@ nki reciprocal
  (_mask : Option Immediate := none) := do
     let dstT : TensorRef := .abstract $ .simple dst
     let srcT : TensorRef := .abstract $ .simple data
-    return .oper [.Reciprocal ⟨ dstT, srcT ⟩]
+    return .oper [.reciprocal ⟨ dstT, srcT ⟩]
 
 nki iota
  (dst: TensorSram)
@@ -429,7 +428,7 @@ nki iota
  (_mask : Option Immediate := none) := do
     let dstT : TensorRef := .abstract $ .simple dst
     let pattern : DataPattern := ⟨ 0, [] ⟩  -- FIXME
-    return .oper [.Iota ⟨ dstT, pattern ⟩]
+    return .oper [.iota ⟨ dstT, pattern ⟩]
 
 
 nki dropout
@@ -446,7 +445,7 @@ nki dropout
       throw "Tensor probability is not supported"
     let prob := <- prob.getLeft?
 
-    return .oper [.Dropout ⟨ dstT, dataT, .KeepRate , prob  ⟩]
+    return .oper [.dropout ⟨ dstT, dataT, .KeepRate , prob  ⟩]
 
 -- nki affine_select
 --  (dst: TensorSram)
@@ -490,7 +489,7 @@ nki memset
  (_engine : Engine := Engine.unassigned) := do
     let dstT : TensorRef := .abstract $ .simple dst
     let ms : MemSet := ⟨ dstT, value, shape.freeElements ⟩ -- TODO: Check with someone
-    return .oper [.MemSet ms]
+    return .oper [.memSet ms]
 
 nki bn_stats
  (dst: TensorSram)
@@ -500,7 +499,7 @@ nki bn_stats
  (_dtype: Option Dtype := none) := do
     let dstT : TensorRef := .abstract $ .simple dst
     let dataT : TensorRef := .abstract $ .simple data
-    return .oper [.BatchNormStats ⟨ dstT, dataT ⟩]
+    return .oper [.batchNormStats ⟨ dstT, dataT ⟩]
 
 nki bn_aggr
  (dst: TensorSram)
@@ -510,7 +509,7 @@ nki bn_aggr
  (_dtype : Option Dtype := none) := do
     let dstT : TensorRef := .abstract $ .simple dst
     let dataT : TensorRef := .abstract $ .simple data
-    return .oper [.BatchNormAggregate ⟨ dstT, dataT ⟩]
+    return .oper [.batchNormAggregate ⟨ dstT, dataT ⟩]
 
 nki local_gather
  (dst: TensorSram)
@@ -522,7 +521,7 @@ nki local_gather
  (_mask: Option Immediate := none) := do
     let dstT : TensorRef := .abstract $ .simple dst
     let srcT : TensorRef := .abstract $ .simple src_buffer
-    return .oper [.LocalGather ⟨ dstT, srcT, .skip, false ⟩]  -- FIXME proper index miss behavior
+    return .oper [.localGather ⟨ dstT, srcT, .skip, false ⟩]  -- FIXME proper index miss behavior
 
 nki dma_copy
  --
@@ -540,7 +539,7 @@ nki dma_copy
       | .add => .ok .add
       | _ => throw "Unsupported operation"
   let copy := ⟨ dstT, srcT, op, .disable , .disable ⟩ -- FIXME
-  return .oper [.DmaCopy copy]
+  return .oper [.dmaCopy copy]
 
 
 nki max8
@@ -551,7 +550,7 @@ nki max8
  (_dtype : Option Dtype := none) := do
     let dstT : TensorRef := .abstract $ .simple dst
     let srcT : TensorRef := .abstract $ .simple src
-    return .oper [.Max8 ⟨ dstT, srcT ⟩]
+    return .oper [.max8 ⟨ dstT, srcT ⟩]
 
 
 nki nc_find_index8
@@ -563,7 +562,7 @@ nki nc_find_index8
  (_dtype : Option Dtype := none) := do
     let dstT : TensorRef := .abstract $ .simple dst
     let srcT : TensorRef := .abstract $ .simple data
-    return .oper [.FindIndex8 ⟨ dstT, srcT ⟩]
+    return .oper [.findIndex8 ⟨ dstT, srcT ⟩]
 
 
 nki nc_match_replace8
@@ -577,7 +576,7 @@ nki nc_match_replace8
  (_dtype: Option Dtype := none) := do
     let dstT : TensorRef := .abstract $ .simple dst
     let srcT : TensorRef := .abstract $ .simple data
-    return .oper [.MatchReplace8 ⟨ dstT, srcT, imm  ⟩]
+    return .oper [.matchReplace8 ⟨ dstT, srcT, imm  ⟩]
 
 
 nki nc_stream_shuffle
@@ -589,4 +588,4 @@ nki nc_stream_shuffle
  (_mask: Option Immediate := none) := do
     let dstT : TensorRef := .abstract $ .simple dst
     let srcT : TensorRef := .abstract $ .simple src
-    return .oper [.Shuffle ⟨ dstT, srcT  ⟩]
+    return .oper [.shuffle ⟨ dstT, srcT  ⟩]

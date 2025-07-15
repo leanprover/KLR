@@ -535,8 +535,9 @@ def toPureExpr : Term -> Trace Term
       -- Assume that people do not write a code that has mgrid appearing solely
       -- without a subscript on the RHS of assignment...
       throw "unimplemented"
-  | .oper _op =>
-      throw "unimplemented"
+  | .oper op => do
+      op.forM fun o => add_stmt (.oper o)
+      return .none
 
 -- Unpack an RValue.
 -- If the input Trace.Term was tuple or list, this is an identity function.
@@ -700,7 +701,12 @@ partial def expr' : Expr' -> Trace Term
       let shape <- Core.Shape.fromList s
       let name <- genName "t".toName
       let dtype <- fromNKI? (.expr (.value $ .var dty) .none)
-      let tensor <- Core.TensorSram.make name.toString dtype shape none
+      let addr : Core.Address := {
+        memory := .hbm
+        parSize := shape.parDim
+        freeSize := shape.freeElements * dtype.size
+      }
+      let tensor <- Core.TensorSram.make name.toString dtype shape (some addr)
       return .expr (.value $ .access $ .simple tensor) (.tensor dtype shape)
   | .const c => return const c
   | .name id _ => lookup id.toName
@@ -952,9 +958,9 @@ def traceKernel (k : Kernel) : Trace Core.Kernel := do
       let kwargs <- k.kwargs.mapM fun kw => return (kw.id, <- expr kw.value)
       let args <- bind_args f args kwargs (rename := true)
       -- TODO: fix this after modifying Python AST to take TensorArg
-      let _res <- call f args
-      let inputs := [] --tensors (args.map fun x => x.snd)
-      let outputs := [] --tensors res
+      let res <- call f args
+      let inputs := tensors (args.map fun x => x.snd)
+      let outputs := tensors res
       return {
         name := k.entry
         inputs := inputs

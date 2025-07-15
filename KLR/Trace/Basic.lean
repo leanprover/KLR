@@ -288,12 +288,17 @@ def Term.attr : Term -> String -> Trace Term
   | _, id => throw s!"unsupported attribute {id}"
 where
   dtype dty :=
-    let name := "nki.language." ++ reprStr dty
+    let name := "nki.language." ++ dstr dty
     .expr (.value $ .var name) (.obj name.toName)
   tuple (l : List (Option Nat)) : Term :=
     Term.tuple $ l.map fun
       | Option.none => Term.none
       | some x => .expr (.value (.int x)) .int
+  dstr dty :=
+    let s := reprStr dty
+    match s.toName with
+    | .str _ s => s
+    | _ => panic! "internal error (dtype name)"
 
 -- Static environment of builtins (extend as necessary)
 
@@ -301,7 +306,7 @@ nki memView (self : Address) (dtype : Dtype) (shape : Shape) (name : String := "
   let name := (<- genName (.mkStr1 name)).toString
   if parWF: shape.parDim <= self.parSize then
     if freeWF: shape.freeElements * dtype.size <= self.freeSize then
-      let tensor := ⟨ name, dtype, shape, shape.freeElements, self, parWF, freeWF ⟩
+      let tensor := ⟨ name, dtype, shape, self, shape.freeElements, parWF, freeWF ⟩
       let ty := TermType.tensor dtype shape
       return .expr (.value (.access (.simple tensor))) ty
     else throw "shape is too large for memory region"
