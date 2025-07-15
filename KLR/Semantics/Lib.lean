@@ -109,4 +109,66 @@ theorem bupd_gen_soundness [UCMRA M] (P : UPred M) [Iris.BI.Plain P] (R : UPred 
   apply H.trans
   apply bupd_elim
 
+-- TODO This is more general than UPred M and I think it is ⊣⊢
+theorem plainly_laterN [UCMRA M] (P : Prop) : iprop((■ ▷^[n]⌜P⌝ : UPred M) ⊢ ▷^[n]■ ⌜P⌝) := by
+  induction n <;> simp [BI.BIBase.laterN]
+  rename_i n IH
+  apply BIPlainly.later_plainly.mpr.trans
+  exact BI.later_mono IH
+
+theorem laterN_mono [UCMRA M] {P Q : UPred M} : (P ⊢ Q) → ▷^[n] P ⊢ ▷^[n] Q := by
+  induction n <;> simp [BI.BIBase.laterN]
+  intro H
+  rename_i h
+  exact BI.later_mono (h H)
+
+theorem later_bupd_comm_pure [UCMRA M] {P : Prop} : iprop(▷ |==> (⌜P⌝ : UPred M) ⊢ |==> ▷ ⌜P⌝) := by
+  intro n x Hx
+  simp [bupd, UPred.bupd, BI.pure, UPred.pure, BI.later, UPred.later]
+  intro H k yf Hkn Hx'
+  refine ⟨⟨_, Hx'⟩, ?_⟩
+  rcases n with (_|n''); simp_all
+  simp at H
+  split; trivial
+  rename_i n1 n2
+  have H' := H n2 yf (Nat.le_of_lt_succ Hkn) (CMRA.validN_succ Hx')
+  exact H'.2
+
+theorem later_bupd_comm_plain [UCMRA M] {P : UPred M} [Iris.BI.Plain P] : iprop(▷ |==> P ⊢ |==> ▷ P) := by
+  suffices (BI.later iprop(|==> plainly P) ⊢ |==> BI.later (plainly P)) by
+    refine (BI.later_mono <| BIUpdate.mono BI.Plain.plain).trans ?_
+    refine this.trans (BIUpdate.mono <| BI.later_mono BI.plainly_elim )
+  intro n x Hx
+  simp [bupd, UPred.bupd, plainly, UPred.plainly, BI.later, UPred.later]
+  intro H k yf Hkn Hx'
+  refine ⟨⟨_, Hx'⟩, ?_⟩
+  rcases n with (_|n''); simp_all
+  simp at H
+  split; trivial
+  rename_i n1 n2
+  have H' := H n2 yf (Nat.le_of_lt_succ Hkn) (CMRA.validN_succ Hx')
+  exact H'.2
+
+instance later_plainly [UCMRA M] {P : UPred M} [Iris.BI.Plain P] : Iris.BI.Plain iprop(▷ P) where
+  plain := by
+    refine .trans (BI.later_mono Iris.BI.Plain.plain) ?_
+    exact fun n x a a => a
+
+instance laterN_plainly [UCMRA M] {P : UPred M} [Iris.BI.Plain P] : Iris.BI.Plain iprop(▷^[n] P) where
+  plain := by
+    induction n with | zero => ?_ | succ n IH => ?_
+    · simp [BI.BIBase.laterN]
+      exact Iris.BI.Plain.plain
+    · simp [BI.BIBase.laterN]
+      refine .trans (BI.later_mono IH) ?_
+      exact fun n_1 x a a => a
+
+instance pure_plain [UCMRA M] {P : Prop}  : Iris.BI.Plain iprop(⌜P⌝ : UPred M) where
+  plain := by exact fun n x a a => a
+
+theorem laterN_intro [UCMRA M] {P : UPred M} : iprop(P ⊢ ▷^[n] P) := by
+  induction n with | zero => ?_ | succ n IH => ?_
+  · simp [BI.BIBase.laterN]
+  · exact .trans BI.later_intro (BI.later_mono IH)
+
 end iris_lib
