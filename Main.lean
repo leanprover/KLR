@@ -306,17 +306,17 @@ def hloToTGR (p : Parsed) : IO UInt32 := do
   let s <- IO.FS.readFile file
   match StableHLO.Parsing.parse s with
   | .ok (hlo, _) =>
-    let hlr := KLR.TGR.Compile.compile hlo
-    match hlr with
+    let tgr := KLR.TGR.Compile.compile hlo
+    match tgr with
     | (.ok _, s) => do
-      let hlr := s.program
-      IO.println (toString hlr)
+      let tgr := s.program
+      IO.println (toString tgr)
       let headFunction := s.program.functions.head!
       -- print graph of function
       let g := KLR.TGR.Graph.graph headFunction |> toString
       writeContent "dot" p g
       -- print TGR program as Python program
-      let py := KLR.TGR.Py.compile hlr
+      let py := KLR.TGR.Py.compile tgr
       writeContent "py" p py
       return 0
     | (.error e, s) => do
@@ -418,7 +418,7 @@ def evalKLRCmd := `[Cli|
     ...inputFiles : String;       ".npy files corresponding to the inputs to the kernel, in positional order"
 ]
 def hloToTGRCmd := `[Cli|
-  "hlo-to-hlr" VIA hloToTGR;
+  "hlo-to-tgr" VIA hloToTGR;
   "Compile HLO graph to TGR graph"
 
   FLAGS:
