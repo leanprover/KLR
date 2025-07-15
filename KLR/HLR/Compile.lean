@@ -321,7 +321,9 @@ This means it's possible that if there's a mistake in the shape calculation
 in the HLO program, the HLR statements will also have incorrect shapes.
 Eventually, we'll want a function that can shape-check an HLR program.
 -/
-def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
+def compileOp  (op : StableHLO.Parsing.Operation) : Compile (List Statement) := do
+  log s!"Compiling operation {repr op}"
+  match op with
   | .stablehlo opCode inputValues inputFunctions inputAttributes outputs signature => do
     -- Reuse the variable names and shapes from the StableHLO program
     let output ← match outputs with
@@ -330,12 +332,10 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
     let outputTy ← parseSingleTensorTypeFromValueTypes signature.range
     -- helper function to emit HLR for element-wise unary ops
     let makeUnOp := fun (op : UnaryOp) => do
-      log s!"Compiling unary op {op}"
       let a := inputValues[0]!
       pure [.assign output (.unaryOp op a) outputTy]
     -- helper function to emit HLR for element-wise binary ops
     let makeBinOp := fun (op : BinaryOp) => do
-      log s!"Compiling binary op {op}"
       let a := inputValues[0]!
       let b := inputValues[1]!
       pure [.assign output (.binaryOp op a b) outputTy]
@@ -355,7 +355,6 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
     | .divide =>  makeBinOp .div
     -- tensor nullary operators
     | .constant =>  do
-      log "Compiling constant operation"
       let valueAttr ← lookupAttributeValue inputAttributes "value"
       match valueAttr with
       | (.tensor t) => do
@@ -374,18 +373,15 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
       | _ => throw "Constant operation requires a 'value' attribute with tensor literal."
     -- tensor unary operators
     | .reshape => do
-      log "reshape"
       let input := inputValues[0]!
       pure [.assign output (.reshape input outputTy.shape) outputTy]
     | .gather =>
-      log "Compiling gather operation"
       let (offsetDims, collapsedSliceDims, startIndexMap, indexVectorDim) ←
         extractDimensionNumbers inputAttributes
       let input := inputValues[0]!
       let indices := inputValues[1]!
       pure [.assign output (.gather input indices offsetDims collapsedSliceDims startIndexMap indexVectorDim) outputTy]
     | .slice =>
-      log "Compiling slice operation"
       let input := inputValues[0]!
       let start ← (← lookupAttributeValue inputAttributes "start_indices") |> parseArray
       let limit ← (← lookupAttributeValue inputAttributes "limit_indices") |> parseArray
@@ -400,7 +396,6 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
             (.some $ Int.ofNat stride[i]!))
       pure [.assign output (.slice input slices) outputTy]
     | .reduce =>
-      log "Compiling reduce operation"
       let op ← reduceFunctionToReduceOp inputFunctions[0]!
       let dims ← (← lookupAttributeValue inputAttributes "dimensions") |> parseArray
       pure [.assign output (.reductionOp op inputValues[0]! inputValues[1]! dims) outputTy] -- TODO: init value
@@ -411,7 +406,6 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
       we broadcast `t` to the output shape which expands some of those
       dimensions of size 1
       -/
-      log "Compiling broadcastInDim operation"
       let input := inputValues[0]!
       let inputTy := ← parseTensorTypeFromValueTypes signature.domain 0
       let broadcastDims ← (← lookupAttributeValue inputAttributes "broadcast_dimensions") |> parseArray
@@ -429,7 +423,6 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
         .assign output (.broadcast reshaped outputTy.shape) outputTy
       ]
     | .transpose => do
-      log "Compiling transpose operation"
       let input := inputValues[0]!
       let dims ← (← lookupAttributeValue inputAttributes "permutation") |> parseArray
       pure  [.assign output (.transpose input dims) outputTy]
@@ -441,7 +434,6 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
       variables in the spec to aid comprehension.
       https://github.com/openxla/stablehlo/blob/6f7b4ab8f96dc65cf3c8e9824836117d2934cc45/docs/spec.md?#dot_general
       -/
-      log "Compiling dotGeneral operation"
       -- Gather metadata from the inputs
       let (lhsBatchingDims, lhsContractingDims, rhsBatchingDims, rhsContractingDims) ←
         extractDotDimensionNumbers inputAttributes
@@ -494,23 +486,19 @@ def compileOp : StableHLO.Parsing.Operation → Compile (List Statement)
         .assign output (.reshape resultReshapedName (.mk resultShape)) outputTy,
       ])
     | .concatenate =>
-      log "Compiling concatenate operation"
       let tensors := inputValues
       let dim ← (← lookupAttributeValue inputAttributes "dimension") |> parseNatFromElementLiteral
       pure [.assign output (.concat tensors dim) outputTy]
     -- tensor ternary operators
     | .select =>
-      log "Compiling select operation"
       let cond := inputValues[0]!
       let a := inputValues[1]!
       let b := inputValues[2]!
       pure [.assign output (.select cond a b) outputTy]
     | _ => throw s!"Unsupported HLO operation: {repr opCode}"
   | .return ops _ => do
-    log "Compiling return operation"
     pure [Statement.ret ops]
   | .call callee inputValues outputs signature => do
-    log "Compiling call operation"
     let output ← match outputs with
     | [output] => pure output
     | _ => throw "Call operator signature must have a single output."
