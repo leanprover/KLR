@@ -18,6 +18,7 @@ import KLR.Core
 import KLR.Serde.Attr
 import KLR.Serde.Elab
 import KLR.Util
+import KLR.Compile.Pass
 
 /-!
 # Abstract syntax of NKI functions
@@ -31,6 +32,7 @@ namespace KLR.NKI
 open Lean (FromJson ToJson)
 open Serde (FromCBOR ToCBOR)
 open Util (FromSexp ToSexp)
+open Compile.Pass(PassM freshName)
 
 export Core (Name Pos)
 
@@ -98,6 +100,12 @@ inductive Pattern where
 
 def Pattern.isVar : Pattern -> Bool
   | .var .. => true | _ => false
+
+def Pattern.findVar (ps : List Pattern) : PassM (Name × List Pattern) :=
+  match ps.partition Pattern.isVar with
+  | ([], ps) => return (<- freshName, ps)
+  | (.var n :: vs, ps) => return (n, vs ++ ps)
+  | _ => throw "invalid pattern"
 
 mutual
 @[serde tag = 8]

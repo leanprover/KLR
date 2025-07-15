@@ -227,6 +227,10 @@ def compile (p : Parsed) : IO UInt32 := do
   let kernel : KLR.Python.Kernel <- gatherTmp file kernel dir debug
   let kernel : KLR.NKI.Kernel <- KLR.NKI.simplify kernel
   -- TODO run the type checker
+  let (kernel, warnings) := <- KLR.NKI.simplifyOperators kernel
+  if !warnings.isEmpty then
+      IO.eprintln "Warnings:"
+      warnings.forM (fun w => IO.eprintln s!" {w}")
   IO.println (reprStr kernel)
   return 0
 

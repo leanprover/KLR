@@ -227,12 +227,6 @@ def letSet (es : List Expr) : Simplify (List Pattern × Option Expr) := do
   | xs, [x] => return (<- xs.mapM pattern, some x)
   | _, _ => throw "mutating assignments must be in separate statements"
 
-def findVarPattern (ps : List Pattern) : Simplify (Name × List Pattern) :=
-  match ps.partition Pattern.isVar with
-  | ([], ps) => return (<- freshName, ps)
-  | (.var n :: vs, ps) => return (n, vs ++ ps)
-  | _ => throw "invalid pattern"
-
 def assign (xs : List Expr) (e : Expr) (t : Option Expr) : Simplify (List Stmt') := do
   match <- letSet xs with
   | (xs, some s) =>
@@ -241,7 +235,7 @@ def assign (xs : List Expr) (e : Expr) (t : Option Expr) : Simplify (List Stmt')
   | ([], none) => throw "invalid assignment statement"
   | ([x], none) => return [.letM x t e]
   | (xs, none) =>
-    let (n, xs) <- findVarPattern xs
+    let (n, xs) <- Pattern.findVar xs
     let first := .letM (.var n) t e
     let e' : Expr := ⟨ .var n, e.pos ⟩
     let rest := xs.map fun x' => .letM x' t e'
@@ -363,7 +357,7 @@ private def kernel (py : Python.Kernel) : Simplify Kernel := do
     | some f => pure f
   return {
     entry   := py.entry
-    funs    := <- py.funcs.mapM func
+    funs    := funs
     args    := <- args main_fun.args py.args py.kwargs
     globals := <- kwargs py.globals
   }
