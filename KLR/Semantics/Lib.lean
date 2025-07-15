@@ -5,6 +5,7 @@ Authors: Markus de Medeiros
 -/
 
 import Iris.Algebra.DFrac
+import Iris.Instances.heProp
 
 /-- Prop-Valued version of `Option.isSome`; easier to do cases on. -/
 inductive Option.IsSomeP : Option α → Prop where
@@ -82,5 +83,30 @@ instance : UFraction PNat where
       intro x H
       have _ : (1 + n = 1) := H
       omega
+
+/-- Generic UPred adequacy theorem: If one can prove a pure proposition under some valid model, then
+the pure proposition holds. -/
+theorem UPred.soundness_pure_gen [UCMRA A] {a : A} (Hv : ✓{n} a) : (UPred.ownM a ⊢ ⌜P⌝) → P :=
+  (· _ a Hv (CMRA.incN_refl a))
+
+theorem UPred_adequacy_later_gen [UCMRA A] {a : A} (Hv : ✓ a) (P : UPred A) :
+    (UPred.ownM a ⊢ ▷ P) → (UPred.ownM a ⊢ P) := by
+  intro HP n x Hx H
+  refine UPred.mono _ ?_ H n.le_refl
+  exact HP n.succ _ (CMRA.Valid.validN Hv) (CMRA.incN_refl a)
+
+theorem UPred_adequacy_laterN_gen [UCMRA A] {a : A} (Hv : ✓ a) (P : UPred A) :
+    (UPred.ownM a ⊢ ▷^[N] P) → (UPred.ownM a ⊢ P) := by
+  intro H
+  induction N <;> simp_all [BI.BIBase.laterN]
+  rename_i IH
+  exact IH <| UPred_adequacy_later_gen Hv _ H
+
+theorem bupd_soundness [UCMRA M] (P : UPred M) [Iris.BI.Plain P] : (⊢ |==> P) → ⊢ P := (·.trans bupd_elim)
+
+theorem bupd_gen_soundness [UCMRA M] (P : UPred M) [Iris.BI.Plain P] (R : UPred M) : (R ⊢ |==> P) → R ⊢ P := by
+  intro H
+  apply H.trans
+  apply bupd_elim
 
 end iris_lib
