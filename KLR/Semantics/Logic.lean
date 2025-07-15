@@ -101,6 +101,13 @@ theorem wp_value_value_fupd {pl pr : @prog DataT} {sl sr : @state DataT} {Φf : 
     · rw [Hk] at Hpl; cases Hpl
     · rw [Hk] at Hpr; cases Hpr
 
+theorem wp_fupd {pl pr : @prog DataT} {sl sr : @state DataT} {Φf : @val DataT → @val DataT → Prop} {n : Nat} :
+    state_interp sl sr ∗ wp K pl pr (fun vl vr => iprop(⌜(Φf vl vr : Prop)⌝)) ⊢
+    |==> ▷^[n] ⌜(NML.NMLSemantics DataT).PRelS n K.car c1 c2 Φf ⌝ := by
+  sorry
+
+
+
 
 /-- Definition for Hoare Triple -/
 def triple (pre : @PROP DataT) K (p1 p2 : @prog DataT) post :=
