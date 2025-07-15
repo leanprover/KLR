@@ -1,4 +1,4 @@
-import KLR.HLR.AST
-import KLR.HLR.Compile
-import KLR.HLR.Dot
-import KLR.HLR.Py
+import KLR.TGR.AST
+import KLR.TGR.Compile
+import KLR.TGR.Dot
+import KLR.TGR.Py

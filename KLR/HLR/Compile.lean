@@ -5,7 +5,7 @@ Authors: Paul Biberstein
 -/
 
 import KLR.Core.Operators
-import KLR.HLR.AST
+import KLR.TGR.AST
 import KLR.Util
 import SHerLOC
 import TensorLib.Shape
@@ -16,8 +16,8 @@ import TensorLib.ByteArray
 
 open TensorLib (Dtype Shape Tensor)
 
--- This module compiles a StableHLO program into an HLR program.
-namespace KLR.HLR.Compile
+-- This module compiles a StableHLO program into an TGR program.
+namespace KLR.TGR.Compile
 
 abbrev SymbolEnv := List (String × Nat)
 
@@ -171,14 +171,14 @@ def parseStringLiteral := parseInt32TensorFromHex
 def parseBoolLiteral : StableHLO.Parsing.BooleanLiteral → Bool
   | .true  => true
   | .false => false
--- Parse a StableHLO element literal to an HLR tensor.
+-- Parse a StableHLO element literal to an TGR tensor.
 def parseElementLiteral : StableHLO.Parsing.ElementLiteral → Compile TensorLib.Tensor
   | .floatLiteral f => f |> parseFloat |> TensorLib.Tensor.arrayScalarFloat32! |> pure
   | .stringLiteral s => s |> parseStringLiteral
   | .booleanLiteral b => b |> parseBoolLiteral |> TensorLib.Tensor.arrayScalarBool! |> pure
   | .complexLiteral _ =>  impossible "unimplemented"
 
--- Parse a StableHLO dense literal to an HLR tensor.
+-- Parse a StableHLO dense literal to an TGR tensor.
 def parseTensorLiteral : StableHLO.Parsing.DenseLiteral → Compile Tensor
   -- special case for singleton tensors so we don't create an extra dimension
   | .denseElements [v] => do
@@ -188,7 +188,7 @@ def parseTensorLiteral : StableHLO.Parsing.DenseLiteral → Compile Tensor
   | .denseDimension l => do
     tensorOfTensorList (← l.mapM parseTensorLiteral)
 
--- Convert a StableHLO tensor type to an HLR TensorTy.
+-- Convert a StableHLO tensor type to an TGR TensorTy.
 def parseTensorType (t : StableHLO.Parsing.TensorType) : Compile TensorTy := do
     let shape ← t.shape.mapM (fun
       | .known d =>  pure d
@@ -208,14 +208,14 @@ def parseTensorType (t : StableHLO.Parsing.TensorType) : Compile TensorTy := do
       | _ => throw s!"Unsupported tensor element type: {repr t.tensorElementTypeGen}"
     pure (.mk (.mk shape) dtype)
 
--- Parse an HLR TensorTy at index `n` from the list of types.
+-- Parse an TGR TensorTy at index `n` from the list of types.
 def parseTensorTypeFromValueTypes (l : List StableHLO.Parsing.ValueType) (n : Nat): Compile TensorTy :=
   match l[n]? with
   | .some (.tensorType t) => parseTensorType t
   | .some t => throw s!"Element {n} of type list must have tensor type, but got {repr t}."
   | _ => throw s!"Type list must have at least {n + 1} values, but got only {l.length}."
 
--- Parse an HLR TensorTy from a list of types, expecting the list to have exactly one element.
+-- Parse an TGR TensorTy from a list of types, expecting the list to have exactly one element.
 def parseSingleTensorTypeFromValueTypes : List StableHLO.Parsing.ValueType → Compile TensorTy
   | [.tensorType t] => parseTensorType t
   | t => throw s!"Expected type list to have a single tensor type, but got {repr t}."
@@ -293,13 +293,13 @@ def extractDimensionNumbers (attrs : List StableHLO.Parsing.Attribute) : Compile
 
 /-
 The StableHLO `reduce` operation always calls an arbitrary reduction function.
-However, in HLR we only support a few specific reduction operations (mostly
+However, in TGR we only support a few specific reduction operations (mostly
 arithmetic and logical binary operators). Since many StableHLO programs only
 use these basic reduction operations, we can recognize when the StableHLO function
 called by a `reduce` operation is one of these basic operations, and convert it
-to the corresponding HLR BinaryOp.
+to the corresponding TGR BinaryOp.
 If this process is unsuccessful, it means that the input `reduce` function is more
-complicated and can't be supported by the current HLR design.
+complicated and can't be supported by the current TGR design.
 -/
 def reduceFunctionToReduceOp (f : StableHLO.Parsing.InputFunc) : Compile (BinaryOp) := do
   match f with
@@ -313,13 +313,13 @@ def reduceFunctionToReduceOp (f : StableHLO.Parsing.InputFunc) : Compile (Binary
     ++ s!"Function: {repr op}")
 
 /-
-Compile a StableHLO operation into a list of HLR statements.
+Compile a StableHLO operation into a list of TGR statements.
 
 Note: this function annotates each statement with the type of its output,
 but this type is merely passed through from the HLO program, not computed anew.
 This means it's possible that if there's a mistake in the shape calculation
-in the HLO program, the HLR statements will also have incorrect shapes.
-Eventually, we'll want a function that can shape-check an HLR program.
+in the HLO program, the TGR statements will also have incorrect shapes.
+Eventually, we'll want a function that can shape-check an TGR program.
 -/
 def compileOp  (op : StableHLO.Parsing.Operation) : Compile (List Statement) := do
   log s!"Compiling operation {repr op}"
@@ -330,11 +330,11 @@ def compileOp  (op : StableHLO.Parsing.Operation) : Compile (List Statement) := 
     | [output] => pure output
     | _ => throw "Operator signature must have a single output."
     let outputTy ← parseSingleTensorTypeFromValueTypes signature.range
-    -- helper function to emit HLR for element-wise unary ops
+    -- helper function to emit TGR for element-wise unary ops
     let makeUnOp := fun (op : UnaryOp) => do
       let a := inputValues[0]!
       pure [.assign output (.unaryOp op a) outputTy]
-    -- helper function to emit HLR for element-wise binary ops
+    -- helper function to emit TGR for element-wise binary ops
     let makeBinOp := fun (op : BinaryOp) => do
       let a := inputValues[0]!
       let b := inputValues[1]!
@@ -475,7 +475,7 @@ def compileOp  (op : StableHLO.Parsing.Operation) : Compile (List Statement) := 
       let resultReshapedName ← gensym (output ++ "_reshaped")
       let resultReshapedShape := [batchSize, lhsResultSize, rhsResultSize]
       let resultReshapedType := TensorTy.mk (.mk resultReshapedShape) dtype
-      -- Emit the HLR statements for the dotGeneral operation
+      -- Emit the TGR statements for the dotGeneral operation
       pure ([
         .comment "Dot General Operation",
         .assign lhsTransposedName (.transpose lhs lhsTransposePerm) (.mk (.mk lhsTransposedShape) dtype),
@@ -541,4 +541,4 @@ def compile (m : List StableHLO.Parsing.Module) : (Except String Unit) × Ctx :=
   | .ok _ s => (.ok (), s)
   | .error err s => (throw err, s)
 
-end KLR.HLR.Compile
+end KLR.TGR.Compile

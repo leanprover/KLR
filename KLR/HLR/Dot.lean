@@ -4,13 +4,13 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Biberstein
 -/
 
-import KLR.HLR.AST
+import KLR.TGR.AST
 import SHerLOC.Analysis.Graph
 
 open StableHLO.Analysis (Graph Edge Vertex)
 
--- This module provides a way to convert an HLR function into a DOT graph representation.
-namespace KLR.HLR.Graph
+-- This module provides a way to convert an TGR function into a DOT graph representation.
+namespace KLR.TGR.Graph
 
 /-
 Process the name `var` so that it can used as a node ID in DOT format.
@@ -29,7 +29,7 @@ def makeReturnNode (funcName : String) : Vertex :=
       ("fillcolor", "lightgray"),
       ("color", "gray")
     ])
-def makeOpNode (op : Operator) (output : String) (ty : KLR.HLR.TensorTy): Vertex :=
+def makeOpNode (op : Operator) (output : String) (ty : KLR.TGR.TensorTy): Vertex :=
   let attrs := match op with
   | .arg .. => [
       ("shape", "diamond"),
@@ -72,14 +72,14 @@ def makeEdge (source : String) (dest : String) : Edge :=
     (.mk [])
 
 /-
-Convert an HLR function to a DOT graph, where each variable is a vertex
+Convert an TGR function to a DOT graph, where each variable is a vertex
 and an edge exists from A to B if A is used in the computation of B.
 
 Note: since constants are reused in many parts of the function, they can
 cause the graph to have long edges that cross over other nodes. To avoid this,
 we create a separate vertex for each use of a constant.
 -/
-def graph (f : HLR.Function) : Graph := Id.run do
+def graph (f : TGR.Function) : Graph := Id.run do
   let mut vertices := []
   let mut edges := []
   -- Every variables in the function that is the result of a `constant` operatior
@@ -119,4 +119,4 @@ def graph (f : HLR.Function) : Graph := Id.run do
 
   .mk f.name vertices edges
 
-end KLR.HLR.Graph
+end KLR.TGR.Graph

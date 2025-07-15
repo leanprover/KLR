@@ -19,7 +19,7 @@ import KLR
 import TensorLib.Npy
 import TensorLib.Tensor
 import SHerLOC
-import KLR.HLR
+import KLR.TGR
 import SHerLOC.Analysis.Graph
 
 open Cli
@@ -301,26 +301,26 @@ def evalKLR (p : Parsed) : IO UInt32 := do
     TensorLib.Npy.Ndarray.save! arr filename
   return 0
 
-def hloToHLR (p : Parsed) : IO UInt32 := do
+def hloToTGR (p : Parsed) : IO UInt32 := do
   let file := p.positionalArg! "file" |>.as! String
   let s <- IO.FS.readFile file
   match StableHLO.Parsing.parse s with
   | .ok (hlo, _) =>
-    let hlr := KLR.HLR.Compile.compile hlo
+    let hlr := KLR.TGR.Compile.compile hlo
     match hlr with
     | (.ok _, s) => do
       let hlr := s.program
       IO.println (toString hlr)
       let headFunction := s.program.functions.head!
       -- print graph of function
-      let g := KLR.HLR.Graph.graph headFunction |> toString
+      let g := KLR.TGR.Graph.graph headFunction |> toString
       writeContent "dot" p g
-      -- print HLR program as Python program
-      let py := KLR.HLR.Py.compile hlr
+      -- print TGR program as Python program
+      let py := KLR.TGR.Py.compile hlr
       writeContent "py" p py
       return 0
     | (.error e, s) => do
-      IO.eprintln s!"Error compiling HLO to HLR: {e}"
+      IO.eprintln s!"Error compiling HLO to TGR: {e}"
       IO.eprintln s!"{repr s}"
       return 1
   | .error e =>
@@ -417,9 +417,9 @@ def evalKLRCmd := `[Cli|
     kernelFunctionName : String;  "Name of the kernel function"
     ...inputFiles : String;       ".npy files corresponding to the inputs to the kernel, in positional order"
 ]
-def hloToHLRCmd := `[Cli|
-  "hlo-to-hlr" VIA hloToHLR;
-  "Compile HLO graph to HLR graph"
+def hloToTGRCmd := `[Cli|
+  "hlo-to-hlr" VIA hloToTGR;
+  "Compile HLO graph to TGR graph"
 
   FLAGS:
     o, outfile : String; "Name of output file"
@@ -439,7 +439,7 @@ def klrCmd : Cmd := `[Cli|
     nkiToKLRCmd;
     traceCmd;
     typecheckCmd;
-    hloToHLRCmd
+    hloToTGRCmd
 ]
 
 def main (args : List String) : IO UInt32 := do

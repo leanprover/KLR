@@ -15,13 +15,13 @@ import TensorLib.Tensor
 open TensorLib (Tensor Shape Dtype Slice)
 
 /-
-The definition of the High-Level Representation (HLR) IR. The goal of this IR is to
+The definition of the Tensor Graph Representation (TGR) IR. The goal of this IR is to
 be a uniform representation for graphs of tensor operations, which we can use as a
 common compilation target for different frontends (e.g. StableHLO, PyTorch FX, etc.).
-A HLR program consists of a list of functions, each with a name, and input and output tensors.
+A TGR program consists of a list of functions, each with a name, and input and output tensors.
 The function body is in SSA, with each operation producing a single output tensor.
 -/
-namespace KLR.HLR
+namespace KLR.TGR
 
 structure TensorTy where
   shape : Shape
@@ -50,7 +50,7 @@ inductive UnaryOp where
 deriving Inhabited, Repr
 
 /-
-Operators in the HLR (High-Level Representation) of KLR.
+Operators in the TGR (Tensor Graph Representation) IR.
 
 Note: some HLO operations have "load-bearing" output shapes, meaning the
 output shape is a vital part of the operation's semantics (e.g. `reshape`).
@@ -110,7 +110,7 @@ inductive Operator where
 deriving Inhabited, Repr
 
 /-
-A statement in HLR (High Level Representation).
+A statement in TGR (Tensor Graph Representation).
 In SSA form, so each variable is assigned exactly once.
 -/
 inductive Statement where
@@ -128,7 +128,7 @@ inductive Statement where
 deriving Inhabited, Repr
 
 /-
-An HLR function. Note that arguments are referred to by index, so
+An TGR function. Note that arguments are referred to by index, so
 we only store the argument shapes, not names.
 -/
 structure Function where
@@ -138,7 +138,7 @@ structure Function where
   statements : List Statement
 deriving Inhabited, Repr, Nonempty
 
--- An HLR program
+-- An TGR program
 structure Program where
   functions : List Function
 deriving Inhabited, Repr, Nonempty
@@ -284,4 +284,4 @@ def opName : Operator → String
   | .slice .. => s!"slice"
   | .call callee .. => s!"call {callee}"
 
-end KLR.HLR
+end KLR.TGR

@@ -5,7 +5,7 @@ Authors: Paul Biberstein
 -/
 
 import KLR.Core.Operators
-import KLR.HLR.AST
+import KLR.TGR.AST
 import KLR.Util
 import SHerLOC
 import TensorLib.Shape
@@ -15,12 +15,12 @@ open Std.Format
 open TensorLib (Dtype Shape Slice)
 
 /-
-This module converts an HLR program into a runnable Python program.
-At present, it can't convert HLR constants to python constants and can't
+This module converts an TGR program into a runnable Python program.
+At present, it can't convert TGR constants to python constants and can't
 take input tensors, so it is only helpful to ensure that the shape
 annotations are correct and that the program is well-formed.
 -/
-namespace KLR.HLR.Py
+namespace KLR.TGR.Py
 
 structure FormatCtx where
   indent : Nat := 0
@@ -148,8 +148,8 @@ def compileProgram (p : Program) : Format :=
       p.functions.map compileFunction
     joinSep lines line
 
--- Compile the HLR program to a Python program.
+-- Compile the TGR program to a Python program.
 def compile (p : Program) : String :=
   (compileProgram p).pretty
 
-end KLR.HLR.Py
+end KLR.TGR.Py
