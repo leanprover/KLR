@@ -46,10 +46,9 @@ def wp_F (wp : LeibnizO Nat → @prog DataT → @prog DataT → (@val DataT → 
       -- Either, that configuration is a value, and the postcondition holds,
       (|==> ∃ vl, ∃ vr, ⌜to_val p1 = some vl⌝ ∗ ⌜to_val p2 = some vr⌝ ∗ Φf vl vr) ∨
       -- Or, they're not values, and for any two configurations that we can step into, in some number of steps,
-      ( ⌜to_val p1 = none ∨ to_val p2 = none⌝ ∗
+      ( -- ⌜to_val p1 = none ∨ to_val p2 = none⌝ ∗
         ∃ cl', ∃ cr', ∃ nl, ∃ nr,
-          ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K.car ∧ nr ≤ K.car ∧
-            StepN nl (p1, sl) cl' ∧ StepN nr (p2, sr) cr'⌝ -∗
+          ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K.car ∧ nr ≤ K.car ∧ StepN nl (p1, sl) cl' ∧ StepN nr (p2, sr) cr'⌝ ∗
             -- We can reobtain the state interp for the new state, and also
             -- prove the weakest precondition.
             ▷ |==> (state_interp cl'.2 cr'.2 ∗ wp K cl'.1 cr'.1 Φf)))
@@ -65,47 +64,106 @@ theorem wp_unfold {K : LeibnizO Nat} {p1 p2 : @prog DataT} {Φf : @val DataT →
     wp K p1 p2 Φf ≡
     iprop(∀ sl, ∀ sr, state_interp sl sr -∗
       (|==> ∃ vl, ∃ vr, ⌜to_val p1 = some vl⌝ ∗ ⌜to_val p2 = some vr⌝ ∗ Φf vl vr) ∨
-      ( ⌜to_val p1 = none ∨ to_val p2 = none⌝ ∗
+      ( -- ⌜to_val p1 = none ∨ to_val p2 = none⌝ ∗ -- This follows from the rest of the case
         ∃ cl', ∃ cr', ∃ nl, ∃ nr,
-          ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K.car ∧ nr ≤ K.car ∧
-            StepN nl (p1, sl) cl' ∧ StepN nr (p2, sr) cr'⌝ -∗
+          ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K.car ∧ nr ≤ K.car ∧ StepN nl (p1, sl) cl' ∧ StepN nr (p2, sr) cr'⌝ ∗
             ▷ |==> (state_interp cl'.2 cr'.2 ∗ wp K cl'.1 cr'.1 Φf))) := by
   apply fixpoint_unfold (f := ⟨wp_F, OFE.ne_of_contractive wp_F⟩)
 
 end weakestpre
 
-/-- If the two terms are values, then we at the very least get a relationship between their values. -/
-theorem wp_value_value_fupd {pl pr : @prog DataT} {sl sr : @state DataT} {Φf : @val DataT → @val DataT → Prop}
-    (Hpl : (NML.NMLSemantics DataT).IsValue pl) (Hpr : (NML.NMLSemantics DataT).IsValue pr) :
+theorem wp_to_fupd_PRelS {pl pr : @prog DataT} {sl sr : @state DataT} {Φf : @val DataT → @val DataT → Prop} {n : Nat} :
     state_interp sl sr ∗ wp K pl pr (fun vl vr => iprop(⌜(Φf vl vr : Prop)⌝)) ⊢
-            |==> ⌜∃ (vl vr : @val DataT), to_val pl = some vl ∧ to_val pr = some vr ∧ Φf vl vr⌝ := by
-  apply Iris.BI.entails_trans.trans (Iris.BI.equiv_iff.mp (Iris.BI.sep_ne.eqv .rfl wp_unfold)).mp
-  istart
-  iintro ⟨Hs, Hwp⟩
-  ispecialize Hwp Hs
-  istop
-  apply Iris.BI.entails_trans.trans Iris.BI.emp_sep.1
-  istart
-  iintro (Hv|⟨⌜Hk⌝, _⟩)
-  · istop
-    apply Iris.BIUpdate.mono _
+    |==> ▷^[n] ⌜(NML.NMLSemantics DataT).PRelS n K.car (pl, sl) (pr, sr) Φf ⌝ := by
+  revert pl pr sl sr
+  induction n with | zero => ?_ | succ n IH => ?_
+  · -- Base case: n=0 so postcondition is trivial
+    intro pl pr sl sr
+    simp only [SmallStep.PRelS]
+    apply Iris.BI.BIBase.Entails.trans (Q := iprop(True))
+    · exact fun n x a a => trivial
+    · exact Iris.BIUpdate.intro
+  · -- Inductive case
+    intro pl pr sl sr
+    -- Unfold the WP
+    apply (Iris.BI.equiv_iff.mp (Iris.BI.sep_ne.eqv .rfl wp_unfold)).mp.trans
+    -- Specialize the WP with the state_interp
     istart
-    iintro ⟨vl, vr, ⌜Hvl⌝, ⌜Hvr⌝⟩
-    ipure_intro
-    exists vl
-    exists vr
-  · exfalso
-    unfold to_val at *
-    unfold SmallStep.IsValue at *
-    rcases Hk with (Hk | Hk)
-    · rw [Hk] at Hpl; cases Hpl
-    · rw [Hk] at Hpr; cases Hpr
+    iintro ⟨Hσ, Hwp⟩
+    ispecialize Hwp Hσ
+    icases Hwp with ⟨H|H⟩
+    · -- Both programs are values
+      istop
+      -- Strip the update modality
+      apply Iris.BIUpdate.mono
+      istart
+      iintro ⟨vl, vr, %Hvl, %Hvr, %HΦ⟩
+      istop
 
-theorem wp_fupd {pl pr : @prog DataT} {sl sr : @state DataT} {Φf : @val DataT → @val DataT → Prop} {n : Nat} :
-    state_interp sl sr ∗ wp K pl pr (fun vl vr => iprop(⌜(Φf vl vr : Prop)⌝)) ⊢
-    |==> ▷^[n] ⌜(NML.NMLSemantics DataT).PRelS n K.car c1 c2 Φf ⌝ := by
-  sorry
+      -- Intro a bunch of laters for a pure prop, this should be OK?
+      refine .trans ?_ laterN_intro
+      apply Iris.BI.pure_intro
+      simp [SmallStep.PRelS, Hvl, Hvr]
+      exact HΦ
 
+    · -- Both programs can step
+      icases H with ⟨cl', cr', nl, nr, ⟨%Hnl0, %Hnr0, %HnlK, %HnrK, %HSl, %HSr⟩, H⟩
+      simp only [Iris.BI.BIBase.laterN]
+      istop
+
+      -- Since they both can step, neither of them is a value
+      have p1_not_value : (NML.NMLSemantics DataT).toVal pl = none := by
+        cases h : (NML.NMLSemantics DataT).toVal pl; trivial
+        exfalso
+        rcases nl with (_|nl); omega
+        rw [Nat.add_comm] at HSl
+        obtain ⟨⟨pl', sl'⟩, H, _⟩ := (NML.NMLSemantics DataT).StepN_add_iff.mp HSl
+        apply (NML.NMLSemantics DataT).toVal_isSome_isStuck ?_ ((NML.NMLSemantics DataT).step_of_stepN_one H)
+        rw [h]; constructor
+      have p2_not_value : (NML.NMLSemantics DataT).toVal pr = none := by
+        cases h : (NML.NMLSemantics DataT).toVal pr; trivial
+        exfalso
+        rcases nr with (_|nr); omega
+        rw [Nat.add_comm] at HSr
+        obtain ⟨⟨pl', sl'⟩, H, _⟩ := (NML.NMLSemantics DataT).StepN_add_iff.mp HSr
+        apply (NML.NMLSemantics DataT).toVal_isSome_isStuck ?_ ((NML.NMLSemantics DataT).step_of_stepN_one H)
+        rw [h]; constructor
+
+      -- It suffices to get a PRelS for the continuation
+      have Hcont : SmallStep.PRelS n K.car cl' cr' Φf → SmallStep.PRelS (n + 1) K.car (pl, sl) (pr, sr) Φf := by
+        intro H
+        simp only [p1_not_value, p2_not_value, SmallStep.PRelS]
+        exists nl; exists nr; exists cl'; exists cr'
+
+      suffices
+          Iris.BI.later iprop(|==> (state_interp cl'.snd cr'.snd ∗ wp K cl'.fst cr'.fst fun vl vr => iprop(⌜Φf vl vr⌝))) ⊢
+          |==> Iris.BI.later iprop(▷^[n]⌜SmallStep.PRelS n K.car cl' cr' Φf⌝) by
+        apply this.trans
+        apply Iris.BIUpdate.mono
+        apply Iris.BI.later_mono
+        exact laterN_mono fun n x a => Hcont
+      clear Hcont
+
+      -- apply the IH
+      suffices
+          Iris.BI.later iprop(|==> (|==> ▷^[n]⌜SmallStep.PRelS n K.car (cl'.fst, cl'.snd) (cr'.fst, cr'.snd) Φf⌝ : @PROP DataT)) ⊢
+          |==> Iris.BI.later iprop(▷^[n]⌜SmallStep.PRelS n K.car cl' cr' Φf⌝) by
+        refine .trans ?_ this
+        refine Iris.BI.later_mono ?_
+        exact Iris.BIUpdate.mono IH
+      clear IH
+      simp
+
+      -- Collapse the two bupds
+      suffices
+          Iris.BI.later iprop(|==> ▷^[n]⌜SmallStep.PRelS n K.car (cl'.fst, cl'.snd) (cr'.fst, cr'.snd) Φf⌝) ⊢
+          |==> Iris.BI.later iprop(▷^[n]⌜SmallStep.PRelS n K.car cl' cr' Φf⌝) by
+        refine .trans ?_ this
+        apply Iris.BI.later_mono
+        exact Iris.BIUpdate.trans
+
+      -- Exchange bupd and later
+      apply later_bupd_comm_plain
 
 
 
