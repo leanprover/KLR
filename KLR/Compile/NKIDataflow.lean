@@ -9,6 +9,12 @@ inductive VarAction where
   | Write (name : String) (ty : Option Expr)
   | None
 
+instance VarAction.toString : ToString VarAction where
+  toString := fun
+    | Read name => s!"Read({name})"
+    | Write name _ => s!"Write({name})"
+    | None => "None"
+
 structure NKIWalker where
   num_nodes : ℕ
   last_node : ℕ
@@ -17,6 +23,14 @@ structure NKIWalker where
   breaks : List ℕ
   conts : List ℕ
   rets : List ℕ
+
+instance NKIWalker.toString : ToString NKIWalker where
+  toString walker :=
+    let row n :=
+      let tgts := (List.range walker.num_nodes).filter (walker.edges n)
+      let num := if n = walker.last_node then s!"{n}[exit]" else s!"{n}"
+      s!"{num} {walker.actions n} ↦ {tgts}\n"
+    String.intercalate "\n" ((List.range walker.num_nodes).map row)
 
 def NKIWalker.init : NKIWalker := {
   num_nodes := 1
@@ -157,3 +171,72 @@ def NKIWalker.processFun (f : Fun) : NKIWalker :=
   body_walker.rets.foldl (fun walker ret ↦ walker.addEdge ret body_walker.last_node) body_walker
 
 def NKIWalker.isClosed (walker : NKIWalker) := walker.breaks.isEmpty ∧ walker.conts.isEmpty
+
+def test_kernel : Kernel := {
+  entry := "test.test",
+  funs := [{ name := "test.test",
+             file := "unknown",
+             line := 1,
+             body := [{ stmt := KLR.NKI.Stmt'.assign
+                                  { expr := KLR.NKI.Expr'.var "x",
+                                    pos := { line := 2, column := 1, lineEnd := some 2, columnEnd := some 2 } }
+                                  none
+                                  (some { expr := KLR.NKI.Expr'.value (KLR.NKI.Value.int 0),
+                                          pos := { line := 2, column := 5, lineEnd := some 2, columnEnd := some 6 } }),
+                        pos := { line := 2, column := 1, lineEnd := some 2, columnEnd := some 6 } },
+                      { stmt := KLR.NKI.Stmt'.ifStm
+                                  { expr := KLR.NKI.Expr'.var "cond0",
+                                    pos := { line := 3, column := 4, lineEnd := some 3, columnEnd := some 9 } }
+                                  [{ stmt := KLR.NKI.Stmt'.expr
+                                               { expr := KLR.NKI.Expr'.call
+                                                           { expr := KLR.NKI.Expr'.var "print",
+                                                             pos := { line := 4,
+                                                                      column := 2,
+                                                                      lineEnd := some 4,
+                                                                      columnEnd := some 7 } }
+                                                           [{ expr := KLR.NKI.Expr'.var "x",
+                                                              pos := { line := 4,
+                                                                       column := 8,
+                                                                       lineEnd := some 4,
+                                                                       columnEnd := some 9 } }]
+                                                           [],
+                                                 pos := { line := 4,
+                                                          column := 2,
+                                                          lineEnd := some 4,
+                                                          columnEnd := some 10 } },
+                                     pos := { line := 4, column := 2, lineEnd := some 4, columnEnd := some 10 } }]
+                                  [{ stmt := KLR.NKI.Stmt'.assign
+                                               { expr := KLR.NKI.Expr'.var "y",
+                                                 pos := { line := 6,
+                                                          column := 2,
+                                                          lineEnd := some 6,
+                                                          columnEnd := some 3 } }
+                                               none
+                                               (some { expr := KLR.NKI.Expr'.value (KLR.NKI.Value.int 0),
+                                                       pos := { line := 6,
+                                                                column := 6,
+                                                                lineEnd := some 6,
+                                                                columnEnd := some 7 } }),
+                                     pos := { line := 6, column := 2, lineEnd := some 6, columnEnd := some 7 } }],
+                        pos := { line := 3, column := 1, lineEnd := some 6, columnEnd := some 7 } },
+                      { stmt := KLR.NKI.Stmt'.expr
+                                  { expr := KLR.NKI.Expr'.call
+                                              { expr := KLR.NKI.Expr'.var "print",
+                                                pos := { line := 7,
+                                                         column := 1,
+                                                         lineEnd := some 7,
+                                                         columnEnd := some 6 } }
+                                              [{ expr := KLR.NKI.Expr'.var "y",
+                                                 pos := { line := 7,
+                                                          column := 7,
+                                                          lineEnd := some 7,
+                                                          columnEnd := some 8 } }]
+                                              [],
+                                    pos := { line := 7, column := 1, lineEnd := some 7, columnEnd := some 9 } },
+                        pos := { line := 7, column := 1, lineEnd := some 7, columnEnd := some 9 } }],
+             args := [] }],
+  args := [],
+  globals := [] }
+
+  def 𝕏 := NKIWalker.processFun test_kernel.funs[0]
+  #eval 𝕏
