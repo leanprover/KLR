@@ -47,35 +47,35 @@ simplicity: we do not try to resolve names that are being
 -/
 
 @[serde tag = 2]
-inductive Ctx where
+enum Ctx where
   | load | store | del
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+  deriving FromCBOR, ToCBOR
 
 -- Python boolean (logical) operators
 @[serde tag = 3]
-inductive BoolOp where
+enum BoolOp where
   | land | lor
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+  deriving FromCBOR, ToCBOR
 
 -- Python comparison operators
 @[serde tag = 4]
-inductive CmpOp where
+enum CmpOp where
   | eq | ne | lt | le | gt | ge | is | isNot | isIn | notIn
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+  deriving FromCBOR, ToCBOR
 
 -- Python unary operators
 @[serde tag = 5]
-inductive UnaryOp where
+enum UnaryOp where
   | invert | not | uadd | usub
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+  deriving FromCBOR, ToCBOR
 
 -- Python binary operators
 @[serde tag = 6]
-inductive BinOp where
+enum BinOp where
   | add | sub | mul | matmul | div | mod | pow
   | lshift | rshift | or | xor | and
   | floor -- the '//' operator in Python
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+  deriving FromCBOR, ToCBOR
 
 mutual
 @[serde tag = 7]

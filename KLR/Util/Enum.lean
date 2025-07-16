@@ -12,13 +12,13 @@ open KLR.Util.Hex(encode)
 open KLR.Util(FromSexp ToSexp)
 open Lean(FromJson Json Syntax TSyntax TSyntaxArray ToJson mkIdent fromJson? toJson)
 open Lean.Elab.Command(CommandElab CommandElabM elabCommand liftTermElabM)
+open Lean.Parser.Command(declModifiers)
 open Lean.Parser.Term(matchAltExpr)
 open Lean.PrettyPrinter(ppCommand ppExpr ppTerm)
 open TensorLib(get!)
 
 syntax item := Lean.Parser.Command.ctor (":=" num)?
 syntax items := manyIndent(item)
-syntax (name := enumcmd) "private"? "enum" ident "where" items : command
 
 namespace KLR.Util
 
@@ -42,13 +42,18 @@ private partial def nextNat (nats : Array Nat) (current : Nat) : Array Nat × Na
   then nextNat nats (current + 1)
   else (nats.push current, current)
 
+open Lean.Parser.Command
+open Lean.Parser.Term
+
+syntax (name := enumcmd) declModifiers "enum" ident "where" item* optDeriving : command
+
 @[command_elab enumcmd]
 def elabEnum : CommandElab
-| `(enum $name:ident where $items:item*) => doit false name items
-| `(private enum $name:ident where $items:item*) => doit true name items
+| `($modifiers:declModifiers enum $name:ident where $items:item* $dcs:optDeriving) => doit modifiers name items dcs
 | _ => throwError "invalid enum syntax"
 where
-  doit (priv : Bool) (name : TSyntax `ident) (items : TSyntaxArray `item) : CommandElabM Unit := do
+  -- TODO: I can't figure out how to type `modifiers` or `dcs`
+  doit modifiers (name : TSyntax `ident) (items : TSyntaxArray `item) dcs : CommandElabM Unit := do
     let mut values : List (TSyntax `Lean.Parser.Command.ctor × TSyntax `num) := []
     let mut ctors : Array (TSyntax `Lean.Parser.Command.ctor) := #[]
     let mut numValues : Array Nat := #[]
@@ -58,7 +63,6 @@ where
       | `(item| $_:ctor := $v:num) => do
         numValues := numValues.push v.getNat
       | _ => continue
-    -- dbg_trace "numValues: {numValues}"
     for item in items do
       match item with
       | `(item| $id:ctor := $v:num) => do
@@ -78,16 +82,14 @@ where
     | some k =>
       throwError s!"Duplicate numeric values: {k}"
     | none =>
-    let cmd <- if priv then
+    let cmd <-
       `(
-        private inductive $name where
+        $modifiers:declModifiers inductive $name where
           $[ $ctors ]*
+        $dcs:optDeriving
       )
-    else
-      `(
-        inductive $name where
-          $[ $ctors ]*
-      )
+    -- SM: Leave this in
+    -- dbg_trace (<- liftTermElabM <| ppCommand cmd)
     elabCommand cmd
     let typeName := name.raw.getId
     let toUInt8Name := mkIdent (.str typeName "toUInt8")
@@ -189,6 +191,8 @@ where
 
 section Test
 
+/-- Docstring -/
+@[export foo]
 private enum Foo where
   | x
   | y
@@ -197,6 +201,7 @@ private enum Foo where
   | r := 9
   | m := 10
   | n
+deriving Repr
 
 #guard Foo.x.toUInt8 == 0
 #guard Foo.y.toUInt8 == 2
