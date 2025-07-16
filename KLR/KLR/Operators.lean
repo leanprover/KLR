@@ -163,6 +163,10 @@ def AluOp.IsTensorReduceBitwiseOp  : AluOp → Prop
 | arith_shift_left | arith_shift_right | bitwise_and | bitwise_or | bitwise_xor | logical_and | logical_or | logical_shift_left | logical_shift_right | logical_xor => True
 | _ => False
 
+/- ActivationFunctionLoad -/
+structure ActivationTableLoad where
+  ActTableSelect : UInt8
+
 /- Dropout instruction -/
 structure Dropout where
   dst           : TensorRef

@@ -47,6 +47,15 @@ instance [FromNKI a] : FromNKI (Option a) where
     | .none => return none
     | e => return some (<- fromNKI? e)
 
+instance [FromNKI a] [FromNKI b] : FromNKI (Sum a b) where
+  fromNKI? t := do
+    match fromNKI? t with
+    | .ok a => return .inl a
+    | .error _ =>
+      match fromNKI? t with
+      | .ok b => return .inr b
+      | .error e => throw s!"cannot convert to either type in sum: {e}"
+
 instance : FromNKI Term := ⟨ .ok ⟩
 
 instance : FromNKI Expr where
@@ -69,6 +78,7 @@ instance : FromNKI Expr where
     | .store ..    => err "store"
     | .pointer ..  => err "pointer"
     | .expr e _    => return e
+    | .oper op     => err "oper"
 
 instance : FromNKI Address where
   fromNKI?
@@ -198,6 +208,19 @@ instance : FromNKI Memory where
       | _ => err
     | _ => err
 
+instance : FromNKI Engine where
+  fromNKI? t :=
+    let err := .error "expecting engine type"
+    match t with
+    | .expr (.value $ .var name) _ =>
+      match name with
+      | "nki.isa.unknown_engine" => .ok .unassigned
+      | "nki.isa.tensor_engine" => .ok .pe
+      | "nki.isa.vector_engine" => .ok .dve
+      | "nki.isa.scalar_engine" => .ok .sp
+      | _ => err
+    | _ => err
+
 instance : FromNKI Access where
   fromNKI?
     | .expr (.value $ .access a) _ => return a
@@ -262,3 +285,50 @@ instance : FromNKI AluOp where
         | "numpy.logical_xor" => return .logical_xor
         | _ => throw s!"unsupported operator {name}"
     | _ => throw "expecting operator"
+
+instance : FromNKI ActivationFunc where
+  fromNKI? t :=
+    let err := .error "expecting activation function type"
+    match t with
+    | .expr (.value $ .var name) _ =>
+      match name with
+        | "nki.language.copy" | "numpy.copy" => return .copy
+        | "nki.language.square" | "numpy.square" => return .sqrt
+        | "nki.language.sigmoid" => return .sigmoid
+        | "nki.language.relu" => return .relu
+        | "nki.language.gelu" => return .gelu
+        | "nki.language.gelu_dx" => return .gelu_dx
+        | "nki.language.gelu_apprx_tanh" => return .gelu_apprx_tanh
+        | "nki.language.silu" => return .silu
+        | "nki.language.silu_dx" => return .silu_dx
+        | "nki.language.tanh" | "numpy.tanh" => return .tanh
+        | "nki.language.softplus" => return .softplus
+        | "nki.language.mish" => return .mish
+        | "nki.language.erf" => return .erf
+        | "nki.language.erf_dx" => return .erf_dx
+        | "nki.language.exp" | "numpy.exp" => return .exp
+        | "nki.language.log" | "numpy.log" => return .log
+        | "nki.language.sin" | "numpy.sin" => return .sin
+        | "nki.language.arctan" | "numpy.arctan" => return .arctan
+        | "nki.language.sqrt" | "numpy.sqrt" => return .sqrt
+        | "nki.language.rsqrt" => return .rsqrt
+        | "nki.language.reciprocal" | "numpy.reciprocal" => return .reciprocal
+        | "nki.language.sign" | "numpy.sign" => return .sign
+        | "nki.language.abs" | "numpy.abs" => return .abs
+        | _ => err
+      | _ => err
+
+
+instance : FromNKI AccumCmd where
+  fromNKI? t :=
+    let err := .error "expecting activation function type"
+    match t with
+    | .expr (.value $ .var name) _ =>
+      match name with
+        | "nisa.reduce_cmd.idle" => return .Idle
+        | "nisa.reduce_cmd.reset" => return .Zero
+        | "nisa.reduce_cmd.reduce" => return .Accumulate
+        | "nisa.reduce_cmd.reset_reduce" => return .ZeroAccumulate
+        -- Something should emit LoadAccumulate? Not sure what
+        | _ => err
+      | _ => err

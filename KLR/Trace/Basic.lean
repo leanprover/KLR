@@ -85,6 +85,7 @@ def Term.isTrue : Term -> Err Bool
       --  is ambiguous. Use a.any() or a.all()"
       throw "tensor cannot be evaluated as bool"
   | .expr _ _ => throw "non-constant expression"
+  | .oper _ => throw "non constant expression"
 
 def Term.isFalse (t : Term) : Err Bool :=
   return not (<- t.isTrue)

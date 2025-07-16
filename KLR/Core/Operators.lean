@@ -216,6 +216,7 @@ inductive MatmulGroupElement where
   | first
   | middle
   | last
+  | whole
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- Whether an immediate should be written, or nothing should be written, when an index misses -/
@@ -376,7 +377,7 @@ Sets `count` elements of `dst` to `value`
 @[serde tag = 153]
 structure MemSet where
   dst   : TensorRef
-  value : UInt32
+  value : Immediate
   count : Nat
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
@@ -516,7 +517,7 @@ Same as FindIndex8, but replaces the found values in src with `replaceValue`-/
 structure MatchReplace8 where
   dst          : TensorRef
   src          : TensorRef
-  replaceValue : Float32
+  replaceValue : Immediate
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- Max8 instruction

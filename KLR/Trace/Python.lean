@@ -457,6 +457,7 @@ def access (t : Term) (i : Term) : Err Term := do
           let access := Core.Access.pattern ap
           let shape <- Tensor.inferShape access
           return .expr (.value (.access access)) (.tensor tensor.dtype shape))
+    | .oper .. => throw "not implemented yet"
 
 
 --
@@ -533,6 +534,8 @@ def toPureExpr : Term -> Trace Term
   | .mgrid =>
       -- Assume that people do not write a code that has mgrid appearing solely
       -- without a subscript on the RHS of assignment...
+      throw "unimplemented"
+  | .oper _op =>
       throw "unimplemented"
 
 -- Unpack an RValue.
