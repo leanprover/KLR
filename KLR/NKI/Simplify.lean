@@ -233,18 +233,18 @@ def findVarPattern (ps : List Pattern) : Simplify (Name × List Pattern) :=
   | (.var n :: vs, ps) => return (n, vs ++ ps)
   | _ => throw "invalid pattern"
 
-def assign (xs : List Expr) (e : Expr) : Simplify (List Stmt') := do
+def assign (xs : List Expr) (e : Expr) (t : Option Expr) : Simplify (List Stmt') := do
   match <- letSet xs with
   | (xs, some s) =>
     return .setM s e (accum := false) ::
-            xs.map fun x => .letM x none e
+            xs.map fun x => .letM x t e
   | ([], none) => throw "invalid assignment statement"
-  | ([x], none) => return [.letM x none e]
+  | ([x], none) => return [.letM x t e]
   | (xs, none) =>
     let (n, xs) <- findVarPattern xs
-    let first := .letM (.var n) none e
+    let first := .letM (.var n) t e
     let e' : Expr := ⟨ .var n, e.pos ⟩
-    let rest := xs.map fun x' => .letM x' none e'
+    let rest := xs.map fun x' => .letM x' t e'
     return first :: rest
 
 mutual
@@ -267,17 +267,17 @@ private def stmt' (s : Python.Stmt') : Simplify (List Stmt') := do
   | .expr e => return [.expr (<- expr e)]
   | .assert e => return [.assert (<- expr e)]
   | .ret e => return [.ret (<- expr e)]
-  | .assign xs e => do assign (<- exprs xs) (<- expr e)
+  | .assign xs e => do assign (<- exprs xs) (<- expr e) none
   | .augAssign x op e => do
       let x <- expr x
       let e <- expr e
       let rhs := Expr'.binOp (<- binOp op) x e
-      assign [x] ⟨ rhs, x.pos ⟩
+      assign [x] ⟨ rhs, x.pos ⟩ none
   | .annAssign x t e => do
       let x <- expr x
       let t <- expr t
       match e with
-      | some e => assign [x] (<- expr e)
+      | some e => assign [x] (<- expr e) t
       | none =>
         if let ⟨ .var n, _ ⟩ := x then
           return [.declare n t]
