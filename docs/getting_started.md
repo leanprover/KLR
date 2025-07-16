@@ -77,7 +77,7 @@ if __name__ == "__main__":
   kernel.specialize(1, 2)
 
   # Serialize the result
-  ba = K.serialize("kernel.klr")
+  ba = kernel.serialize("kernel.klr")
 ```
 
 This code will create a KLR kernel object from our python function `kernel`.
