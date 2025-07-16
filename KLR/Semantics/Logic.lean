@@ -8,12 +8,15 @@ import KLR.Semantics.Lib
 import KLR.Semantics.NML
 import KLR.Semantics.Memory
 import Iris.Algebra.OFE
+import Iris.Algebra.Agree
 import Iris.Algebra.UPred
 import Iris.Instances.UPred
 import Iris.Instances.heProp
 import Iris.BI
 import Iris.ProofMode
 import Iris.BI.DerivedLaws
+import Iris.BI.Updates
+import Iris.Algebra.CMRA
 
 -- The logic: I can reuse UPred with a fixed ghost state (first-order)
 -- I'll want the fixpoint combinator to define the wp
@@ -32,6 +35,8 @@ abbrev to_val := (NML.NMLSemantics DataT).toVal
 abbrev StepN := (NML.NMLSemantics DataT).StepN
 
 abbrev PROP : Type _ := heProp PNat ProdIndex (UCell UInt8 DataT) ProdChipMemory
+abbrev PROPR : Type := (HeapView PNat ProdIndex (Agree (LeibnizO (UCell UInt8 DataT))) ProdChipMemory)
+
 
 -- The state interpretation, ie the global version of the program state.
 def state_interp (left right : @state DataT) : @PROP DataT :=
@@ -72,7 +77,9 @@ theorem wp_unfold {K : LeibnizO Nat} {p1 p2 : @prog DataT} {Φf : @val DataT →
 
 end weakestpre
 
-theorem wp_to_fupd_PRelS {pl pr : @prog DataT} {sl sr : @state DataT} {Φf : @val DataT → @val DataT → Prop} {n : Nat} :
+/-
+theorem wp_to_fupd_PRelS {pl pr : @prog DataT} {sl sr : @state DataT}
+      {Φf : @val DataT → @val DataT → Prop} {n : Nat} :
     state_interp sl sr ∗ wp K pl pr (fun vl vr => iprop(⌜(Φf vl vr : Prop)⌝)) ⊢
     |==> ▷^[n] ⌜(NML.NMLSemantics DataT).PRelS n K.car (pl, sl) (pr, sr) Φf ⌝ := by
   revert pl pr sl sr
@@ -164,7 +171,201 @@ theorem wp_to_fupd_PRelS {pl pr : @prog DataT} {sl sr : @state DataT} {Φf : @va
 
       -- Exchange bupd and later
       apply later_bupd_comm_plain
+-/
 
+-- H : ⊢ wp K pl pr fun vl vr => iprop(⌜Φf vl vr⌝)
+-- ⊢
+--   ⊢ state_interp sl sr -∗ |==> ▷^[n']⌜SmallStep.PRelS n' K.car (pl, sl) (pr, sr) Φf⌝
+
+
+theorem wp_to_fupd_PRelS {pl pr : @prog DataT} {sl sr : @state DataT}
+      {Φf : @val DataT → @val DataT → Prop} {n : Nat} :
+    wp K pl pr (fun vl vr => iprop(⌜(Φf vl vr : Prop)⌝)) ⊢
+    state_interp sl sr -∗ |==> ▷^[n] ⌜(NML.NMLSemantics DataT).PRelS n K.car (pl, sl) (pr, sr) Φf ⌝ := by
+  revert pl pr sl sr
+  induction n with | zero => ?_ | succ n IH => ?_
+  · -- Base case: n=0 so postcondition is trivial
+    intro pl pr sl sr
+    simp only [SmallStep.PRelS]
+    istart
+    iintro H1 H2
+    iclear H1
+    iclear H2
+    istop
+    exact Iris.BIUpdate.intro
+  · -- Inductive case
+    intro pl pr sl sr
+    -- Unfold the WP
+    apply Iris.BI.BIBase.Entails.trans
+    · apply (Iris.BI.equiv_iff.mp wp_unfold).mp.trans
+      exact .rfl -- What
+
+    istart
+    iintro Hwp Hσ
+    ispecialize Hwp Hσ
+    icases Hwp with ⟨H|H⟩
+    · -- Both programs are values
+      istop
+      -- Strip the update modality
+      apply Iris.BIUpdate.mono
+      istart
+      iintro ⟨vl, vr, %Hvl, %Hvr, %HΦ⟩
+      istop
+
+      -- Intro a bunch of laters for a pure prop, this should be OK?
+      refine .trans ?_ laterN_intro
+      apply Iris.BI.pure_intro
+      simp [SmallStep.PRelS, Hvl, Hvr]
+      exact HΦ
+
+    · -- Both programs can step
+      icases H with ⟨cl', cr', nl, nr, ⟨%Hnl0, %Hnr0, %HnlK, %HnrK, %HSl, %HSr⟩, H⟩
+      simp only [Iris.BI.BIBase.laterN]
+      istop
+
+      -- Since they both can step, neither of them is a value
+      have p1_not_value : (NML.NMLSemantics DataT).toVal pl = none := by
+        cases h : (NML.NMLSemantics DataT).toVal pl; trivial
+        exfalso
+        rcases nl with (_|nl); omega
+        rw [Nat.add_comm] at HSl
+        obtain ⟨⟨pl', sl'⟩, H, _⟩ := (NML.NMLSemantics DataT).StepN_add_iff.mp HSl
+        apply (NML.NMLSemantics DataT).toVal_isSome_isStuck ?_ ((NML.NMLSemantics DataT).step_of_stepN_one H)
+        rw [h]; constructor
+      have p2_not_value : (NML.NMLSemantics DataT).toVal pr = none := by
+        cases h : (NML.NMLSemantics DataT).toVal pr; trivial
+        exfalso
+        rcases nr with (_|nr); omega
+        rw [Nat.add_comm] at HSr
+        obtain ⟨⟨pl', sl'⟩, H, _⟩ := (NML.NMLSemantics DataT).StepN_add_iff.mp HSr
+        apply (NML.NMLSemantics DataT).toVal_isSome_isStuck ?_ ((NML.NMLSemantics DataT).step_of_stepN_one H)
+        rw [h]; constructor
+
+      -- It suffices to get a PRelS for the continuation
+      have Hcont : SmallStep.PRelS n K.car cl' cr' Φf → SmallStep.PRelS (n + 1) K.car (pl, sl) (pr, sr) Φf := by
+        intro H
+        simp only [p1_not_value, p2_not_value, SmallStep.PRelS]
+        exists nl; exists nr; exists cl'; exists cr'
+
+      suffices
+          Iris.BI.later iprop(|==> (state_interp cl'.snd cr'.snd ∗ wp K cl'.fst cr'.fst fun vl vr => iprop(⌜Φf vl vr⌝))) ⊢
+          |==> Iris.BI.later iprop(▷^[n]⌜SmallStep.PRelS n K.car cl' cr' Φf⌝) by
+        apply this.trans
+        apply Iris.BIUpdate.mono
+        apply Iris.BI.later_mono
+        exact laterN_mono fun n x a => Hcont
+      clear Hcont
+
+      -- Apply the IH
+
+      suffices
+        Iris.BI.later iprop(|==> |==> ▷^[n]⌜SmallStep.PRelS n K.car (cl'.1, cl'.2) (cr'.1, cr'.2) Φf⌝ : @PROP DataT) ⊢
+        |==> Iris.BI.later iprop(▷^[n]⌜SmallStep.PRelS n K.car cl' cr' Φf⌝) by
+        refine .trans ?_ this
+        refine Iris.BI.later_mono ?_
+        refine Iris.BIUpdate.mono ?_
+        exact Iris.BI.wand_elim' IH
+      clear IH
+      simp
+
+      -- Collapse the two bupds
+      suffices
+          Iris.BI.later iprop(|==> ▷^[n]⌜SmallStep.PRelS n K.car (cl'.fst, cl'.snd) (cr'.fst, cr'.snd) Φf⌝) ⊢
+          |==> Iris.BI.later iprop(▷^[n]⌜SmallStep.PRelS n K.car cl' cr' Φf⌝) by
+        refine .trans ?_ this
+        apply Iris.BI.later_mono
+        exact Iris.BIUpdate.trans
+
+      -- Exchange bupd and later
+      apply later_bupd_comm_plain
+
+
+theorem wp_adequacy_pre {pl pr : @prog DataT} {sl sr : @state DataT} {Φf : @val DataT → @val DataT → Prop}
+    (H : ∀ n, (state_interp sl sr ⊢ |==> ▷^[n] ⌜(NML.NMLSemantics DataT).PRelS n K (pl, sl) (pr, sr) Φf ⌝)) :
+    ∀ n, (NML.NMLSemantics DataT).PRelS n K (pl, sl) (pr, sr) Φf := by
+  intro n
+  apply UPred.soundness_pure_gen (A := @PROPR DataT) (n := n)
+    (a := ●V StoreO.map (.lift <| Iris.toAgree ∘ .mk) ⟨KLR.Core.ProdChipMemory.mk sl.memory sr.memory⟩)
+  · refine Iris.CMRA.Valid.validN ?_
+    refine View.view_auth_valid.mpr ?_
+    intro n
+    simp [heapR, StoreLike.all]
+    intro k
+    simp [lift_dom]
+    simp [Iris.UCMRA.unit]
+    rw [Heap.of_fun_get]
+    simp
+  apply UPred_adequacy_laterN_gen (N := n)
+  · refine View.view_auth_valid.mpr ?_
+    intro n
+    simp [heapR, StoreLike.all]
+    intro k
+    simp [lift_dom]
+    simp [Iris.UCMRA.unit]
+    rw [Heap.of_fun_get]
+    simp
+  apply bupd_gen_soundness
+  apply H
+
+
+theorem wp_adequacy_no_alloc {pl pr : @prog DataT} {sl sr : @state DataT} {Φf : @val DataT → @val DataT → Prop}
+    (H : ⊢ wp K pl pr (fun vl vr => iprop(⌜(Φf vl vr : Prop)⌝))) :
+    (NML.NMLSemantics DataT).PRel (pl, sl) (pr, sr) Φf := by
+  apply SmallStep.PrelNLimit (K := K.car)
+  intro n
+  apply SmallStep.PRelNS n
+  apply wp_adequacy_pre
+  intro n'
+  apply Iris.BI.wand_entails
+  refine .trans H ?_
+  exact wp_to_fupd_PRelS
+
+
+
+-- def PRel {S : SmallStep} (c1 c2 : S.Prog × S.State) (Φf : S.Val → S.Val → Prop) : Prop :=
+--   (∃ n1 n2 v1 v2, S.StepsToValue n1 c1 v1 ∧ S.StepsToValue n2 c2 v2 ∧ Φf v1 v2) ∨
+--   (S.Nonterminating c1 ∧ S.Nonterminating c2)
+--
+--     ∀ n, (NML.NMLSemantics DataT).PRelS n K.car (pl, sl) (pr, sr) Φf  := by
+
+
+
+
+
+    -- have HR := Iris.BI.entails_wand <| Iris.BI.wand_intro <| (@wp_to_fupd_PRelS DataT K pl pr sl sr Φf n)
+    -- apply Iris.BI.wand_entails
+    -- suffices (wp K pl pr fun vl vr => iprop(⌜Φf vl vr⌝)) ∗ state_interp sl sr ⊢ (|==> ▷^[n]⌜SmallStep.PRelS n K.car (pl, sl) (pr, sr) Φf⌝ : @PROP DataT) by
+    --   apply Iris.BI.wand_entails ?_
+    --   have this' := Iris.BI.entails_wand this
+
+    -- sorry
+
+
+  /-
+  refine .trans ?_
+  have X : (|==> ▷^[n]⌜SmallStep.PRelS n K.car (pl, sl) (pr, sr) Φf⌝ : @PROP DataT) ⊢ ▷^[n]⌜SmallStep.PRelS n K.car (pl, sl) (pr, sr) Φf⌝ := by
+      exact bupd_gen_soundness iprop(▷^[n]⌜SmallStep.PRelS n K.car (pl, sl) (pr, sr) Φf⌝)
+            iprop(|==> ▷^[n]⌜SmallStep.PRelS n K.car (pl, sl) (pr, sr) Φf⌝) fun n_1 x a a => a
+  apply X.trans ?_; clear X
+  -/
+
+  /-
+  have X :=
+    @UPred_adequacy_laterN_gen
+      (N := n)
+      (P := (iprop(⌜SmallStep.PRelS n K.car (pl, sl) (pr, sr) Φf⌝) : @PROP DataT))
+      (Hv := Iris.UCMRA.unit_valid)
+
+  have X1 : True ⊢ (UPred.ownM Iris.UCMRA.unit : @PROP DataT) := by
+    intro n x Hv _
+    simp [UPred.ownM]
+    exact Iris.CMRA.incN_unit
+
+  have X' : (⊢ (▷^[n]⌜SmallStep.PRelS n K.car (pl, sl) (pr, sr) Φf⌝ : @PROP DataT)) → ⊢ (⌜SmallStep.PRelS n K.car (pl, sl) (pr, sr) Φf⌝ : @PROP DataT) := by
+    intro H1
+    apply Iris.BI.wand_entails
+    sorry
+  -/
 
 
 /-- Definition for Hoare Triple -/
