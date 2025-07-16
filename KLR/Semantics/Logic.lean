@@ -17,6 +17,8 @@ import Iris.ProofMode
 import Iris.BI.DerivedLaws
 import Iris.BI.Updates
 import Iris.Algebra.CMRA
+import Iris.Algebra.View
+import Iris.Algebra.HeapView
 
 -- The logic: I can reuse UPred with a fixed ghost state (first-order)
 -- I'll want the fixpoint combinator to define the wp
@@ -42,16 +44,20 @@ abbrev PROPR : Type := (HeapView PNat ProdIndex (Agree (LeibnizO (UCell UInt8 Da
 def state_interp (left right : @state DataT) : @PROP DataT :=
   heProp_auth _ _ _ _ (.mk left.memory right.memory)
 
+def state_frag (left right : @state DataT) : @PROP DataT :=
+  heProp_frag _ _ _ _ (.mk left.memory right.memory)
+
 def wp_F (wp : LeibnizO Nat → @prog DataT → @prog DataT → (@val DataT → @val DataT → @PROP DataT) → @PROP DataT)
          (K : LeibnizO Nat)
          (p1 p2 : @prog DataT)
          (Φf : @val DataT → @val DataT → @PROP DataT) : @PROP DataT :=
   -- For any pair of states that satisfy the state interpretation...
-  iprop(∀ sl, ∀ sr, state_interp sl sr -∗
+  iprop(
       -- Either, that configuration is a value, and the postcondition holds,
       (|==> ∃ vl, ∃ vr, ⌜to_val p1 = some vl⌝ ∗ ⌜to_val p2 = some vr⌝ ∗ Φf vl vr) ∨
       -- Or, they're not values, and for any two configurations that we can step into, in some number of steps,
       ( -- ⌜to_val p1 = none ∨ to_val p2 = none⌝ ∗
+        ∀ sl, ∀ sr, state_interp sl sr -∗
         ∃ cl', ∃ cr', ∃ nl, ∃ nr,
           ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K.car ∧ nr ≤ K.car ∧ StepN nl (p1, sl) cl' ∧ StepN nr (p2, sr) cr'⌝ ∗
             -- We can reobtain the state interp for the new state, and also
@@ -67,9 +73,9 @@ def wp (K : LeibnizO Nat) (p1 p2 : @prog DataT) (Φf : @val DataT → @val DataT
 
 theorem wp_unfold {K : LeibnizO Nat} {p1 p2 : @prog DataT} {Φf : @val DataT → @val DataT → @PROP DataT} :
     wp K p1 p2 Φf ≡
-    iprop(∀ sl, ∀ sr, state_interp sl sr -∗
+    iprop(
       (|==> ∃ vl, ∃ vr, ⌜to_val p1 = some vl⌝ ∗ ⌜to_val p2 = some vr⌝ ∗ Φf vl vr) ∨
-      ( -- ⌜to_val p1 = none ∨ to_val p2 = none⌝ ∗ -- This follows from the rest of the case
+      ( ∀ sl, ∀ sr, state_interp sl sr -∗
         ∃ cl', ∃ cr', ∃ nl, ∃ nr,
           ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K.car ∧ nr ≤ K.car ∧ StepN nl (p1, sl) cl' ∧ StepN nr (p2, sr) cr'⌝ ∗
             ▷ |==> (state_interp cl'.2 cr'.2 ∗ wp K cl'.1 cr'.1 Φf))) := by
@@ -85,12 +91,7 @@ theorem wp_to_fupd_PRelS {pl pr : @prog DataT} {sl sr : @state DataT}
   induction n with | zero => ?_ | succ n IH => ?_
   · -- Base case: n=0 so postcondition is trivial
     intro pl pr sl sr
-    simp only [SmallStep.PRelS]
-    istart
-    iintro H1 H2
-    iclear H1
-    iclear H2
-    istop
+    istart; iintro H1 H2; iclear H1; iclear H2; istop
     exact Iris.BIUpdate.intro
   · -- Inductive case
     intro pl pr sl sr
@@ -101,9 +102,10 @@ theorem wp_to_fupd_PRelS {pl pr : @prog DataT} {sl sr : @state DataT}
 
     istart
     iintro Hwp Hσ
-    ispecialize Hwp Hσ
+    -- ispecialize Hwp Hσ
     icases Hwp with ⟨H|H⟩
     · -- Both programs are values
+      iclear Hσ
       istop
       -- Strip the update modality
       apply Iris.BIUpdate.mono
@@ -118,6 +120,7 @@ theorem wp_to_fupd_PRelS {pl pr : @prog DataT} {sl sr : @state DataT}
       exact HΦ
 
     · -- Both programs can step
+      ispecialize H Hσ
       icases H with ⟨cl', cr', nl, nr, ⟨%Hnl0, %Hnr0, %HnlK, %HnrK, %HSl, %HSr⟩, H⟩
       simp only [Iris.BI.BIBase.laterN]
       istop
@@ -180,35 +183,45 @@ theorem wp_to_fupd_PRelS {pl pr : @prog DataT} {sl sr : @state DataT}
 
 
 theorem wp_adequacy_pre {pl pr : @prog DataT} {sl sr : @state DataT} {Φf : @val DataT → @val DataT → Prop}
-    (H : ∀ n, (state_interp sl sr ⊢ |==> ▷^[n] ⌜(NML.NMLSemantics DataT).PRelS n K (pl, sl) (pr, sr) Φf ⌝)) :
+    (H : ∀ n, (state_interp sl sr ∗ state_frag sl sr ⊢ |==> ▷^[n] ⌜(NML.NMLSemantics DataT).PRelS n K (pl, sl) (pr, sr) Φf ⌝)) :
     ∀ n, (NML.NMLSemantics DataT).PRelS n K (pl, sl) (pr, sr) Φf := by
   intro n
   apply UPred.soundness_pure_gen (A := @PROPR DataT) (n := n)
-    (a := ●V StoreO.map (.lift <| Iris.toAgree ∘ .mk) ⟨KLR.Core.ProdChipMemory.mk sl.memory sr.memory⟩)
+    (a := (●V StoreO.map (.lift <| Iris.toAgree ∘ .mk) ⟨KLR.Core.ProdChipMemory.mk sl.memory sr.memory⟩) •
+          (◯V StoreO.map (Option.lift <| fun c => ⟨Iris.DFrac.own 1, Iris.toAgree <| .mk <| c⟩) ⟨KLR.Core.ProdChipMemory.mk sl.memory sr.memory⟩))
   · refine Iris.CMRA.Valid.validN ?_
-    refine View.view_auth_valid.mpr ?_
-    intro n
-    simp [heapR, StoreLike.all]
-    intro k
-    simp [lift_dom]
-    simp [Iris.UCMRA.unit]
-    rw [Heap.of_fun_get]
-    simp
+    apply View.view_both_valid.mpr
+    -- TODO: This is basically heap_view_both_valid, when I get around to finishing that
+    -- Below is the proof for only the ●V fragment
+    sorry
+    -- refine View.view_auth_valid.mpr ?_
+    -- intro n
+    -- simp [heapR, StoreLike.all]
+    -- intro k
+    -- simp [lift_dom]
+    -- simp [Iris.UCMRA.unit]
+    -- rw [Heap.of_fun_get]
+    -- simp
   apply UPred_adequacy_laterN_gen (N := n)
-  · refine View.view_auth_valid.mpr ?_
-    intro n
-    simp [heapR, StoreLike.all]
-    intro k
-    simp [lift_dom]
-    simp [Iris.UCMRA.unit]
-    rw [Heap.of_fun_get]
-    simp
+  · -- TODO: This is basically heap_view_both_valid, when I get around to finishing that
+    -- Below is the proof for only the ●V fragment
+    sorry
+    -- refine View.view_auth_valid.mpr ?_
+    -- intro n
+    -- simp [heapR, StoreLike.all]
+    -- intro k
+    -- simp [lift_dom]
+    -- simp [Iris.UCMRA.unit]
+    -- rw [Heap.of_fun_get]
+    -- simp
   apply bupd_gen_soundness
-  apply H
+  apply Iris.BI.BIBase.Entails.trans _ (H n)
+  -- Combine the ghost state
+  exact (UPred.ownM_op _ _).mp
 
 
 theorem wp_adequacy_no_alloc {pl pr : @prog DataT} {sl sr : @state DataT} {Φf : @val DataT → @val DataT → Prop}
-    (H : ⊢ wp K pl pr (fun vl vr => iprop(⌜(Φf vl vr : Prop)⌝))) :
+    (H : state_frag sl sr ⊢ wp K pl pr (fun vl vr => iprop(⌜(Φf vl vr : Prop)⌝))) :
     (NML.NMLSemantics DataT).PRel (pl, sl) (pr, sr) Φf := by
   apply SmallStep.PrelNLimit (K := K.car)
   intro n
@@ -216,8 +229,16 @@ theorem wp_adequacy_no_alloc {pl pr : @prog DataT} {sl sr : @state DataT} {Φf :
   apply wp_adequacy_pre
   intro n'
   apply Iris.BI.wand_entails
-  refine .trans H ?_
-  exact wp_to_fupd_PRelS
+  suffices
+      (wp K pl pr (fun vl vr => iprop(⌜(Φf vl vr : Prop)⌝)) ⊢ state_interp sl sr -∗ |==> ▷^[n']⌜SmallStep.PRelS n' K.car (pl, sl) (pr, sr) Φf⌝) →
+      (⊢ state_interp sl sr ∗ state_frag sl sr -∗ |==> ▷^[n']⌜SmallStep.PRelS n' K.car (pl, sl) (pr, sr) Φf⌝) by
+    apply this; clear this
+    apply wp_to_fupd_PRelS
+  intro H
+  refine Iris.BI.entails_wand ?_
+  apply Iris.BI.BIBase.Entails.trans _ (Iris.BI.wand_elim' H)
+  rename_i Hwp
+  exact Iris.BI.sep_mono (fun n x a a => a) Hwp
 
 /-- Definition for Hoare Triple -/
 def triple (pre : @PROP DataT) K (p1 p2 : @prog DataT) post :=
