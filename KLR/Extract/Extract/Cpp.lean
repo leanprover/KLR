@@ -32,16 +32,29 @@ where
   | "register" => "reg"
   | s => s
 
-private def enumName (name : Name) : String := varName name
+def enumName (name : Name) : String := varName name
 
-private def cppName (name : Name) : String :=
+def unionName (name : Name) : String := (varName name).toLower
+
+def cppName (name : Name) : String :=
   match name with
   | .str n s@⟨c :: _⟩ =>
     let s := s.replace "'" "_"
     if c.isUpper then s else
     match cppName n with
-    | "" => s 
+    | "" => s
     | s1 => s1 ++ "_" ++ s
+  | .anonymous => ""
+  | _ => panic! s!"invalid CPP name {name}"
+
+def enumFullName (name : Name) : String :=
+  match name with
+  | .str n s@⟨c :: _⟩ =>
+    let s := s.replace "'" "_"
+    if c.isUpper then s else
+    match cppName n with
+    | "" => s
+    | s1 => s1 ++ "::" ++ s
   | .anonymous => ""
   | _ => panic! s!"invalid CPP name {name}"
 
@@ -97,9 +110,9 @@ private def genUnion (name : Name) (variants : List LeanType) : MetaM Unit := do
   IO.println "  ~U() {}"
   for t in variants do
     match t with
-    | .simple t => IO.println s!"{t.name} {varName t.name};"
+    | .simple t => IO.println s!"{t.name} {unionName t.name};"
     --| .prod _ [] => pure ()
-    | .prod n .. => IO.println s!"{n} {varName n};"
+    | .prod n .. => IO.println s!"{n} {unionName n};"
     | .sum .. => throwError "unexpected union nesting"
   IO.println "};"
   IO.println s!"enum {tagName} tag;"
@@ -108,7 +121,7 @@ private def genUnion (name : Name) (variants : List LeanType) : MetaM Unit := do
   IO.println "  switch (tag) {"
   for t in variants do
     IO.println s!" case Tag::{enumName t.name}:"
-    IO.println s!"   u.{varName t.name}.~{t.name}(); break;"
+    IO.println s!"   u.{unionName t.name}.~{t.name}(); break;"
   IO.println "}}};"
 
 private def genList (ty : SimpleType) := do

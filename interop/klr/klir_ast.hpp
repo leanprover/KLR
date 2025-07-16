@@ -801,114 +801,114 @@ struct Operator final {
   union U {
     U() {}
     ~U() {}
-    Activate Activate;
-    AffineSelect AffineSelect;
-    BatchNormAggregate BatchNormAggregate;
-    BatchNormStats BatchNormStats;
-    Copy Copy;
-    CopyPredicated CopyPredicated;
-    DmaCopy DmaCopy;
-    DmaTranspose DmaTranspose;
-    Dropout Dropout;
-    FindIndex8 FindIndex8;
-    Iota Iota;
-    LoadMaskRegister LoadMaskRegister;
-    LoadStationary LoadStationary;
-    LocalGather LocalGather;
-    MatMul MatMul;
-    MatchReplace8 MatchReplace8;
-    MatchValueLoad MatchValueLoad;
-    Max8 Max8;
-    MemSet MemSet;
-    RangeSelect RangeSelect;
-    Reciprocal Reciprocal;
-    ScalarTensorTensor ScalarTensorTensor;
-    Shuffle Shuffle;
-    TensorReduce TensorReduce;
-    TensorTensorScan TensorTensorScan;
-    Transpose Transpose;
+    Activate activate;
+    AffineSelect affineselect;
+    BatchNormAggregate batchnormaggregate;
+    BatchNormStats batchnormstats;
+    Copy copy;
+    CopyPredicated copypredicated;
+    DmaCopy dmacopy;
+    DmaTranspose dmatranspose;
+    Dropout dropout;
+    FindIndex8 findindex8;
+    Iota iota;
+    LoadMaskRegister loadmaskregister;
+    LoadStationary loadstationary;
+    LocalGather localgather;
+    MatMul matmul;
+    MatchReplace8 matchreplace8;
+    MatchValueLoad matchvalueload;
+    Max8 max8;
+    MemSet memset;
+    RangeSelect rangeselect;
+    Reciprocal reciprocal;
+    ScalarTensorTensor scalartensortensor;
+    Shuffle shuffle;
+    TensorReduce tensorreduce;
+    TensorTensorScan tensortensorscan;
+    Transpose transpose;
   };
   enum Tag tag;
   union U u;
   ~Operator() {
     switch (tag) {
     case Tag::Activate:
-      u.Activate.~Activate();
+      u.activate.~Activate();
       break;
     case Tag::AffineSelect:
-      u.AffineSelect.~AffineSelect();
+      u.affineselect.~AffineSelect();
       break;
     case Tag::BatchNormAggregate:
-      u.BatchNormAggregate.~BatchNormAggregate();
+      u.batchnormaggregate.~BatchNormAggregate();
       break;
     case Tag::BatchNormStats:
-      u.BatchNormStats.~BatchNormStats();
+      u.batchnormstats.~BatchNormStats();
       break;
     case Tag::Copy:
-      u.Copy.~Copy();
+      u.copy.~Copy();
       break;
     case Tag::CopyPredicated:
-      u.CopyPredicated.~CopyPredicated();
+      u.copypredicated.~CopyPredicated();
       break;
     case Tag::DmaCopy:
-      u.DmaCopy.~DmaCopy();
+      u.dmacopy.~DmaCopy();
       break;
     case Tag::DmaTranspose:
-      u.DmaTranspose.~DmaTranspose();
+      u.dmatranspose.~DmaTranspose();
       break;
     case Tag::Dropout:
-      u.Dropout.~Dropout();
+      u.dropout.~Dropout();
       break;
     case Tag::FindIndex8:
-      u.FindIndex8.~FindIndex8();
+      u.findindex8.~FindIndex8();
       break;
     case Tag::Iota:
-      u.Iota.~Iota();
+      u.iota.~Iota();
       break;
     case Tag::LoadMaskRegister:
-      u.LoadMaskRegister.~LoadMaskRegister();
+      u.loadmaskregister.~LoadMaskRegister();
       break;
     case Tag::LoadStationary:
-      u.LoadStationary.~LoadStationary();
+      u.loadstationary.~LoadStationary();
       break;
     case Tag::LocalGather:
-      u.LocalGather.~LocalGather();
+      u.localgather.~LocalGather();
       break;
     case Tag::MatMul:
-      u.MatMul.~MatMul();
+      u.matmul.~MatMul();
       break;
     case Tag::MatchReplace8:
-      u.MatchReplace8.~MatchReplace8();
+      u.matchreplace8.~MatchReplace8();
       break;
     case Tag::MatchValueLoad:
-      u.MatchValueLoad.~MatchValueLoad();
+      u.matchvalueload.~MatchValueLoad();
       break;
     case Tag::Max8:
-      u.Max8.~Max8();
+      u.max8.~Max8();
       break;
     case Tag::MemSet:
-      u.MemSet.~MemSet();
+      u.memset.~MemSet();
       break;
     case Tag::RangeSelect:
-      u.RangeSelect.~RangeSelect();
+      u.rangeselect.~RangeSelect();
       break;
     case Tag::Reciprocal:
-      u.Reciprocal.~Reciprocal();
+      u.reciprocal.~Reciprocal();
       break;
     case Tag::ScalarTensorTensor:
-      u.ScalarTensorTensor.~ScalarTensorTensor();
+      u.scalartensortensor.~ScalarTensorTensor();
       break;
     case Tag::Shuffle:
-      u.Shuffle.~Shuffle();
+      u.shuffle.~Shuffle();
       break;
     case Tag::TensorReduce:
-      u.TensorReduce.~TensorReduce();
+      u.tensorreduce.~TensorReduce();
       break;
     case Tag::TensorTensorScan:
-      u.TensorTensorScan.~TensorTensorScan();
+      u.tensortensorscan.~TensorTensorScan();
       break;
     case Tag::Transpose:
-      u.Transpose.~Transpose();
+      u.transpose.~Transpose();
       break;
     }
   }

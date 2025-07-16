@@ -158,8 +158,8 @@ private def genOptionDes (ty : SimpleType) : MetaM Unit := do
 private def genDes (ty : LeanType) : MetaM Unit := do
   genSig ty " {"
   match ty with
-  | .simple (.option ty) => genOptionDes ty
-  | .simple (.list ty) => genListDes ty
+  | .simple (.option ty) -- => genOptionDes ty
+  | .simple (.list ty) -- => genListDes ty
   | .simple _ => pure ()
   | .prod name fs => do
       match <- KLR.Serde.serdeTags name with
@@ -189,7 +189,7 @@ private def genDes (ty : LeanType) : MetaM Unit := do
             IO.println s!"case {val}:"
             IO.println s!" if (l != {fs.length}) return false;"
             if ty.isEnum
-            then IO.println s!"*x = {n};"
+            then IO.println s!"*x = {Cpp.enumFullName n};"
             else
               genFields (Cpp.varName n ++ ".") fs
               IO.println s!"(*x)->tag = {n};"
@@ -204,13 +204,13 @@ private def genDes (ty : LeanType) : MetaM Unit := do
 end Des
 
 private def genH (tys : List LeanType) : MetaM Unit := do
-  tys.forM Ser.genSig
-  IO.println ""
+  --tys.forM Ser.genSig
+  --IO.println ""
   tys.forM Des.genSig
 
 private def genC (tys : List LeanType) : MetaM Unit := do
-  tys.forM Ser.genSer
-  IO.println ""
+  --tys.forM Ser.genSer
+  --IO.println ""
   tys.forM Des.genDes
 
 def generateCommonH : MetaM Unit := do
@@ -230,11 +230,11 @@ def generateFileC : MetaM Unit := do
   genC (<- Cpp.fileAST)
 
 def generateKlrH : MetaM Unit := do
-  IO.println <| Cpp.headerH ["ast_klir.hpp"]
+  IO.println <| Cpp.headerH ["klir_ast.hpp"]
   genH (<- Cpp.klrAST)
 
 def generateKlrC : MetaM Unit := do
-  IO.println <| Cpp.headerC ["cbor.h", "serde_klir.hpp"]
+  IO.println <| Cpp.headerC ["klir_serde.hpp"]
   genC (<- Cpp.commonAST)
   genC (<- Cpp.klrAST)
   genC (<- Cpp.fileAST)

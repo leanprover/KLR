@@ -1,17 +1,8 @@
 
-extern "C" {
-#include "stdc.h"
-//#include "region.h"
-#include "cbor.h"
-#include "ast_klir.h"
-
-//#include <stdio.h>
-//#include "serde_klir.h"
-}
-
+#include "klir_ast.hpp"
 
 int main() {
-  struct Core_Kernel* k = NULL;
+  struct klr::Kernel* k = NULL;
   /*
   struct region *region = region_create();
 

@@ -12,6 +12,9 @@ namespace klr {
 #define check_size(s, n)                                                       \
   static_assert(sizeof(s) == n, "sizeof " #s " unexpected")
 
+typedef uint8_t u8;
+
+typedef bool Bool;
 typedef int32_t Int;
 typedef uint32_t Nat;
 typedef float Float;
@@ -31,5 +34,20 @@ template <class T> using List = Ptr<std::list<Ptr<T>>>;
 template <class T> List<T> list() {
   return std::make_shared<std::list<Ptr<T>>>();
 }
+
+bool deserialize(FILE *out, struct Prop *p);
+bool deserialize(FILE *out, Bool *x);
+bool deserialize(FILE *out, Nat *x);
+bool deserialize(FILE *out, Int *x);
+bool deserialize(FILE *out, Float *x);
+bool deserialize(FILE *out, String *s);
+/*
+bool Prop_des(FILE *out, struct Prop *p);
+bool Bool_des(FILE *out, Bool *x);
+bool Nat_des(FILE *out, Nat *x);
+bool Int_des(FILE *out, Int *x);
+bool Float_des(FILE *out, Float *x);
+bool String_des(FILE *out, String *s);
+*/
 
 } // namespace klr
