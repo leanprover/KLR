@@ -19,7 +19,7 @@ theorem Option.isSomeP_iff_isSome {v : Option α} : v.IsSomeP ↔ v.isSome = tru
 def List.forall {α : Type _} (L : List α) (P : α → Prop) : Prop :=
   match L with
   | .nil => True
-  | .cons l L => P l ∧ List.forall L P
+  | .cons ll L => P ll ∧ List.forall L P
 
 def List.dot [Mul α] [Add α] [Zero α] (L1 L2 : List α) : α :=
   (List.zipWith (· * ·) L1 L2).sum
@@ -101,6 +101,18 @@ theorem UPred_adequacy_laterN_gen [UCMRA A] {a : A} (Hv : ✓ a) (P : UPred A) :
   induction N <;> simp_all [BI.BIBase.laterN]
   rename_i IH
   exact IH <| UPred_adequacy_later_gen Hv _ H
+
+theorem UPred.all_absorbing [UCMRA A] (P : UPred A) : Iris.BI.Absorbing P where
+  absorbing := by
+    intro n x Hx
+    simp [Iris.BI.absorbingly, BI.sep, BI.pure, UPred.sep, UPred.pure]
+    intro x1 x2 Hx1x2 H
+    refine P.mono H ?_ ?_
+    · exists x1
+      apply Hx1x2.trans
+      apply CMRA.op_commN
+    · apply n.le_refl
+
 
 theorem bupd_soundness [UCMRA M] (P : UPred M) [Iris.BI.Plain P] : (⊢ |==> P) → ⊢ P := (·.trans bupd_elim)
 
