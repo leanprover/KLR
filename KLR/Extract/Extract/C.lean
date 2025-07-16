@@ -185,6 +185,7 @@ def pythonAST: MetaM (List LeanType) := do
     `KLR.Python.Keyword,
     `KLR.Python.Stmt',
     `KLR.Python.Stmt,
+    `KLR.Python.Arg,
     `KLR.Python.Args,
     `KLR.Python.Fun,
     `KLR.Python.Kernel,

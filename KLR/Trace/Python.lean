@@ -1,7 +1,7 @@
 /-
 Copyright (c) 2024 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Paul Govereau, Sean McLaughlin
+Authors: Paul Govereau, Paul Mure, Sean McLaughlin
 -/
 import Lean
 import KLR.Core
@@ -805,9 +805,10 @@ partial def stmts : List Stmt -> Trace StmtResult
       | .done => stmts l
       | r => return r
 
--- Bind positional and keyword arguments to a Python function based on its
--- signature.
-
+/-
+Bind positional and keyword arguments to a Python function based on its
+signature.
+-/
 partial def bind_args (f : Fun)
                       (args : List Term)
                       (kwargs : List (String × Term))
@@ -818,10 +819,10 @@ partial def bind_args (f : Fun)
   if args.length < f.args.posonlyargs.length then
     throw "not enough arguments"
   let dflts := f.args.all_defaults
-  let names := f.args.names
+  let names := Arg.name <$> f.args.sigs
   if args.length + kwargs.length > names.length then
     throw "too many arguments supplied (varargs not supported)"
-  let argmap <- f.args.names.zipIdx.mapM fun (x, i) => do
+  let argmap <- names.zipIdx.mapM fun (x, i) => do
     if h:args.length > i then
       return (x, args.get (Fin.mk i h))
     else if let some v := kwargs.lookup x then

@@ -1,7 +1,7 @@
 /-
 Copyright (c) 2025 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Paul Govereau, Sean McLaughlin
+Authors: Paul Govereau, Paul Mure, Sean McLaughlin
 -/
 import KLR.Core
 import KLR.Serde.Attr
@@ -113,6 +113,7 @@ end
 @[serde tag = 10]
 structure Param where
   name : String
+  annotation : Option Expr
   dflt : Option Expr
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
@@ -123,6 +124,7 @@ structure Fun where
   line : Nat
   body : List Stmt
   args : List Param
+  returns : Option Expr
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 12]

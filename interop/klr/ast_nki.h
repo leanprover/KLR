@@ -208,6 +208,7 @@ struct NKI_Stmt {
 
 struct NKI_Param {
   char *name;
+  struct NKI_Expr *annotation;
   struct NKI_Expr *dflt;
 };
 
@@ -217,6 +218,7 @@ struct NKI_Fun {
   u32 line;
   struct NKI_Stmt_List *body;
   struct NKI_Param_List *args;
+  struct NKI_Expr *returns;
 };
 
 struct NKI_Arg {

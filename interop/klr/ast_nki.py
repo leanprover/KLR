@@ -180,6 +180,7 @@ class Stmt(NamedTuple):
 
 class Param(NamedTuple):
   name : str
+  annotation : Optional["Expr"]
   dflt : Optional["Expr"]
 
 class Fun(NamedTuple):
@@ -188,6 +189,7 @@ class Fun(NamedTuple):
   line : int
   body : list["Stmt"]
   args : list["Param"]
+  returns : Optional["Expr"]
 
 class Arg(NamedTuple):
   name : str

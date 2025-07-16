@@ -473,28 +473,38 @@ bool Python_Stmt_ser(FILE *out, struct Python_Stmt *x) {
   return true;
 }
 
+bool Python_Arg_ser(FILE *out, struct Python_Arg *x) {
+  if (!cbor_encode_tag(out, 12, 0, 2))
+    return false;
+  if (!String_ser(out, x->name))
+    return false;
+  if (!Python_Expr_Option_ser(out, x->annotation))
+    return false;
+  return true;
+}
+
 bool Python_Args_ser(FILE *out, struct Python_Args *x) {
-  if (!cbor_encode_tag(out, 12, 0, 7))
+  if (!cbor_encode_tag(out, 13, 0, 7))
     return false;
-  if (!String_List_ser(out, x->posonlyargs))
+  if (!Python_Arg_List_ser(out, x->posonlyargs))
     return false;
-  if (!String_List_ser(out, x->args))
+  if (!Python_Arg_List_ser(out, x->args))
     return false;
   if (!Python_Expr_List_ser(out, x->defaults))
     return false;
-  if (!String_Option_ser(out, x->vararg))
+  if (!Python_Arg_Option_ser(out, x->vararg))
     return false;
-  if (!String_List_ser(out, x->kwonlyargs))
+  if (!Python_Arg_List_ser(out, x->kwonlyargs))
     return false;
   if (!Python_Keyword_List_ser(out, x->kw_defaults))
     return false;
-  if (!String_Option_ser(out, x->kwarg))
+  if (!Python_Arg_Option_ser(out, x->kwarg))
     return false;
   return true;
 }
 
 bool Python_Fun_ser(FILE *out, struct Python_Fun *x) {
-  if (!cbor_encode_tag(out, 13, 0, 5))
+  if (!cbor_encode_tag(out, 14, 0, 6))
     return false;
   if (!String_ser(out, x->name))
     return false;
@@ -506,11 +516,13 @@ bool Python_Fun_ser(FILE *out, struct Python_Fun *x) {
     return false;
   if (!Python_Stmt_List_ser(out, x->body))
     return false;
+  if (!Python_Expr_Option_ser(out, x->returns))
+    return false;
   return true;
 }
 
 bool Python_Kernel_ser(FILE *out, struct Python_Kernel *x) {
-  if (!cbor_encode_tag(out, 14, 0, 6))
+  if (!cbor_encode_tag(out, 15, 0, 6))
     return false;
   if (!String_ser(out, x->entry))
     return false;
@@ -581,6 +593,27 @@ bool Python_Stmt_List_ser(FILE *out, struct Python_Stmt_List *x) {
   for (struct Python_Stmt_List *node = x; node; node = node->next)
     if (!Python_Stmt_ser(out, node->stmt))
       return false;
+  return true;
+}
+
+bool Python_Arg_List_ser(FILE *out, struct Python_Arg_List *x) {
+  u64 count = 0;
+  for (struct Python_Arg_List *node = x; node; node = node->next)
+    count++;
+  if (!cbor_encode_array_start(out, count))
+    return false;
+  for (struct Python_Arg_List *node = x; node; node = node->next)
+    if (!Python_Arg_ser(out, node->arg))
+      return false;
+  return true;
+}
+
+bool Python_Arg_Option_ser(FILE *out, struct Python_Arg *x) {
+  if (!x) {
+    return cbor_encode_option(out, false);
+  } else {
+    return cbor_encode_option(out, true) && Python_Arg_ser(out, x);
+  }
   return true;
 }
 
@@ -1184,26 +1217,40 @@ bool Python_Stmt_des(FILE *in, struct region *region, struct Python_Stmt **x) {
   return true;
 }
 
+bool Python_Arg_des(FILE *in, struct region *region, struct Python_Arg **x) {
+  u8 t, c, l;
+  if (!cbor_decode_tag(in, &t, &c, &l))
+    return false;
+  if (t != 12 || c != 0 || l != 2)
+    return false;
+  *x = region_alloc(region, sizeof(**x));
+  if (!String_des(in, region, &(*x)->name))
+    return false;
+  if (!Python_Expr_Option_des(in, region, &(*x)->annotation))
+    return false;
+  return true;
+}
+
 bool Python_Args_des(FILE *in, struct region *region, struct Python_Args **x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 12 || c != 0 || l != 7)
+  if (t != 13 || c != 0 || l != 7)
     return false;
   *x = region_alloc(region, sizeof(**x));
-  if (!String_List_des(in, region, &(*x)->posonlyargs))
+  if (!Python_Arg_List_des(in, region, &(*x)->posonlyargs))
     return false;
-  if (!String_List_des(in, region, &(*x)->args))
+  if (!Python_Arg_List_des(in, region, &(*x)->args))
     return false;
   if (!Python_Expr_List_des(in, region, &(*x)->defaults))
     return false;
-  if (!String_Option_des(in, region, &(*x)->vararg))
+  if (!Python_Arg_Option_des(in, region, &(*x)->vararg))
     return false;
-  if (!String_List_des(in, region, &(*x)->kwonlyargs))
+  if (!Python_Arg_List_des(in, region, &(*x)->kwonlyargs))
     return false;
   if (!Python_Keyword_List_des(in, region, &(*x)->kw_defaults))
     return false;
-  if (!String_Option_des(in, region, &(*x)->kwarg))
+  if (!Python_Arg_Option_des(in, region, &(*x)->kwarg))
     return false;
   return true;
 }
@@ -1212,7 +1259,7 @@ bool Python_Fun_des(FILE *in, struct region *region, struct Python_Fun **x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 13 || c != 0 || l != 5)
+  if (t != 14 || c != 0 || l != 6)
     return false;
   *x = region_alloc(region, sizeof(**x));
   if (!String_des(in, region, &(*x)->name))
@@ -1225,6 +1272,8 @@ bool Python_Fun_des(FILE *in, struct region *region, struct Python_Fun **x) {
     return false;
   if (!Python_Stmt_List_des(in, region, &(*x)->body))
     return false;
+  if (!Python_Expr_Option_des(in, region, &(*x)->returns))
+    return false;
   return true;
 }
 
@@ -1233,7 +1282,7 @@ bool Python_Kernel_des(FILE *in, struct region *region,
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 14 || c != 0 || l != 6)
+  if (t != 15 || c != 0 || l != 6)
     return false;
   *x = region_alloc(region, sizeof(**x));
   if (!String_des(in, region, &(*x)->entry))
@@ -1344,6 +1393,39 @@ bool Python_Stmt_List_des(FILE *in, struct region *region,
     if (!Python_Stmt_des(in, region, &node->stmt))
       return false;
   }
+  return true;
+}
+
+bool Python_Arg_List_des(FILE *in, struct region *region,
+                         struct Python_Arg_List **x) {
+  u64 count = 0;
+  if (!cbor_decode_array_start(in, &count))
+    return false;
+  struct Python_Arg_List *current = *x = NULL;
+  for (; count > 0; count--) {
+    struct Python_Arg_List *node = region_alloc(region, sizeof(*node));
+    node->next = NULL;
+    if (!current) {
+      *x = current = node;
+    } else {
+      current->next = node;
+      current = node;
+    }
+    if (!Python_Arg_des(in, region, &node->arg))
+      return false;
+  }
+  return true;
+}
+
+bool Python_Arg_Option_des(FILE *in, struct region *region,
+                           struct Python_Arg **x) {
+  bool isSome;
+  if (!cbor_decode_option(in, &isSome))
+    return false;
+  if (!isSome)
+    *x = 0;
+  else
+    return Python_Arg_des(in, region, x);
   return true;
 }
 

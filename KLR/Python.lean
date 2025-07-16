@@ -1,7 +1,7 @@
 /-
 Copyright (c) 2024 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Paul Govereau, Sean McLaughlin
+Authors: Paul Govereau, Paul Mure, Sean McLaughlin
 -/
 import KLR.Core
 import KLR.Serde.Attr
@@ -134,6 +134,15 @@ inductive Stmt' where
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 end
 
+/--
+Simplified mirror of the python `arg` AST node.
+-/
+@[serde tag = 12]
+structure Arg where
+  name : String
+  annotation : Option Expr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
 /-
 This structure is a mirror of the python arguments AST node.
 If we have the following Python function:
@@ -153,38 +162,42 @@ then the structure will be populated with:
 Note, this is slightly different from the official Python AST, which
 encodes the kw_defaults as a list with None for missing defaults.
 -/
-@[serde tag = 12]
+@[serde tag = 13]
 structure Args where
-  posonlyargs : List String
-  args : List String
+  posonlyargs : List Arg
+  args : List Arg
   defaults: List Expr
-  vararg : Option String
-  kwonlyargs : List String
+  vararg : Option Arg
+  kwonlyargs : List Arg
   kw_defaults: List Keyword
-  kwarg : Option String
+  kwarg : Option Arg
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-def Args.names (args : Args) : List String :=
+/--
+Get the signature (name and type annotation) of each argument.
+-/
+def Args.sigs (args : Args) : List Arg :=
   args.posonlyargs ++ args.args ++ args.kwonlyargs
 
 -- TODO: does not compute required keyword args
-def Args.required (args : Args) : List String :=
+def Args.required (args : Args) : List Arg :=
   let pargs := args.posonlyargs ++ args.args
   pargs.take (pargs.length - args.defaults.length)
 
 def Args.all_defaults (args : Args) : List Keyword :=
   let pargs := args.posonlyargs ++ args.args
   let dflt  := pargs.reverse.zip args.defaults.reverse
-  let dflt  := dflt.map fun (n, e) => .mk n e { line := 0 }
+  let dflt  := dflt.map fun (n, e) => .mk n.name e { line := 0 }
   dflt ++ args.kw_defaults
 
-@[serde tag = 13]
+@[serde tag = 14]
 structure Fun where
   name : String
   line : Nat
   source : String
   args : Args
   body: List Stmt
+  returns : Option Expr
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /-
@@ -206,12 +219,13 @@ An example of a global is:
     else:
       ...
 -/
-@[serde tag = 14]
+@[serde tag = 15]
 structure Kernel where
   entry : String
   funcs : List Fun
   args : List Expr
   kwargs : List Keyword
+  -- TODO: Type annotation for globals
   globals : List Keyword
   undefinedSymbols : List String
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp

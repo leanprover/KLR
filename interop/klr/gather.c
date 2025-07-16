@@ -777,28 +777,30 @@ static struct Python_Keyword_List* keywords(struct state *st, asdl_keyword_seq *
 // -----------------------------------------------------------------------------
 // -- Arguments
 
-static char* arg(struct state *st, arg_ty python) {
+static struct Python_Arg* arg(struct state *st, arg_ty python) {
   if (!python)
     return NULL;
-  char *s = py_strdup(st, python->arg);
-  if (!s)
+  struct Python_Arg *a = region_alloc(st->region, sizeof(*a));
+  a->name = py_strdup(st, python->arg);
+  a->annotation = expr(st, python->annotation);
+  if (!a)
     PyErr_Clear();
-  return s;
+  return a;
 }
 
-static struct String_List* arg_list(struct state *st, asdl_arg_seq *python) {
+static struct Python_Arg_List* arg_list(struct state *st, asdl_arg_seq *python) {
   if (!python)
     return NULL;
 
-  struct String_List *head = NULL, *current = NULL;
+  struct Python_Arg_List *head = NULL, *current = NULL;
   for (int i = 0; i < python->size; i++) {
-    struct String_List *node = region_alloc(st->region, sizeof(*node));
-    char *str = arg(st, python->typed_elements[i]);
-    if (!str)
+    struct Python_Arg_List *node = region_alloc(st->region, sizeof(*node));
+    struct Python_Arg *a = arg(st, python->typed_elements[i]);
+    if (!a)
       return NULL;
 
     node->next = NULL;
-    node->s = str;
+    node->arg = a;
     if (!head) {
       head = current = node;
     } else {
@@ -1059,6 +1061,7 @@ static struct Python_Fun* function(struct state *st, PyObject *f) {
   struct Python_Args *as = args(st, s->v.FunctionDef.args);
 
   struct Python_Stmt_List *body = stmts(st, s->v.FunctionDef.body);
+  struct Python_Expr *returns = expr(st, s->v.FunctionDef.returns);
   free_python_ast(m);
 
   char *name = py_fun_name(st, f);
@@ -1070,6 +1073,7 @@ static struct Python_Fun* function(struct state *st, PyObject *f) {
     fn->source = st->scope.src;
     fn->body = body;
     fn->args = as;
+    fn->returns = returns;
   }
 
   st->scope = old_scope;

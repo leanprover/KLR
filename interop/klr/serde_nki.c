@@ -370,9 +370,11 @@ bool NKI_Stmt_ser(FILE *out, struct NKI_Stmt *x) {
 }
 
 bool NKI_Param_ser(FILE *out, struct NKI_Param *x) {
-  if (!cbor_encode_tag(out, 10, 0, 2))
+  if (!cbor_encode_tag(out, 10, 0, 3))
     return false;
   if (!String_ser(out, x->name))
+    return false;
+  if (!NKI_Expr_Option_ser(out, x->annotation))
     return false;
   if (!NKI_Expr_Option_ser(out, x->dflt))
     return false;
@@ -380,7 +382,7 @@ bool NKI_Param_ser(FILE *out, struct NKI_Param *x) {
 }
 
 bool NKI_Fun_ser(FILE *out, struct NKI_Fun *x) {
-  if (!cbor_encode_tag(out, 11, 0, 5))
+  if (!cbor_encode_tag(out, 11, 0, 6))
     return false;
   if (!String_ser(out, x->name))
     return false;
@@ -391,6 +393,8 @@ bool NKI_Fun_ser(FILE *out, struct NKI_Fun *x) {
   if (!NKI_Stmt_List_ser(out, x->body))
     return false;
   if (!NKI_Param_List_ser(out, x->args))
+    return false;
+  if (!NKI_Expr_Option_ser(out, x->returns))
     return false;
   return true;
 }
@@ -980,10 +984,12 @@ bool NKI_Param_des(FILE *in, struct region *region, struct NKI_Param **x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 10 || c != 0 || l != 2)
+  if (t != 10 || c != 0 || l != 3)
     return false;
   *x = region_alloc(region, sizeof(**x));
   if (!String_des(in, region, &(*x)->name))
+    return false;
+  if (!NKI_Expr_Option_des(in, region, &(*x)->annotation))
     return false;
   if (!NKI_Expr_Option_des(in, region, &(*x)->dflt))
     return false;
@@ -994,7 +1000,7 @@ bool NKI_Fun_des(FILE *in, struct region *region, struct NKI_Fun **x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 11 || c != 0 || l != 5)
+  if (t != 11 || c != 0 || l != 6)
     return false;
   *x = region_alloc(region, sizeof(**x));
   if (!String_des(in, region, &(*x)->name))
@@ -1006,6 +1012,8 @@ bool NKI_Fun_des(FILE *in, struct region *region, struct NKI_Fun **x) {
   if (!NKI_Stmt_List_des(in, region, &(*x)->body))
     return false;
   if (!NKI_Param_List_des(in, region, &(*x)->args))
+    return false;
+  if (!NKI_Expr_Option_des(in, region, &(*x)->returns))
     return false;
   return true;
 }

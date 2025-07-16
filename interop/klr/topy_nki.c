@@ -919,7 +919,7 @@ PyObject *NKI_Stmt_topy(struct NKI_Stmt *x) {
 }
 
 PyObject *NKI_Param_topy(struct NKI_Param *x) {
-  PyObject *tup = PyTuple_New(2);
+  PyObject *tup = PyTuple_New(3);
   if (!tup)
     return NULL;
   {
@@ -928,8 +928,13 @@ PyObject *NKI_Param_topy(struct NKI_Param *x) {
       return NULL;
   }
   {
-    PyObject *obj = NKI_Expr_Option_topy(x->dflt);
+    PyObject *obj = NKI_Expr_Option_topy(x->annotation);
     if (!obj || PyTuple_SetItem(tup, 1, obj) == -1)
+      return NULL;
+  }
+  {
+    PyObject *obj = NKI_Expr_Option_topy(x->dflt);
+    if (!obj || PyTuple_SetItem(tup, 2, obj) == -1)
       return NULL;
   }
   PyObject *res = construct("Param", tup);
@@ -938,7 +943,7 @@ PyObject *NKI_Param_topy(struct NKI_Param *x) {
 }
 
 PyObject *NKI_Fun_topy(struct NKI_Fun *x) {
-  PyObject *tup = PyTuple_New(5);
+  PyObject *tup = PyTuple_New(6);
   if (!tup)
     return NULL;
   {
@@ -964,6 +969,11 @@ PyObject *NKI_Fun_topy(struct NKI_Fun *x) {
   {
     PyObject *obj = NKI_Param_List_topy(x->args);
     if (!obj || PyTuple_SetItem(tup, 4, obj) == -1)
+      return NULL;
+  }
+  {
+    PyObject *obj = NKI_Expr_Option_topy(x->returns);
+    if (!obj || PyTuple_SetItem(tup, 5, obj) == -1)
       return NULL;
   }
   PyObject *res = construct("Fun", tup);

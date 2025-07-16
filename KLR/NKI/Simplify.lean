@@ -1,7 +1,7 @@
 /-
 Copyright (c) 2025 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Paul Govereau, Sean McLaughlin
+Authors: Paul Govereau, Paul Mure, Sean McLaughlin
 -/
 import KLR.Compile.Pass
 import KLR.NKI.Basic
@@ -304,11 +304,12 @@ private def params (args : Python.Args) : Simplify (List Param) := do
     warn "keyword-only arguments are not supported in NKI"
   let defaults := args.all_defaults
   let mut params := []
-  for name in args.names do
+  for { name, annotation } in args.sigs do
+    let annotation <- annotation.mapM expr
     if let some kw := defaults.find? fun k => k.id == name then
-      params := Param.mk name (some (<- expr kw.value)) :: params
+      params := Param.mk name annotation (some (<- expr kw.value)) :: params
     else
-      params := Param.mk name none :: params
+      params := Param.mk name annotation none :: params
   return params.reverse
 
 private def func (f : Python.Fun) : Simplify Fun :=
@@ -318,6 +319,7 @@ private def func (f : Python.Fun) : Simplify Fun :=
     line := f.line
     args := <- params f.args
     body := <- stmts f.body
+    returns := <- f.returns.mapM expr
   }
 
 /-

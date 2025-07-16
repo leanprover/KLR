@@ -24,6 +24,7 @@ bool Python_Expr_ser(FILE *out, struct Python_Expr *x);
 bool Python_Keyword_ser(FILE *out, struct Python_Keyword *x);
 bool Python_Stmt__ser(FILE *out, struct Python_Stmt_ *x);
 bool Python_Stmt_ser(FILE *out, struct Python_Stmt *x);
+bool Python_Arg_ser(FILE *out, struct Python_Arg *x);
 bool Python_Args_ser(FILE *out, struct Python_Args *x);
 bool Python_Fun_ser(FILE *out, struct Python_Fun *x);
 bool Python_Kernel_ser(FILE *out, struct Python_Kernel *x);
@@ -32,6 +33,8 @@ bool Python_Expr_Option_ser(FILE *out, struct Python_Expr *x);
 bool Python_CmpOp_List_ser(FILE *out, struct Python_CmpOp_List *x);
 bool Python_Keyword_List_ser(FILE *out, struct Python_Keyword_List *x);
 bool Python_Stmt_List_ser(FILE *out, struct Python_Stmt_List *x);
+bool Python_Arg_List_ser(FILE *out, struct Python_Arg_List *x);
+bool Python_Arg_Option_ser(FILE *out, struct Python_Arg *x);
 bool Python_Fun_List_ser(FILE *out, struct Python_Fun_List *x);
 
 bool Python_Const_des(FILE *in, struct region *region, struct Python_Const **x);
@@ -47,6 +50,7 @@ bool Python_Keyword_des(FILE *in, struct region *region,
                         struct Python_Keyword **x);
 bool Python_Stmt__des(FILE *in, struct region *region, struct Python_Stmt_ **x);
 bool Python_Stmt_des(FILE *in, struct region *region, struct Python_Stmt **x);
+bool Python_Arg_des(FILE *in, struct region *region, struct Python_Arg **x);
 bool Python_Args_des(FILE *in, struct region *region, struct Python_Args **x);
 bool Python_Fun_des(FILE *in, struct region *region, struct Python_Fun **x);
 bool Python_Kernel_des(FILE *in, struct region *region,
@@ -61,5 +65,9 @@ bool Python_Keyword_List_des(FILE *in, struct region *region,
                              struct Python_Keyword_List **x);
 bool Python_Stmt_List_des(FILE *in, struct region *region,
                           struct Python_Stmt_List **x);
+bool Python_Arg_List_des(FILE *in, struct region *region,
+                         struct Python_Arg_List **x);
+bool Python_Arg_Option_des(FILE *in, struct region *region,
+                           struct Python_Arg **x);
 bool Python_Fun_List_des(FILE *in, struct region *region,
                          struct Python_Fun_List **x);

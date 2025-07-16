@@ -237,14 +237,19 @@ struct Python_Stmt {
   struct Core_Pos *pos;
 };
 
+struct Python_Arg {
+  char *name;
+  struct Python_Expr *annotation;
+};
+
 struct Python_Args {
-  struct String_List *posonlyargs;
-  struct String_List *args;
+  struct Python_Arg_List *posonlyargs;
+  struct Python_Arg_List *args;
   struct Python_Expr_List *defaults;
-  char *vararg;
-  struct String_List *kwonlyargs;
+  struct Python_Arg *vararg;
+  struct Python_Arg_List *kwonlyargs;
   struct Python_Keyword_List *kw_defaults;
-  char *kwarg;
+  struct Python_Arg *kwarg;
 };
 
 struct Python_Fun {
@@ -253,6 +258,7 @@ struct Python_Fun {
   char *source;
   struct Python_Args *args;
   struct Python_Stmt_List *body;
+  struct Python_Expr *returns;
 };
 
 struct Python_Kernel {
@@ -282,6 +288,11 @@ struct Python_Keyword_List {
 struct Python_Stmt_List {
   struct Python_Stmt_List *next;
   struct Python_Stmt *stmt;
+};
+
+struct Python_Arg_List {
+  struct Python_Arg_List *next;
+  struct Python_Arg *arg;
 };
 
 struct Python_Fun_List {
