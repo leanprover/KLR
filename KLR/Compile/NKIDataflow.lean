@@ -151,3 +151,9 @@ def NKIWalker.processStmtList (walker : NKIWalker) (stmts : List Stmt) : NKIWalk
   stmts.foldl NKIWalker.processStmt walker
   termination_by sizeOf stmts
 end
+
+def NKIWalker.processFun (f : Fun) : NKIWalker :=
+  let body_walker := (NKIWalker.init.processStmtList f.body).processAction VarAction.None
+  body_walker.rets.foldl (fun walker ret ↦ walker.addEdge ret body_walker.last_node) body_walker
+
+def NKIWalker.isClosed (walker : NKIWalker) := walker.breaks.isEmpty ∧ walker.conts.isEmpty
