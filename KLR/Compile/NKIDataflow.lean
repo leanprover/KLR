@@ -37,6 +37,7 @@ instance NKIWalker.toString : ToString NKIWalker where
       s!"{num} {walker.actions n} ↦ {tgts}\n"
     String.intercalate "\n" ((List.range walker.num_nodes).map row ++ ["vars: ", walker.vars.toString])
 
+@[simp]
 def NKIWalker.init : NKIWalker := {
   num_nodes := 1
   last_node := 0
@@ -48,6 +49,7 @@ def NKIWalker.init : NKIWalker := {
   vars := []
 }
 
+@[simp]
 def NKIWalker.processAction (walker : NKIWalker) (action : VarAction) : NKIWalker :=
   let N := walker.num_nodes
   {walker with
@@ -61,18 +63,22 @@ def NKIWalker.processAction (walker : NKIWalker) (action : VarAction) : NKIWalke
             | none => walker.vars
   }
 
+@[simp]
 def NKIWalker.setLast (walker : NKIWalker) (last_node : ℕ) : NKIWalker := {walker with
   last_node := last_node
 }
 
+@[simp]
 def NKIWalker.addEdge (walker : NKIWalker) (a b : ℕ) : NKIWalker := {walker with
   edges A B := (A, B) = (a, b) ∨ walker.edges A B
 }
 
+@[simp]
 def NKIWalker.addBreak (walker : NKIWalker) : NKIWalker := {walker with
   breaks := walker.breaks ++ [walker.last_node]
 }
 
+@[simp]
 def NKIWalker.clearBreaks (walker : NKIWalker) : NKIWalker := {walker with
   breaks := []
 }
@@ -81,10 +87,12 @@ def NKIWalker.addContinue (walker : NKIWalker): NKIWalker := {walker with
   conts := walker.conts ++ [walker.last_node]
 }
 
+@[simp]
 def NKIWalker.clearConts (walker : NKIWalker) : NKIWalker := {walker with
   conts := []
 }
 
+@[simp]
 def NKIWalker.addReturn (walker : NKIWalker) : NKIWalker := {walker with
   rets := walker.rets ++ [walker.last_node]
 }
@@ -102,6 +110,7 @@ def NKIWalker.processExprList (walker : NKIWalker) (exprs : List Expr) : List Na
 end-/
 
 mutual
+@[simp]
 def NKIWalker.processExpr (walker : NKIWalker) (expr : Expr) : NKIWalker :=
   let ⟨expr, _⟩ := expr
   match _ : expr with
@@ -125,12 +134,14 @@ def NKIWalker.processExpr (walker : NKIWalker) (expr : Expr) : NKIWalker :=
       try {rcases h' : expr with ⟨⟨⟩, ⟨⟩⟩ <;> simp_all <;> omega}
     }
 
+@[simp]
 def NKIWalker.processExprList (walker : NKIWalker) (exprs : List Expr) : NKIWalker :=
   exprs.foldl NKIWalker.processExpr walker
   termination_by sizeOf exprs
 end
 
 mutual
+@[simp]
 def NKIWalker.processStmt (walker : NKIWalker) (stmt : Stmt) : NKIWalker :=
   let ⟨stmt, _⟩ := stmt
   match _ : stmt with
@@ -174,15 +185,18 @@ def NKIWalker.processStmt (walker : NKIWalker) (stmt : Stmt) : NKIWalker :=
     try rcases h : (els, stmt) with ⟨⟨⟨⟩, ⟨⟩⟩, ⟨⟨⟩, ⟨⟩⟩⟩ <;> simp_all <;> omega
     try rcases h : (body, stmt) with ⟨⟨⟨⟩, ⟨⟩⟩, ⟨⟨⟩, ⟨⟩⟩⟩ <;> simp_all <;> omega
 
+@[simp]
 def NKIWalker.processStmtList (walker : NKIWalker) (stmts : List Stmt) : NKIWalker :=
   stmts.foldl NKIWalker.processStmt walker
   termination_by sizeOf stmts
 end
 
+@[simp]
 def NKIWalker.processFun (f : Fun) : NKIWalker :=
   let body_walker := (NKIWalker.init.processStmtList f.body).processAction VarAction.None
   body_walker.rets.foldl (fun walker ret ↦ walker.addEdge ret body_walker.last_node) body_walker
 
+@[simp]
 def NKIWalker.isClosed (walker : NKIWalker) := walker.breaks.isEmpty ∧ walker.conts.isEmpty
 
 
@@ -196,6 +210,7 @@ def test():
 		print(y)
 	print(y)
 -/
+@[simp]
 def test_kernel : Kernel := {
   entry := "test.test",
   funs := [{ name := "test.test",
@@ -282,6 +297,8 @@ def test_kernel : Kernel := {
 
 def walker := NKIWalker.processFun test_kernel.funs[0]
 #eval walker
+
+@[simp]
 def transitions (n k : ℕ) (pre : Bool) : Bool :=
   (n = 0) ∨
   if _ : k < walker.vars.length then
@@ -304,13 +321,54 @@ instance : ToString Bool where
     | false => "DEF"
 
 
-def 𝕏 := Solution
+#eval walker.num_nodes
+example : walker.num_nodes = 12 := by {
+  simp_all!
+}
+
+@[simp]
+def 𝕏 := (Solution
       (ρ:=Bool)
       (le_supl:=by trivial)
       (le_supr:=by trivial)
       (num_nodes:=walker.num_nodes)
       (num_keys:=walker.vars.length)
       (edges:=walker.edges)
-      (transitions:=transitions)
+      (transitions:=transitions)).get (by {
+        sorry
+      })
+#eval! 𝕏
 
-#eval 𝕏
+theorem reads_valid
+  : ∀ n k, (hn: n < walker.num_nodes) → (hk: k < walker.vars.length) →
+    walker.actions n = VarAction.Read (walker.vars[k]) → 𝕏.vals n k hn hk :=
+    fun n k hn hk h ↦ match n with
+      | 0 => sorry
+      | 1 => sorry
+      | 2 => sorry
+      | 3 => sorry
+      | 4 => sorry
+      | 5 => sorry
+      | 6 => sorry
+      | 7 => sorry
+      | 8 => sorry
+      | 9 => sorry
+      | 10 => sorry
+      | 11 => sorry
+      | n + 12 => sorry
+
+
+
+
+structure Path where
+  nodes : List ℕ
+  nonempty : nodes ≠ []
+  sound : ∀ i (_ : i < nodes.length - 1), walker.edges nodes[i] nodes[i+1]
+
+def Path.motive (path : Path) :=
+  𝕏.vals (path.nodes.getLast path.nonempty)
+
+  match walker.actions (path.nodes.getLast path.nonempty) with
+  | VarAction.Read name =>
+   ∃ i, i < path.nodes.length - 1 ∧ walker.actions i = VarAction.Read name
+  | _ => True
