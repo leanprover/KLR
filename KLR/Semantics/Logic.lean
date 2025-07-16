@@ -21,8 +21,10 @@ import Iris.Algebra.View
 import Iris.Algebra.HeapView
 
 -- The logic: I can reuse UPred with a fixed ghost state (first-order)
--- I'll want the fixpoint combinator to define the wp
--- Need to port some more of the upred rules most likely
+
+-- TODO: Erasure
+-- TODO: Monotonicity of wp with respect to K (compose WP's with max )
+-- TOOD: Pure-pure proof rules
 
 section weakestpre
 open Iris.BI.BIBase KLR.Core Iris NML
