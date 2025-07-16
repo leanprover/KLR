@@ -29,6 +29,7 @@ struct Serde_KLRMetaData {
 enum File_Contents_Tag {
   File_Contents_python = 1,
   File_Contents_nki,
+  File_Contents_klir,
   File_Contents_hlo,
 };
 struct File_Contents_python {
@@ -36,6 +37,9 @@ struct File_Contents_python {
 };
 struct File_Contents_nki {
   struct NKI_Kernel *kernel;
+};
+struct File_Contents_klir {
+  struct Core_Kernel *kernel;
 };
 struct File_Contents_hlo {
   char *name;
@@ -45,6 +49,7 @@ struct File_Contents {
   union {
     struct File_Contents_python python;
     struct File_Contents_nki nki;
+    struct File_Contents_klir klir;
     struct File_Contents_hlo hlo;
   };
 };
