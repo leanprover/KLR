@@ -1,8 +1,7 @@
 import KLR.NKI.Basic
+import KLR.Compile.Dataflow
 
 open KLR.NKI
-
-abbrev ℕ := Nat
 
 inductive VarAction where
   | Read (name : String)
@@ -15,6 +14,11 @@ instance VarAction.toString : ToString VarAction where
     | Write name _ => s!"Write({name})"
     | None => "None"
 
+def VarAction.var := fun
+  | Read name => some name
+  | Write name _ => some name
+  | None => none
+
 structure NKIWalker where
   num_nodes : ℕ
   last_node : ℕ
@@ -23,6 +27,7 @@ structure NKIWalker where
   breaks : List ℕ
   conts : List ℕ
   rets : List ℕ
+  vars : List String --list of varnames seen
 
 instance NKIWalker.toString : ToString NKIWalker where
   toString walker :=
@@ -30,7 +35,7 @@ instance NKIWalker.toString : ToString NKIWalker where
       let tgts := (List.range walker.num_nodes).filter (walker.edges n)
       let num := if n = walker.last_node then s!"{n}[exit]" else s!"{n}"
       s!"{num} {walker.actions n} ↦ {tgts}\n"
-    String.intercalate "\n" ((List.range walker.num_nodes).map row)
+    String.intercalate "\n" ((List.range walker.num_nodes).map row ++ ["vars: ", walker.vars.toString])
 
 def NKIWalker.init : NKIWalker := {
   num_nodes := 1
@@ -40,6 +45,7 @@ def NKIWalker.init : NKIWalker := {
   breaks := []
   conts := []
   rets := []
+  vars := []
 }
 
 def NKIWalker.processAction (walker : NKIWalker) (action : VarAction) : NKIWalker :=
@@ -50,6 +56,9 @@ def NKIWalker.processAction (walker : NKIWalker) (action : VarAction) : NKIWalke
     actions n := if n = N then action else walker.actions n
     edges A B := (A, B) = (walker.last_node, N)
                 ∨ (walker.edges A B)
+    vars := match action.var with
+            | some var => if var ∈ walker.vars then walker.vars else walker.vars.concat var
+            | none => walker.vars
   }
 
 def NKIWalker.setLast (walker : NKIWalker) (last_node : ℕ) : NKIWalker := {walker with
@@ -128,10 +137,14 @@ def NKIWalker.processStmt (walker : NKIWalker) (stmt : Stmt) : NKIWalker :=
   | Stmt'.expr (e : Expr) => walker.processExpr e
   | Stmt'.assert (e : Expr) => walker.processExpr e
   | Stmt'.ret (e : Expr) => (walker.processExpr e).addReturn
-  | Stmt'.assign (x : Expr) (ty : Option Expr) (e : Option Expr) =>
-    let withx := (walker.processExpr x)
-    let withty := (match ty with | some ty => withx.processExpr ty | none => withx)
-    match e with | some e => withty.processExpr e | none => withty
+  | Stmt'.assign ⟨Expr'.var name, _⟩ (ty : Option Expr) (e : Option Expr) =>
+    let withty := (match ty with | some ty => walker.processExpr ty | none => walker)
+    let withe := (match e with | some e => withty.processExpr e | none => withty)
+    withe.processAction (VarAction.Write name ty)
+  | Stmt'.assign _ (ty : Option Expr) (e : Option Expr) =>
+    let withty := (match ty with | some ty => walker.processExpr ty | none => walker)
+    let withe := (match e with | some e => withty.processExpr e | none => withty)
+    withe.processAction (VarAction.Write "NONVAR" ty)
   | Stmt'.ifStm (e : Expr) (thn : List Stmt) (els : List Stmt) =>
     let then_walker := (walker.processExpr e).processStmtList thn
     let else_walker := (then_walker.setLast walker.last_node).processStmtList els
@@ -172,6 +185,17 @@ def NKIWalker.processFun (f : Fun) : NKIWalker :=
 
 def NKIWalker.isClosed (walker : NKIWalker) := walker.breaks.isEmpty ∧ walker.conts.isEmpty
 
+
+/-
+def test():
+	x = 0
+	if cond0:
+		print(x)
+	else:
+		y = 0
+		print(y)
+	print(y)
+-/
 def test_kernel : Kernel := {
   entry := "test.test",
   funs := [{ name := "test.test",
@@ -215,28 +239,78 @@ def test_kernel : Kernel := {
                                                (some { expr := KLR.NKI.Expr'.value (KLR.NKI.Value.int 0),
                                                        pos := { line := 6,
                                                                 column := 6,
-                                                                lineEnd := some 6,
-                                                                columnEnd := some 7 } }),
-                                     pos := { line := 6, column := 2, lineEnd := some 6, columnEnd := some 7 } }],
-                        pos := { line := 3, column := 1, lineEnd := some 6, columnEnd := some 7 } },
+                                                                 lineEnd := some 6,
+                                                                 columnEnd := some 7 } }),
+                                     pos := { line := 6, column := 2, lineEnd := some 6, columnEnd := some 7 } },
+                                   { stmt := KLR.NKI.Stmt'.expr
+                                               { expr := KLR.NKI.Expr'.call
+                                                           { expr := KLR.NKI.Expr'.var "print",
+                                                             pos := { line := 7,
+                                                                      column := 2,
+                                                                      lineEnd := some 7,
+                                                                      columnEnd := some 7 } }
+                                                           [{ expr := KLR.NKI.Expr'.var "y",
+                                                              pos := { line := 7,
+                                                                       column := 8,
+                                                                       lineEnd := some 7,
+                                                                       columnEnd := some 9 } }]
+                                                           [],
+                                                 pos := { line := 7,
+                                                          column := 2,
+                                                          lineEnd := some 7,
+                                                          columnEnd := some 10 } },
+                                     pos := { line := 7, column := 2, lineEnd := some 7, columnEnd := some 10 } }],
+                        pos := { line := 3, column := 1, lineEnd := some 7, columnEnd := some 10 } },
                       { stmt := KLR.NKI.Stmt'.expr
                                   { expr := KLR.NKI.Expr'.call
                                               { expr := KLR.NKI.Expr'.var "print",
-                                                pos := { line := 7,
+                                                pos := { line := 8,
                                                          column := 1,
-                                                         lineEnd := some 7,
+                                                         lineEnd := some 8,
                                                          columnEnd := some 6 } }
                                               [{ expr := KLR.NKI.Expr'.var "y",
-                                                 pos := { line := 7,
+                                                 pos := { line := 8,
                                                           column := 7,
-                                                          lineEnd := some 7,
+                                                          lineEnd := some 8,
                                                           columnEnd := some 8 } }]
                                               [],
-                                    pos := { line := 7, column := 1, lineEnd := some 7, columnEnd := some 9 } },
-                        pos := { line := 7, column := 1, lineEnd := some 7, columnEnd := some 9 } }],
+                                    pos := { line := 8, column := 1, lineEnd := some 8, columnEnd := some 9 } },
+                        pos := { line := 8, column := 1, lineEnd := some 8, columnEnd := some 9 } }],
              args := [] }],
   args := [],
   globals := [] }
 
-  def 𝕏 := NKIWalker.processFun test_kernel.funs[0]
-  #eval 𝕏
+def walker := NKIWalker.processFun test_kernel.funs[0]
+#eval walker
+def transitions (n k : ℕ) (pre : Bool) : Bool :=
+  (n = 0) ∨
+  if _ : k < walker.vars.length then
+    match walker.actions n with
+      | VarAction.Write name _ => ¬ (name = walker.vars[k]) ∧ pre
+      | _ => pre
+  else
+    pre
+
+instance : Preorder Bool where
+  le_refl := by trivial
+  le_trans := by trivial
+
+instance : HasBot Bool where
+  bot := false
+
+instance : ToString Bool where
+  toString := fun
+    | true => "_"
+    | false => "DEF"
+
+
+def 𝕏 := Solution
+      (ρ:=Bool)
+      (le_supl:=by trivial)
+      (le_supr:=by trivial)
+      (num_nodes:=walker.num_nodes)
+      (num_keys:=walker.vars.length)
+      (edges:=walker.edges)
+      (transitions:=transitions)
+
+#eval 𝕏
