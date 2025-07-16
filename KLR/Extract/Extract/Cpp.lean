@@ -84,7 +84,7 @@ private def genEnum (name : Name) (variants : List LeanType) : IO Unit := do
 
 private def genUnion (name : Name) (variants : List LeanType) : MetaM Unit := do
   let tagName := Name.str name "Tag"
-  IO.println s!"struct {name} \{"
+  IO.println s!"struct {name} final \{"
   genEnum tagName variants
   for t in variants do
     match t with
@@ -285,4 +285,4 @@ def generateKlrAST : MetaM Unit := do
   genTypes (<- fileAST)
   IO.println "}"
 
-run_meta generateKlrAST
+--run_meta generateKlrAST

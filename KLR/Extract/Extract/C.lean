@@ -336,5 +336,3 @@ def generateKlrAST : MetaM Unit := do
   IO.println (headerH ["ast_common.h"])
   IO.println "// KLR.Core Abstract Syntax"
   genTypes tys
-
-run_meta generateFileAST

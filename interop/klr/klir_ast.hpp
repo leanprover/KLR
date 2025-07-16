@@ -75,7 +75,7 @@ struct Slice final {
   Prop wf;
 };
 
-struct Index {
+struct Index final {
   enum class Tag {
     coord = 1,
     slice,
@@ -124,7 +124,7 @@ struct AccessPattern final {
   Nat offset;
 };
 
-struct Access {
+struct Access final {
   enum class Tag {
     simple = 1,
     basic,
@@ -186,7 +186,7 @@ struct TensorView final {
   List<APPair> freePattern;
 };
 
-struct TensorRef {
+struct TensorRef final {
   enum class Tag {
     abstract = 1,
     literal,
@@ -225,7 +225,7 @@ struct TensorRef {
   }
 };
 
-struct TensorArg {
+struct TensorArg final {
   enum class Tag {
     hbm = 1,
     sram,
@@ -266,7 +266,7 @@ enum class Engine {
   sp,
 };
 
-struct Immediate {
+struct Immediate final {
   enum class Tag {
     reg = 1,
     pointer,
@@ -311,7 +311,7 @@ struct Immediate {
   }
 };
 
-struct ActivationImm {
+struct ActivationImm final {
   enum class Tag {
     reg = 1,
     pointer,
@@ -436,7 +436,7 @@ enum class DgeComputeOp {
   add,
 };
 
-struct DmaBounds {
+struct DmaBounds final {
   enum class Tag {
     disable = 1,
     enable,
@@ -477,7 +477,7 @@ enum class MatmulGroupElement {
   last,
 };
 
-struct IndexMissBehavior {
+struct IndexMissBehavior final {
   enum class Tag {
     imm = 1,
     skip,
@@ -691,7 +691,7 @@ struct TensorReduce final {
   bool negated;
 };
 
-struct Operator {
+struct Operator final {
   enum class Tag {
     Activate = 1,
     AffineSelect,
@@ -914,7 +914,7 @@ struct Operator {
   }
 };
 
-struct Value {
+struct Value final {
   enum class Tag {
     var = 1,
     boolean,
@@ -974,7 +974,7 @@ struct Keyword final {
   Ptr<Value> value;
 };
 
-struct Expr {
+struct Expr final {
   enum class Tag {
     value = 1,
     call,
@@ -1007,7 +1007,7 @@ struct Expr {
   }
 };
 
-struct Stmt {
+struct Stmt final {
   enum class Tag {
     ret = 1,
     assign,
@@ -1069,7 +1069,7 @@ struct KLRMetaData final {
   String format;
 };
 
-struct Contents {
+struct Contents final {
   enum class Tag {
     python = 1,
     nki,
