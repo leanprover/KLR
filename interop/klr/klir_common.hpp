@@ -13,6 +13,7 @@ namespace klr {
   static_assert(sizeof(s) == n, "sizeof " #s " unexpected")
 
 typedef uint8_t u8;
+typedef uint64_t u64;
 
 typedef bool Bool;
 typedef int32_t Int;
@@ -29,18 +30,22 @@ template <class T> using Ptr = std::shared_ptr<T>;
 
 template <class T> Ptr<T> ptr() { return std::make_shared<T>(); }
 
-template <class T> using List = Ptr<std::list<Ptr<T>>>;
+template <class T> using List = std::list<T>;
 
-template <class T> List<T> list() {
-  return std::make_shared<std::list<Ptr<T>>>();
-}
+// template <class T> List<T> list() { return ptr<std::list<T>>(); }
 
-bool deserialize(FILE *out, struct Prop *p);
-bool deserialize(FILE *out, Bool *x);
-bool deserialize(FILE *out, Nat *x);
-bool deserialize(FILE *out, Int *x);
-bool deserialize(FILE *out, Float *x);
-bool deserialize(FILE *out, String *s);
+template <class T> using Option = std::optional<T>;
+
+bool deserialize_array_start(FILE *in, u64 *size);
+bool deserialize_tag(FILE *in, u8 *type, u8 *constructor, u8 *len);
+bool deserialize_option(FILE *in, bool *isSome);
+
+bool deserialize(FILE *in, struct Prop *p);
+bool deserialize(FILE *in, Bool *x);
+bool deserialize(FILE *in, Nat *x);
+bool deserialize(FILE *in, Int *x);
+bool deserialize(FILE *in, Float *x);
+bool deserialize(FILE *in, String *s);
 /*
 bool Prop_des(FILE *out, struct Prop *p);
 bool Bool_des(FILE *out, Bool *x);

@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 -/
 import Extract.Basic
+import Extract.C
 import Extract.Cpp
 import KLR.NKI.Basic
 import KLR.Python
@@ -13,92 +14,6 @@ import Lean
 namespace Extract.SerdeCpp
 open Lean Meta
 open KLR.Serde (Tags)
-
-namespace Ser
-
--- Return the name of the serialization function for a given simple type
-private def serName : SimpleType -> String
-  | .bool => "cbor_encode_bool"
-  | .nat => "cbor_encode_uint"
-  | .int => "cbor_encode_int"
-  | .float => "cbor_encode_float"
-  | .const `Lean.Name => "String_ser"
-  | .const `KLR.Core.Reg => "cbor_encode_uint"
-  | t => s!"{t.name}_ser"
-
-private def genSimpleSig (ty : SimpleType) (term : String := ";") : MetaM Unit := do
-  if term != ";" then
-    IO.println ""
-  IO.println s!"bool {serName ty}(FILE *out, {Cpp.genType ty} x){term}"
-
-private def genSig (ty : LeanType) (term : String := ";") : MetaM Unit := do
-  match ty with
-  | .simple ty => genSimpleSig ty term
-  | .prod n .. => genSimpleSig (.const n) term
-  | .sum n .. =>
-      let ty := if ty.isEnum then .enum n else .const n
-      genSimpleSig ty term
-
--- Generate serialization for a structure or inductive constructor.
--- This includes the constructor tag value, followed by an array of
--- the fields (constructor arguments).
-private def genFields (tags : Tags) (n : Name) (fs : List Field) : MetaM Unit := do
-  let typeTag := tags.fst
-  let tags := tags.snd
-  let (valTag, var) <-
-    match tags.lookup n with
-    | some v => pure (v, Cpp.varName n ++ ".")
-    | none => match tags.lookup (.str n "mk") with
-              | some v => pure (v, "")
-              | none => throwError s!"no serde tag for {n} in {tags}"
-  IO.println s!"if (!cbor_encode_tag(out, {typeTag}, {valTag}, {fs.length})) return false;"
-  for f in fs do
-    IO.println s!"if (!{serName f.type}(out, x->{var}{f.name})) return false;"
-
--- Generate serialization for a list type
-private def genListSer (ty : SimpleType) : MetaM Unit := do
-  let tname := Cpp.genType (.list ty)
-  let vname := (Cpp.varName ty.name).toLower
-  IO.println s!"  u64 count = 0;
-  for ({tname} node = x; node; node = node->next) count++;
-  if (!cbor_encode_array_start(out, count)) return false;
-  for ({tname} node = x; node; node = node->next)
-    if (!{serName ty}(out, node->{vname})) return false;"
-
--- Generate serialization for an option type
-private def genOptionSer (ty : SimpleType) : MetaM Unit := do
-  IO.println s!"if (!x) \{
-      return cbor_encode_option(out, false);
-    } else \{
-      return cbor_encode_option(out, true) && {serName ty}(out, x);
-    }"
-
-private def genSer (ty : LeanType) : MetaM Unit := do
-  genSig ty " {"
-  match ty with
-  | .simple (.option ty) => genOptionSer ty
-  | .simple (.list ty) => genListSer ty
-  | .simple _ => pure ()
-  | .prod name fs => do
-      let tags <- KLR.Serde.serdeTags name
-      genFields tags name fs
-  | .sum name variants => do
-      let tags <- KLR.Serde.serdeTags name
-      let var := if ty.isEnum then "x" else "x->tag"
-      IO.println s!"switch ({var}) \{"
-      for v in variants do
-        match v with
-        | .prod n fs => do
-            IO.println s!"case {n}:"
-            genFields tags n fs
-            IO.println "break;"
-        | _ => throwError s!"Expecting product for {name}.{v.name}"
-      IO.println "default: return false;"
-      IO.println "}"
-  IO.println "return true;"
-  IO.println "}"
-
-end Ser
 
 namespace Des
 
@@ -111,7 +26,7 @@ private def desName : SimpleType -> String
 private def genSimpleSig (ty : SimpleType) (term : String := ";") : MetaM Unit := do
   if term != ";" then
     IO.println ""
-  IO.println s!"bool {desName ty}(FILE *in, struct region *region, {Cpp.genType ty}* x){term}"
+  IO.println s!"bool {desName ty}(FILE *in, {Cpp.genType ty}& x){term}"
 
 private def genSig (ty : LeanType) (term : String := ";") : MetaM Unit := do
   match ty with
@@ -126,34 +41,8 @@ private def genSig (ty : LeanType) (term : String := ";") : MetaM Unit := do
 -- the fields (constructor arguments).
 private def genFields (var : String) (fs : List Field) : MetaM Unit := do
   for f in fs do
-    IO.println s!"if (!{desName f.type}(in, region, &(*x)->{var}{f.name}))
+    IO.println s!"if (!{desName f.type}(in, &(*x)->{var}{f.name}))
       return false;"
-
--- Generate deserialization for a list type
-private def genListDes (ty : SimpleType) : MetaM Unit := do
-  let tname := Cpp.genType (.list ty)
-  let vname := (Cpp.varName ty.name).toLower
-  IO.println s!"u64 count = 0;
-    if (!cbor_decode_array_start(in, &count)) return false;
-    {tname} current = *x = NULL;
-    for (; count > 0; count--) \{
-      {tname} node = static_cast<{tname}>(region_alloc(region, sizeof(*node)));
-      node->next = NULL;
-      if (!current) \{
-        *x = current = node;
-      } else \{
-        current->next = node;
-        current = node;
-      }
-      if (!{desName ty}(in, region, &node->{vname})) return false;
-    }"
-
--- Generate serialization for an option type
-private def genOptionDes (ty : SimpleType) : MetaM Unit := do
-  IO.println s!"bool isSome;
-    if (!cbor_decode_option(in, &isSome)) return false;
-    if (!isSome) *x = static_cast<{Cpp.genType ty}>(0);
-    else return {desName ty}(in, region, x);"
 
 private def genDes (ty : LeanType) : MetaM Unit := do
   genSig ty " {"
@@ -165,7 +54,7 @@ private def genDes (ty : LeanType) : MetaM Unit := do
       match <- KLR.Serde.serdeTags name with
       | (typeTag, [(_, valTag)]) =>
         IO.println s!"u8 t, c, l;
-          if (!cbor_decode_tag(in, &t, &c, &l)) return false;
+          if (!deserialize_tag(in, &t, &c, &l)) return false;
           if (t != {typeTag} || c != {valTag} || l != {fs.length})
             return false;
           *x = static_cast<{name}*>(region_alloc(region, sizeof(**x)));"
@@ -174,7 +63,7 @@ private def genDes (ty : LeanType) : MetaM Unit := do
   | .sum name variants => do
       let tags <- KLR.Serde.serdeTags name
       IO.println s!"u8 t, c, l;
-        if (!cbor_decode_tag(in, &t, &c, &l)) return false;
+        if (!deserialize_tag(in, &t, &c, &l)) return false;
         if (t != {tags.fst}) return false;"
       if ty.isEnum then
         IO.println "(void)region;"
@@ -213,28 +102,12 @@ private def genC (tys : List LeanType) : MetaM Unit := do
   --IO.println ""
   tys.forM Des.genDes
 
-def generateCommonH : MetaM Unit := do
-  IO.println <| Cpp.headerH ["ast_common.h"]
-  genH (<- Cpp.commonAST)
-
-def generateCommonC : MetaM Unit := do
-  IO.println <| Cpp.headerC ["cbor.h", "serde_common.h"]
-  genC (<- Cpp.commonAST)
-
-def generateFileH : MetaM Unit := do
-  IO.println <| Cpp.headerC [ "cbor.h", "ast_file.h", "serde_common.h"]
-  genH (<- Cpp.fileAST)
-
-def generateFileC : MetaM Unit := do
-  IO.println <| Cpp.headerC ["serde_file.h", "serde_python_core.h", "serde_nki.h"]
-  genC (<- Cpp.fileAST)
-
 def generateKlrH : MetaM Unit := do
   IO.println <| Cpp.headerH ["klir_ast.hpp"]
-  genH (<- Cpp.klrAST)
+  genH (<- C.klrAST)
 
 def generateKlrC : MetaM Unit := do
   IO.println <| Cpp.headerC ["klir_serde.hpp"]
-  genC (<- Cpp.commonAST)
-  genC (<- Cpp.klrAST)
-  genC (<- Cpp.fileAST)
+  genC (<- C.commonAST)
+  genC (<- C.klrAST)
+  genC (<- C.fileAST)

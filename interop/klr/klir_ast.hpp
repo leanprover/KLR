@@ -17,8 +17,8 @@ namespace klr {
 struct Pos final {
   Nat line;
   Nat column;
-  Nat lineEnd;
-  Nat columnEnd;
+  Option<Nat> lineEnd;
+  Option<Nat> columnEnd;
 };
 
 enum class Memory {
@@ -55,8 +55,8 @@ struct Address final {
   Memory memory;
   Nat parSize;
   Nat freeSize;
-  Nat parOffset;
-  Nat freeOffset;
+  Option<Nat> parOffset;
+  Option<Nat> freeOffset;
 };
 
 struct TensorSram final {
@@ -75,40 +75,28 @@ struct Slice final {
   Prop wf;
 };
 
-struct Index final {
+struct Index {
   enum class Tag {
     coord = 1,
     slice,
   };
-  struct Index_coord final {
-    Nat e;
-  };
-  struct Index_slice final {
-    Ptr<Slice> slice;
-  };
-  union U {
-    U() {}
-    ~U() {}
-    Index_coord coord;
-    Index_slice slice;
-  };
-  enum Tag tag;
-  union U u;
-  ~Index() {
-    switch (tag) {
-    case Tag::coord:
-      u.coord.~Index_coord();
-      break;
-    case Tag::slice:
-      u.slice.~Index_slice();
-      break;
-    }
-  }
+  Tag tag;
+  Index(Tag tag) : tag(tag) {}
+};
+
+struct Index_coord final : Index {
+  Nat e;
+  Index_coord() : Index(Tag::coord) {}
+};
+
+struct Index_slice final : Index {
+  Ptr<Slice> slice;
+  Index_slice() : Index(Tag::slice) {}
 };
 
 struct AccessBasic final {
   Ptr<TensorSram> tensor;
-  List<Index> indexes;
+  List<Ptr<Index>> indexes;
   Prop lenWF;
 };
 
@@ -120,47 +108,33 @@ struct APPair final {
 struct AccessPattern final {
   Ptr<TensorSram> tensor;
   Nat parNum;
-  List<APPair> freePattern;
+  List<Ptr<APPair>> freePattern;
   Nat offset;
 };
 
-struct Access final {
+struct Access {
   enum class Tag {
     simple = 1,
     basic,
     pattern,
   };
-  struct Access_simple final {
-    Ptr<TensorSram> tensor;
-  };
-  struct Access_basic final {
-    Ptr<AccessBasic> access;
-  };
-  struct Access_pattern final {
-    Ptr<AccessPattern> access;
-  };
-  union U {
-    U() {}
-    ~U() {}
-    Access_simple simple;
-    Access_basic basic;
-    Access_pattern pattern;
-  };
-  enum Tag tag;
-  union U u;
-  ~Access() {
-    switch (tag) {
-    case Tag::simple:
-      u.simple.~Access_simple();
-      break;
-    case Tag::basic:
-      u.basic.~Access_basic();
-      break;
-    case Tag::pattern:
-      u.pattern.~Access_pattern();
-      break;
-    }
-  }
+  Tag tag;
+  Access(Tag tag) : tag(tag) {}
+};
+
+struct Access_simple final : Access {
+  Ptr<TensorSram> tensor;
+  Access_simple() : Access(Tag::simple) {}
+};
+
+struct Access_basic final : Access {
+  Ptr<AccessBasic> access;
+  Access_basic() : Access(Tag::basic) {}
+};
+
+struct Access_pattern final : Access {
+  Ptr<AccessPattern> access;
+  Access_pattern() : Access(Tag::pattern) {}
 };
 
 struct TensorHbm final {
@@ -183,77 +157,51 @@ struct TensorView final {
   ParQuadrant parQuadrant;
   Nat parDim;
   Nat freeOffset;
-  List<APPair> freePattern;
+  List<Ptr<APPair>> freePattern;
 };
 
-struct TensorRef final {
+struct TensorRef {
   enum class Tag {
     abstract = 1,
     literal,
     reg,
   };
-  struct TensorRef_abstract final {
-    Ptr<Access> access;
-  };
-  struct TensorRef_literal final {
-    Ptr<TensorView> view;
-  };
-  struct TensorRef_register final {
-    Nat reg;
-  };
-  union U {
-    U() {}
-    ~U() {}
-    TensorRef_abstract abstract;
-    TensorRef_literal literal;
-    TensorRef_register reg;
-  };
-  enum Tag tag;
-  union U u;
-  ~TensorRef() {
-    switch (tag) {
-    case Tag::abstract:
-      u.abstract.~TensorRef_abstract();
-      break;
-    case Tag::literal:
-      u.literal.~TensorRef_literal();
-      break;
-    case Tag::reg:
-      u.reg.~TensorRef_register();
-      break;
-    }
-  }
+  Tag tag;
+  TensorRef(Tag tag) : tag(tag) {}
 };
 
-struct TensorArg final {
+struct TensorRef_abstract final : TensorRef {
+  Ptr<Access> access;
+  TensorRef_abstract() : TensorRef(Tag::abstract) {}
+};
+
+struct TensorRef_literal final : TensorRef {
+  Ptr<TensorView> view;
+  TensorRef_literal() : TensorRef(Tag::literal) {}
+};
+
+struct TensorRef_register final : TensorRef {
+  Nat reg;
+  TensorRef_register() : TensorRef(Tag::reg) {}
+};
+
+struct TensorArg {
   enum class Tag {
     hbm = 1,
     sram,
   };
-  struct TensorArg_hbm final {
-    Ptr<TensorHbm> tensor;
-  };
-  struct TensorArg_sram final {
-    Ptr<TensorSram> tensor;
-  };
-  union U {
-    U() {}
-    ~U() {}
-    TensorArg_hbm hbm;
-    TensorArg_sram sram;
-  };
-  enum Tag tag;
-  union U u;
-  ~TensorArg() {
-    switch (tag) {
-    case Tag::hbm:
-      u.hbm.~TensorArg_hbm();
-      break;
-    case Tag::sram:
-      u.sram.~TensorArg_sram();
-      break;
-    }
-  }
+  Tag tag;
+  TensorArg(Tag tag) : tag(tag) {}
+};
+
+struct TensorArg_hbm final : TensorArg {
+  Ptr<TensorHbm> tensor;
+  TensorArg_hbm() : TensorArg(Tag::hbm) {}
+};
+
+struct TensorArg_sram final : TensorArg {
+  Ptr<TensorSram> tensor;
+  TensorArg_sram() : TensorArg(Tag::sram) {}
 };
 
 enum class Engine {
@@ -266,91 +214,63 @@ enum class Engine {
   sp,
 };
 
-struct Immediate final {
+struct Immediate {
   enum class Tag {
     reg = 1,
     pointer,
     int32,
     float32,
   };
-  struct Immediate_register final {
-    Nat reg;
-  };
-  struct Immediate_pointer final {};
-  struct Immediate_int final {
-    Int i;
-  };
-  struct Immediate_float final {
-    Float f;
-  };
-  union U {
-    U() {}
-    ~U() {}
-    Immediate_register reg;
-    Immediate_pointer pointer;
-    Immediate_int int32;
-    Immediate_float float32;
-  };
-  enum Tag tag;
-  union U u;
-  ~Immediate() {
-    switch (tag) {
-    case Tag::reg:
-      u.reg.~Immediate_register();
-      break;
-    case Tag::pointer:
-      u.pointer.~Immediate_pointer();
-      break;
-    case Tag::int32:
-      u.int32.~Immediate_int();
-      break;
-    case Tag::float32:
-      u.float32.~Immediate_float();
-      break;
-    }
-  }
+  Tag tag;
+  Immediate(Tag tag) : tag(tag) {}
 };
 
-struct ActivationImm final {
+struct Immediate_register final : Immediate {
+  Nat reg;
+  Immediate_register() : Immediate(Tag::reg) {}
+};
+
+struct Immediate_pointer final : Immediate {
+  Immediate_pointer() : Immediate(Tag::pointer) {}
+};
+
+struct Immediate_int final : Immediate {
+  Int i;
+  Immediate_int() : Immediate(Tag::int32) {}
+};
+
+struct Immediate_float final : Immediate {
+  Float f;
+  Immediate_float() : Immediate(Tag::float32) {}
+};
+
+struct ActivationImm {
   enum class Tag {
     reg = 1,
     pointer,
     float32,
   };
-  struct ActivationImm_register final {
-    Nat reg;
-  };
-  struct ActivationImm_pointer final {};
-  struct ActivationImm_float final {
-    Float f;
-  };
-  union U {
-    U() {}
-    ~U() {}
-    ActivationImm_register reg;
-    ActivationImm_pointer pointer;
-    ActivationImm_float float32;
-  };
-  enum Tag tag;
-  union U u;
-  ~ActivationImm() {
-    switch (tag) {
-    case Tag::reg:
-      u.reg.~ActivationImm_register();
-      break;
-    case Tag::pointer:
-      u.pointer.~ActivationImm_pointer();
-      break;
-    case Tag::float32:
-      u.float32.~ActivationImm_float();
-      break;
-    }
-  }
+  Tag tag;
+  ActivationImm(Tag tag) : tag(tag) {}
+};
+
+struct ActivationImm_register final : ActivationImm {
+  Nat reg;
+  ActivationImm_register() : ActivationImm(Tag::reg) {}
+};
+
+struct ActivationImm_pointer final : ActivationImm {
+  ActivationImm_pointer() : ActivationImm(Tag::pointer) {}
+};
+
+struct ActivationImm_float final : ActivationImm {
+  Float f;
+  ActivationImm_float() : ActivationImm(Tag::float32) {}
 };
 
 struct DataPattern final {
   Nat offset;
-  List<APPair> pattern;
+  List<Ptr<APPair>> pattern;
 };
 
 enum class AluOp {
@@ -436,39 +356,27 @@ enum class DgeComputeOp {
   add,
 };
 
-struct DmaBounds final {
+struct DmaBounds {
   enum class Tag {
     disable = 1,
     enable,
     reg,
   };
-  struct DmaBounds_disable final {};
-  struct DmaBounds_enable final {};
-  struct DmaBounds_reg final {
-    Nat reg;
-  };
-  union U {
-    U() {}
-    ~U() {}
-    DmaBounds_disable disable;
-    DmaBounds_enable enable;
-    DmaBounds_reg reg;
-  };
-  enum Tag tag;
-  union U u;
-  ~DmaBounds() {
-    switch (tag) {
-    case Tag::disable:
-      u.disable.~DmaBounds_disable();
-      break;
-    case Tag::enable:
-      u.enable.~DmaBounds_enable();
-      break;
-    case Tag::reg:
-      u.reg.~DmaBounds_reg();
-      break;
-    }
-  }
+  Tag tag;
+  DmaBounds(Tag tag) : tag(tag) {}
+};
+
+struct DmaBounds_disable final : DmaBounds {
+  DmaBounds_disable() : DmaBounds(Tag::disable) {}
+};
+
+struct DmaBounds_enable final : DmaBounds {
+  DmaBounds_enable() : DmaBounds(Tag::enable) {}
+};
+
+struct DmaBounds_reg final : DmaBounds {
+  Nat reg;
+  DmaBounds_reg() : DmaBounds(Tag::reg) {}
 };
 
 enum class MatmulGroupElement {
@@ -477,33 +385,22 @@ enum class MatmulGroupElement {
   last,
 };
 
-struct IndexMissBehavior final {
+struct IndexMissBehavior {
   enum class Tag {
     imm = 1,
     skip,
   };
-  struct IndexMissBehavior_imm final {
-    Ptr<Immediate> value;
-  };
-  struct IndexMissBehavior_skip final {};
-  union U {
-    U() {}
-    ~U() {}
-    IndexMissBehavior_imm imm;
-    IndexMissBehavior_skip skip;
-  };
-  enum Tag tag;
-  union U u;
-  ~IndexMissBehavior() {
-    switch (tag) {
-    case Tag::imm:
-      u.imm.~IndexMissBehavior_imm();
-      break;
-    case Tag::skip:
-      u.skip.~IndexMissBehavior_skip();
-      break;
-    }
-  }
+  Tag tag;
+  IndexMissBehavior(Tag tag) : tag(tag) {}
+};
+
+struct IndexMissBehavior_imm final : IndexMissBehavior {
+  Ptr<Immediate> value;
+  IndexMissBehavior_imm() : IndexMissBehavior(Tag::imm) {}
+};
+
+struct IndexMissBehavior_skip final : IndexMissBehavior {
+  IndexMissBehavior_skip() : IndexMissBehavior(Tag::skip) {}
 };
 
 enum class TensorScalarReverseOps {
@@ -585,7 +482,7 @@ struct Iota final {
 
 struct LoadStationary final {
   Ptr<TensorRef> src;
-  bool isTranspose;
+  Bool isTranspose;
 };
 
 struct MatMul final {
@@ -598,7 +495,7 @@ struct LocalGather final {
   Ptr<TensorRef> dst;
   Ptr<TensorRef> src;
   Ptr<IndexMissBehavior> indexMissBehavior;
-  bool freePoolBuffer;
+  Bool freePoolBuffer;
 };
 
 struct RangeSelect final {
@@ -680,7 +577,7 @@ struct Reciprocal final {
 struct Copy final {
   Ptr<TensorRef> dst;
   Ptr<TensorRef> src;
-  TensorSubDim opDim;
+  Option<TensorSubDim> opDim;
 };
 
 struct TensorReduce final {
@@ -688,233 +585,173 @@ struct TensorReduce final {
   Ptr<TensorRef> src;
   AluOp op;
   TensorSubDim opDim;
-  bool negated;
+  Bool negated;
 };
 
-struct Operator final {
+struct Operator {
   enum class Tag {
-    Activate = 1,
-    AffineSelect,
-    BatchNormAggregate,
-    BatchNormStats,
-    Copy,
-    CopyPredicated,
-    DmaCopy,
-    DmaTranspose,
-    Dropout,
-    FindIndex8,
-    Iota,
-    LoadMaskRegister,
-    LoadStationary,
-    LocalGather,
-    MatMul,
-    MatchReplace8,
-    MatchValueLoad,
-    Max8,
-    MemSet,
-    RangeSelect,
-    Reciprocal,
-    ScalarTensorTensor,
-    Shuffle,
-    TensorReduce,
-    TensorTensorScan,
-    Transpose,
+    activate = 1,
+    affineSelect,
+    batchNormAggregate,
+    batchNormStats,
+    copy,
+    copyPredicated,
+    dmaCopy,
+    dmaTranspose,
+    dropout,
+    findIndex8,
+    iota,
+    loadMaskRegister,
+    loadStationary,
+    localGather,
+    matMul,
+    matchReplace8,
+    matchValueLoad,
+    max8,
+    memSet,
+    rangeSelect,
+    reciprocal,
+    scalarTensorTensor,
+    shuffle,
+    tensorReduce,
+    tensorTensorScan,
+    transpose,
   };
-  struct Activate final {
-    Ptr<Activate> op;
-  };
-  struct AffineSelect final {
-    Ptr<AffineSelect> op;
-  };
-  struct BatchNormAggregate final {
-    Ptr<BatchNormAggregate> op;
-  };
-  struct BatchNormStats final {
-    Ptr<BatchNormStats> op;
-  };
-  struct Copy final {
-    Ptr<Copy> op;
-  };
-  struct CopyPredicated final {
-    Ptr<CopyPredicated> op;
-  };
-  struct DmaCopy final {
-    Ptr<DmaCopy> op;
-  };
-  struct DmaTranspose final {
-    Ptr<DmaTranspose> op;
-  };
-  struct Dropout final {
-    Ptr<Dropout> op;
-  };
-  struct FindIndex8 final {
-    Ptr<FindIndex8> op;
-  };
-  struct Iota final {
-    Ptr<Iota> op;
-  };
-  struct LoadMaskRegister final {
-    Ptr<LoadMaskRegister> op;
-  };
-  struct LoadStationary final {
-    Ptr<LoadStationary> op;
-  };
-  struct LocalGather final {
-    Ptr<LocalGather> op;
-  };
-  struct MatMul final {
-    Ptr<MatMul> op;
-  };
-  struct MatchReplace8 final {
-    Ptr<MatchReplace8> op;
-  };
-  struct MatchValueLoad final {
-    Ptr<MatchValueLoad> op;
-  };
-  struct Max8 final {
-    Ptr<Max8> op;
-  };
-  struct MemSet final {
-    Ptr<MemSet> op;
-  };
-  struct RangeSelect final {
-    Ptr<RangeSelect> op;
-  };
-  struct Reciprocal final {
-    Ptr<Reciprocal> op;
-  };
-  struct ScalarTensorTensor final {
-    Ptr<ScalarTensorTensor> op;
-  };
-  struct Shuffle final {
-    Ptr<Shuffle> op;
-  };
-  struct TensorReduce final {
-    Ptr<TensorReduce> op;
-  };
-  struct TensorTensorScan final {
-    Ptr<TensorTensorScan> op;
-  };
-  struct Transpose final {
-    Ptr<Transpose> op;
-  };
-  union U {
-    U() {}
-    ~U() {}
-    Activate activate;
-    AffineSelect affineselect;
-    BatchNormAggregate batchnormaggregate;
-    BatchNormStats batchnormstats;
-    Copy copy;
-    CopyPredicated copypredicated;
-    DmaCopy dmacopy;
-    DmaTranspose dmatranspose;
-    Dropout dropout;
-    FindIndex8 findindex8;
-    Iota iota;
-    LoadMaskRegister loadmaskregister;
-    LoadStationary loadstationary;
-    LocalGather localgather;
-    MatMul matmul;
-    MatchReplace8 matchreplace8;
-    MatchValueLoad matchvalueload;
-    Max8 max8;
-    MemSet memset;
-    RangeSelect rangeselect;
-    Reciprocal reciprocal;
-    ScalarTensorTensor scalartensortensor;
-    Shuffle shuffle;
-    TensorReduce tensorreduce;
-    TensorTensorScan tensortensorscan;
-    Transpose transpose;
-  };
-  enum Tag tag;
-  union U u;
-  ~Operator() {
-    switch (tag) {
-    case Tag::Activate:
-      u.activate.~Activate();
-      break;
-    case Tag::AffineSelect:
-      u.affineselect.~AffineSelect();
-      break;
-    case Tag::BatchNormAggregate:
-      u.batchnormaggregate.~BatchNormAggregate();
-      break;
-    case Tag::BatchNormStats:
-      u.batchnormstats.~BatchNormStats();
-      break;
-    case Tag::Copy:
-      u.copy.~Copy();
-      break;
-    case Tag::CopyPredicated:
-      u.copypredicated.~CopyPredicated();
-      break;
-    case Tag::DmaCopy:
-      u.dmacopy.~DmaCopy();
-      break;
-    case Tag::DmaTranspose:
-      u.dmatranspose.~DmaTranspose();
-      break;
-    case Tag::Dropout:
-      u.dropout.~Dropout();
-      break;
-    case Tag::FindIndex8:
-      u.findindex8.~FindIndex8();
-      break;
-    case Tag::Iota:
-      u.iota.~Iota();
-      break;
-    case Tag::LoadMaskRegister:
-      u.loadmaskregister.~LoadMaskRegister();
-      break;
-    case Tag::LoadStationary:
-      u.loadstationary.~LoadStationary();
-      break;
-    case Tag::LocalGather:
-      u.localgather.~LocalGather();
-      break;
-    case Tag::MatMul:
-      u.matmul.~MatMul();
-      break;
-    case Tag::MatchReplace8:
-      u.matchreplace8.~MatchReplace8();
-      break;
-    case Tag::MatchValueLoad:
-      u.matchvalueload.~MatchValueLoad();
-      break;
-    case Tag::Max8:
-      u.max8.~Max8();
-      break;
-    case Tag::MemSet:
-      u.memset.~MemSet();
-      break;
-    case Tag::RangeSelect:
-      u.rangeselect.~RangeSelect();
-      break;
-    case Tag::Reciprocal:
-      u.reciprocal.~Reciprocal();
-      break;
-    case Tag::ScalarTensorTensor:
-      u.scalartensortensor.~ScalarTensorTensor();
-      break;
-    case Tag::Shuffle:
-      u.shuffle.~Shuffle();
-      break;
-    case Tag::TensorReduce:
-      u.tensorreduce.~TensorReduce();
-      break;
-    case Tag::TensorTensorScan:
-      u.tensortensorscan.~TensorTensorScan();
-      break;
-    case Tag::Transpose:
-      u.transpose.~Transpose();
-      break;
-    }
-  }
+  Tag tag;
+  Operator(Tag tag) : tag(tag) {}
 };
 
-struct Value final {
+struct Operator_activate final : Operator {
+  Ptr<Activate> op;
+  Operator_activate() : Operator(Tag::activate) {}
+};
+
+struct Operator_affineSelect final : Operator {
+  Ptr<AffineSelect> op;
+  Operator_affineSelect() : Operator(Tag::affineSelect) {}
+};
+
+struct Operator_batchNormAggregate final : Operator {
+  Ptr<BatchNormAggregate> op;
+  Operator_batchNormAggregate() : Operator(Tag::batchNormAggregate) {}
+};
+
+struct Operator_batchNormStats final : Operator {
+  Ptr<BatchNormStats> op;
+  Operator_batchNormStats() : Operator(Tag::batchNormStats) {}
+};
+
+struct Operator_copy final : Operator {
+  Ptr<Copy> op;
+  Operator_copy() : Operator(Tag::copy) {}
+};
+
+struct Operator_copyPredicated final : Operator {
+  Ptr<CopyPredicated> op;
+  Operator_copyPredicated() : Operator(Tag::copyPredicated) {}
+};
+
+struct Operator_dmaCopy final : Operator {
+  Ptr<DmaCopy> op;
+  Operator_dmaCopy() : Operator(Tag::dmaCopy) {}
+};
+
+struct Operator_dmaTranspose final : Operator {
+  Ptr<DmaTranspose> op;
+  Operator_dmaTranspose() : Operator(Tag::dmaTranspose) {}
+};
+
+struct Operator_dropout final : Operator {
+  Ptr<Dropout> op;
+  Operator_dropout() : Operator(Tag::dropout) {}
+};
+
+struct Operator_findIndex8 final : Operator {
+  Ptr<FindIndex8> op;
+  Operator_findIndex8() : Operator(Tag::findIndex8) {}
+};
+
+struct Operator_iota final : Operator {
+  Ptr<Iota> op;
+  Operator_iota() : Operator(Tag::iota) {}
+};
+
+struct Operator_loadMaskRegister final : Operator {
+  Ptr<LoadMaskRegister> op;
+  Operator_loadMaskRegister() : Operator(Tag::loadMaskRegister) {}
+};
+
+struct Operator_loadStationary final : Operator {
+  Ptr<LoadStationary> op;
+  Operator_loadStationary() : Operator(Tag::loadStationary) {}
+};
+
+struct Operator_localGather final : Operator {
+  Ptr<LocalGather> op;
+  Operator_localGather() : Operator(Tag::localGather) {}
+};
+
+struct Operator_matMul final : Operator {
+  Ptr<MatMul> op;
+  Operator_matMul() : Operator(Tag::matMul) {}
+};
+
+struct Operator_matchReplace8 final : Operator {
+  Ptr<MatchReplace8> op;
+  Operator_matchReplace8() : Operator(Tag::matchReplace8) {}
+};
+
+struct Operator_matchValueLoad final : Operator {
+  Ptr<MatchValueLoad> op;
+  Operator_matchValueLoad() : Operator(Tag::matchValueLoad) {}
+};
+
+struct Operator_max8 final : Operator {
+  Ptr<Max8> op;
+  Operator_max8() : Operator(Tag::max8) {}
+};
+
+struct Operator_memSet final : Operator {
+  Ptr<MemSet> op;
+  Operator_memSet() : Operator(Tag::memSet) {}
+};
+
+struct Operator_rangeSelect final : Operator {
+  Ptr<RangeSelect> op;
+  Operator_rangeSelect() : Operator(Tag::rangeSelect) {}
+};
+
+struct Operator_reciprocal final : Operator {
+  Ptr<Reciprocal> op;
+  Operator_reciprocal() : Operator(Tag::reciprocal) {}
+};
+
+struct Operator_scalarTensorTensor final : Operator {
+  Ptr<ScalarTensorTensor> op;
+  Operator_scalarTensorTensor() : Operator(Tag::scalarTensorTensor) {}
+};
+
+struct Operator_shuffle final : Operator {
+  Ptr<Shuffle> op;
+  Operator_shuffle() : Operator(Tag::shuffle) {}
+};
+
+struct Operator_tensorReduce final : Operator {
+  Ptr<TensorReduce> op;
+  Operator_tensorReduce() : Operator(Tag::tensorReduce) {}
+};
+
+struct Operator_tensorTensorScan final : Operator {
+  Ptr<TensorTensorScan> op;
+  Operator_tensorTensorScan() : Operator(Tag::tensorTensorScan) {}
+};
+
+struct Operator_transpose final : Operator {
+  Ptr<Transpose> op;
+  Operator_transpose() : Operator(Tag::transpose) {}
+};
+
+struct Value {
   enum class Tag {
     var = 1,
     boolean,
@@ -922,51 +759,33 @@ struct Value final {
     float32,
     access,
   };
-  struct Value_var final {
-    String x;
-  };
-  struct Value_bool final {
-    bool value;
-  };
-  struct Value_int final {
-    Int value;
-  };
-  struct Value_float final {
-    Float value;
-  };
-  struct Value_access final {
-    Ptr<Access> a;
-  };
-  union U {
-    U() {}
-    ~U() {}
-    Value_var var;
-    Value_bool boolean;
-    Value_int int32;
-    Value_float float32;
-    Value_access access;
-  };
-  enum Tag tag;
-  union U u;
-  ~Value() {
-    switch (tag) {
-    case Tag::var:
-      u.var.~Value_var();
-      break;
-    case Tag::boolean:
-      u.boolean.~Value_bool();
-      break;
-    case Tag::int32:
-      u.int32.~Value_int();
-      break;
-    case Tag::float32:
-      u.float32.~Value_float();
-      break;
-    case Tag::access:
-      u.access.~Value_access();
-      break;
-    }
-  }
+  Tag tag;
+  Value(Tag tag) : tag(tag) {}
+};
+
+struct Value_var final : Value {
+  String x;
+  Value_var() : Value(Tag::var) {}
+};
+
+struct Value_bool final : Value {
+  Bool value;
+  Value_bool() : Value(Tag::boolean) {}
+};
+
+struct Value_int final : Value {
+  Int value;
+  Value_int() : Value(Tag::int32) {}
+};
+
+struct Value_float final : Value {
+  Float value;
+  Value_float() : Value(Tag::float32) {}
+};
+
+struct Value_access final : Value {
+  Ptr<Access> a;
+  Value_access() : Value(Tag::access) {}
 };
 
 struct Keyword final {
@@ -974,90 +793,61 @@ struct Keyword final {
   Ptr<Value> value;
 };
 
-struct Expr final {
+struct Expr {
   enum class Tag {
     value = 1,
     call,
   };
-  struct Expr_value final {
-    Ptr<Value> v;
-  };
-  struct Expr_call final {
-    String f;
-    List<Value> args;
-    List<Keyword> kwargs;
-  };
-  union U {
-    U() {}
-    ~U() {}
-    Expr_value value;
-    Expr_call call;
-  };
-  enum Tag tag;
-  union U u;
-  ~Expr() {
-    switch (tag) {
-    case Tag::value:
-      u.value.~Expr_value();
-      break;
-    case Tag::call:
-      u.call.~Expr_call();
-      break;
-    }
-  }
+  Tag tag;
+  Expr(Tag tag) : tag(tag) {}
 };
 
-struct Stmt final {
+struct Expr_value final : Expr {
+  Ptr<Value> v;
+  Expr_value() : Expr(Tag::value) {}
+};
+
+struct Expr_call final : Expr {
+  String f;
+  List<Ptr<Value>> args;
+  List<Ptr<Keyword>> kwargs;
+  Expr_call() : Expr(Tag::call) {}
+};
+
+struct Stmt {
   enum class Tag {
     ret = 1,
     assign,
     store,
   };
-  struct Stmt_ret final {
-    Ptr<Value> v;
-  };
-  struct Stmt_assign final {
-    String x;
-    Ptr<Expr> e;
-  };
-  struct Stmt_store final {
-    Ptr<Access> dst;
-    Ptr<Operator> op;
-    List<Value> args;
-  };
-  union U {
-    U() {}
-    ~U() {}
-    Stmt_ret ret;
-    Stmt_assign assign;
-    Stmt_store store;
-  };
-  enum Tag tag;
-  union U u;
-  ~Stmt() {
-    switch (tag) {
-    case Tag::ret:
-      u.ret.~Stmt_ret();
-      break;
-    case Tag::assign:
-      u.assign.~Stmt_assign();
-      break;
-    case Tag::store:
-      u.store.~Stmt_store();
-      break;
-    }
-  }
+  Tag tag;
+  Stmt(Tag tag) : tag(tag) {}
+};
+
+struct Stmt_ret final : Stmt {
+  Ptr<Value> v;
+  Stmt_ret() : Stmt(Tag::ret) {}
+};
+
+struct Stmt_assign final : Stmt {
+  String x;
+  Ptr<Expr> e;
+  Stmt_assign() : Stmt(Tag::assign) {}
+};
+
+struct Stmt_store final : Stmt {
+  Ptr<Access> dst;
+  Ptr<Operator> op;
+  List<Ptr<Value>> args;
+  Stmt_store() : Stmt(Tag::store) {}
 };
 
 struct Kernel final {
   String name;
-  List<TensorArg> inputs;
-  List<TensorArg> outputs;
-  List<Stmt> body;
+  List<Ptr<TensorArg>> inputs;
+  List<Ptr<TensorArg>> outputs;
+  List<Ptr<Stmt>> body;
 };
-
-struct Python_Kernel {};
-struct NKI_Kernel {};
 
 struct KLRFile final {
   Nat major;
@@ -1069,50 +859,34 @@ struct KLRMetaData final {
   String format;
 };
 
-struct Contents final {
+struct Contents {
   enum class Tag {
     python = 1,
     nki,
     klir,
     hlo,
   };
-  struct Contents_python final {
-    Ptr<Kernel> kernel;
-  };
-  struct Contents_nki final {
-    Ptr<Kernel> kernel;
-  };
-  struct Contents_klir final {
-    Ptr<Kernel> kernel;
-  };
-  struct Contents_hlo final {
-    String name;
-  };
-  union U {
-    U() {}
-    ~U() {}
-    Contents_python python;
-    Contents_nki nki;
-    Contents_klir klir;
-    Contents_hlo hlo;
-  };
-  enum Tag tag;
-  union U u;
-  ~Contents() {
-    switch (tag) {
-    case Tag::python:
-      u.python.~Contents_python();
-      break;
-    case Tag::nki:
-      u.nki.~Contents_nki();
-      break;
-    case Tag::klir:
-      u.klir.~Contents_klir();
-      break;
-    case Tag::hlo:
-      u.hlo.~Contents_hlo();
-      break;
-    }
-  }
+  Tag tag;
+  Contents(Tag tag) : tag(tag) {}
+};
+
+struct Contents_python final : Contents {
+  Ptr<Kernel> kernel;
+  Contents_python() : Contents(Tag::python) {}
+};
+
+struct Contents_nki final : Contents {
+  Ptr<Kernel> kernel;
+  Contents_nki() : Contents(Tag::nki) {}
+};
+
+struct Contents_klir final : Contents {
+  Ptr<Kernel> kernel;
+  Contents_klir() : Contents(Tag::klir) {}
+};
+
+struct Contents_hlo final : Contents {
+  String name;
+  Contents_hlo() : Contents(Tag::hlo) {}
 };
 } // namespace klr

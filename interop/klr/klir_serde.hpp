@@ -13,85 +13,73 @@ Written by the KLR Contributors (https://github.com/leanprover/KLR)
 
 namespace klr {
 
-bool Memory_des(FILE *in, struct region *region, Memory *x);
-bool Dtype_des(FILE *in, struct region *region, Dtype *x);
-bool Shape_des(FILE *in, struct region *region, Ptr<Shape> *x);
-bool Address_des(FILE *in, struct region *region, Ptr<Address> *x);
-bool TensorSram_des(FILE *in, struct region *region, Ptr<TensorSram> *x);
-bool Slice_des(FILE *in, struct region *region, Ptr<Slice> *x);
-bool Index_des(FILE *in, struct region *region, Ptr<Index> *x);
-bool AccessBasic_des(FILE *in, struct region *region, Ptr<AccessBasic> *x);
-bool APPair_des(FILE *in, struct region *region, Ptr<APPair> *x);
-bool AccessPattern_des(FILE *in, struct region *region, Ptr<AccessPattern> *x);
-bool Access_des(FILE *in, struct region *region, Ptr<Access> *x);
-bool TensorHbm_des(FILE *in, struct region *region, Ptr<TensorHbm> *x);
-bool ParQuadrant_des(FILE *in, struct region *region, ParQuadrant *x);
-bool TensorView_des(FILE *in, struct region *region, Ptr<TensorView> *x);
-bool TensorRef_des(FILE *in, struct region *region, Ptr<TensorRef> *x);
-bool TensorArg_des(FILE *in, struct region *region, Ptr<TensorArg> *x);
-bool Engine_des(FILE *in, struct region *region, Engine *x);
-bool Immediate_des(FILE *in, struct region *region, Ptr<Immediate> *x);
-bool ActivationImm_des(FILE *in, struct region *region, Ptr<ActivationImm> *x);
-bool DataPattern_des(FILE *in, struct region *region, Ptr<DataPattern> *x);
-bool AluOp_des(FILE *in, struct region *region, AluOp *x);
-bool DropoutThresholdType_des(FILE *in, struct region *region,
-                              DropoutThresholdType *x);
-bool AccumCmd_des(FILE *in, struct region *region, AccumCmd *x);
-bool ActivationFunc_des(FILE *in, struct region *region, ActivationFunc *x);
-bool AffineSelectCmp_des(FILE *in, struct region *region, AffineSelectCmp *x);
-bool DgeComputeOp_des(FILE *in, struct region *region, DgeComputeOp *x);
-bool DmaBounds_des(FILE *in, struct region *region, Ptr<DmaBounds> *x);
-bool MatmulGroupElement_des(FILE *in, struct region *region,
-                            MatmulGroupElement *x);
-bool IndexMissBehavior_des(FILE *in, struct region *region,
-                           Ptr<IndexMissBehavior> *x);
-bool TensorScalarReverseOps_des(FILE *in, struct region *region,
-                                TensorScalarReverseOps *x);
-bool TensorSubDim_des(FILE *in, struct region *region, TensorSubDim *x);
-bool Dropout_des(FILE *in, struct region *region, Ptr<Dropout> *x);
-bool Activate_des(FILE *in, struct region *region, Ptr<Activate> *x);
-bool AffineSelect_des(FILE *in, struct region *region, Ptr<AffineSelect> *x);
-bool DmaCopy_des(FILE *in, struct region *region, Ptr<DmaCopy> *x);
-bool DmaTranspose_des(FILE *in, struct region *region, Ptr<DmaTranspose> *x);
-bool Transpose_des(FILE *in, struct region *region, Ptr<Transpose> *x);
-bool LoadMaskRegister_des(FILE *in, struct region *region,
-                          Ptr<LoadMaskRegister> *x);
-bool Shuffle_des(FILE *in, struct region *region, Ptr<Shuffle> *x);
-bool MemSet_des(FILE *in, struct region *region, Ptr<MemSet> *x);
-bool Iota_des(FILE *in, struct region *region, Ptr<Iota> *x);
-bool LoadStationary_des(FILE *in, struct region *region,
-                        Ptr<LoadStationary> *x);
-bool MatMul_des(FILE *in, struct region *region, Ptr<MatMul> *x);
-bool LocalGather_des(FILE *in, struct region *region, Ptr<LocalGather> *x);
-bool RangeSelect_des(FILE *in, struct region *region, Ptr<RangeSelect> *x);
-bool ScalarTensorTensor_des(FILE *in, struct region *region,
-                            Ptr<ScalarTensorTensor> *x);
-bool CopyPredicated_des(FILE *in, struct region *region,
-                        Ptr<CopyPredicated> *x);
-bool TensorTensorScan_des(FILE *in, struct region *region,
-                          Ptr<TensorTensorScan> *x);
-bool MatchValueLoad_des(FILE *in, struct region *region,
-                        Ptr<MatchValueLoad> *x);
-bool FindIndex8_des(FILE *in, struct region *region, Ptr<FindIndex8> *x);
-bool MatchReplace8_des(FILE *in, struct region *region, Ptr<MatchReplace8> *x);
-bool Max8_des(FILE *in, struct region *region, Ptr<Max8> *x);
-bool BatchNormAggregate_des(FILE *in, struct region *region,
-                            Ptr<BatchNormAggregate> *x);
-bool BatchNormStats_des(FILE *in, struct region *region,
-                        Ptr<BatchNormStats> *x);
-bool Reciprocal_des(FILE *in, struct region *region, Ptr<Reciprocal> *x);
-bool Copy_des(FILE *in, struct region *region, Ptr<Copy> *x);
-bool TensorReduce_des(FILE *in, struct region *region, Ptr<TensorReduce> *x);
-bool Operator_des(FILE *in, struct region *region, Ptr<Operator> *x);
-bool Value_des(FILE *in, struct region *region, Ptr<Value> *x);
-bool Keyword_des(FILE *in, struct region *region, Ptr<Keyword> *x);
-bool Expr_des(FILE *in, struct region *region, Ptr<Expr> *x);
-bool Stmt_des(FILE *in, struct region *region, Ptr<Stmt> *x);
-bool Kernel_des(FILE *in, struct region *region, Ptr<Kernel> *x);
-bool List_des(FILE *in, struct region *region, List<Index> *x);
-bool List_des(FILE *in, struct region *region, List<APPair> *x);
-bool Option_des(FILE *in, struct region *region, TensorSubDim *x);
-bool List_des(FILE *in, struct region *region, List<Value> *x);
-bool List_des(FILE *in, struct region *region, List<Keyword> *x);
-bool List_des(FILE *in, struct region *region, List<TensorArg> *x);
-bool List_des(FILE *in, struct region *region, List<Stmt> *x);
+bool Memory_des(FILE *in, Memory &x);
+bool Dtype_des(FILE *in, Dtype &x);
+bool Shape_des(FILE *in, Ptr<Shape> &x);
+bool Address_des(FILE *in, Ptr<Address> &x);
+bool TensorSram_des(FILE *in, Ptr<TensorSram> &x);
+bool Slice_des(FILE *in, Ptr<Slice> &x);
+bool Index_des(FILE *in, Ptr<Index> &x);
+bool AccessBasic_des(FILE *in, Ptr<AccessBasic> &x);
+bool APPair_des(FILE *in, Ptr<APPair> &x);
+bool AccessPattern_des(FILE *in, Ptr<AccessPattern> &x);
+bool Access_des(FILE *in, Ptr<Access> &x);
+bool TensorHbm_des(FILE *in, Ptr<TensorHbm> &x);
+bool ParQuadrant_des(FILE *in, ParQuadrant &x);
+bool TensorView_des(FILE *in, Ptr<TensorView> &x);
+bool TensorRef_des(FILE *in, Ptr<TensorRef> &x);
+bool TensorArg_des(FILE *in, Ptr<TensorArg> &x);
+bool Engine_des(FILE *in, Engine &x);
+bool Immediate_des(FILE *in, Ptr<Immediate> &x);
+bool ActivationImm_des(FILE *in, Ptr<ActivationImm> &x);
+bool DataPattern_des(FILE *in, Ptr<DataPattern> &x);
+bool AluOp_des(FILE *in, AluOp &x);
+bool DropoutThresholdType_des(FILE *in, DropoutThresholdType &x);
+bool AccumCmd_des(FILE *in, AccumCmd &x);
+bool ActivationFunc_des(FILE *in, ActivationFunc &x);
+bool AffineSelectCmp_des(FILE *in, AffineSelectCmp &x);
+bool DgeComputeOp_des(FILE *in, DgeComputeOp &x);
+bool DmaBounds_des(FILE *in, Ptr<DmaBounds> &x);
+bool MatmulGroupElement_des(FILE *in, MatmulGroupElement &x);
+bool IndexMissBehavior_des(FILE *in, Ptr<IndexMissBehavior> &x);
+bool TensorScalarReverseOps_des(FILE *in, TensorScalarReverseOps &x);
+bool TensorSubDim_des(FILE *in, TensorSubDim &x);
+bool Dropout_des(FILE *in, Ptr<Dropout> &x);
+bool Activate_des(FILE *in, Ptr<Activate> &x);
+bool AffineSelect_des(FILE *in, Ptr<AffineSelect> &x);
+bool DmaCopy_des(FILE *in, Ptr<DmaCopy> &x);
+bool DmaTranspose_des(FILE *in, Ptr<DmaTranspose> &x);
+bool Transpose_des(FILE *in, Ptr<Transpose> &x);
+bool LoadMaskRegister_des(FILE *in, Ptr<LoadMaskRegister> &x);
+bool Shuffle_des(FILE *in, Ptr<Shuffle> &x);
+bool MemSet_des(FILE *in, Ptr<MemSet> &x);
+bool Iota_des(FILE *in, Ptr<Iota> &x);
+bool LoadStationary_des(FILE *in, Ptr<LoadStationary> &x);
+bool MatMul_des(FILE *in, Ptr<MatMul> &x);
+bool LocalGather_des(FILE *in, Ptr<LocalGather> &x);
+bool RangeSelect_des(FILE *in, Ptr<RangeSelect> &x);
+bool ScalarTensorTensor_des(FILE *in, Ptr<ScalarTensorTensor> &x);
+bool CopyPredicated_des(FILE *in, Ptr<CopyPredicated> &x);
+bool TensorTensorScan_des(FILE *in, Ptr<TensorTensorScan> &x);
+bool MatchValueLoad_des(FILE *in, Ptr<MatchValueLoad> &x);
+bool FindIndex8_des(FILE *in, Ptr<FindIndex8> &x);
+bool MatchReplace8_des(FILE *in, Ptr<MatchReplace8> &x);
+bool Max8_des(FILE *in, Ptr<Max8> &x);
+bool BatchNormAggregate_des(FILE *in, Ptr<BatchNormAggregate> &x);
+bool BatchNormStats_des(FILE *in, Ptr<BatchNormStats> &x);
+bool Reciprocal_des(FILE *in, Ptr<Reciprocal> &x);
+bool Copy_des(FILE *in, Ptr<Copy> &x);
+bool TensorReduce_des(FILE *in, Ptr<TensorReduce> &x);
+bool Operator_des(FILE *in, Ptr<Operator> &x);
+bool Value_des(FILE *in, Ptr<Value> &x);
+bool Keyword_des(FILE *in, Ptr<Keyword> &x);
+bool Expr_des(FILE *in, Ptr<Expr> &x);
+bool Stmt_des(FILE *in, Ptr<Stmt> &x);
+bool Kernel_des(FILE *in, Ptr<Kernel> &x);
+bool List_des(FILE *in, List<Ptr<Index>> &x);
+bool List_des(FILE *in, List<Ptr<APPair>> &x);
+bool Option_des(FILE *in, Option<TensorSubDim> &x);
+bool List_des(FILE *in, List<Ptr<Value>> &x);
+bool List_des(FILE *in, List<Ptr<Keyword>> &x);
+bool List_des(FILE *in, List<Ptr<TensorArg>> &x);
+bool List_des(FILE *in, List<Ptr<Stmt>> &x);

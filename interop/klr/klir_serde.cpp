@@ -12,47 +12,47 @@ Written by the KLR Contributors (https://github.com/leanprover/KLR)
 
 namespace klr {
 
-bool List_des(FILE *in, struct region *region, List<Bool> *x) { return true; }
+bool List_des(FILE *in, List<Bool> &x) { return true; }
 
-bool List_des(FILE *in, struct region *region, List<Nat> *x) { return true; }
+bool List_des(FILE *in, List<Nat> &x) { return true; }
 
-bool List_des(FILE *in, struct region *region, List<Int> *x) { return true; }
+bool List_des(FILE *in, List<Int> &x) { return true; }
 
-bool List_des(FILE *in, struct region *region, List<Float> *x) { return true; }
+bool List_des(FILE *in, List<Float> &x) { return true; }
 
-bool List_des(FILE *in, struct region *region, List<String> *x) { return true; }
+bool List_des(FILE *in, List<String> &x) { return true; }
 
-bool Option_des(FILE *in, struct region *region, bool *x) { return true; }
+bool Option_des(FILE *in, Option<Bool> &x) { return true; }
 
-bool Option_des(FILE *in, struct region *region, Nat *x) { return true; }
+bool Option_des(FILE *in, Option<Nat> &x) { return true; }
 
-bool Option_des(FILE *in, struct region *region, Int *x) { return true; }
+bool Option_des(FILE *in, Option<Int> &x) { return true; }
 
-bool Option_des(FILE *in, struct region *region, Float *x) { return true; }
+bool Option_des(FILE *in, Option<Float> &x) { return true; }
 
-bool Option_des(FILE *in, struct region *region, String *x) { return true; }
+bool Option_des(FILE *in, Option<String> &x) { return true; }
 
-bool Pos_des(FILE *in, struct region *region, Ptr<Pos> *x) {
+bool Pos_des(FILE *in, Ptr<Pos> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 100 || c != 0 || l != 4)
     return false;
   *x = static_cast<Pos *>(region_alloc(region, sizeof(**x)));
-  if (!Nat_des(in, region, &(*x)->line))
+  if (!Nat_des(in, &(*x)->line))
     return false;
-  if (!Nat_des(in, region, &(*x)->column))
+  if (!Nat_des(in, &(*x)->column))
     return false;
-  if (!Option_des(in, region, &(*x)->lineEnd))
+  if (!Option_des(in, &(*x)->lineEnd))
     return false;
-  if (!Option_des(in, region, &(*x)->columnEnd))
+  if (!Option_des(in, &(*x)->columnEnd))
     return false;
   return true;
 }
 
-bool Memory_des(FILE *in, struct region *region, Memory *x) {
+bool Memory_des(FILE *in, Memory &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 110)
     return false;
@@ -84,9 +84,9 @@ bool Memory_des(FILE *in, struct region *region, Memory *x) {
   return true;
 }
 
-bool Dtype_des(FILE *in, struct region *region, Dtype *x) {
+bool Dtype_des(FILE *in, Dtype &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 111)
     return false;
@@ -173,83 +173,83 @@ bool Dtype_des(FILE *in, struct region *region, Dtype *x) {
   return true;
 }
 
-bool Shape_des(FILE *in, struct region *region, Ptr<Shape> *x) {
+bool Shape_des(FILE *in, Ptr<Shape> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 112 || c != 0 || l != 2)
     return false;
   *x = static_cast<Shape *>(region_alloc(region, sizeof(**x)));
-  if (!Nat_des(in, region, &(*x)->parDim))
+  if (!Nat_des(in, &(*x)->parDim))
     return false;
-  if (!List_des(in, region, &(*x)->freeDims))
+  if (!List_des(in, &(*x)->freeDims))
     return false;
   return true;
 }
 
-bool Address_des(FILE *in, struct region *region, Ptr<Address> *x) {
+bool Address_des(FILE *in, Ptr<Address> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 113 || c != 0 || l != 5)
     return false;
   *x = static_cast<Address *>(region_alloc(region, sizeof(**x)));
-  if (!Memory_des(in, region, &(*x)->memory))
+  if (!Memory_des(in, &(*x)->memory))
     return false;
-  if (!Nat_des(in, region, &(*x)->parSize))
+  if (!Nat_des(in, &(*x)->parSize))
     return false;
-  if (!Nat_des(in, region, &(*x)->freeSize))
+  if (!Nat_des(in, &(*x)->freeSize))
     return false;
-  if (!Option_des(in, region, &(*x)->parOffset))
+  if (!Option_des(in, &(*x)->parOffset))
     return false;
-  if (!Option_des(in, region, &(*x)->freeOffset))
+  if (!Option_des(in, &(*x)->freeOffset))
     return false;
   return true;
 }
 
-bool TensorSram_des(FILE *in, struct region *region, Ptr<TensorSram> *x) {
+bool TensorSram_des(FILE *in, Ptr<TensorSram> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 114 || c != 0 || l != 6)
     return false;
   *x = static_cast<TensorSram *>(region_alloc(region, sizeof(**x)));
-  if (!String_des(in, region, &(*x)->name))
+  if (!String_des(in, &(*x)->name))
     return false;
-  if (!Dtype_des(in, region, &(*x)->dtype))
+  if (!Dtype_des(in, &(*x)->dtype))
     return false;
-  if (!Shape_des(in, region, &(*x)->shape))
+  if (!Shape_des(in, &(*x)->shape))
     return false;
-  if (!Address_des(in, region, &(*x)->address))
+  if (!Address_des(in, &(*x)->address))
     return false;
-  if (!Prop_des(in, region, &(*x)->parWF))
+  if (!Prop_des(in, &(*x)->parWF))
     return false;
-  if (!Prop_des(in, region, &(*x)->freeWF))
+  if (!Prop_des(in, &(*x)->freeWF))
     return false;
   return true;
 }
 
-bool Slice_des(FILE *in, struct region *region, Ptr<Slice> *x) {
+bool Slice_des(FILE *in, Ptr<Slice> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 115 || c != 0 || l != 4)
     return false;
   *x = static_cast<Slice *>(region_alloc(region, sizeof(**x)));
-  if (!Nat_des(in, region, &(*x)->l))
+  if (!Nat_des(in, &(*x)->l))
     return false;
-  if (!Nat_des(in, region, &(*x)->u))
+  if (!Nat_des(in, &(*x)->u))
     return false;
-  if (!Int_des(in, region, &(*x)->step))
+  if (!Int_des(in, &(*x)->step))
     return false;
-  if (!Prop_des(in, region, &(*x)->wf))
+  if (!Prop_des(in, &(*x)->wf))
     return false;
   return true;
 }
 
-bool Index_des(FILE *in, struct region *region, Ptr<Index> *x) {
+bool Index_des(FILE *in, Ptr<Index> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 116)
     return false;
@@ -258,14 +258,14 @@ bool Index_des(FILE *in, struct region *region, Ptr<Index> *x) {
   case 0:
     if (l != 1)
       return false;
-    if (!Nat_des(in, region, &(*x)->coord.e))
+    if (!Nat_des(in, &(*x)->coord.e))
       return false;
     (*x)->tag = Index_coord;
     break;
   case 1:
     if (l != 1)
       return false;
-    if (!Slice_des(in, region, &(*x)->slice.slice))
+    if (!Slice_des(in, &(*x)->slice.slice))
       return false;
     (*x)->tag = Index_slice;
     break;
@@ -275,57 +275,57 @@ bool Index_des(FILE *in, struct region *region, Ptr<Index> *x) {
   return true;
 }
 
-bool AccessBasic_des(FILE *in, struct region *region, Ptr<AccessBasic> *x) {
+bool AccessBasic_des(FILE *in, Ptr<AccessBasic> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 117 || c != 0 || l != 3)
     return false;
   *x = static_cast<AccessBasic *>(region_alloc(region, sizeof(**x)));
-  if (!TensorSram_des(in, region, &(*x)->tensor))
+  if (!TensorSram_des(in, &(*x)->tensor))
     return false;
-  if (!List_des(in, region, &(*x)->indexes))
+  if (!List_des(in, &(*x)->indexes))
     return false;
-  if (!Prop_des(in, region, &(*x)->lenWF))
+  if (!Prop_des(in, &(*x)->lenWF))
     return false;
   return true;
 }
 
-bool APPair_des(FILE *in, struct region *region, Ptr<APPair> *x) {
+bool APPair_des(FILE *in, Ptr<APPair> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 118 || c != 0 || l != 2)
     return false;
   *x = static_cast<APPair *>(region_alloc(region, sizeof(**x)));
-  if (!Int_des(in, region, &(*x)->step))
+  if (!Int_des(in, &(*x)->step))
     return false;
-  if (!Nat_des(in, region, &(*x)->num))
+  if (!Nat_des(in, &(*x)->num))
     return false;
   return true;
 }
 
-bool AccessPattern_des(FILE *in, struct region *region, Ptr<AccessPattern> *x) {
+bool AccessPattern_des(FILE *in, Ptr<AccessPattern> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 119 || c != 0 || l != 4)
     return false;
   *x = static_cast<AccessPattern *>(region_alloc(region, sizeof(**x)));
-  if (!TensorSram_des(in, region, &(*x)->tensor))
+  if (!TensorSram_des(in, &(*x)->tensor))
     return false;
-  if (!Nat_des(in, region, &(*x)->parNum))
+  if (!Nat_des(in, &(*x)->parNum))
     return false;
-  if (!List_des(in, region, &(*x)->freePattern))
+  if (!List_des(in, &(*x)->freePattern))
     return false;
-  if (!Nat_des(in, region, &(*x)->offset))
+  if (!Nat_des(in, &(*x)->offset))
     return false;
   return true;
 }
 
-bool Access_des(FILE *in, struct region *region, Ptr<Access> *x) {
+bool Access_des(FILE *in, Ptr<Access> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 120)
     return false;
@@ -334,21 +334,21 @@ bool Access_des(FILE *in, struct region *region, Ptr<Access> *x) {
   case 0:
     if (l != 1)
       return false;
-    if (!TensorSram_des(in, region, &(*x)->simple.tensor))
+    if (!TensorSram_des(in, &(*x)->simple.tensor))
       return false;
     (*x)->tag = Access_simple;
     break;
   case 1:
     if (l != 1)
       return false;
-    if (!AccessBasic_des(in, region, &(*x)->basic.access))
+    if (!AccessBasic_des(in, &(*x)->basic.access))
       return false;
     (*x)->tag = Access_basic;
     break;
   case 2:
     if (l != 1)
       return false;
-    if (!AccessPattern_des(in, region, &(*x)->pattern.access))
+    if (!AccessPattern_des(in, &(*x)->pattern.access))
       return false;
     (*x)->tag = Access_pattern;
     break;
@@ -358,27 +358,27 @@ bool Access_des(FILE *in, struct region *region, Ptr<Access> *x) {
   return true;
 }
 
-bool TensorHbm_des(FILE *in, struct region *region, Ptr<TensorHbm> *x) {
+bool TensorHbm_des(FILE *in, Ptr<TensorHbm> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 121 || c != 0 || l != 4)
     return false;
   *x = static_cast<TensorHbm *>(region_alloc(region, sizeof(**x)));
-  if (!Dtype_des(in, region, &(*x)->dtype))
+  if (!Dtype_des(in, &(*x)->dtype))
     return false;
-  if (!Nat_des(in, region, &(*x)->address))
+  if (!Nat_des(in, &(*x)->address))
     return false;
-  if (!List_des(in, region, &(*x)->shape))
+  if (!List_des(in, &(*x)->shape))
     return false;
-  if (!List_des(in, region, &(*x)->strides))
+  if (!List_des(in, &(*x)->strides))
     return false;
   return true;
 }
 
-bool ParQuadrant_des(FILE *in, struct region *region, ParQuadrant *x) {
+bool ParQuadrant_des(FILE *in, ParQuadrant &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 122)
     return false;
@@ -410,31 +410,31 @@ bool ParQuadrant_des(FILE *in, struct region *region, ParQuadrant *x) {
   return true;
 }
 
-bool TensorView_des(FILE *in, struct region *region, Ptr<TensorView> *x) {
+bool TensorView_des(FILE *in, Ptr<TensorView> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 123 || c != 0 || l != 6)
     return false;
   *x = static_cast<TensorView *>(region_alloc(region, sizeof(**x)));
-  if (!String_des(in, region, &(*x)->name))
+  if (!String_des(in, &(*x)->name))
     return false;
-  if (!Dtype_des(in, region, &(*x)->dtype))
+  if (!Dtype_des(in, &(*x)->dtype))
     return false;
-  if (!ParQuadrant_des(in, region, &(*x)->parQuadrant))
+  if (!ParQuadrant_des(in, &(*x)->parQuadrant))
     return false;
-  if (!Nat_des(in, region, &(*x)->parDim))
+  if (!Nat_des(in, &(*x)->parDim))
     return false;
-  if (!Nat_des(in, region, &(*x)->freeOffset))
+  if (!Nat_des(in, &(*x)->freeOffset))
     return false;
-  if (!List_des(in, region, &(*x)->freePattern))
+  if (!List_des(in, &(*x)->freePattern))
     return false;
   return true;
 }
 
-bool TensorRef_des(FILE *in, struct region *region, Ptr<TensorRef> *x) {
+bool TensorRef_des(FILE *in, Ptr<TensorRef> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 124)
     return false;
@@ -443,21 +443,21 @@ bool TensorRef_des(FILE *in, struct region *region, Ptr<TensorRef> *x) {
   case 0:
     if (l != 1)
       return false;
-    if (!Access_des(in, region, &(*x)->abstract.access))
+    if (!Access_des(in, &(*x)->abstract.access))
       return false;
     (*x)->tag = TensorRef_abstract;
     break;
   case 1:
     if (l != 1)
       return false;
-    if (!TensorView_des(in, region, &(*x)->literal.view))
+    if (!TensorView_des(in, &(*x)->literal.view))
       return false;
     (*x)->tag = TensorRef_literal;
     break;
   case 2:
     if (l != 1)
       return false;
-    if (!Nat_des(in, region, &(*x)->reg.reg))
+    if (!Nat_des(in, &(*x)->reg.reg))
       return false;
     (*x)->tag = TensorRef_register;
     break;
@@ -467,9 +467,9 @@ bool TensorRef_des(FILE *in, struct region *region, Ptr<TensorRef> *x) {
   return true;
 }
 
-bool TensorArg_des(FILE *in, struct region *region, Ptr<TensorArg> *x) {
+bool TensorArg_des(FILE *in, Ptr<TensorArg> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 125)
     return false;
@@ -478,14 +478,14 @@ bool TensorArg_des(FILE *in, struct region *region, Ptr<TensorArg> *x) {
   case 0:
     if (l != 1)
       return false;
-    if (!TensorHbm_des(in, region, &(*x)->hbm.tensor))
+    if (!TensorHbm_des(in, &(*x)->hbm.tensor))
       return false;
     (*x)->tag = TensorArg_hbm;
     break;
   case 1:
     if (l != 1)
       return false;
-    if (!TensorSram_des(in, region, &(*x)->sram.tensor))
+    if (!TensorSram_des(in, &(*x)->sram.tensor))
       return false;
     (*x)->tag = TensorArg_sram;
     break;
@@ -495,9 +495,9 @@ bool TensorArg_des(FILE *in, struct region *region, Ptr<TensorArg> *x) {
   return true;
 }
 
-bool Engine_des(FILE *in, struct region *region, Engine *x) {
+bool Engine_des(FILE *in, Engine &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 130)
     return false;
@@ -544,9 +544,9 @@ bool Engine_des(FILE *in, struct region *region, Engine *x) {
   return true;
 }
 
-bool Immediate_des(FILE *in, struct region *region, Ptr<Immediate> *x) {
+bool Immediate_des(FILE *in, Ptr<Immediate> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 131)
     return false;
@@ -555,7 +555,7 @@ bool Immediate_des(FILE *in, struct region *region, Ptr<Immediate> *x) {
   case 0:
     if (l != 1)
       return false;
-    if (!Nat_des(in, region, &(*x)->reg.reg))
+    if (!Nat_des(in, &(*x)->reg.reg))
       return false;
     (*x)->tag = Immediate_register;
     break;
@@ -567,14 +567,14 @@ bool Immediate_des(FILE *in, struct region *region, Ptr<Immediate> *x) {
   case 2:
     if (l != 1)
       return false;
-    if (!Int_des(in, region, &(*x)->int32.i))
+    if (!Int_des(in, &(*x)->int32.i))
       return false;
     (*x)->tag = Immediate_int;
     break;
   case 3:
     if (l != 1)
       return false;
-    if (!Float_des(in, region, &(*x)->float32.f))
+    if (!Float_des(in, &(*x)->float32.f))
       return false;
     (*x)->tag = Immediate_float;
     break;
@@ -584,9 +584,9 @@ bool Immediate_des(FILE *in, struct region *region, Ptr<Immediate> *x) {
   return true;
 }
 
-bool ActivationImm_des(FILE *in, struct region *region, Ptr<ActivationImm> *x) {
+bool ActivationImm_des(FILE *in, Ptr<ActivationImm> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 132)
     return false;
@@ -595,7 +595,7 @@ bool ActivationImm_des(FILE *in, struct region *region, Ptr<ActivationImm> *x) {
   case 0:
     if (l != 1)
       return false;
-    if (!Nat_des(in, region, &(*x)->reg.reg))
+    if (!Nat_des(in, &(*x)->reg.reg))
       return false;
     (*x)->tag = ActivationImm_register;
     break;
@@ -607,7 +607,7 @@ bool ActivationImm_des(FILE *in, struct region *region, Ptr<ActivationImm> *x) {
   case 2:
     if (l != 1)
       return false;
-    if (!Float_des(in, region, &(*x)->float32.f))
+    if (!Float_des(in, &(*x)->float32.f))
       return false;
     (*x)->tag = ActivationImm_float;
     break;
@@ -617,23 +617,23 @@ bool ActivationImm_des(FILE *in, struct region *region, Ptr<ActivationImm> *x) {
   return true;
 }
 
-bool DataPattern_des(FILE *in, struct region *region, Ptr<DataPattern> *x) {
+bool DataPattern_des(FILE *in, Ptr<DataPattern> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 133 || c != 0 || l != 2)
     return false;
   *x = static_cast<DataPattern *>(region_alloc(region, sizeof(**x)));
-  if (!Nat_des(in, region, &(*x)->offset))
+  if (!Nat_des(in, &(*x)->offset))
     return false;
-  if (!List_des(in, region, &(*x)->pattern))
+  if (!List_des(in, &(*x)->pattern))
     return false;
   return true;
 }
 
-bool AluOp_des(FILE *in, struct region *region, AluOp *x) {
+bool AluOp_des(FILE *in, AluOp &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 134)
     return false;
@@ -790,10 +790,9 @@ bool AluOp_des(FILE *in, struct region *region, AluOp *x) {
   return true;
 }
 
-bool DropoutThresholdType_des(FILE *in, struct region *region,
-                              DropoutThresholdType *x) {
+bool DropoutThresholdType_des(FILE *in, DropoutThresholdType &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 135)
     return false;
@@ -815,9 +814,9 @@ bool DropoutThresholdType_des(FILE *in, struct region *region,
   return true;
 }
 
-bool AccumCmd_des(FILE *in, struct region *region, AccumCmd *x) {
+bool AccumCmd_des(FILE *in, AccumCmd &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 136)
     return false;
@@ -854,9 +853,9 @@ bool AccumCmd_des(FILE *in, struct region *region, AccumCmd *x) {
   return true;
 }
 
-bool ActivationFunc_des(FILE *in, struct region *region, ActivationFunc *x) {
+bool ActivationFunc_des(FILE *in, ActivationFunc &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 137)
     return false;
@@ -983,9 +982,9 @@ bool ActivationFunc_des(FILE *in, struct region *region, ActivationFunc *x) {
   return true;
 }
 
-bool AffineSelectCmp_des(FILE *in, struct region *region, AffineSelectCmp *x) {
+bool AffineSelectCmp_des(FILE *in, AffineSelectCmp &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 138)
     return false;
@@ -1017,9 +1016,9 @@ bool AffineSelectCmp_des(FILE *in, struct region *region, AffineSelectCmp *x) {
   return true;
 }
 
-bool DgeComputeOp_des(FILE *in, struct region *region, DgeComputeOp *x) {
+bool DgeComputeOp_des(FILE *in, DgeComputeOp &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 139)
     return false;
@@ -1041,9 +1040,9 @@ bool DgeComputeOp_des(FILE *in, struct region *region, DgeComputeOp *x) {
   return true;
 }
 
-bool DmaBounds_des(FILE *in, struct region *region, Ptr<DmaBounds> *x) {
+bool DmaBounds_des(FILE *in, Ptr<DmaBounds> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 140)
     return false;
@@ -1062,7 +1061,7 @@ bool DmaBounds_des(FILE *in, struct region *region, Ptr<DmaBounds> *x) {
   case 2:
     if (l != 1)
       return false;
-    if (!Nat_des(in, region, &(*x)->reg.reg))
+    if (!Nat_des(in, &(*x)->reg.reg))
       return false;
     (*x)->tag = DmaBounds_reg;
     break;
@@ -1072,10 +1071,9 @@ bool DmaBounds_des(FILE *in, struct region *region, Ptr<DmaBounds> *x) {
   return true;
 }
 
-bool MatmulGroupElement_des(FILE *in, struct region *region,
-                            MatmulGroupElement *x) {
+bool MatmulGroupElement_des(FILE *in, MatmulGroupElement &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 141)
     return false;
@@ -1102,10 +1100,9 @@ bool MatmulGroupElement_des(FILE *in, struct region *region,
   return true;
 }
 
-bool IndexMissBehavior_des(FILE *in, struct region *region,
-                           Ptr<IndexMissBehavior> *x) {
+bool IndexMissBehavior_des(FILE *in, Ptr<IndexMissBehavior> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 142)
     return false;
@@ -1114,7 +1111,7 @@ bool IndexMissBehavior_des(FILE *in, struct region *region,
   case 0:
     if (l != 1)
       return false;
-    if (!Immediate_des(in, region, &(*x)->imm.value))
+    if (!Immediate_des(in, &(*x)->imm.value))
       return false;
     (*x)->tag = IndexMissBehavior_imm;
     break;
@@ -1129,10 +1126,9 @@ bool IndexMissBehavior_des(FILE *in, struct region *region,
   return true;
 }
 
-bool TensorScalarReverseOps_des(FILE *in, struct region *region,
-                                TensorScalarReverseOps *x) {
+bool TensorScalarReverseOps_des(FILE *in, TensorScalarReverseOps &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 143)
     return false;
@@ -1164,9 +1160,9 @@ bool TensorScalarReverseOps_des(FILE *in, struct region *region,
   return true;
 }
 
-bool TensorSubDim_des(FILE *in, struct region *region, TensorSubDim *x) {
+bool TensorSubDim_des(FILE *in, TensorSubDim &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 144)
     return false;
@@ -1198,463 +1194,455 @@ bool TensorSubDim_des(FILE *in, struct region *region, TensorSubDim *x) {
   return true;
 }
 
-bool Dropout_des(FILE *in, struct region *region, Ptr<Dropout> *x) {
+bool Dropout_des(FILE *in, Ptr<Dropout> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 145 || c != 0 || l != 4)
     return false;
   *x = static_cast<Dropout *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->src))
+  if (!TensorRef_des(in, &(*x)->src))
     return false;
-  if (!DropoutThresholdType_des(in, region, &(*x)->thresholdType))
+  if (!DropoutThresholdType_des(in, &(*x)->thresholdType))
     return false;
-  if (!Immediate_des(in, region, &(*x)->threshold))
+  if (!Immediate_des(in, &(*x)->threshold))
     return false;
   return true;
 }
 
-bool Activate_des(FILE *in, struct region *region, Ptr<Activate> *x) {
+bool Activate_des(FILE *in, Ptr<Activate> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 146 || c != 0 || l != 7)
     return false;
   *x = static_cast<Activate *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->src))
+  if (!TensorRef_des(in, &(*x)->src))
     return false;
-  if (!AccumCmd_des(in, region, &(*x)->accumulatorCmd))
+  if (!AccumCmd_des(in, &(*x)->accumulatorCmd))
     return false;
-  if (!ActivationFunc_des(in, region, &(*x)->activationFunc))
+  if (!ActivationFunc_des(in, &(*x)->activationFunc))
     return false;
-  if (!Immediate_des(in, region, &(*x)->scale))
+  if (!Immediate_des(in, &(*x)->scale))
     return false;
-  if (!Immediate_des(in, region, &(*x)->bias))
+  if (!Immediate_des(in, &(*x)->bias))
     return false;
-  if (!Immediate_des(in, region, &(*x)->imm))
+  if (!Immediate_des(in, &(*x)->imm))
     return false;
   return true;
 }
 
-bool AffineSelect_des(FILE *in, struct region *region, Ptr<AffineSelect> *x) {
+bool AffineSelect_des(FILE *in, Ptr<AffineSelect> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 147 || c != 0 || l != 5)
     return false;
   *x = static_cast<AffineSelect *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->src))
+  if (!TensorRef_des(in, &(*x)->src))
     return false;
-  if (!AffineSelectCmp_des(in, region, &(*x)->fillMode))
+  if (!AffineSelectCmp_des(in, &(*x)->fillMode))
     return false;
-  if (!Nat_des(in, region, &(*x)->fillReg))
+  if (!Nat_des(in, &(*x)->fillReg))
     return false;
-  if (!DataPattern_des(in, region, &(*x)->maskPattern))
+  if (!DataPattern_des(in, &(*x)->maskPattern))
     return false;
   return true;
 }
 
-bool DmaCopy_des(FILE *in, struct region *region, Ptr<DmaCopy> *x) {
+bool DmaCopy_des(FILE *in, Ptr<DmaCopy> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 148 || c != 0 || l != 5)
     return false;
   *x = static_cast<DmaCopy *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->src))
+  if (!TensorRef_des(in, &(*x)->src))
     return false;
-  if (!DgeComputeOp_des(in, region, &(*x)->compute_op))
+  if (!DgeComputeOp_des(in, &(*x)->compute_op))
     return false;
-  if (!DmaBounds_des(in, region, &(*x)->dstBoundsCheck))
+  if (!DmaBounds_des(in, &(*x)->dstBoundsCheck))
     return false;
-  if (!DmaBounds_des(in, region, &(*x)->srcBoundsCheck))
+  if (!DmaBounds_des(in, &(*x)->srcBoundsCheck))
     return false;
   return true;
 }
 
-bool DmaTranspose_des(FILE *in, struct region *region, Ptr<DmaTranspose> *x) {
+bool DmaTranspose_des(FILE *in, Ptr<DmaTranspose> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 149 || c != 0 || l != 2)
     return false;
   *x = static_cast<DmaTranspose *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->src))
+  if (!TensorRef_des(in, &(*x)->src))
     return false;
   return true;
 }
 
-bool Transpose_des(FILE *in, struct region *region, Ptr<Transpose> *x) {
+bool Transpose_des(FILE *in, Ptr<Transpose> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 150 || c != 0 || l != 2)
     return false;
   *x = static_cast<Transpose *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->src))
+  if (!TensorRef_des(in, &(*x)->src))
     return false;
   return true;
 }
 
-bool LoadMaskRegister_des(FILE *in, struct region *region,
-                          Ptr<LoadMaskRegister> *x) {
+bool LoadMaskRegister_des(FILE *in, Ptr<LoadMaskRegister> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 151 || c != 0 || l != 1)
     return false;
   *x = static_cast<LoadMaskRegister *>(region_alloc(region, sizeof(**x)));
-  if (!Nat_des(in, region, &(*x)->regNum))
+  if (!Nat_des(in, &(*x)->regNum))
     return false;
   return true;
 }
 
-bool Shuffle_des(FILE *in, struct region *region, Ptr<Shuffle> *x) {
+bool Shuffle_des(FILE *in, Ptr<Shuffle> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 152 || c != 0 || l != 2)
     return false;
   *x = static_cast<Shuffle *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->src))
+  if (!TensorRef_des(in, &(*x)->src))
     return false;
   return true;
 }
 
-bool MemSet_des(FILE *in, struct region *region, Ptr<MemSet> *x) {
+bool MemSet_des(FILE *in, Ptr<MemSet> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 153 || c != 0 || l != 3)
     return false;
   *x = static_cast<MemSet *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!Nat_des(in, region, &(*x)->value))
+  if (!Nat_des(in, &(*x)->value))
     return false;
-  if (!Nat_des(in, region, &(*x)->count))
+  if (!Nat_des(in, &(*x)->count))
     return false;
   return true;
 }
 
-bool Iota_des(FILE *in, struct region *region, Ptr<Iota> *x) {
+bool Iota_des(FILE *in, Ptr<Iota> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 154 || c != 0 || l != 2)
     return false;
   *x = static_cast<Iota *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!DataPattern_des(in, region, &(*x)->pattern))
+  if (!DataPattern_des(in, &(*x)->pattern))
     return false;
   return true;
 }
 
-bool LoadStationary_des(FILE *in, struct region *region,
-                        Ptr<LoadStationary> *x) {
+bool LoadStationary_des(FILE *in, Ptr<LoadStationary> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 155 || c != 0 || l != 2)
     return false;
   *x = static_cast<LoadStationary *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->src))
+  if (!TensorRef_des(in, &(*x)->src))
     return false;
-  if (!Bool_des(in, region, &(*x)->isTranspose))
+  if (!Bool_des(in, &(*x)->isTranspose))
     return false;
   return true;
 }
 
-bool MatMul_des(FILE *in, struct region *region, Ptr<MatMul> *x) {
+bool MatMul_des(FILE *in, Ptr<MatMul> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 156 || c != 0 || l != 3)
     return false;
   *x = static_cast<MatMul *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->moving))
+  if (!TensorRef_des(in, &(*x)->moving))
     return false;
-  if (!MatmulGroupElement_des(in, region, &(*x)->psumAccumulateFlag))
+  if (!MatmulGroupElement_des(in, &(*x)->psumAccumulateFlag))
     return false;
   return true;
 }
 
-bool LocalGather_des(FILE *in, struct region *region, Ptr<LocalGather> *x) {
+bool LocalGather_des(FILE *in, Ptr<LocalGather> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 157 || c != 0 || l != 4)
     return false;
   *x = static_cast<LocalGather *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->src))
+  if (!TensorRef_des(in, &(*x)->src))
     return false;
-  if (!IndexMissBehavior_des(in, region, &(*x)->indexMissBehavior))
+  if (!IndexMissBehavior_des(in, &(*x)->indexMissBehavior))
     return false;
-  if (!Bool_des(in, region, &(*x)->freePoolBuffer))
+  if (!Bool_des(in, &(*x)->freePoolBuffer))
     return false;
   return true;
 }
 
-bool RangeSelect_des(FILE *in, struct region *region, Ptr<RangeSelect> *x) {
+bool RangeSelect_des(FILE *in, Ptr<RangeSelect> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 158 || c != 0 || l != 10)
     return false;
   *x = static_cast<RangeSelect *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->src))
+  if (!TensorRef_des(in, &(*x)->src))
     return false;
-  if (!AccumCmd_des(in, region, &(*x)->reduceCommand))
+  if (!AccumCmd_des(in, &(*x)->reduceCommand))
     return false;
-  if (!AluOp_des(in, region, &(*x)->reduceOp))
+  if (!AluOp_des(in, &(*x)->reduceOp))
     return false;
-  if (!Float_des(in, region, &(*x)->base))
+  if (!Float_des(in, &(*x)->base))
     return false;
-  if (!Float_des(in, region, &(*x)->fillValue))
+  if (!Float_des(in, &(*x)->fillValue))
     return false;
-  if (!AluOp_des(in, region, &(*x)->compOp0))
+  if (!AluOp_des(in, &(*x)->compOp0))
     return false;
-  if (!AluOp_des(in, region, &(*x)->compOp1))
+  if (!AluOp_des(in, &(*x)->compOp1))
     return false;
-  if (!Immediate_des(in, region, &(*x)->bound0))
+  if (!Immediate_des(in, &(*x)->bound0))
     return false;
-  if (!Immediate_des(in, region, &(*x)->bound1))
+  if (!Immediate_des(in, &(*x)->bound1))
     return false;
   return true;
 }
 
-bool ScalarTensorTensor_des(FILE *in, struct region *region,
-                            Ptr<ScalarTensorTensor> *x) {
+bool ScalarTensorTensor_des(FILE *in, Ptr<ScalarTensorTensor> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 159 || c != 0 || l != 8)
     return false;
   *x = static_cast<ScalarTensorTensor *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->src0))
+  if (!TensorRef_des(in, &(*x)->src0))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->src1))
+  if (!TensorRef_des(in, &(*x)->src1))
     return false;
-  if (!AluOp_des(in, region, &(*x)->op0))
+  if (!AluOp_des(in, &(*x)->op0))
     return false;
-  if (!AluOp_des(in, region, &(*x)->op1))
+  if (!AluOp_des(in, &(*x)->op1))
     return false;
-  if (!TensorScalarReverseOps_des(in, region, &(*x)->reverseOperands))
+  if (!TensorScalarReverseOps_des(in, &(*x)->reverseOperands))
     return false;
-  if (!Immediate_des(in, region, &(*x)->imm0))
+  if (!Immediate_des(in, &(*x)->imm0))
     return false;
-  if (!AccumCmd_des(in, region, &(*x)->accumulatorCmd))
+  if (!AccumCmd_des(in, &(*x)->accumulatorCmd))
     return false;
   return true;
 }
 
-bool CopyPredicated_des(FILE *in, struct region *region,
-                        Ptr<CopyPredicated> *x) {
+bool CopyPredicated_des(FILE *in, Ptr<CopyPredicated> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 160 || c != 0 || l != 3)
     return false;
   *x = static_cast<CopyPredicated *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->src))
+  if (!TensorRef_des(in, &(*x)->src))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->predicate))
+  if (!TensorRef_des(in, &(*x)->predicate))
     return false;
   return true;
 }
 
-bool TensorTensorScan_des(FILE *in, struct region *region,
-                          Ptr<TensorTensorScan> *x) {
+bool TensorTensorScan_des(FILE *in, Ptr<TensorTensorScan> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 161 || c != 0 || l != 8)
     return false;
   *x = static_cast<TensorTensorScan *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->src0))
+  if (!TensorRef_des(in, &(*x)->src0))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->src1))
+  if (!TensorRef_des(in, &(*x)->src1))
     return false;
-  if (!AluOp_des(in, region, &(*x)->op0))
+  if (!AluOp_des(in, &(*x)->op0))
     return false;
-  if (!AluOp_des(in, region, &(*x)->op1))
+  if (!AluOp_des(in, &(*x)->op1))
     return false;
-  if (!TensorScalarReverseOps_des(in, region, &(*x)->reverseOperands))
+  if (!TensorScalarReverseOps_des(in, &(*x)->reverseOperands))
     return false;
-  if (!Immediate_des(in, region, &(*x)->imm0))
+  if (!Immediate_des(in, &(*x)->imm0))
     return false;
-  if (!AccumCmd_des(in, region, &(*x)->accumulatorCmd))
+  if (!AccumCmd_des(in, &(*x)->accumulatorCmd))
     return false;
   return true;
 }
 
-bool MatchValueLoad_des(FILE *in, struct region *region,
-                        Ptr<MatchValueLoad> *x) {
+bool MatchValueLoad_des(FILE *in, Ptr<MatchValueLoad> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 162 || c != 0 || l != 1)
     return false;
   *x = static_cast<MatchValueLoad *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->src))
+  if (!TensorRef_des(in, &(*x)->src))
     return false;
   return true;
 }
 
-bool FindIndex8_des(FILE *in, struct region *region, Ptr<FindIndex8> *x) {
+bool FindIndex8_des(FILE *in, Ptr<FindIndex8> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 163 || c != 0 || l != 2)
     return false;
   *x = static_cast<FindIndex8 *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->src))
+  if (!TensorRef_des(in, &(*x)->src))
     return false;
   return true;
 }
 
-bool MatchReplace8_des(FILE *in, struct region *region, Ptr<MatchReplace8> *x) {
+bool MatchReplace8_des(FILE *in, Ptr<MatchReplace8> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 164 || c != 0 || l != 3)
     return false;
   *x = static_cast<MatchReplace8 *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->src))
+  if (!TensorRef_des(in, &(*x)->src))
     return false;
-  if (!Float_des(in, region, &(*x)->replaceValue))
+  if (!Float_des(in, &(*x)->replaceValue))
     return false;
   return true;
 }
 
-bool Max8_des(FILE *in, struct region *region, Ptr<Max8> *x) {
+bool Max8_des(FILE *in, Ptr<Max8> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 165 || c != 0 || l != 2)
     return false;
   *x = static_cast<Max8 *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->src))
+  if (!TensorRef_des(in, &(*x)->src))
     return false;
   return true;
 }
 
-bool BatchNormAggregate_des(FILE *in, struct region *region,
-                            Ptr<BatchNormAggregate> *x) {
+bool BatchNormAggregate_des(FILE *in, Ptr<BatchNormAggregate> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 166 || c != 0 || l != 2)
     return false;
   *x = static_cast<BatchNormAggregate *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->src))
+  if (!TensorRef_des(in, &(*x)->src))
     return false;
   return true;
 }
 
-bool BatchNormStats_des(FILE *in, struct region *region,
-                        Ptr<BatchNormStats> *x) {
+bool BatchNormStats_des(FILE *in, Ptr<BatchNormStats> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 167 || c != 0 || l != 2)
     return false;
   *x = static_cast<BatchNormStats *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->src))
+  if (!TensorRef_des(in, &(*x)->src))
     return false;
   return true;
 }
 
-bool Reciprocal_des(FILE *in, struct region *region, Ptr<Reciprocal> *x) {
+bool Reciprocal_des(FILE *in, Ptr<Reciprocal> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 168 || c != 0 || l != 2)
     return false;
   *x = static_cast<Reciprocal *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->src))
+  if (!TensorRef_des(in, &(*x)->src))
     return false;
   return true;
 }
 
-bool Copy_des(FILE *in, struct region *region, Ptr<Copy> *x) {
+bool Copy_des(FILE *in, Ptr<Copy> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 169 || c != 0 || l != 3)
     return false;
   *x = static_cast<Copy *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->src))
+  if (!TensorRef_des(in, &(*x)->src))
     return false;
-  if (!Option_des(in, region, &(*x)->opDim))
+  if (!Option_des(in, &(*x)->opDim))
     return false;
   return true;
 }
 
-bool TensorReduce_des(FILE *in, struct region *region, Ptr<TensorReduce> *x) {
+bool TensorReduce_des(FILE *in, Ptr<TensorReduce> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 170 || c != 0 || l != 5)
     return false;
   *x = static_cast<TensorReduce *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, region, &(*x)->dst))
+  if (!TensorRef_des(in, &(*x)->dst))
     return false;
-  if (!TensorRef_des(in, region, &(*x)->src))
+  if (!TensorRef_des(in, &(*x)->src))
     return false;
-  if (!AluOp_des(in, region, &(*x)->op))
+  if (!AluOp_des(in, &(*x)->op))
     return false;
-  if (!TensorSubDim_des(in, region, &(*x)->opDim))
+  if (!TensorSubDim_des(in, &(*x)->opDim))
     return false;
-  if (!Bool_des(in, region, &(*x)->negated))
+  if (!Bool_des(in, &(*x)->negated))
     return false;
   return true;
 }
 
-bool Operator_des(FILE *in, struct region *region, Ptr<Operator> *x) {
+bool Operator_des(FILE *in, Ptr<Operator> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 171)
     return false;
@@ -1663,184 +1651,184 @@ bool Operator_des(FILE *in, struct region *region, Ptr<Operator> *x) {
   case 0:
     if (l != 1)
       return false;
-    if (!Activate_des(in, region, &(*x)->Activate.op))
+    if (!Activate_des(in, &(*x)->activate.op))
       return false;
-    (*x)->tag = Activate;
+    (*x)->tag = Operator_activate;
     break;
   case 1:
     if (l != 1)
       return false;
-    if (!AffineSelect_des(in, region, &(*x)->AffineSelect.op))
+    if (!AffineSelect_des(in, &(*x)->affineSelect.op))
       return false;
-    (*x)->tag = AffineSelect;
+    (*x)->tag = Operator_affineSelect;
     break;
   case 2:
     if (l != 1)
       return false;
-    if (!BatchNormAggregate_des(in, region, &(*x)->BatchNormAggregate.op))
+    if (!BatchNormAggregate_des(in, &(*x)->batchNormAggregate.op))
       return false;
-    (*x)->tag = BatchNormAggregate;
+    (*x)->tag = Operator_batchNormAggregate;
     break;
   case 3:
     if (l != 1)
       return false;
-    if (!BatchNormStats_des(in, region, &(*x)->BatchNormStats.op))
+    if (!BatchNormStats_des(in, &(*x)->batchNormStats.op))
       return false;
-    (*x)->tag = BatchNormStats;
+    (*x)->tag = Operator_batchNormStats;
     break;
   case 4:
     if (l != 1)
       return false;
-    if (!Copy_des(in, region, &(*x)->Copy.op))
+    if (!Copy_des(in, &(*x)->copy.op))
       return false;
-    (*x)->tag = Copy;
+    (*x)->tag = Operator_copy;
     break;
   case 5:
     if (l != 1)
       return false;
-    if (!CopyPredicated_des(in, region, &(*x)->CopyPredicated.op))
+    if (!CopyPredicated_des(in, &(*x)->copyPredicated.op))
       return false;
-    (*x)->tag = CopyPredicated;
+    (*x)->tag = Operator_copyPredicated;
     break;
   case 6:
     if (l != 1)
       return false;
-    if (!DmaCopy_des(in, region, &(*x)->DmaCopy.op))
+    if (!DmaCopy_des(in, &(*x)->dmaCopy.op))
       return false;
-    (*x)->tag = DmaCopy;
+    (*x)->tag = Operator_dmaCopy;
     break;
   case 7:
     if (l != 1)
       return false;
-    if (!DmaTranspose_des(in, region, &(*x)->DmaTranspose.op))
+    if (!DmaTranspose_des(in, &(*x)->dmaTranspose.op))
       return false;
-    (*x)->tag = DmaTranspose;
+    (*x)->tag = Operator_dmaTranspose;
     break;
   case 8:
     if (l != 1)
       return false;
-    if (!Dropout_des(in, region, &(*x)->Dropout.op))
+    if (!Dropout_des(in, &(*x)->dropout.op))
       return false;
-    (*x)->tag = Dropout;
+    (*x)->tag = Operator_dropout;
     break;
   case 9:
     if (l != 1)
       return false;
-    if (!FindIndex8_des(in, region, &(*x)->FindIndex8.op))
+    if (!FindIndex8_des(in, &(*x)->findIndex8.op))
       return false;
-    (*x)->tag = FindIndex8;
+    (*x)->tag = Operator_findIndex8;
     break;
   case 10:
     if (l != 1)
       return false;
-    if (!Iota_des(in, region, &(*x)->Iota.op))
+    if (!Iota_des(in, &(*x)->iota.op))
       return false;
-    (*x)->tag = Iota;
+    (*x)->tag = Operator_iota;
     break;
   case 11:
     if (l != 1)
       return false;
-    if (!LoadMaskRegister_des(in, region, &(*x)->LoadMaskRegister.op))
+    if (!LoadMaskRegister_des(in, &(*x)->loadMaskRegister.op))
       return false;
-    (*x)->tag = LoadMaskRegister;
+    (*x)->tag = Operator_loadMaskRegister;
     break;
   case 12:
     if (l != 1)
       return false;
-    if (!LoadStationary_des(in, region, &(*x)->LoadStationary.op))
+    if (!LoadStationary_des(in, &(*x)->loadStationary.op))
       return false;
-    (*x)->tag = LoadStationary;
+    (*x)->tag = Operator_loadStationary;
     break;
   case 13:
     if (l != 1)
       return false;
-    if (!LocalGather_des(in, region, &(*x)->LocalGather.op))
+    if (!LocalGather_des(in, &(*x)->localGather.op))
       return false;
-    (*x)->tag = LocalGather;
+    (*x)->tag = Operator_localGather;
     break;
   case 14:
     if (l != 1)
       return false;
-    if (!MatMul_des(in, region, &(*x)->MatMul.op))
+    if (!MatMul_des(in, &(*x)->matMul.op))
       return false;
-    (*x)->tag = MatMul;
+    (*x)->tag = Operator_matMul;
     break;
   case 15:
     if (l != 1)
       return false;
-    if (!MatchReplace8_des(in, region, &(*x)->MatchReplace8.op))
+    if (!MatchReplace8_des(in, &(*x)->matchReplace8.op))
       return false;
-    (*x)->tag = MatchReplace8;
+    (*x)->tag = Operator_matchReplace8;
     break;
   case 16:
     if (l != 1)
       return false;
-    if (!MatchValueLoad_des(in, region, &(*x)->MatchValueLoad.op))
+    if (!MatchValueLoad_des(in, &(*x)->matchValueLoad.op))
       return false;
-    (*x)->tag = MatchValueLoad;
+    (*x)->tag = Operator_matchValueLoad;
     break;
   case 17:
     if (l != 1)
       return false;
-    if (!Max8_des(in, region, &(*x)->Max8.op))
+    if (!Max8_des(in, &(*x)->max8.op))
       return false;
-    (*x)->tag = Max8;
+    (*x)->tag = Operator_max8;
     break;
   case 18:
     if (l != 1)
       return false;
-    if (!MemSet_des(in, region, &(*x)->MemSet.op))
+    if (!MemSet_des(in, &(*x)->memSet.op))
       return false;
-    (*x)->tag = MemSet;
+    (*x)->tag = Operator_memSet;
     break;
   case 19:
     if (l != 1)
       return false;
-    if (!RangeSelect_des(in, region, &(*x)->RangeSelect.op))
+    if (!RangeSelect_des(in, &(*x)->rangeSelect.op))
       return false;
-    (*x)->tag = RangeSelect;
+    (*x)->tag = Operator_rangeSelect;
     break;
   case 20:
     if (l != 1)
       return false;
-    if (!Reciprocal_des(in, region, &(*x)->Reciprocal.op))
+    if (!Reciprocal_des(in, &(*x)->reciprocal.op))
       return false;
-    (*x)->tag = Reciprocal;
+    (*x)->tag = Operator_reciprocal;
     break;
   case 21:
     if (l != 1)
       return false;
-    if (!ScalarTensorTensor_des(in, region, &(*x)->ScalarTensorTensor.op))
+    if (!ScalarTensorTensor_des(in, &(*x)->scalarTensorTensor.op))
       return false;
-    (*x)->tag = ScalarTensorTensor;
+    (*x)->tag = Operator_scalarTensorTensor;
     break;
   case 22:
     if (l != 1)
       return false;
-    if (!Shuffle_des(in, region, &(*x)->Shuffle.op))
+    if (!Shuffle_des(in, &(*x)->shuffle.op))
       return false;
-    (*x)->tag = Shuffle;
+    (*x)->tag = Operator_shuffle;
     break;
   case 23:
     if (l != 1)
       return false;
-    if (!TensorReduce_des(in, region, &(*x)->TensorReduce.op))
+    if (!TensorReduce_des(in, &(*x)->tensorReduce.op))
       return false;
-    (*x)->tag = TensorReduce;
+    (*x)->tag = Operator_tensorReduce;
     break;
   case 24:
     if (l != 1)
       return false;
-    if (!TensorTensorScan_des(in, region, &(*x)->TensorTensorScan.op))
+    if (!TensorTensorScan_des(in, &(*x)->tensorTensorScan.op))
       return false;
-    (*x)->tag = TensorTensorScan;
+    (*x)->tag = Operator_tensorTensorScan;
     break;
   case 25:
     if (l != 1)
       return false;
-    if (!Transpose_des(in, region, &(*x)->Transpose.op))
+    if (!Transpose_des(in, &(*x)->transpose.op))
       return false;
-    (*x)->tag = Transpose;
+    (*x)->tag = Operator_transpose;
     break;
   default:
     return false;
@@ -1848,9 +1836,9 @@ bool Operator_des(FILE *in, struct region *region, Ptr<Operator> *x) {
   return true;
 }
 
-bool Value_des(FILE *in, struct region *region, Ptr<Value> *x) {
+bool Value_des(FILE *in, Ptr<Value> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 101)
     return false;
@@ -1859,35 +1847,35 @@ bool Value_des(FILE *in, struct region *region, Ptr<Value> *x) {
   case 0:
     if (l != 1)
       return false;
-    if (!String_des(in, region, &(*x)->var.x))
+    if (!String_des(in, &(*x)->var.x))
       return false;
     (*x)->tag = Value_var;
     break;
   case 1:
     if (l != 1)
       return false;
-    if (!Bool_des(in, region, &(*x)->boolean.value))
+    if (!Bool_des(in, &(*x)->boolean.value))
       return false;
     (*x)->tag = Value_bool;
     break;
   case 2:
     if (l != 1)
       return false;
-    if (!Int_des(in, region, &(*x)->int32.value))
+    if (!Int_des(in, &(*x)->int32.value))
       return false;
     (*x)->tag = Value_int;
     break;
   case 3:
     if (l != 1)
       return false;
-    if (!Float_des(in, region, &(*x)->float32.value))
+    if (!Float_des(in, &(*x)->float32.value))
       return false;
     (*x)->tag = Value_float;
     break;
   case 4:
     if (l != 1)
       return false;
-    if (!Access_des(in, region, &(*x)->access.a))
+    if (!Access_des(in, &(*x)->access.a))
       return false;
     (*x)->tag = Value_access;
     break;
@@ -1897,23 +1885,23 @@ bool Value_des(FILE *in, struct region *region, Ptr<Value> *x) {
   return true;
 }
 
-bool Keyword_des(FILE *in, struct region *region, Ptr<Keyword> *x) {
+bool Keyword_des(FILE *in, Ptr<Keyword> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 102 || c != 0 || l != 2)
     return false;
   *x = static_cast<Keyword *>(region_alloc(region, sizeof(**x)));
-  if (!String_des(in, region, &(*x)->name))
+  if (!String_des(in, &(*x)->name))
     return false;
-  if (!Value_des(in, region, &(*x)->value))
+  if (!Value_des(in, &(*x)->value))
     return false;
   return true;
 }
 
-bool Expr_des(FILE *in, struct region *region, Ptr<Expr> *x) {
+bool Expr_des(FILE *in, Ptr<Expr> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 103)
     return false;
@@ -1922,18 +1910,18 @@ bool Expr_des(FILE *in, struct region *region, Ptr<Expr> *x) {
   case 0:
     if (l != 1)
       return false;
-    if (!Value_des(in, region, &(*x)->value.v))
+    if (!Value_des(in, &(*x)->value.v))
       return false;
     (*x)->tag = Expr_value;
     break;
   case 1:
     if (l != 3)
       return false;
-    if (!String_des(in, region, &(*x)->call.f))
+    if (!String_des(in, &(*x)->call.f))
       return false;
-    if (!List_des(in, region, &(*x)->call.args))
+    if (!List_des(in, &(*x)->call.args))
       return false;
-    if (!List_des(in, region, &(*x)->call.kwargs))
+    if (!List_des(in, &(*x)->call.kwargs))
       return false;
     (*x)->tag = Expr_call;
     break;
@@ -1943,9 +1931,9 @@ bool Expr_des(FILE *in, struct region *region, Ptr<Expr> *x) {
   return true;
 }
 
-bool Stmt_des(FILE *in, struct region *region, Ptr<Stmt> *x) {
+bool Stmt_des(FILE *in, Ptr<Stmt> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 104)
     return false;
@@ -1954,27 +1942,27 @@ bool Stmt_des(FILE *in, struct region *region, Ptr<Stmt> *x) {
   case 0:
     if (l != 1)
       return false;
-    if (!Value_des(in, region, &(*x)->ret.v))
+    if (!Value_des(in, &(*x)->ret.v))
       return false;
     (*x)->tag = Stmt_ret;
     break;
   case 1:
     if (l != 2)
       return false;
-    if (!String_des(in, region, &(*x)->assign.x))
+    if (!String_des(in, &(*x)->assign.x))
       return false;
-    if (!Expr_des(in, region, &(*x)->assign.e))
+    if (!Expr_des(in, &(*x)->assign.e))
       return false;
     (*x)->tag = Stmt_assign;
     break;
   case 2:
     if (l != 3)
       return false;
-    if (!Access_des(in, region, &(*x)->store.dst))
+    if (!Access_des(in, &(*x)->store.dst))
       return false;
-    if (!Operator_des(in, region, &(*x)->store.op))
+    if (!Operator_des(in, &(*x)->store.op))
       return false;
-    if (!List_des(in, region, &(*x)->store.args))
+    if (!List_des(in, &(*x)->store.args))
       return false;
     (*x)->tag = Stmt_store;
     break;
@@ -1984,75 +1972,69 @@ bool Stmt_des(FILE *in, struct region *region, Ptr<Stmt> *x) {
   return true;
 }
 
-bool Kernel_des(FILE *in, struct region *region, Ptr<Kernel> *x) {
+bool Kernel_des(FILE *in, Ptr<Kernel> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 105 || c != 0 || l != 4)
     return false;
   *x = static_cast<Kernel *>(region_alloc(region, sizeof(**x)));
-  if (!String_des(in, region, &(*x)->name))
+  if (!String_des(in, &(*x)->name))
     return false;
-  if (!List_des(in, region, &(*x)->inputs))
+  if (!List_des(in, &(*x)->inputs))
     return false;
-  if (!List_des(in, region, &(*x)->outputs))
+  if (!List_des(in, &(*x)->outputs))
     return false;
-  if (!List_des(in, region, &(*x)->body))
+  if (!List_des(in, &(*x)->body))
     return false;
   return true;
 }
 
-bool List_des(FILE *in, struct region *region, List<Index> *x) { return true; }
+bool List_des(FILE *in, List<Ptr<Index>> &x) { return true; }
 
-bool List_des(FILE *in, struct region *region, List<APPair> *x) { return true; }
+bool List_des(FILE *in, List<Ptr<APPair>> &x) { return true; }
 
-bool Option_des(FILE *in, struct region *region, TensorSubDim *x) {
-  return true;
-}
+bool Option_des(FILE *in, Option<TensorSubDim> &x) { return true; }
 
-bool List_des(FILE *in, struct region *region, List<Value> *x) { return true; }
+bool List_des(FILE *in, List<Ptr<Value>> &x) { return true; }
 
-bool List_des(FILE *in, struct region *region, List<Keyword> *x) {
-  return true;
-}
+bool List_des(FILE *in, List<Ptr<Keyword>> &x) { return true; }
 
-bool List_des(FILE *in, struct region *region, List<TensorArg> *x) {
-  return true;
-}
+bool List_des(FILE *in, List<Ptr<TensorArg>> &x) { return true; }
 
-bool List_des(FILE *in, struct region *region, List<Stmt> *x) { return true; }
+bool List_des(FILE *in, List<Ptr<Stmt>> &x) { return true; }
 
-bool KLRFile_des(FILE *in, struct region *region, Ptr<KLRFile> *x) {
+bool KLRFile_des(FILE *in, Ptr<KLRFile> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 217 || c != 247 || l != 3)
     return false;
   *x = static_cast<KLRFile *>(region_alloc(region, sizeof(**x)));
-  if (!Nat_des(in, region, &(*x)->major))
+  if (!Nat_des(in, &(*x)->major))
     return false;
-  if (!Nat_des(in, region, &(*x)->minor))
+  if (!Nat_des(in, &(*x)->minor))
     return false;
-  if (!Nat_des(in, region, &(*x)->patch))
+  if (!Nat_des(in, &(*x)->patch))
     return false;
   return true;
 }
 
-bool KLRMetaData_des(FILE *in, struct region *region, Ptr<KLRMetaData> *x) {
+bool KLRMetaData_des(FILE *in, Ptr<KLRMetaData> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 235 || c != 0 || l != 1)
     return false;
   *x = static_cast<KLRMetaData *>(region_alloc(region, sizeof(**x)));
-  if (!String_des(in, region, &(*x)->format))
+  if (!String_des(in, &(*x)->format))
     return false;
   return true;
 }
 
-bool Contents_des(FILE *in, struct region *region, Ptr<Contents> *x) {
+bool Contents_des(FILE *in, Ptr<Contents> &x) {
   u8 t, c, l;
-  if (!cbor_decode_tag(in, &t, &c, &l))
+  if (!deserialize_tag(in, &t, &c, &l))
     return false;
   if (t != 236)
     return false;
@@ -2061,28 +2043,28 @@ bool Contents_des(FILE *in, struct region *region, Ptr<Contents> *x) {
   case 0:
     if (l != 1)
       return false;
-    if (!Kernel_des(in, region, &(*x)->python.kernel))
+    if (!Kernel_des(in, &(*x)->python.kernel))
       return false;
     (*x)->tag = Contents_python;
     break;
   case 1:
     if (l != 1)
       return false;
-    if (!Kernel_des(in, region, &(*x)->nki.kernel))
+    if (!Kernel_des(in, &(*x)->nki.kernel))
       return false;
     (*x)->tag = Contents_nki;
     break;
   case 2:
     if (l != 1)
       return false;
-    if (!Kernel_des(in, region, &(*x)->klir.kernel))
+    if (!Kernel_des(in, &(*x)->klir.kernel))
       return false;
     (*x)->tag = Contents_klir;
     break;
   case 3:
     if (l != 1)
       return false;
-    if (!String_des(in, region, &(*x)->hlo.name))
+    if (!String_des(in, &(*x)->hlo.name))
       return false;
     (*x)->tag = Contents_hlo;
     break;
