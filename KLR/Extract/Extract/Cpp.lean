@@ -37,6 +37,7 @@ def enumName (name : Name) : String := varName name
 
 def unionName (name : Name) : String := (varName name).toLower
 
+
 def cppName (name : Name) : String :=
   match name with
   | .str n s@⟨c :: _⟩ =>
@@ -44,9 +45,11 @@ def cppName (name : Name) : String :=
     if c.isUpper then s else
     match cppName n with
     | "" => s
-    | s1 => s1 ++ "_" ++ s
+    | s1 => s1 ++ s.capitalize
   | .anonymous => ""
   | _ => panic! s!"invalid CPP name {name}"
+
+def subclassName (name : Name) : String := cppName name ++ "Wrapper"
 
 def enumFullName (name : Name) : String :=
   match name with
@@ -58,6 +61,7 @@ def enumFullName (name : Name) : String :=
     | s1 => s1 ++ "::" ++ s
   | .anonymous => ""
   | _ => panic! s!"invalid CPP name {name}"
+
 
 instance : ToString Name where toString n := cppName n
 
@@ -107,10 +111,10 @@ private def genUnion (name : Name) (variants : List LeanType) : MetaM Unit := do
   -- Generate subclasses
   for t in variants do
     let .prod n fs := t | throwError "unexpected union nesting"
-    IO.println s!"\nstruct {n} final : {name} \{"
+    IO.println s!"\nstruct {subclassName n} final : {name} \{"
     for f in fs do
       IO.println s!"{genType f.type} {f.name};"
-    IO.println s!" {n}() : {name}(Tag::{enumName t.name}) \{}"
+    IO.println s!" {subclassName n}() : {name}(Tag::{enumName t.name}) \{}"
     IO.println "};"
 
 def genCppType (ty : LeanType) : MetaM Unit := do

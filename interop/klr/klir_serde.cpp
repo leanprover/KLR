@@ -260,14 +260,14 @@ bool Index_des(FILE *in, Ptr<Index> &x) {
       return false;
     if (!Nat_des(in, &(*x)->coord.e))
       return false;
-    (*x)->tag = Index_coord;
+    (*x)->tag = IndexCoord;
     break;
   case 1:
     if (l != 1)
       return false;
     if (!Slice_des(in, &(*x)->slice.slice))
       return false;
-    (*x)->tag = Index_slice;
+    (*x)->tag = IndexSlice;
     break;
   default:
     return false;
@@ -336,21 +336,21 @@ bool Access_des(FILE *in, Ptr<Access> &x) {
       return false;
     if (!TensorSram_des(in, &(*x)->simple.tensor))
       return false;
-    (*x)->tag = Access_simple;
+    (*x)->tag = AccessSimple;
     break;
   case 1:
     if (l != 1)
       return false;
     if (!AccessBasic_des(in, &(*x)->basic.access))
       return false;
-    (*x)->tag = Access_basic;
+    (*x)->tag = AccessBasic;
     break;
   case 2:
     if (l != 1)
       return false;
     if (!AccessPattern_des(in, &(*x)->pattern.access))
       return false;
-    (*x)->tag = Access_pattern;
+    (*x)->tag = AccessPattern;
     break;
   default:
     return false;
@@ -445,21 +445,21 @@ bool TensorRef_des(FILE *in, Ptr<TensorRef> &x) {
       return false;
     if (!Access_des(in, &(*x)->abstract.access))
       return false;
-    (*x)->tag = TensorRef_abstract;
+    (*x)->tag = TensorRefAbstract;
     break;
   case 1:
     if (l != 1)
       return false;
     if (!TensorView_des(in, &(*x)->literal.view))
       return false;
-    (*x)->tag = TensorRef_literal;
+    (*x)->tag = TensorRefLiteral;
     break;
   case 2:
     if (l != 1)
       return false;
     if (!Nat_des(in, &(*x)->reg.reg))
       return false;
-    (*x)->tag = TensorRef_register;
+    (*x)->tag = TensorRefRegister;
     break;
   default:
     return false;
@@ -480,14 +480,14 @@ bool TensorArg_des(FILE *in, Ptr<TensorArg> &x) {
       return false;
     if (!TensorHbm_des(in, &(*x)->hbm.tensor))
       return false;
-    (*x)->tag = TensorArg_hbm;
+    (*x)->tag = TensorArgHbm;
     break;
   case 1:
     if (l != 1)
       return false;
     if (!TensorSram_des(in, &(*x)->sram.tensor))
       return false;
-    (*x)->tag = TensorArg_sram;
+    (*x)->tag = TensorArgSram;
     break;
   default:
     return false;
@@ -557,26 +557,26 @@ bool Immediate_des(FILE *in, Ptr<Immediate> &x) {
       return false;
     if (!Nat_des(in, &(*x)->reg.reg))
       return false;
-    (*x)->tag = Immediate_register;
+    (*x)->tag = ImmediateRegister;
     break;
   case 1:
     if (l != 0)
       return false;
-    (*x)->tag = Immediate_pointer;
+    (*x)->tag = ImmediatePointer;
     break;
   case 2:
     if (l != 1)
       return false;
     if (!Int_des(in, &(*x)->int32.i))
       return false;
-    (*x)->tag = Immediate_int;
+    (*x)->tag = ImmediateInt;
     break;
   case 3:
     if (l != 1)
       return false;
     if (!Float_des(in, &(*x)->float32.f))
       return false;
-    (*x)->tag = Immediate_float;
+    (*x)->tag = ImmediateFloat;
     break;
   default:
     return false;
@@ -597,19 +597,19 @@ bool ActivationImm_des(FILE *in, Ptr<ActivationImm> &x) {
       return false;
     if (!Nat_des(in, &(*x)->reg.reg))
       return false;
-    (*x)->tag = ActivationImm_register;
+    (*x)->tag = ActivationImmRegister;
     break;
   case 1:
     if (l != 0)
       return false;
-    (*x)->tag = ActivationImm_pointer;
+    (*x)->tag = ActivationImmPointer;
     break;
   case 2:
     if (l != 1)
       return false;
     if (!Float_des(in, &(*x)->float32.f))
       return false;
-    (*x)->tag = ActivationImm_float;
+    (*x)->tag = ActivationImmFloat;
     break;
   default:
     return false;
@@ -1051,19 +1051,19 @@ bool DmaBounds_des(FILE *in, Ptr<DmaBounds> &x) {
   case 0:
     if (l != 0)
       return false;
-    (*x)->tag = DmaBounds_disable;
+    (*x)->tag = DmaBoundsDisable;
     break;
   case 1:
     if (l != 0)
       return false;
-    (*x)->tag = DmaBounds_enable;
+    (*x)->tag = DmaBoundsEnable;
     break;
   case 2:
     if (l != 1)
       return false;
     if (!Nat_des(in, &(*x)->reg.reg))
       return false;
-    (*x)->tag = DmaBounds_reg;
+    (*x)->tag = DmaBoundsReg;
     break;
   default:
     return false;
@@ -1113,12 +1113,12 @@ bool IndexMissBehavior_des(FILE *in, Ptr<IndexMissBehavior> &x) {
       return false;
     if (!Immediate_des(in, &(*x)->imm.value))
       return false;
-    (*x)->tag = IndexMissBehavior_imm;
+    (*x)->tag = IndexMissBehaviorImm;
     break;
   case 1:
     if (l != 0)
       return false;
-    (*x)->tag = IndexMissBehavior_skip;
+    (*x)->tag = IndexMissBehaviorSkip;
     break;
   default:
     return false;
@@ -1653,182 +1653,182 @@ bool Operator_des(FILE *in, Ptr<Operator> &x) {
       return false;
     if (!Activate_des(in, &(*x)->activate.op))
       return false;
-    (*x)->tag = Operator_activate;
+    (*x)->tag = OperatorActivate;
     break;
   case 1:
     if (l != 1)
       return false;
     if (!AffineSelect_des(in, &(*x)->affineSelect.op))
       return false;
-    (*x)->tag = Operator_affineSelect;
+    (*x)->tag = OperatorAffineSelect;
     break;
   case 2:
     if (l != 1)
       return false;
     if (!BatchNormAggregate_des(in, &(*x)->batchNormAggregate.op))
       return false;
-    (*x)->tag = Operator_batchNormAggregate;
+    (*x)->tag = OperatorBatchNormAggregate;
     break;
   case 3:
     if (l != 1)
       return false;
     if (!BatchNormStats_des(in, &(*x)->batchNormStats.op))
       return false;
-    (*x)->tag = Operator_batchNormStats;
+    (*x)->tag = OperatorBatchNormStats;
     break;
   case 4:
     if (l != 1)
       return false;
     if (!Copy_des(in, &(*x)->copy.op))
       return false;
-    (*x)->tag = Operator_copy;
+    (*x)->tag = OperatorCopy;
     break;
   case 5:
     if (l != 1)
       return false;
     if (!CopyPredicated_des(in, &(*x)->copyPredicated.op))
       return false;
-    (*x)->tag = Operator_copyPredicated;
+    (*x)->tag = OperatorCopyPredicated;
     break;
   case 6:
     if (l != 1)
       return false;
     if (!DmaCopy_des(in, &(*x)->dmaCopy.op))
       return false;
-    (*x)->tag = Operator_dmaCopy;
+    (*x)->tag = OperatorDmaCopy;
     break;
   case 7:
     if (l != 1)
       return false;
     if (!DmaTranspose_des(in, &(*x)->dmaTranspose.op))
       return false;
-    (*x)->tag = Operator_dmaTranspose;
+    (*x)->tag = OperatorDmaTranspose;
     break;
   case 8:
     if (l != 1)
       return false;
     if (!Dropout_des(in, &(*x)->dropout.op))
       return false;
-    (*x)->tag = Operator_dropout;
+    (*x)->tag = OperatorDropout;
     break;
   case 9:
     if (l != 1)
       return false;
     if (!FindIndex8_des(in, &(*x)->findIndex8.op))
       return false;
-    (*x)->tag = Operator_findIndex8;
+    (*x)->tag = OperatorFindIndex8;
     break;
   case 10:
     if (l != 1)
       return false;
     if (!Iota_des(in, &(*x)->iota.op))
       return false;
-    (*x)->tag = Operator_iota;
+    (*x)->tag = OperatorIota;
     break;
   case 11:
     if (l != 1)
       return false;
     if (!LoadMaskRegister_des(in, &(*x)->loadMaskRegister.op))
       return false;
-    (*x)->tag = Operator_loadMaskRegister;
+    (*x)->tag = OperatorLoadMaskRegister;
     break;
   case 12:
     if (l != 1)
       return false;
     if (!LoadStationary_des(in, &(*x)->loadStationary.op))
       return false;
-    (*x)->tag = Operator_loadStationary;
+    (*x)->tag = OperatorLoadStationary;
     break;
   case 13:
     if (l != 1)
       return false;
     if (!LocalGather_des(in, &(*x)->localGather.op))
       return false;
-    (*x)->tag = Operator_localGather;
+    (*x)->tag = OperatorLocalGather;
     break;
   case 14:
     if (l != 1)
       return false;
     if (!MatMul_des(in, &(*x)->matMul.op))
       return false;
-    (*x)->tag = Operator_matMul;
+    (*x)->tag = OperatorMatMul;
     break;
   case 15:
     if (l != 1)
       return false;
     if (!MatchReplace8_des(in, &(*x)->matchReplace8.op))
       return false;
-    (*x)->tag = Operator_matchReplace8;
+    (*x)->tag = OperatorMatchReplace8;
     break;
   case 16:
     if (l != 1)
       return false;
     if (!MatchValueLoad_des(in, &(*x)->matchValueLoad.op))
       return false;
-    (*x)->tag = Operator_matchValueLoad;
+    (*x)->tag = OperatorMatchValueLoad;
     break;
   case 17:
     if (l != 1)
       return false;
     if (!Max8_des(in, &(*x)->max8.op))
       return false;
-    (*x)->tag = Operator_max8;
+    (*x)->tag = OperatorMax8;
     break;
   case 18:
     if (l != 1)
       return false;
     if (!MemSet_des(in, &(*x)->memSet.op))
       return false;
-    (*x)->tag = Operator_memSet;
+    (*x)->tag = OperatorMemSet;
     break;
   case 19:
     if (l != 1)
       return false;
     if (!RangeSelect_des(in, &(*x)->rangeSelect.op))
       return false;
-    (*x)->tag = Operator_rangeSelect;
+    (*x)->tag = OperatorRangeSelect;
     break;
   case 20:
     if (l != 1)
       return false;
     if (!Reciprocal_des(in, &(*x)->reciprocal.op))
       return false;
-    (*x)->tag = Operator_reciprocal;
+    (*x)->tag = OperatorReciprocal;
     break;
   case 21:
     if (l != 1)
       return false;
     if (!ScalarTensorTensor_des(in, &(*x)->scalarTensorTensor.op))
       return false;
-    (*x)->tag = Operator_scalarTensorTensor;
+    (*x)->tag = OperatorScalarTensorTensor;
     break;
   case 22:
     if (l != 1)
       return false;
     if (!Shuffle_des(in, &(*x)->shuffle.op))
       return false;
-    (*x)->tag = Operator_shuffle;
+    (*x)->tag = OperatorShuffle;
     break;
   case 23:
     if (l != 1)
       return false;
     if (!TensorReduce_des(in, &(*x)->tensorReduce.op))
       return false;
-    (*x)->tag = Operator_tensorReduce;
+    (*x)->tag = OperatorTensorReduce;
     break;
   case 24:
     if (l != 1)
       return false;
     if (!TensorTensorScan_des(in, &(*x)->tensorTensorScan.op))
       return false;
-    (*x)->tag = Operator_tensorTensorScan;
+    (*x)->tag = OperatorTensorTensorScan;
     break;
   case 25:
     if (l != 1)
       return false;
     if (!Transpose_des(in, &(*x)->transpose.op))
       return false;
-    (*x)->tag = Operator_transpose;
+    (*x)->tag = OperatorTranspose;
     break;
   default:
     return false;
@@ -1849,35 +1849,35 @@ bool Value_des(FILE *in, Ptr<Value> &x) {
       return false;
     if (!String_des(in, &(*x)->var.x))
       return false;
-    (*x)->tag = Value_var;
+    (*x)->tag = ValueVar;
     break;
   case 1:
     if (l != 1)
       return false;
     if (!Bool_des(in, &(*x)->boolean.value))
       return false;
-    (*x)->tag = Value_bool;
+    (*x)->tag = ValueBool;
     break;
   case 2:
     if (l != 1)
       return false;
     if (!Int_des(in, &(*x)->int32.value))
       return false;
-    (*x)->tag = Value_int;
+    (*x)->tag = ValueInt;
     break;
   case 3:
     if (l != 1)
       return false;
     if (!Float_des(in, &(*x)->float32.value))
       return false;
-    (*x)->tag = Value_float;
+    (*x)->tag = ValueFloat;
     break;
   case 4:
     if (l != 1)
       return false;
     if (!Access_des(in, &(*x)->access.a))
       return false;
-    (*x)->tag = Value_access;
+    (*x)->tag = ValueAccess;
     break;
   default:
     return false;
@@ -1912,7 +1912,7 @@ bool Expr_des(FILE *in, Ptr<Expr> &x) {
       return false;
     if (!Value_des(in, &(*x)->value.v))
       return false;
-    (*x)->tag = Expr_value;
+    (*x)->tag = ExprValue;
     break;
   case 1:
     if (l != 3)
@@ -1923,7 +1923,7 @@ bool Expr_des(FILE *in, Ptr<Expr> &x) {
       return false;
     if (!List_des(in, &(*x)->call.kwargs))
       return false;
-    (*x)->tag = Expr_call;
+    (*x)->tag = ExprCall;
     break;
   default:
     return false;
@@ -1944,7 +1944,7 @@ bool Stmt_des(FILE *in, Ptr<Stmt> &x) {
       return false;
     if (!Value_des(in, &(*x)->ret.v))
       return false;
-    (*x)->tag = Stmt_ret;
+    (*x)->tag = StmtRet;
     break;
   case 1:
     if (l != 2)
@@ -1953,7 +1953,7 @@ bool Stmt_des(FILE *in, Ptr<Stmt> &x) {
       return false;
     if (!Expr_des(in, &(*x)->assign.e))
       return false;
-    (*x)->tag = Stmt_assign;
+    (*x)->tag = StmtAssign;
     break;
   case 2:
     if (l != 3)
@@ -1964,7 +1964,7 @@ bool Stmt_des(FILE *in, Ptr<Stmt> &x) {
       return false;
     if (!List_des(in, &(*x)->store.args))
       return false;
-    (*x)->tag = Stmt_store;
+    (*x)->tag = StmtStore;
     break;
   default:
     return false;
@@ -2045,28 +2045,28 @@ bool Contents_des(FILE *in, Ptr<Contents> &x) {
       return false;
     if (!Kernel_des(in, &(*x)->python.kernel))
       return false;
-    (*x)->tag = Contents_python;
+    (*x)->tag = ContentsPython;
     break;
   case 1:
     if (l != 1)
       return false;
     if (!Kernel_des(in, &(*x)->nki.kernel))
       return false;
-    (*x)->tag = Contents_nki;
+    (*x)->tag = ContentsNki;
     break;
   case 2:
     if (l != 1)
       return false;
     if (!Kernel_des(in, &(*x)->klir.kernel))
       return false;
-    (*x)->tag = Contents_klir;
+    (*x)->tag = ContentsKlir;
     break;
   case 3:
     if (l != 1)
       return false;
     if (!String_des(in, &(*x)->hlo.name))
       return false;
-    (*x)->tag = Contents_hlo;
+    (*x)->tag = ContentsHlo;
     break;
   default:
     return false;

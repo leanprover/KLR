@@ -84,14 +84,14 @@ struct Index {
   Index(Tag tag) : tag(tag) {}
 };
 
-struct Index_coord final : Index {
+struct IndexCoordWrapper final : Index {
   Nat e;
-  Index_coord() : Index(Tag::coord) {}
+  IndexCoordWrapper() : Index(Tag::coord) {}
 };
 
-struct Index_slice final : Index {
+struct IndexSliceWrapper final : Index {
   Ptr<Slice> slice;
-  Index_slice() : Index(Tag::slice) {}
+  IndexSliceWrapper() : Index(Tag::slice) {}
 };
 
 struct AccessBasic final {
@@ -122,19 +122,19 @@ struct Access {
   Access(Tag tag) : tag(tag) {}
 };
 
-struct Access_simple final : Access {
+struct AccessSimpleWrapper final : Access {
   Ptr<TensorSram> tensor;
-  Access_simple() : Access(Tag::simple) {}
+  AccessSimpleWrapper() : Access(Tag::simple) {}
 };
 
-struct Access_basic final : Access {
+struct AccessBasicWrapper final : Access {
   Ptr<AccessBasic> access;
-  Access_basic() : Access(Tag::basic) {}
+  AccessBasicWrapper() : Access(Tag::basic) {}
 };
 
-struct Access_pattern final : Access {
+struct AccessPatternWrapper final : Access {
   Ptr<AccessPattern> access;
-  Access_pattern() : Access(Tag::pattern) {}
+  AccessPatternWrapper() : Access(Tag::pattern) {}
 };
 
 struct TensorHbm final {
@@ -170,19 +170,19 @@ struct TensorRef {
   TensorRef(Tag tag) : tag(tag) {}
 };
 
-struct TensorRef_abstract final : TensorRef {
+struct TensorRefAbstractWrapper final : TensorRef {
   Ptr<Access> access;
-  TensorRef_abstract() : TensorRef(Tag::abstract) {}
+  TensorRefAbstractWrapper() : TensorRef(Tag::abstract) {}
 };
 
-struct TensorRef_literal final : TensorRef {
+struct TensorRefLiteralWrapper final : TensorRef {
   Ptr<TensorView> view;
-  TensorRef_literal() : TensorRef(Tag::literal) {}
+  TensorRefLiteralWrapper() : TensorRef(Tag::literal) {}
 };
 
-struct TensorRef_register final : TensorRef {
+struct TensorRefRegisterWrapper final : TensorRef {
   Nat reg;
-  TensorRef_register() : TensorRef(Tag::reg) {}
+  TensorRefRegisterWrapper() : TensorRef(Tag::reg) {}
 };
 
 struct TensorArg {
@@ -194,14 +194,14 @@ struct TensorArg {
   TensorArg(Tag tag) : tag(tag) {}
 };
 
-struct TensorArg_hbm final : TensorArg {
+struct TensorArgHbmWrapper final : TensorArg {
   Ptr<TensorHbm> tensor;
-  TensorArg_hbm() : TensorArg(Tag::hbm) {}
+  TensorArgHbmWrapper() : TensorArg(Tag::hbm) {}
 };
 
-struct TensorArg_sram final : TensorArg {
+struct TensorArgSramWrapper final : TensorArg {
   Ptr<TensorSram> tensor;
-  TensorArg_sram() : TensorArg(Tag::sram) {}
+  TensorArgSramWrapper() : TensorArg(Tag::sram) {}
 };
 
 enum class Engine {
@@ -225,23 +225,23 @@ struct Immediate {
   Immediate(Tag tag) : tag(tag) {}
 };
 
-struct Immediate_register final : Immediate {
+struct ImmediateRegisterWrapper final : Immediate {
   Nat reg;
-  Immediate_register() : Immediate(Tag::reg) {}
+  ImmediateRegisterWrapper() : Immediate(Tag::reg) {}
 };
 
-struct Immediate_pointer final : Immediate {
-  Immediate_pointer() : Immediate(Tag::pointer) {}
+struct ImmediatePointerWrapper final : Immediate {
+  ImmediatePointerWrapper() : Immediate(Tag::pointer) {}
 };
 
-struct Immediate_int final : Immediate {
+struct ImmediateIntWrapper final : Immediate {
   Int i;
-  Immediate_int() : Immediate(Tag::int32) {}
+  ImmediateIntWrapper() : Immediate(Tag::int32) {}
 };
 
-struct Immediate_float final : Immediate {
+struct ImmediateFloatWrapper final : Immediate {
   Float f;
-  Immediate_float() : Immediate(Tag::float32) {}
+  ImmediateFloatWrapper() : Immediate(Tag::float32) {}
 };
 
 struct ActivationImm {
@@ -254,18 +254,18 @@ struct ActivationImm {
   ActivationImm(Tag tag) : tag(tag) {}
 };
 
-struct ActivationImm_register final : ActivationImm {
+struct ActivationImmRegisterWrapper final : ActivationImm {
   Nat reg;
-  ActivationImm_register() : ActivationImm(Tag::reg) {}
+  ActivationImmRegisterWrapper() : ActivationImm(Tag::reg) {}
 };
 
-struct ActivationImm_pointer final : ActivationImm {
-  ActivationImm_pointer() : ActivationImm(Tag::pointer) {}
+struct ActivationImmPointerWrapper final : ActivationImm {
+  ActivationImmPointerWrapper() : ActivationImm(Tag::pointer) {}
 };
 
-struct ActivationImm_float final : ActivationImm {
+struct ActivationImmFloatWrapper final : ActivationImm {
   Float f;
-  ActivationImm_float() : ActivationImm(Tag::float32) {}
+  ActivationImmFloatWrapper() : ActivationImm(Tag::float32) {}
 };
 
 struct DataPattern final {
@@ -366,17 +366,17 @@ struct DmaBounds {
   DmaBounds(Tag tag) : tag(tag) {}
 };
 
-struct DmaBounds_disable final : DmaBounds {
-  DmaBounds_disable() : DmaBounds(Tag::disable) {}
+struct DmaBoundsDisableWrapper final : DmaBounds {
+  DmaBoundsDisableWrapper() : DmaBounds(Tag::disable) {}
 };
 
-struct DmaBounds_enable final : DmaBounds {
-  DmaBounds_enable() : DmaBounds(Tag::enable) {}
+struct DmaBoundsEnableWrapper final : DmaBounds {
+  DmaBoundsEnableWrapper() : DmaBounds(Tag::enable) {}
 };
 
-struct DmaBounds_reg final : DmaBounds {
+struct DmaBoundsRegWrapper final : DmaBounds {
   Nat reg;
-  DmaBounds_reg() : DmaBounds(Tag::reg) {}
+  DmaBoundsRegWrapper() : DmaBounds(Tag::reg) {}
 };
 
 enum class MatmulGroupElement {
@@ -394,13 +394,13 @@ struct IndexMissBehavior {
   IndexMissBehavior(Tag tag) : tag(tag) {}
 };
 
-struct IndexMissBehavior_imm final : IndexMissBehavior {
+struct IndexMissBehaviorImmWrapper final : IndexMissBehavior {
   Ptr<Immediate> value;
-  IndexMissBehavior_imm() : IndexMissBehavior(Tag::imm) {}
+  IndexMissBehaviorImmWrapper() : IndexMissBehavior(Tag::imm) {}
 };
 
-struct IndexMissBehavior_skip final : IndexMissBehavior {
-  IndexMissBehavior_skip() : IndexMissBehavior(Tag::skip) {}
+struct IndexMissBehaviorSkipWrapper final : IndexMissBehavior {
+  IndexMissBehaviorSkipWrapper() : IndexMissBehavior(Tag::skip) {}
 };
 
 enum class TensorScalarReverseOps {
@@ -621,134 +621,134 @@ struct Operator {
   Operator(Tag tag) : tag(tag) {}
 };
 
-struct Operator_activate final : Operator {
+struct OperatorActivateWrapper final : Operator {
   Ptr<Activate> op;
-  Operator_activate() : Operator(Tag::activate) {}
+  OperatorActivateWrapper() : Operator(Tag::activate) {}
 };
 
-struct Operator_affineSelect final : Operator {
+struct OperatorAffineSelectWrapper final : Operator {
   Ptr<AffineSelect> op;
-  Operator_affineSelect() : Operator(Tag::affineSelect) {}
+  OperatorAffineSelectWrapper() : Operator(Tag::affineSelect) {}
 };
 
-struct Operator_batchNormAggregate final : Operator {
+struct OperatorBatchNormAggregateWrapper final : Operator {
   Ptr<BatchNormAggregate> op;
-  Operator_batchNormAggregate() : Operator(Tag::batchNormAggregate) {}
+  OperatorBatchNormAggregateWrapper() : Operator(Tag::batchNormAggregate) {}
 };
 
-struct Operator_batchNormStats final : Operator {
+struct OperatorBatchNormStatsWrapper final : Operator {
   Ptr<BatchNormStats> op;
-  Operator_batchNormStats() : Operator(Tag::batchNormStats) {}
+  OperatorBatchNormStatsWrapper() : Operator(Tag::batchNormStats) {}
 };
 
-struct Operator_copy final : Operator {
+struct OperatorCopyWrapper final : Operator {
   Ptr<Copy> op;
-  Operator_copy() : Operator(Tag::copy) {}
+  OperatorCopyWrapper() : Operator(Tag::copy) {}
 };
 
-struct Operator_copyPredicated final : Operator {
+struct OperatorCopyPredicatedWrapper final : Operator {
   Ptr<CopyPredicated> op;
-  Operator_copyPredicated() : Operator(Tag::copyPredicated) {}
+  OperatorCopyPredicatedWrapper() : Operator(Tag::copyPredicated) {}
 };
 
-struct Operator_dmaCopy final : Operator {
+struct OperatorDmaCopyWrapper final : Operator {
   Ptr<DmaCopy> op;
-  Operator_dmaCopy() : Operator(Tag::dmaCopy) {}
+  OperatorDmaCopyWrapper() : Operator(Tag::dmaCopy) {}
 };
 
-struct Operator_dmaTranspose final : Operator {
+struct OperatorDmaTransposeWrapper final : Operator {
   Ptr<DmaTranspose> op;
-  Operator_dmaTranspose() : Operator(Tag::dmaTranspose) {}
+  OperatorDmaTransposeWrapper() : Operator(Tag::dmaTranspose) {}
 };
 
-struct Operator_dropout final : Operator {
+struct OperatorDropoutWrapper final : Operator {
   Ptr<Dropout> op;
-  Operator_dropout() : Operator(Tag::dropout) {}
+  OperatorDropoutWrapper() : Operator(Tag::dropout) {}
 };
 
-struct Operator_findIndex8 final : Operator {
+struct OperatorFindIndex8Wrapper final : Operator {
   Ptr<FindIndex8> op;
-  Operator_findIndex8() : Operator(Tag::findIndex8) {}
+  OperatorFindIndex8Wrapper() : Operator(Tag::findIndex8) {}
 };
 
-struct Operator_iota final : Operator {
+struct OperatorIotaWrapper final : Operator {
   Ptr<Iota> op;
-  Operator_iota() : Operator(Tag::iota) {}
+  OperatorIotaWrapper() : Operator(Tag::iota) {}
 };
 
-struct Operator_loadMaskRegister final : Operator {
+struct OperatorLoadMaskRegisterWrapper final : Operator {
   Ptr<LoadMaskRegister> op;
-  Operator_loadMaskRegister() : Operator(Tag::loadMaskRegister) {}
+  OperatorLoadMaskRegisterWrapper() : Operator(Tag::loadMaskRegister) {}
 };
 
-struct Operator_loadStationary final : Operator {
+struct OperatorLoadStationaryWrapper final : Operator {
   Ptr<LoadStationary> op;
-  Operator_loadStationary() : Operator(Tag::loadStationary) {}
+  OperatorLoadStationaryWrapper() : Operator(Tag::loadStationary) {}
 };
 
-struct Operator_localGather final : Operator {
+struct OperatorLocalGatherWrapper final : Operator {
   Ptr<LocalGather> op;
-  Operator_localGather() : Operator(Tag::localGather) {}
+  OperatorLocalGatherWrapper() : Operator(Tag::localGather) {}
 };
 
-struct Operator_matMul final : Operator {
+struct OperatorMatMulWrapper final : Operator {
   Ptr<MatMul> op;
-  Operator_matMul() : Operator(Tag::matMul) {}
+  OperatorMatMulWrapper() : Operator(Tag::matMul) {}
 };
 
-struct Operator_matchReplace8 final : Operator {
+struct OperatorMatchReplace8Wrapper final : Operator {
   Ptr<MatchReplace8> op;
-  Operator_matchReplace8() : Operator(Tag::matchReplace8) {}
+  OperatorMatchReplace8Wrapper() : Operator(Tag::matchReplace8) {}
 };
 
-struct Operator_matchValueLoad final : Operator {
+struct OperatorMatchValueLoadWrapper final : Operator {
   Ptr<MatchValueLoad> op;
-  Operator_matchValueLoad() : Operator(Tag::matchValueLoad) {}
+  OperatorMatchValueLoadWrapper() : Operator(Tag::matchValueLoad) {}
 };
 
-struct Operator_max8 final : Operator {
+struct OperatorMax8Wrapper final : Operator {
   Ptr<Max8> op;
-  Operator_max8() : Operator(Tag::max8) {}
+  OperatorMax8Wrapper() : Operator(Tag::max8) {}
 };
 
-struct Operator_memSet final : Operator {
+struct OperatorMemSetWrapper final : Operator {
   Ptr<MemSet> op;
-  Operator_memSet() : Operator(Tag::memSet) {}
+  OperatorMemSetWrapper() : Operator(Tag::memSet) {}
 };
 
-struct Operator_rangeSelect final : Operator {
+struct OperatorRangeSelectWrapper final : Operator {
   Ptr<RangeSelect> op;
-  Operator_rangeSelect() : Operator(Tag::rangeSelect) {}
+  OperatorRangeSelectWrapper() : Operator(Tag::rangeSelect) {}
 };
 
-struct Operator_reciprocal final : Operator {
+struct OperatorReciprocalWrapper final : Operator {
   Ptr<Reciprocal> op;
-  Operator_reciprocal() : Operator(Tag::reciprocal) {}
+  OperatorReciprocalWrapper() : Operator(Tag::reciprocal) {}
 };
 
-struct Operator_scalarTensorTensor final : Operator {
+struct OperatorScalarTensorTensorWrapper final : Operator {
   Ptr<ScalarTensorTensor> op;
-  Operator_scalarTensorTensor() : Operator(Tag::scalarTensorTensor) {}
+  OperatorScalarTensorTensorWrapper() : Operator(Tag::scalarTensorTensor) {}
 };
 
-struct Operator_shuffle final : Operator {
+struct OperatorShuffleWrapper final : Operator {
   Ptr<Shuffle> op;
-  Operator_shuffle() : Operator(Tag::shuffle) {}
+  OperatorShuffleWrapper() : Operator(Tag::shuffle) {}
 };
 
-struct Operator_tensorReduce final : Operator {
+struct OperatorTensorReduceWrapper final : Operator {
   Ptr<TensorReduce> op;
-  Operator_tensorReduce() : Operator(Tag::tensorReduce) {}
+  OperatorTensorReduceWrapper() : Operator(Tag::tensorReduce) {}
 };
 
-struct Operator_tensorTensorScan final : Operator {
+struct OperatorTensorTensorScanWrapper final : Operator {
   Ptr<TensorTensorScan> op;
-  Operator_tensorTensorScan() : Operator(Tag::tensorTensorScan) {}
+  OperatorTensorTensorScanWrapper() : Operator(Tag::tensorTensorScan) {}
 };
 
-struct Operator_transpose final : Operator {
+struct OperatorTransposeWrapper final : Operator {
   Ptr<Transpose> op;
-  Operator_transpose() : Operator(Tag::transpose) {}
+  OperatorTransposeWrapper() : Operator(Tag::transpose) {}
 };
 
 struct Value {
@@ -763,29 +763,29 @@ struct Value {
   Value(Tag tag) : tag(tag) {}
 };
 
-struct Value_var final : Value {
+struct ValueVarWrapper final : Value {
   String x;
-  Value_var() : Value(Tag::var) {}
+  ValueVarWrapper() : Value(Tag::var) {}
 };
 
-struct Value_bool final : Value {
+struct ValueBoolWrapper final : Value {
   Bool value;
-  Value_bool() : Value(Tag::boolean) {}
+  ValueBoolWrapper() : Value(Tag::boolean) {}
 };
 
-struct Value_int final : Value {
+struct ValueIntWrapper final : Value {
   Int value;
-  Value_int() : Value(Tag::int32) {}
+  ValueIntWrapper() : Value(Tag::int32) {}
 };
 
-struct Value_float final : Value {
+struct ValueFloatWrapper final : Value {
   Float value;
-  Value_float() : Value(Tag::float32) {}
+  ValueFloatWrapper() : Value(Tag::float32) {}
 };
 
-struct Value_access final : Value {
+struct ValueAccessWrapper final : Value {
   Ptr<Access> a;
-  Value_access() : Value(Tag::access) {}
+  ValueAccessWrapper() : Value(Tag::access) {}
 };
 
 struct Keyword final {
@@ -802,16 +802,16 @@ struct Expr {
   Expr(Tag tag) : tag(tag) {}
 };
 
-struct Expr_value final : Expr {
+struct ExprValueWrapper final : Expr {
   Ptr<Value> v;
-  Expr_value() : Expr(Tag::value) {}
+  ExprValueWrapper() : Expr(Tag::value) {}
 };
 
-struct Expr_call final : Expr {
+struct ExprCallWrapper final : Expr {
   String f;
   List<Ptr<Value>> args;
   List<Ptr<Keyword>> kwargs;
-  Expr_call() : Expr(Tag::call) {}
+  ExprCallWrapper() : Expr(Tag::call) {}
 };
 
 struct Stmt {
@@ -824,22 +824,22 @@ struct Stmt {
   Stmt(Tag tag) : tag(tag) {}
 };
 
-struct Stmt_ret final : Stmt {
+struct StmtRetWrapper final : Stmt {
   Ptr<Value> v;
-  Stmt_ret() : Stmt(Tag::ret) {}
+  StmtRetWrapper() : Stmt(Tag::ret) {}
 };
 
-struct Stmt_assign final : Stmt {
+struct StmtAssignWrapper final : Stmt {
   String x;
   Ptr<Expr> e;
-  Stmt_assign() : Stmt(Tag::assign) {}
+  StmtAssignWrapper() : Stmt(Tag::assign) {}
 };
 
-struct Stmt_store final : Stmt {
+struct StmtStoreWrapper final : Stmt {
   Ptr<Access> dst;
   Ptr<Operator> op;
   List<Ptr<Value>> args;
-  Stmt_store() : Stmt(Tag::store) {}
+  StmtStoreWrapper() : Stmt(Tag::store) {}
 };
 
 struct Kernel final {
@@ -870,23 +870,23 @@ struct Contents {
   Contents(Tag tag) : tag(tag) {}
 };
 
-struct Contents_python final : Contents {
+struct ContentsPythonWrapper final : Contents {
   Ptr<Kernel> kernel;
-  Contents_python() : Contents(Tag::python) {}
+  ContentsPythonWrapper() : Contents(Tag::python) {}
 };
 
-struct Contents_nki final : Contents {
+struct ContentsNkiWrapper final : Contents {
   Ptr<Kernel> kernel;
-  Contents_nki() : Contents(Tag::nki) {}
+  ContentsNkiWrapper() : Contents(Tag::nki) {}
 };
 
-struct Contents_klir final : Contents {
+struct ContentsKlirWrapper final : Contents {
   Ptr<Kernel> kernel;
-  Contents_klir() : Contents(Tag::klir) {}
+  ContentsKlirWrapper() : Contents(Tag::klir) {}
 };
 
-struct Contents_hlo final : Contents {
+struct ContentsHloWrapper final : Contents {
   String name;
-  Contents_hlo() : Contents(Tag::hlo) {}
+  ContentsHloWrapper() : Contents(Tag::hlo) {}
 };
 } // namespace klr
