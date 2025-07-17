@@ -40,19 +40,11 @@ bool deserialize_array_start(FILE *in, u64 *size);
 bool deserialize_tag(FILE *in, u8 *type, u8 *constructor, u8 *len);
 bool deserialize_option(FILE *in, bool *isSome);
 
-bool deserialize(FILE *in, struct Prop *p);
-bool deserialize(FILE *in, Bool *x);
-bool deserialize(FILE *in, Nat *x);
-bool deserialize(FILE *in, Int *x);
-bool deserialize(FILE *in, Float *x);
-bool deserialize(FILE *in, String *s);
-/*
-bool Prop_des(FILE *out, struct Prop *p);
-bool Bool_des(FILE *out, Bool *x);
-bool Nat_des(FILE *out, Nat *x);
-bool Int_des(FILE *out, Int *x);
-bool Float_des(FILE *out, Float *x);
-bool String_des(FILE *out, String *s);
-*/
+Prop Prop_des(FILE *out);
+Bool Bool_des(FILE *out);
+Nat Nat_des(FILE *out);
+Int Int_des(FILE *out);
+Float Float_des(FILE *out);
+String String_des(FILE *out);
 
 } // namespace klr

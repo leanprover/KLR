@@ -51,16 +51,11 @@ def cppName (name : Name) : String :=
 
 def subclassName (name : Name) : String := cppName name ++ "Wrapper"
 
-def enumFullName (name : Name) : String :=
-  match name with
-  | .str n s@⟨c :: _⟩ =>
-    let s := s.replace "'" "_"
-    if c.isUpper then s else
-    match cppName n with
-    | "" => s
-    | s1 => s1 ++ "::" ++ s
+def enumFullName : Name -> String
+  | .str (.str _ a) b => a ++ "::" ++ b
+  | .str _ s => s
+  | .num n _ => enumFullName n
   | .anonymous => ""
-  | _ => panic! s!"invalid CPP name {name}"
 
 
 instance : ToString Name where toString n := cppName n
@@ -163,6 +158,6 @@ def generateKlrAST : MetaM Unit := do
   -- different Kernel types, however, we only care about the KLIR Kernel right now.
   -- TODO: fix this by qualifying the generated types, which we should do at some point.
   genTypes (<- C.fileAST)
-  IO.println "}"
+  IO.println "}" -- TODO close namespace!
 
-run_meta generateKlrAST
+--run_meta generateKlrAST

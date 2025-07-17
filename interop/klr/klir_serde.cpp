@@ -12,2064 +12,2091 @@ Written by the KLR Contributors (https://github.com/leanprover/KLR)
 
 namespace klr {
 
-bool List_des(FILE *in, List<Bool> &x) { return true; }
+List<Bool> List_Bool_des(FILE *in) {
+  List<Bool> x;
+  return x;
+}
 
-bool List_des(FILE *in, List<Nat> &x) { return true; }
+List<Nat> List_Nat_des(FILE *in) {
+  List<Nat> x;
+  return x;
+}
 
-bool List_des(FILE *in, List<Int> &x) { return true; }
+List<Int> List_Int_des(FILE *in) {
+  List<Int> x;
+  return x;
+}
 
-bool List_des(FILE *in, List<Float> &x) { return true; }
+List<Float> List_Float_des(FILE *in) {
+  List<Float> x;
+  return x;
+}
 
-bool List_des(FILE *in, List<String> &x) { return true; }
+List<String> List_String_des(FILE *in) {
+  List<String> x;
+  return x;
+}
 
-bool Option_des(FILE *in, Option<Bool> &x) { return true; }
+Option<Bool> Option_Bool_des(FILE *in) {
+  Option<Bool> x;
+  return x;
+}
 
-bool Option_des(FILE *in, Option<Nat> &x) { return true; }
+Option<Nat> Option_Nat_des(FILE *in) {
+  Option<Nat> x;
+  return x;
+}
 
-bool Option_des(FILE *in, Option<Int> &x) { return true; }
+Option<Int> Option_Int_des(FILE *in) {
+  Option<Int> x;
+  return x;
+}
 
-bool Option_des(FILE *in, Option<Float> &x) { return true; }
+Option<Float> Option_Float_des(FILE *in) {
+  Option<Float> x;
+  return x;
+}
 
-bool Option_des(FILE *in, Option<String> &x) { return true; }
+Option<String> Option_String_des(FILE *in) {
+  Option<String> x;
+  return x;
+}
 
-bool Pos_des(FILE *in, Ptr<Pos> &x) {
+Ptr<Pos> Pos_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 100 || c != 0 || l != 4)
-    return false;
-  *x = static_cast<Pos *>(region_alloc(region, sizeof(**x)));
-  if (!Nat_des(in, &(*x)->line))
-    return false;
-  if (!Nat_des(in, &(*x)->column))
-    return false;
-  if (!Option_des(in, &(*x)->lineEnd))
-    return false;
-  if (!Option_des(in, &(*x)->columnEnd))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<Pos> x = ptr<Pos>();
+  x->line = Nat_des(in);
+  x->column = Nat_des(in);
+  x->lineEnd = Option_Nat_des(in);
+  x->columnEnd = Option_Nat_des(in);
+  return x;
 }
 
-bool Memory_des(FILE *in, Memory &x) {
+Memory Memory_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 110)
-    return false;
-  (void)region;
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 0)
-      return false;
-    *x = Memory::hbm;
+      throw std::runtime_error("rror");
+    return Memory::hbm;
     break;
-  case 1:
-    if (l != 0)
-      return false;
-    *x = Memory::sbuf;
-    break;
-  case 2:
-    if (l != 0)
-      return false;
-    *x = Memory::pmem;
-    break;
-  case 3:
-    if (l != 0)
-      return false;
-    *x = Memory::reg;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Memory::sbuf;
+    break;
+  }
+  case 2: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Memory::pmem;
+    break;
+  }
+  case 3: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Memory::reg;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool Dtype_des(FILE *in, Dtype &x) {
+Dtype Dtype_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 111)
-    return false;
-  (void)region;
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 0)
-      return false;
-    *x = Dtype::bfloat16;
+      throw std::runtime_error("rror");
+    return Dtype::bfloat16;
     break;
-  case 1:
-    if (l != 0)
-      return false;
-    *x = Dtype::float8e3;
-    break;
-  case 2:
-    if (l != 0)
-      return false;
-    *x = Dtype::float8e4;
-    break;
-  case 3:
-    if (l != 0)
-      return false;
-    *x = Dtype::float8e5;
-    break;
-  case 4:
-    if (l != 0)
-      return false;
-    *x = Dtype::float16;
-    break;
-  case 5:
-    if (l != 0)
-      return false;
-    *x = Dtype::float32;
-    break;
-  case 6:
-    if (l != 0)
-      return false;
-    *x = Dtype::float32r;
-    break;
-  case 7:
-    if (l != 0)
-      return false;
-    *x = Dtype::int8;
-    break;
-  case 8:
-    if (l != 0)
-      return false;
-    *x = Dtype::int16;
-    break;
-  case 9:
-    if (l != 0)
-      return false;
-    *x = Dtype::int64;
-    break;
-  case 10:
-    if (l != 0)
-      return false;
-    *x = Dtype::int32;
-    break;
-  case 11:
-    if (l != 0)
-      return false;
-    *x = Dtype::uint8;
-    break;
-  case 12:
-    if (l != 0)
-      return false;
-    *x = Dtype::uint16;
-    break;
-  case 13:
-    if (l != 0)
-      return false;
-    *x = Dtype::uint32;
-    break;
-  case 14:
-    if (l != 0)
-      return false;
-    *x = Dtype::uint64;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Dtype::float8e3;
+    break;
+  }
+  case 2: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Dtype::float8e4;
+    break;
+  }
+  case 3: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Dtype::float8e5;
+    break;
+  }
+  case 4: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Dtype::float16;
+    break;
+  }
+  case 5: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Dtype::float32;
+    break;
+  }
+  case 6: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Dtype::float32r;
+    break;
+  }
+  case 7: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Dtype::int8;
+    break;
+  }
+  case 8: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Dtype::int16;
+    break;
+  }
+  case 9: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Dtype::int64;
+    break;
+  }
+  case 10: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Dtype::int32;
+    break;
+  }
+  case 11: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Dtype::uint8;
+    break;
+  }
+  case 12: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Dtype::uint16;
+    break;
+  }
+  case 13: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Dtype::uint32;
+    break;
+  }
+  case 14: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Dtype::uint64;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool Shape_des(FILE *in, Ptr<Shape> &x) {
+Ptr<Shape> Shape_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 112 || c != 0 || l != 2)
-    return false;
-  *x = static_cast<Shape *>(region_alloc(region, sizeof(**x)));
-  if (!Nat_des(in, &(*x)->parDim))
-    return false;
-  if (!List_des(in, &(*x)->freeDims))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<Shape> x = ptr<Shape>();
+  x->parDim = Nat_des(in);
+  x->freeDims = List_Nat_des(in);
+  return x;
 }
 
-bool Address_des(FILE *in, Ptr<Address> &x) {
+Ptr<Address> Address_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 113 || c != 0 || l != 5)
-    return false;
-  *x = static_cast<Address *>(region_alloc(region, sizeof(**x)));
-  if (!Memory_des(in, &(*x)->memory))
-    return false;
-  if (!Nat_des(in, &(*x)->parSize))
-    return false;
-  if (!Nat_des(in, &(*x)->freeSize))
-    return false;
-  if (!Option_des(in, &(*x)->parOffset))
-    return false;
-  if (!Option_des(in, &(*x)->freeOffset))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<Address> x = ptr<Address>();
+  x->memory = Memory_des(in);
+  x->parSize = Nat_des(in);
+  x->freeSize = Nat_des(in);
+  x->parOffset = Option_Nat_des(in);
+  x->freeOffset = Option_Nat_des(in);
+  return x;
 }
 
-bool TensorSram_des(FILE *in, Ptr<TensorSram> &x) {
+Ptr<TensorSram> TensorSram_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 114 || c != 0 || l != 6)
-    return false;
-  *x = static_cast<TensorSram *>(region_alloc(region, sizeof(**x)));
-  if (!String_des(in, &(*x)->name))
-    return false;
-  if (!Dtype_des(in, &(*x)->dtype))
-    return false;
-  if (!Shape_des(in, &(*x)->shape))
-    return false;
-  if (!Address_des(in, &(*x)->address))
-    return false;
-  if (!Prop_des(in, &(*x)->parWF))
-    return false;
-  if (!Prop_des(in, &(*x)->freeWF))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<TensorSram> x = ptr<TensorSram>();
+  x->name = String_des(in);
+  x->dtype = Dtype_des(in);
+  x->shape = Shape_des(in);
+  x->address = Address_des(in);
+  x->parWF = Prop_des(in);
+  x->freeWF = Prop_des(in);
+  return x;
 }
 
-bool Slice_des(FILE *in, Ptr<Slice> &x) {
+Ptr<Slice> Slice_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 115 || c != 0 || l != 4)
-    return false;
-  *x = static_cast<Slice *>(region_alloc(region, sizeof(**x)));
-  if (!Nat_des(in, &(*x)->l))
-    return false;
-  if (!Nat_des(in, &(*x)->u))
-    return false;
-  if (!Int_des(in, &(*x)->step))
-    return false;
-  if (!Prop_des(in, &(*x)->wf))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<Slice> x = ptr<Slice>();
+  x->l = Nat_des(in);
+  x->u = Nat_des(in);
+  x->step = Int_des(in);
+  x->wf = Prop_des(in);
+  return x;
 }
 
-bool Index_des(FILE *in, Ptr<Index> &x) {
+Ptr<Index> Index_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 116)
-    return false;
-  *x = static_cast<Index *>(region_alloc(region, sizeof(**x)));
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 1)
-      return false;
-    if (!Nat_des(in, &(*x)->coord.e))
-      return false;
-    (*x)->tag = IndexCoord;
+      throw std::runtime_error("rror");
+    Ptr<IndexCoordWrapper> x = ptr<IndexCoordWrapper>();
+    x->e = Nat_des(in);
+    return x;
     break;
-  case 1:
-    if (l != 1)
-      return false;
-    if (!Slice_des(in, &(*x)->slice.slice))
-      return false;
-    (*x)->tag = IndexSlice;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<IndexSliceWrapper> x = ptr<IndexSliceWrapper>();
+    x->slice = Slice_des(in);
+    return x;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool AccessBasic_des(FILE *in, Ptr<AccessBasic> &x) {
+Ptr<AccessBasic> AccessBasic_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 117 || c != 0 || l != 3)
-    return false;
-  *x = static_cast<AccessBasic *>(region_alloc(region, sizeof(**x)));
-  if (!TensorSram_des(in, &(*x)->tensor))
-    return false;
-  if (!List_des(in, &(*x)->indexes))
-    return false;
-  if (!Prop_des(in, &(*x)->lenWF))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<AccessBasic> x = ptr<AccessBasic>();
+  x->tensor = TensorSram_des(in);
+  x->indexes = List_Index_des(in);
+  x->lenWF = Prop_des(in);
+  return x;
 }
 
-bool APPair_des(FILE *in, Ptr<APPair> &x) {
+Ptr<APPair> APPair_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 118 || c != 0 || l != 2)
-    return false;
-  *x = static_cast<APPair *>(region_alloc(region, sizeof(**x)));
-  if (!Int_des(in, &(*x)->step))
-    return false;
-  if (!Nat_des(in, &(*x)->num))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<APPair> x = ptr<APPair>();
+  x->step = Int_des(in);
+  x->num = Nat_des(in);
+  return x;
 }
 
-bool AccessPattern_des(FILE *in, Ptr<AccessPattern> &x) {
+Ptr<AccessPattern> AccessPattern_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 119 || c != 0 || l != 4)
-    return false;
-  *x = static_cast<AccessPattern *>(region_alloc(region, sizeof(**x)));
-  if (!TensorSram_des(in, &(*x)->tensor))
-    return false;
-  if (!Nat_des(in, &(*x)->parNum))
-    return false;
-  if (!List_des(in, &(*x)->freePattern))
-    return false;
-  if (!Nat_des(in, &(*x)->offset))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<AccessPattern> x = ptr<AccessPattern>();
+  x->tensor = TensorSram_des(in);
+  x->parNum = Nat_des(in);
+  x->freePattern = List_APPair_des(in);
+  x->offset = Nat_des(in);
+  return x;
 }
 
-bool Access_des(FILE *in, Ptr<Access> &x) {
+Ptr<Access> Access_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 120)
-    return false;
-  *x = static_cast<Access *>(region_alloc(region, sizeof(**x)));
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 1)
-      return false;
-    if (!TensorSram_des(in, &(*x)->simple.tensor))
-      return false;
-    (*x)->tag = AccessSimple;
+      throw std::runtime_error("rror");
+    Ptr<AccessSimpleWrapper> x = ptr<AccessSimpleWrapper>();
+    x->tensor = TensorSram_des(in);
+    return x;
     break;
-  case 1:
-    if (l != 1)
-      return false;
-    if (!AccessBasic_des(in, &(*x)->basic.access))
-      return false;
-    (*x)->tag = AccessBasic;
-    break;
-  case 2:
-    if (l != 1)
-      return false;
-    if (!AccessPattern_des(in, &(*x)->pattern.access))
-      return false;
-    (*x)->tag = AccessPattern;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<AccessBasicWrapper> x = ptr<AccessBasicWrapper>();
+    x->access = AccessBasic_des(in);
+    return x;
+    break;
+  }
+  case 2: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<AccessPatternWrapper> x = ptr<AccessPatternWrapper>();
+    x->access = AccessPattern_des(in);
+    return x;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool TensorHbm_des(FILE *in, Ptr<TensorHbm> &x) {
+Ptr<TensorHbm> TensorHbm_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 121 || c != 0 || l != 4)
-    return false;
-  *x = static_cast<TensorHbm *>(region_alloc(region, sizeof(**x)));
-  if (!Dtype_des(in, &(*x)->dtype))
-    return false;
-  if (!Nat_des(in, &(*x)->address))
-    return false;
-  if (!List_des(in, &(*x)->shape))
-    return false;
-  if (!List_des(in, &(*x)->strides))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<TensorHbm> x = ptr<TensorHbm>();
+  x->dtype = Dtype_des(in);
+  x->address = Nat_des(in);
+  x->shape = List_Nat_des(in);
+  x->strides = List_Nat_des(in);
+  return x;
 }
 
-bool ParQuadrant_des(FILE *in, ParQuadrant &x) {
+ParQuadrant ParQuadrant_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 122)
-    return false;
-  (void)region;
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 0)
-      return false;
-    *x = ParQuadrant::par0;
+      throw std::runtime_error("rror");
+    return ParQuadrant::par0;
     break;
-  case 1:
-    if (l != 0)
-      return false;
-    *x = ParQuadrant::par32;
-    break;
-  case 2:
-    if (l != 0)
-      return false;
-    *x = ParQuadrant::par64;
-    break;
-  case 3:
-    if (l != 0)
-      return false;
-    *x = ParQuadrant::par96;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ParQuadrant::par32;
+    break;
+  }
+  case 2: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ParQuadrant::par64;
+    break;
+  }
+  case 3: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ParQuadrant::par96;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool TensorView_des(FILE *in, Ptr<TensorView> &x) {
+Ptr<TensorView> TensorView_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 123 || c != 0 || l != 6)
-    return false;
-  *x = static_cast<TensorView *>(region_alloc(region, sizeof(**x)));
-  if (!String_des(in, &(*x)->name))
-    return false;
-  if (!Dtype_des(in, &(*x)->dtype))
-    return false;
-  if (!ParQuadrant_des(in, &(*x)->parQuadrant))
-    return false;
-  if (!Nat_des(in, &(*x)->parDim))
-    return false;
-  if (!Nat_des(in, &(*x)->freeOffset))
-    return false;
-  if (!List_des(in, &(*x)->freePattern))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<TensorView> x = ptr<TensorView>();
+  x->name = String_des(in);
+  x->dtype = Dtype_des(in);
+  x->parQuadrant = ParQuadrant_des(in);
+  x->parDim = Nat_des(in);
+  x->freeOffset = Nat_des(in);
+  x->freePattern = List_APPair_des(in);
+  return x;
 }
 
-bool TensorRef_des(FILE *in, Ptr<TensorRef> &x) {
+Ptr<TensorRef> TensorRef_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 124)
-    return false;
-  *x = static_cast<TensorRef *>(region_alloc(region, sizeof(**x)));
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 1)
-      return false;
-    if (!Access_des(in, &(*x)->abstract.access))
-      return false;
-    (*x)->tag = TensorRefAbstract;
+      throw std::runtime_error("rror");
+    Ptr<TensorRefAbstractWrapper> x = ptr<TensorRefAbstractWrapper>();
+    x->access = Access_des(in);
+    return x;
     break;
-  case 1:
-    if (l != 1)
-      return false;
-    if (!TensorView_des(in, &(*x)->literal.view))
-      return false;
-    (*x)->tag = TensorRefLiteral;
-    break;
-  case 2:
-    if (l != 1)
-      return false;
-    if (!Nat_des(in, &(*x)->reg.reg))
-      return false;
-    (*x)->tag = TensorRefRegister;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<TensorRefLiteralWrapper> x = ptr<TensorRefLiteralWrapper>();
+    x->view = TensorView_des(in);
+    return x;
+    break;
+  }
+  case 2: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<TensorRefRegisterWrapper> x = ptr<TensorRefRegisterWrapper>();
+    x->reg = Nat_des(in);
+    return x;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool TensorArg_des(FILE *in, Ptr<TensorArg> &x) {
+Ptr<TensorArg> TensorArg_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 125)
-    return false;
-  *x = static_cast<TensorArg *>(region_alloc(region, sizeof(**x)));
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 1)
-      return false;
-    if (!TensorHbm_des(in, &(*x)->hbm.tensor))
-      return false;
-    (*x)->tag = TensorArgHbm;
+      throw std::runtime_error("rror");
+    Ptr<TensorArgHbmWrapper> x = ptr<TensorArgHbmWrapper>();
+    x->tensor = TensorHbm_des(in);
+    return x;
     break;
-  case 1:
-    if (l != 1)
-      return false;
-    if (!TensorSram_des(in, &(*x)->sram.tensor))
-      return false;
-    (*x)->tag = TensorArgSram;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<TensorArgSramWrapper> x = ptr<TensorArgSramWrapper>();
+    x->tensor = TensorSram_des(in);
+    return x;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool Engine_des(FILE *in, Engine &x) {
+Engine Engine_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 130)
-    return false;
-  (void)region;
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 0)
-      return false;
-    *x = Engine::unassigned;
+      throw std::runtime_error("rror");
+    return Engine::unassigned;
     break;
-  case 1:
-    if (l != 0)
-      return false;
-    *x = Engine::act;
-    break;
-  case 2:
-    if (l != 0)
-      return false;
-    *x = Engine::dma;
-    break;
-  case 3:
-    if (l != 0)
-      return false;
-    *x = Engine::dve;
-    break;
-  case 4:
-    if (l != 0)
-      return false;
-    *x = Engine::pe;
-    break;
-  case 5:
-    if (l != 0)
-      return false;
-    *x = Engine::pool;
-    break;
-  case 6:
-    if (l != 0)
-      return false;
-    *x = Engine::sp;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Engine::act;
+    break;
+  }
+  case 2: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Engine::dma;
+    break;
+  }
+  case 3: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Engine::dve;
+    break;
+  }
+  case 4: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Engine::pe;
+    break;
+  }
+  case 5: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Engine::pool;
+    break;
+  }
+  case 6: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return Engine::sp;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool Immediate_des(FILE *in, Ptr<Immediate> &x) {
+Ptr<Immediate> Immediate_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 131)
-    return false;
-  *x = static_cast<Immediate *>(region_alloc(region, sizeof(**x)));
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 1)
-      return false;
-    if (!Nat_des(in, &(*x)->reg.reg))
-      return false;
-    (*x)->tag = ImmediateRegister;
+      throw std::runtime_error("rror");
+    Ptr<ImmediateRegisterWrapper> x = ptr<ImmediateRegisterWrapper>();
+    x->reg = Nat_des(in);
+    return x;
     break;
-  case 1:
-    if (l != 0)
-      return false;
-    (*x)->tag = ImmediatePointer;
-    break;
-  case 2:
-    if (l != 1)
-      return false;
-    if (!Int_des(in, &(*x)->int32.i))
-      return false;
-    (*x)->tag = ImmediateInt;
-    break;
-  case 3:
-    if (l != 1)
-      return false;
-    if (!Float_des(in, &(*x)->float32.f))
-      return false;
-    (*x)->tag = ImmediateFloat;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    Ptr<ImmediatePointerWrapper> x = ptr<ImmediatePointerWrapper>();
+    return x;
+    break;
+  }
+  case 2: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<ImmediateIntWrapper> x = ptr<ImmediateIntWrapper>();
+    x->i = Int_des(in);
+    return x;
+    break;
+  }
+  case 3: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<ImmediateFloatWrapper> x = ptr<ImmediateFloatWrapper>();
+    x->f = Float_des(in);
+    return x;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool ActivationImm_des(FILE *in, Ptr<ActivationImm> &x) {
+Ptr<ActivationImm> ActivationImm_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 132)
-    return false;
-  *x = static_cast<ActivationImm *>(region_alloc(region, sizeof(**x)));
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 1)
-      return false;
-    if (!Nat_des(in, &(*x)->reg.reg))
-      return false;
-    (*x)->tag = ActivationImmRegister;
+      throw std::runtime_error("rror");
+    Ptr<ActivationImmRegisterWrapper> x = ptr<ActivationImmRegisterWrapper>();
+    x->reg = Nat_des(in);
+    return x;
     break;
-  case 1:
-    if (l != 0)
-      return false;
-    (*x)->tag = ActivationImmPointer;
-    break;
-  case 2:
-    if (l != 1)
-      return false;
-    if (!Float_des(in, &(*x)->float32.f))
-      return false;
-    (*x)->tag = ActivationImmFloat;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    Ptr<ActivationImmPointerWrapper> x = ptr<ActivationImmPointerWrapper>();
+    return x;
+    break;
+  }
+  case 2: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<ActivationImmFloatWrapper> x = ptr<ActivationImmFloatWrapper>();
+    x->f = Float_des(in);
+    return x;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool DataPattern_des(FILE *in, Ptr<DataPattern> &x) {
+Ptr<DataPattern> DataPattern_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 133 || c != 0 || l != 2)
-    return false;
-  *x = static_cast<DataPattern *>(region_alloc(region, sizeof(**x)));
-  if (!Nat_des(in, &(*x)->offset))
-    return false;
-  if (!List_des(in, &(*x)->pattern))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<DataPattern> x = ptr<DataPattern>();
+  x->offset = Nat_des(in);
+  x->pattern = List_APPair_des(in);
+  return x;
 }
 
-bool AluOp_des(FILE *in, AluOp &x) {
+AluOp AluOp_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 134)
-    return false;
-  (void)region;
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 0)
-      return false;
-    *x = AluOp::abs;
+      throw std::runtime_error("rror");
+    return AluOp::abs;
     break;
-  case 1:
-    if (l != 0)
-      return false;
-    *x = AluOp::add;
-    break;
-  case 2:
-    if (l != 0)
-      return false;
-    *x = AluOp::arith_shift_left;
-    break;
-  case 3:
-    if (l != 0)
-      return false;
-    *x = AluOp::arith_shift_right;
-    break;
-  case 4:
-    if (l != 0)
-      return false;
-    *x = AluOp::average;
-    break;
-  case 5:
-    if (l != 0)
-      return false;
-    *x = AluOp::bitwise_and;
-    break;
-  case 6:
-    if (l != 0)
-      return false;
-    *x = AluOp::bitwise_not;
-    break;
-  case 7:
-    if (l != 0)
-      return false;
-    *x = AluOp::bitwise_or;
-    break;
-  case 8:
-    if (l != 0)
-      return false;
-    *x = AluOp::bitwise_xor;
-    break;
-  case 9:
-    if (l != 0)
-      return false;
-    *x = AluOp::bypass;
-    break;
-  case 10:
-    if (l != 0)
-      return false;
-    *x = AluOp::divide;
-    break;
-  case 11:
-    if (l != 0)
-      return false;
-    *x = AluOp::is_equal;
-    break;
-  case 12:
-    if (l != 0)
-      return false;
-    *x = AluOp::is_ge;
-    break;
-  case 13:
-    if (l != 0)
-      return false;
-    *x = AluOp::is_gt;
-    break;
-  case 14:
-    if (l != 0)
-      return false;
-    *x = AluOp::is_le;
-    break;
-  case 15:
-    if (l != 0)
-      return false;
-    *x = AluOp::is_lt;
-    break;
-  case 16:
-    if (l != 0)
-      return false;
-    *x = AluOp::logical_and;
-    break;
-  case 17:
-    if (l != 0)
-      return false;
-    *x = AluOp::logical_or;
-    break;
-  case 18:
-    if (l != 0)
-      return false;
-    *x = AluOp::logical_shift_left;
-    break;
-  case 19:
-    if (l != 0)
-      return false;
-    *x = AluOp::logical_shift_right;
-    break;
-  case 20:
-    if (l != 0)
-      return false;
-    *x = AluOp::logical_xor;
-    break;
-  case 21:
-    if (l != 0)
-      return false;
-    *x = AluOp::max;
-    break;
-  case 22:
-    if (l != 0)
-      return false;
-    *x = AluOp::min;
-    break;
-  case 23:
-    if (l != 0)
-      return false;
-    *x = AluOp::mod;
-    break;
-  case 24:
-    if (l != 0)
-      return false;
-    *x = AluOp::mult;
-    break;
-  case 25:
-    if (l != 0)
-      return false;
-    *x = AluOp::not_equal;
-    break;
-  case 26:
-    if (l != 0)
-      return false;
-    *x = AluOp::pow;
-    break;
-  case 27:
-    if (l != 0)
-      return false;
-    *x = AluOp::rsqrt;
-    break;
-  case 28:
-    if (l != 0)
-      return false;
-    *x = AluOp::subtract;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::add;
+    break;
+  }
+  case 2: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::arith_shift_left;
+    break;
+  }
+  case 3: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::arith_shift_right;
+    break;
+  }
+  case 4: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::average;
+    break;
+  }
+  case 5: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::bitwise_and;
+    break;
+  }
+  case 6: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::bitwise_not;
+    break;
+  }
+  case 7: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::bitwise_or;
+    break;
+  }
+  case 8: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::bitwise_xor;
+    break;
+  }
+  case 9: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::bypass;
+    break;
+  }
+  case 10: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::divide;
+    break;
+  }
+  case 11: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::is_equal;
+    break;
+  }
+  case 12: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::is_ge;
+    break;
+  }
+  case 13: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::is_gt;
+    break;
+  }
+  case 14: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::is_le;
+    break;
+  }
+  case 15: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::is_lt;
+    break;
+  }
+  case 16: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::logical_and;
+    break;
+  }
+  case 17: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::logical_or;
+    break;
+  }
+  case 18: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::logical_shift_left;
+    break;
+  }
+  case 19: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::logical_shift_right;
+    break;
+  }
+  case 20: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::logical_xor;
+    break;
+  }
+  case 21: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::max;
+    break;
+  }
+  case 22: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::min;
+    break;
+  }
+  case 23: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::mod;
+    break;
+  }
+  case 24: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::mult;
+    break;
+  }
+  case 25: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::not_equal;
+    break;
+  }
+  case 26: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::pow;
+    break;
+  }
+  case 27: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::rsqrt;
+    break;
+  }
+  case 28: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AluOp::subtract;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool DropoutThresholdType_des(FILE *in, DropoutThresholdType &x) {
+DropoutThresholdType DropoutThresholdType_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 135)
-    return false;
-  (void)region;
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 0)
-      return false;
-    *x = DropRate;
+      throw std::runtime_error("rror");
+    return DropoutThresholdType::DropRate;
     break;
-  case 1:
-    if (l != 0)
-      return false;
-    *x = KeepRate;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return DropoutThresholdType::KeepRate;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool AccumCmd_des(FILE *in, AccumCmd &x) {
+AccumCmd AccumCmd_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 136)
-    return false;
-  (void)region;
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 0)
-      return false;
-    *x = Idle;
+      throw std::runtime_error("rror");
+    return AccumCmd::Idle;
     break;
-  case 1:
-    if (l != 0)
-      return false;
-    *x = Zero;
-    break;
-  case 2:
-    if (l != 0)
-      return false;
-    *x = Accumulate;
-    break;
-  case 3:
-    if (l != 0)
-      return false;
-    *x = ZeroAccumulate;
-    break;
-  case 4:
-    if (l != 0)
-      return false;
-    *x = LoadAccumulate;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AccumCmd::Zero;
+    break;
+  }
+  case 2: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AccumCmd::Accumulate;
+    break;
+  }
+  case 3: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AccumCmd::ZeroAccumulate;
+    break;
+  }
+  case 4: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AccumCmd::LoadAccumulate;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool ActivationFunc_des(FILE *in, ActivationFunc &x) {
+ActivationFunc ActivationFunc_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 137)
-    return false;
-  (void)region;
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 0)
-      return false;
-    *x = ActivationFunc::abs;
+      throw std::runtime_error("rror");
+    return ActivationFunc::abs;
     break;
-  case 1:
-    if (l != 0)
-      return false;
-    *x = ActivationFunc::arctan;
-    break;
-  case 2:
-    if (l != 0)
-      return false;
-    *x = ActivationFunc::copy;
-    break;
-  case 3:
-    if (l != 0)
-      return false;
-    *x = ActivationFunc::erf;
-    break;
-  case 4:
-    if (l != 0)
-      return false;
-    *x = ActivationFunc::erf_dx;
-    break;
-  case 5:
-    if (l != 0)
-      return false;
-    *x = ActivationFunc::exp;
-    break;
-  case 6:
-    if (l != 0)
-      return false;
-    *x = ActivationFunc::gelu;
-    break;
-  case 7:
-    if (l != 0)
-      return false;
-    *x = ActivationFunc::gelu_apprx_tanh;
-    break;
-  case 8:
-    if (l != 0)
-      return false;
-    *x = ActivationFunc::gelu_dx;
-    break;
-  case 9:
-    if (l != 0)
-      return false;
-    *x = ActivationFunc::log;
-    break;
-  case 10:
-    if (l != 0)
-      return false;
-    *x = ActivationFunc::mish;
-    break;
-  case 11:
-    if (l != 0)
-      return false;
-    *x = ActivationFunc::reciprocal;
-    break;
-  case 12:
-    if (l != 0)
-      return false;
-    *x = ActivationFunc::relu;
-    break;
-  case 13:
-    if (l != 0)
-      return false;
-    *x = ActivationFunc::rsqrt;
-    break;
-  case 14:
-    if (l != 0)
-      return false;
-    *x = ActivationFunc::sigmoid;
-    break;
-  case 15:
-    if (l != 0)
-      return false;
-    *x = ActivationFunc::sign;
-    break;
-  case 16:
-    if (l != 0)
-      return false;
-    *x = ActivationFunc::silu;
-    break;
-  case 17:
-    if (l != 0)
-      return false;
-    *x = ActivationFunc::silu_dx;
-    break;
-  case 18:
-    if (l != 0)
-      return false;
-    *x = ActivationFunc::sin;
-    break;
-  case 19:
-    if (l != 0)
-      return false;
-    *x = ActivationFunc::softplus;
-    break;
-  case 20:
-    if (l != 0)
-      return false;
-    *x = ActivationFunc::sqrt;
-    break;
-  case 21:
-    if (l != 0)
-      return false;
-    *x = ActivationFunc::square;
-    break;
-  case 22:
-    if (l != 0)
-      return false;
-    *x = ActivationFunc::tanh;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ActivationFunc::arctan;
+    break;
+  }
+  case 2: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ActivationFunc::copy;
+    break;
+  }
+  case 3: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ActivationFunc::erf;
+    break;
+  }
+  case 4: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ActivationFunc::erf_dx;
+    break;
+  }
+  case 5: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ActivationFunc::exp;
+    break;
+  }
+  case 6: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ActivationFunc::gelu;
+    break;
+  }
+  case 7: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ActivationFunc::gelu_apprx_tanh;
+    break;
+  }
+  case 8: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ActivationFunc::gelu_dx;
+    break;
+  }
+  case 9: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ActivationFunc::log;
+    break;
+  }
+  case 10: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ActivationFunc::mish;
+    break;
+  }
+  case 11: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ActivationFunc::reciprocal;
+    break;
+  }
+  case 12: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ActivationFunc::relu;
+    break;
+  }
+  case 13: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ActivationFunc::rsqrt;
+    break;
+  }
+  case 14: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ActivationFunc::sigmoid;
+    break;
+  }
+  case 15: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ActivationFunc::sign;
+    break;
+  }
+  case 16: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ActivationFunc::silu;
+    break;
+  }
+  case 17: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ActivationFunc::silu_dx;
+    break;
+  }
+  case 18: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ActivationFunc::sin;
+    break;
+  }
+  case 19: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ActivationFunc::softplus;
+    break;
+  }
+  case 20: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ActivationFunc::sqrt;
+    break;
+  }
+  case 21: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ActivationFunc::square;
+    break;
+  }
+  case 22: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return ActivationFunc::tanh;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool AffineSelectCmp_des(FILE *in, AffineSelectCmp &x) {
+AffineSelectCmp AffineSelectCmp_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 138)
-    return false;
-  (void)region;
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 0)
-      return false;
-    *x = GreaterThan;
+      throw std::runtime_error("rror");
+    return AffineSelectCmp::GreaterThan;
     break;
-  case 1:
-    if (l != 0)
-      return false;
-    *x = GreaterThanEq;
-    break;
-  case 2:
-    if (l != 0)
-      return false;
-    *x = Eq;
-    break;
-  case 3:
-    if (l != 0)
-      return false;
-    *x = NotEq;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AffineSelectCmp::GreaterThanEq;
+    break;
+  }
+  case 2: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AffineSelectCmp::Eq;
+    break;
+  }
+  case 3: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return AffineSelectCmp::NotEq;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool DgeComputeOp_des(FILE *in, DgeComputeOp &x) {
+DgeComputeOp DgeComputeOp_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 139)
-    return false;
-  (void)region;
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 0)
-      return false;
-    *x = DgeComputeOp::none;
+      throw std::runtime_error("rror");
+    return DgeComputeOp::none;
     break;
-  case 1:
-    if (l != 0)
-      return false;
-    *x = DgeComputeOp::add;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return DgeComputeOp::add;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool DmaBounds_des(FILE *in, Ptr<DmaBounds> &x) {
+Ptr<DmaBounds> DmaBounds_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 140)
-    return false;
-  *x = static_cast<DmaBounds *>(region_alloc(region, sizeof(**x)));
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 0)
-      return false;
-    (*x)->tag = DmaBoundsDisable;
+      throw std::runtime_error("rror");
+    Ptr<DmaBoundsDisableWrapper> x = ptr<DmaBoundsDisableWrapper>();
+    return x;
     break;
-  case 1:
-    if (l != 0)
-      return false;
-    (*x)->tag = DmaBoundsEnable;
-    break;
-  case 2:
-    if (l != 1)
-      return false;
-    if (!Nat_des(in, &(*x)->reg.reg))
-      return false;
-    (*x)->tag = DmaBoundsReg;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    Ptr<DmaBoundsEnableWrapper> x = ptr<DmaBoundsEnableWrapper>();
+    return x;
+    break;
+  }
+  case 2: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<DmaBoundsRegWrapper> x = ptr<DmaBoundsRegWrapper>();
+    x->reg = Nat_des(in);
+    return x;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool MatmulGroupElement_des(FILE *in, MatmulGroupElement &x) {
+MatmulGroupElement MatmulGroupElement_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 141)
-    return false;
-  (void)region;
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 0)
-      return false;
-    *x = MatmulGroupElement::first;
+      throw std::runtime_error("rror");
+    return MatmulGroupElement::first;
     break;
-  case 1:
-    if (l != 0)
-      return false;
-    *x = MatmulGroupElement::middle;
-    break;
-  case 2:
-    if (l != 0)
-      return false;
-    *x = MatmulGroupElement::last;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return MatmulGroupElement::middle;
+    break;
+  }
+  case 2: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return MatmulGroupElement::last;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool IndexMissBehavior_des(FILE *in, Ptr<IndexMissBehavior> &x) {
+Ptr<IndexMissBehavior> IndexMissBehavior_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 142)
-    return false;
-  *x = static_cast<IndexMissBehavior *>(region_alloc(region, sizeof(**x)));
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 1)
-      return false;
-    if (!Immediate_des(in, &(*x)->imm.value))
-      return false;
-    (*x)->tag = IndexMissBehaviorImm;
+      throw std::runtime_error("rror");
+    Ptr<IndexMissBehaviorImmWrapper> x = ptr<IndexMissBehaviorImmWrapper>();
+    x->value = Immediate_des(in);
+    return x;
     break;
-  case 1:
-    if (l != 0)
-      return false;
-    (*x)->tag = IndexMissBehaviorSkip;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    Ptr<IndexMissBehaviorSkipWrapper> x = ptr<IndexMissBehaviorSkipWrapper>();
+    return x;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool TensorScalarReverseOps_des(FILE *in, TensorScalarReverseOps &x) {
+TensorScalarReverseOps TensorScalarReverseOps_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 143)
-    return false;
-  (void)region;
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 0)
-      return false;
-    *x = TensorScalarReverseOps::none;
+      throw std::runtime_error("rror");
+    return TensorScalarReverseOps::none;
     break;
-  case 1:
-    if (l != 0)
-      return false;
-    *x = TensorScalarReverseOps::first;
-    break;
-  case 2:
-    if (l != 0)
-      return false;
-    *x = TensorScalarReverseOps::second;
-    break;
-  case 3:
-    if (l != 0)
-      return false;
-    *x = TensorScalarReverseOps::both;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return TensorScalarReverseOps::first;
+    break;
+  }
+  case 2: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return TensorScalarReverseOps::second;
+    break;
+  }
+  case 3: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return TensorScalarReverseOps::both;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool TensorSubDim_des(FILE *in, TensorSubDim &x) {
+TensorSubDim TensorSubDim_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 144)
-    return false;
-  (void)region;
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 0)
-      return false;
-    *x = X;
+      throw std::runtime_error("rror");
+    return TensorSubDim::X;
     break;
-  case 1:
-    if (l != 0)
-      return false;
-    *x = XY;
-    break;
-  case 2:
-    if (l != 0)
-      return false;
-    *x = XYZ;
-    break;
-  case 3:
-    if (l != 0)
-      return false;
-    *x = XYZW;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return TensorSubDim::XY;
+    break;
+  }
+  case 2: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return TensorSubDim::XYZ;
+    break;
+  }
+  case 3: {
+    if (l != 0)
+      throw std::runtime_error("rror");
+    return TensorSubDim::XYZW;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool Dropout_des(FILE *in, Ptr<Dropout> &x) {
+Ptr<Dropout> Dropout_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 145 || c != 0 || l != 4)
-    return false;
-  *x = static_cast<Dropout *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!TensorRef_des(in, &(*x)->src))
-    return false;
-  if (!DropoutThresholdType_des(in, &(*x)->thresholdType))
-    return false;
-  if (!Immediate_des(in, &(*x)->threshold))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<Dropout> x = ptr<Dropout>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  x->thresholdType = DropoutThresholdType_des(in);
+  x->threshold = Immediate_des(in);
+  return x;
 }
 
-bool Activate_des(FILE *in, Ptr<Activate> &x) {
+Ptr<Activate> Activate_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 146 || c != 0 || l != 7)
-    return false;
-  *x = static_cast<Activate *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!TensorRef_des(in, &(*x)->src))
-    return false;
-  if (!AccumCmd_des(in, &(*x)->accumulatorCmd))
-    return false;
-  if (!ActivationFunc_des(in, &(*x)->activationFunc))
-    return false;
-  if (!Immediate_des(in, &(*x)->scale))
-    return false;
-  if (!Immediate_des(in, &(*x)->bias))
-    return false;
-  if (!Immediate_des(in, &(*x)->imm))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<Activate> x = ptr<Activate>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  x->accumulatorCmd = AccumCmd_des(in);
+  x->activationFunc = ActivationFunc_des(in);
+  x->scale = Immediate_des(in);
+  x->bias = Immediate_des(in);
+  x->imm = Immediate_des(in);
+  return x;
 }
 
-bool AffineSelect_des(FILE *in, Ptr<AffineSelect> &x) {
+Ptr<AffineSelect> AffineSelect_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 147 || c != 0 || l != 5)
-    return false;
-  *x = static_cast<AffineSelect *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!TensorRef_des(in, &(*x)->src))
-    return false;
-  if (!AffineSelectCmp_des(in, &(*x)->fillMode))
-    return false;
-  if (!Nat_des(in, &(*x)->fillReg))
-    return false;
-  if (!DataPattern_des(in, &(*x)->maskPattern))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<AffineSelect> x = ptr<AffineSelect>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  x->fillMode = AffineSelectCmp_des(in);
+  x->fillReg = Nat_des(in);
+  x->maskPattern = DataPattern_des(in);
+  return x;
 }
 
-bool DmaCopy_des(FILE *in, Ptr<DmaCopy> &x) {
+Ptr<DmaCopy> DmaCopy_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 148 || c != 0 || l != 5)
-    return false;
-  *x = static_cast<DmaCopy *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!TensorRef_des(in, &(*x)->src))
-    return false;
-  if (!DgeComputeOp_des(in, &(*x)->compute_op))
-    return false;
-  if (!DmaBounds_des(in, &(*x)->dstBoundsCheck))
-    return false;
-  if (!DmaBounds_des(in, &(*x)->srcBoundsCheck))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<DmaCopy> x = ptr<DmaCopy>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  x->compute_op = DgeComputeOp_des(in);
+  x->dstBoundsCheck = DmaBounds_des(in);
+  x->srcBoundsCheck = DmaBounds_des(in);
+  return x;
 }
 
-bool DmaTranspose_des(FILE *in, Ptr<DmaTranspose> &x) {
+Ptr<DmaTranspose> DmaTranspose_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 149 || c != 0 || l != 2)
-    return false;
-  *x = static_cast<DmaTranspose *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!TensorRef_des(in, &(*x)->src))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<DmaTranspose> x = ptr<DmaTranspose>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  return x;
 }
 
-bool Transpose_des(FILE *in, Ptr<Transpose> &x) {
+Ptr<Transpose> Transpose_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 150 || c != 0 || l != 2)
-    return false;
-  *x = static_cast<Transpose *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!TensorRef_des(in, &(*x)->src))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<Transpose> x = ptr<Transpose>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  return x;
 }
 
-bool LoadMaskRegister_des(FILE *in, Ptr<LoadMaskRegister> &x) {
+Ptr<LoadMaskRegister> LoadMaskRegister_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 151 || c != 0 || l != 1)
-    return false;
-  *x = static_cast<LoadMaskRegister *>(region_alloc(region, sizeof(**x)));
-  if (!Nat_des(in, &(*x)->regNum))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<LoadMaskRegister> x = ptr<LoadMaskRegister>();
+  x->regNum = Nat_des(in);
+  return x;
 }
 
-bool Shuffle_des(FILE *in, Ptr<Shuffle> &x) {
+Ptr<Shuffle> Shuffle_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 152 || c != 0 || l != 2)
-    return false;
-  *x = static_cast<Shuffle *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!TensorRef_des(in, &(*x)->src))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<Shuffle> x = ptr<Shuffle>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  return x;
 }
 
-bool MemSet_des(FILE *in, Ptr<MemSet> &x) {
+Ptr<MemSet> MemSet_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 153 || c != 0 || l != 3)
-    return false;
-  *x = static_cast<MemSet *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!Nat_des(in, &(*x)->value))
-    return false;
-  if (!Nat_des(in, &(*x)->count))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<MemSet> x = ptr<MemSet>();
+  x->dst = TensorRef_des(in);
+  x->value = Nat_des(in);
+  x->count = Nat_des(in);
+  return x;
 }
 
-bool Iota_des(FILE *in, Ptr<Iota> &x) {
+Ptr<Iota> Iota_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 154 || c != 0 || l != 2)
-    return false;
-  *x = static_cast<Iota *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!DataPattern_des(in, &(*x)->pattern))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<Iota> x = ptr<Iota>();
+  x->dst = TensorRef_des(in);
+  x->pattern = DataPattern_des(in);
+  return x;
 }
 
-bool LoadStationary_des(FILE *in, Ptr<LoadStationary> &x) {
+Ptr<LoadStationary> LoadStationary_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 155 || c != 0 || l != 2)
-    return false;
-  *x = static_cast<LoadStationary *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->src))
-    return false;
-  if (!Bool_des(in, &(*x)->isTranspose))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<LoadStationary> x = ptr<LoadStationary>();
+  x->src = TensorRef_des(in);
+  x->isTranspose = Bool_des(in);
+  return x;
 }
 
-bool MatMul_des(FILE *in, Ptr<MatMul> &x) {
+Ptr<MatMul> MatMul_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 156 || c != 0 || l != 3)
-    return false;
-  *x = static_cast<MatMul *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!TensorRef_des(in, &(*x)->moving))
-    return false;
-  if (!MatmulGroupElement_des(in, &(*x)->psumAccumulateFlag))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<MatMul> x = ptr<MatMul>();
+  x->dst = TensorRef_des(in);
+  x->moving = TensorRef_des(in);
+  x->psumAccumulateFlag = MatmulGroupElement_des(in);
+  return x;
 }
 
-bool LocalGather_des(FILE *in, Ptr<LocalGather> &x) {
+Ptr<LocalGather> LocalGather_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 157 || c != 0 || l != 4)
-    return false;
-  *x = static_cast<LocalGather *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!TensorRef_des(in, &(*x)->src))
-    return false;
-  if (!IndexMissBehavior_des(in, &(*x)->indexMissBehavior))
-    return false;
-  if (!Bool_des(in, &(*x)->freePoolBuffer))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<LocalGather> x = ptr<LocalGather>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  x->indexMissBehavior = IndexMissBehavior_des(in);
+  x->freePoolBuffer = Bool_des(in);
+  return x;
 }
 
-bool RangeSelect_des(FILE *in, Ptr<RangeSelect> &x) {
+Ptr<RangeSelect> RangeSelect_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 158 || c != 0 || l != 10)
-    return false;
-  *x = static_cast<RangeSelect *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!TensorRef_des(in, &(*x)->src))
-    return false;
-  if (!AccumCmd_des(in, &(*x)->reduceCommand))
-    return false;
-  if (!AluOp_des(in, &(*x)->reduceOp))
-    return false;
-  if (!Float_des(in, &(*x)->base))
-    return false;
-  if (!Float_des(in, &(*x)->fillValue))
-    return false;
-  if (!AluOp_des(in, &(*x)->compOp0))
-    return false;
-  if (!AluOp_des(in, &(*x)->compOp1))
-    return false;
-  if (!Immediate_des(in, &(*x)->bound0))
-    return false;
-  if (!Immediate_des(in, &(*x)->bound1))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<RangeSelect> x = ptr<RangeSelect>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  x->reduceCommand = AccumCmd_des(in);
+  x->reduceOp = AluOp_des(in);
+  x->base = Float_des(in);
+  x->fillValue = Float_des(in);
+  x->compOp0 = AluOp_des(in);
+  x->compOp1 = AluOp_des(in);
+  x->bound0 = Immediate_des(in);
+  x->bound1 = Immediate_des(in);
+  return x;
 }
 
-bool ScalarTensorTensor_des(FILE *in, Ptr<ScalarTensorTensor> &x) {
+Ptr<ScalarTensorTensor> ScalarTensorTensor_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 159 || c != 0 || l != 8)
-    return false;
-  *x = static_cast<ScalarTensorTensor *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!TensorRef_des(in, &(*x)->src0))
-    return false;
-  if (!TensorRef_des(in, &(*x)->src1))
-    return false;
-  if (!AluOp_des(in, &(*x)->op0))
-    return false;
-  if (!AluOp_des(in, &(*x)->op1))
-    return false;
-  if (!TensorScalarReverseOps_des(in, &(*x)->reverseOperands))
-    return false;
-  if (!Immediate_des(in, &(*x)->imm0))
-    return false;
-  if (!AccumCmd_des(in, &(*x)->accumulatorCmd))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<ScalarTensorTensor> x = ptr<ScalarTensorTensor>();
+  x->dst = TensorRef_des(in);
+  x->src0 = TensorRef_des(in);
+  x->src1 = TensorRef_des(in);
+  x->op0 = AluOp_des(in);
+  x->op1 = AluOp_des(in);
+  x->reverseOperands = TensorScalarReverseOps_des(in);
+  x->imm0 = Immediate_des(in);
+  x->accumulatorCmd = AccumCmd_des(in);
+  return x;
 }
 
-bool CopyPredicated_des(FILE *in, Ptr<CopyPredicated> &x) {
+Ptr<CopyPredicated> CopyPredicated_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 160 || c != 0 || l != 3)
-    return false;
-  *x = static_cast<CopyPredicated *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!TensorRef_des(in, &(*x)->src))
-    return false;
-  if (!TensorRef_des(in, &(*x)->predicate))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<CopyPredicated> x = ptr<CopyPredicated>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  x->predicate = TensorRef_des(in);
+  return x;
 }
 
-bool TensorTensorScan_des(FILE *in, Ptr<TensorTensorScan> &x) {
+Ptr<TensorTensorScan> TensorTensorScan_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 161 || c != 0 || l != 8)
-    return false;
-  *x = static_cast<TensorTensorScan *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!TensorRef_des(in, &(*x)->src0))
-    return false;
-  if (!TensorRef_des(in, &(*x)->src1))
-    return false;
-  if (!AluOp_des(in, &(*x)->op0))
-    return false;
-  if (!AluOp_des(in, &(*x)->op1))
-    return false;
-  if (!TensorScalarReverseOps_des(in, &(*x)->reverseOperands))
-    return false;
-  if (!Immediate_des(in, &(*x)->imm0))
-    return false;
-  if (!AccumCmd_des(in, &(*x)->accumulatorCmd))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<TensorTensorScan> x = ptr<TensorTensorScan>();
+  x->dst = TensorRef_des(in);
+  x->src0 = TensorRef_des(in);
+  x->src1 = TensorRef_des(in);
+  x->op0 = AluOp_des(in);
+  x->op1 = AluOp_des(in);
+  x->reverseOperands = TensorScalarReverseOps_des(in);
+  x->imm0 = Immediate_des(in);
+  x->accumulatorCmd = AccumCmd_des(in);
+  return x;
 }
 
-bool MatchValueLoad_des(FILE *in, Ptr<MatchValueLoad> &x) {
+Ptr<MatchValueLoad> MatchValueLoad_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 162 || c != 0 || l != 1)
-    return false;
-  *x = static_cast<MatchValueLoad *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->src))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<MatchValueLoad> x = ptr<MatchValueLoad>();
+  x->src = TensorRef_des(in);
+  return x;
 }
 
-bool FindIndex8_des(FILE *in, Ptr<FindIndex8> &x) {
+Ptr<FindIndex8> FindIndex8_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 163 || c != 0 || l != 2)
-    return false;
-  *x = static_cast<FindIndex8 *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!TensorRef_des(in, &(*x)->src))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<FindIndex8> x = ptr<FindIndex8>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  return x;
 }
 
-bool MatchReplace8_des(FILE *in, Ptr<MatchReplace8> &x) {
+Ptr<MatchReplace8> MatchReplace8_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 164 || c != 0 || l != 3)
-    return false;
-  *x = static_cast<MatchReplace8 *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!TensorRef_des(in, &(*x)->src))
-    return false;
-  if (!Float_des(in, &(*x)->replaceValue))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<MatchReplace8> x = ptr<MatchReplace8>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  x->replaceValue = Float_des(in);
+  return x;
 }
 
-bool Max8_des(FILE *in, Ptr<Max8> &x) {
+Ptr<Max8> Max8_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 165 || c != 0 || l != 2)
-    return false;
-  *x = static_cast<Max8 *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!TensorRef_des(in, &(*x)->src))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<Max8> x = ptr<Max8>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  return x;
 }
 
-bool BatchNormAggregate_des(FILE *in, Ptr<BatchNormAggregate> &x) {
+Ptr<BatchNormAggregate> BatchNormAggregate_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 166 || c != 0 || l != 2)
-    return false;
-  *x = static_cast<BatchNormAggregate *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!TensorRef_des(in, &(*x)->src))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<BatchNormAggregate> x = ptr<BatchNormAggregate>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  return x;
 }
 
-bool BatchNormStats_des(FILE *in, Ptr<BatchNormStats> &x) {
+Ptr<BatchNormStats> BatchNormStats_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 167 || c != 0 || l != 2)
-    return false;
-  *x = static_cast<BatchNormStats *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!TensorRef_des(in, &(*x)->src))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<BatchNormStats> x = ptr<BatchNormStats>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  return x;
 }
 
-bool Reciprocal_des(FILE *in, Ptr<Reciprocal> &x) {
+Ptr<Reciprocal> Reciprocal_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 168 || c != 0 || l != 2)
-    return false;
-  *x = static_cast<Reciprocal *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!TensorRef_des(in, &(*x)->src))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<Reciprocal> x = ptr<Reciprocal>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  return x;
 }
 
-bool Copy_des(FILE *in, Ptr<Copy> &x) {
+Ptr<Copy> Copy_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 169 || c != 0 || l != 3)
-    return false;
-  *x = static_cast<Copy *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!TensorRef_des(in, &(*x)->src))
-    return false;
-  if (!Option_des(in, &(*x)->opDim))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<Copy> x = ptr<Copy>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  x->opDim = Option_TensorSubDim_des(in);
+  return x;
 }
 
-bool TensorReduce_des(FILE *in, Ptr<TensorReduce> &x) {
+Ptr<TensorReduce> TensorReduce_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 170 || c != 0 || l != 5)
-    return false;
-  *x = static_cast<TensorReduce *>(region_alloc(region, sizeof(**x)));
-  if (!TensorRef_des(in, &(*x)->dst))
-    return false;
-  if (!TensorRef_des(in, &(*x)->src))
-    return false;
-  if (!AluOp_des(in, &(*x)->op))
-    return false;
-  if (!TensorSubDim_des(in, &(*x)->opDim))
-    return false;
-  if (!Bool_des(in, &(*x)->negated))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<TensorReduce> x = ptr<TensorReduce>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  x->op = AluOp_des(in);
+  x->opDim = TensorSubDim_des(in);
+  x->negated = Bool_des(in);
+  return x;
 }
 
-bool Operator_des(FILE *in, Ptr<Operator> &x) {
+Ptr<Operator> Operator_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 171)
-    return false;
-  *x = static_cast<Operator *>(region_alloc(region, sizeof(**x)));
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 1)
-      return false;
-    if (!Activate_des(in, &(*x)->activate.op))
-      return false;
-    (*x)->tag = OperatorActivate;
+      throw std::runtime_error("rror");
+    Ptr<OperatorActivateWrapper> x = ptr<OperatorActivateWrapper>();
+    x->op = Activate_des(in);
+    return x;
     break;
-  case 1:
-    if (l != 1)
-      return false;
-    if (!AffineSelect_des(in, &(*x)->affineSelect.op))
-      return false;
-    (*x)->tag = OperatorAffineSelect;
-    break;
-  case 2:
-    if (l != 1)
-      return false;
-    if (!BatchNormAggregate_des(in, &(*x)->batchNormAggregate.op))
-      return false;
-    (*x)->tag = OperatorBatchNormAggregate;
-    break;
-  case 3:
-    if (l != 1)
-      return false;
-    if (!BatchNormStats_des(in, &(*x)->batchNormStats.op))
-      return false;
-    (*x)->tag = OperatorBatchNormStats;
-    break;
-  case 4:
-    if (l != 1)
-      return false;
-    if (!Copy_des(in, &(*x)->copy.op))
-      return false;
-    (*x)->tag = OperatorCopy;
-    break;
-  case 5:
-    if (l != 1)
-      return false;
-    if (!CopyPredicated_des(in, &(*x)->copyPredicated.op))
-      return false;
-    (*x)->tag = OperatorCopyPredicated;
-    break;
-  case 6:
-    if (l != 1)
-      return false;
-    if (!DmaCopy_des(in, &(*x)->dmaCopy.op))
-      return false;
-    (*x)->tag = OperatorDmaCopy;
-    break;
-  case 7:
-    if (l != 1)
-      return false;
-    if (!DmaTranspose_des(in, &(*x)->dmaTranspose.op))
-      return false;
-    (*x)->tag = OperatorDmaTranspose;
-    break;
-  case 8:
-    if (l != 1)
-      return false;
-    if (!Dropout_des(in, &(*x)->dropout.op))
-      return false;
-    (*x)->tag = OperatorDropout;
-    break;
-  case 9:
-    if (l != 1)
-      return false;
-    if (!FindIndex8_des(in, &(*x)->findIndex8.op))
-      return false;
-    (*x)->tag = OperatorFindIndex8;
-    break;
-  case 10:
-    if (l != 1)
-      return false;
-    if (!Iota_des(in, &(*x)->iota.op))
-      return false;
-    (*x)->tag = OperatorIota;
-    break;
-  case 11:
-    if (l != 1)
-      return false;
-    if (!LoadMaskRegister_des(in, &(*x)->loadMaskRegister.op))
-      return false;
-    (*x)->tag = OperatorLoadMaskRegister;
-    break;
-  case 12:
-    if (l != 1)
-      return false;
-    if (!LoadStationary_des(in, &(*x)->loadStationary.op))
-      return false;
-    (*x)->tag = OperatorLoadStationary;
-    break;
-  case 13:
-    if (l != 1)
-      return false;
-    if (!LocalGather_des(in, &(*x)->localGather.op))
-      return false;
-    (*x)->tag = OperatorLocalGather;
-    break;
-  case 14:
-    if (l != 1)
-      return false;
-    if (!MatMul_des(in, &(*x)->matMul.op))
-      return false;
-    (*x)->tag = OperatorMatMul;
-    break;
-  case 15:
-    if (l != 1)
-      return false;
-    if (!MatchReplace8_des(in, &(*x)->matchReplace8.op))
-      return false;
-    (*x)->tag = OperatorMatchReplace8;
-    break;
-  case 16:
-    if (l != 1)
-      return false;
-    if (!MatchValueLoad_des(in, &(*x)->matchValueLoad.op))
-      return false;
-    (*x)->tag = OperatorMatchValueLoad;
-    break;
-  case 17:
-    if (l != 1)
-      return false;
-    if (!Max8_des(in, &(*x)->max8.op))
-      return false;
-    (*x)->tag = OperatorMax8;
-    break;
-  case 18:
-    if (l != 1)
-      return false;
-    if (!MemSet_des(in, &(*x)->memSet.op))
-      return false;
-    (*x)->tag = OperatorMemSet;
-    break;
-  case 19:
-    if (l != 1)
-      return false;
-    if (!RangeSelect_des(in, &(*x)->rangeSelect.op))
-      return false;
-    (*x)->tag = OperatorRangeSelect;
-    break;
-  case 20:
-    if (l != 1)
-      return false;
-    if (!Reciprocal_des(in, &(*x)->reciprocal.op))
-      return false;
-    (*x)->tag = OperatorReciprocal;
-    break;
-  case 21:
-    if (l != 1)
-      return false;
-    if (!ScalarTensorTensor_des(in, &(*x)->scalarTensorTensor.op))
-      return false;
-    (*x)->tag = OperatorScalarTensorTensor;
-    break;
-  case 22:
-    if (l != 1)
-      return false;
-    if (!Shuffle_des(in, &(*x)->shuffle.op))
-      return false;
-    (*x)->tag = OperatorShuffle;
-    break;
-  case 23:
-    if (l != 1)
-      return false;
-    if (!TensorReduce_des(in, &(*x)->tensorReduce.op))
-      return false;
-    (*x)->tag = OperatorTensorReduce;
-    break;
-  case 24:
-    if (l != 1)
-      return false;
-    if (!TensorTensorScan_des(in, &(*x)->tensorTensorScan.op))
-      return false;
-    (*x)->tag = OperatorTensorTensorScan;
-    break;
-  case 25:
-    if (l != 1)
-      return false;
-    if (!Transpose_des(in, &(*x)->transpose.op))
-      return false;
-    (*x)->tag = OperatorTranspose;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorAffineSelectWrapper> x = ptr<OperatorAffineSelectWrapper>();
+    x->op = AffineSelect_des(in);
+    return x;
+    break;
+  }
+  case 2: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorBatchNormAggregateWrapper> x =
+        ptr<OperatorBatchNormAggregateWrapper>();
+    x->op = BatchNormAggregate_des(in);
+    return x;
+    break;
+  }
+  case 3: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorBatchNormStatsWrapper> x = ptr<OperatorBatchNormStatsWrapper>();
+    x->op = BatchNormStats_des(in);
+    return x;
+    break;
+  }
+  case 4: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorCopyWrapper> x = ptr<OperatorCopyWrapper>();
+    x->op = Copy_des(in);
+    return x;
+    break;
+  }
+  case 5: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorCopyPredicatedWrapper> x = ptr<OperatorCopyPredicatedWrapper>();
+    x->op = CopyPredicated_des(in);
+    return x;
+    break;
+  }
+  case 6: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorDmaCopyWrapper> x = ptr<OperatorDmaCopyWrapper>();
+    x->op = DmaCopy_des(in);
+    return x;
+    break;
+  }
+  case 7: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorDmaTransposeWrapper> x = ptr<OperatorDmaTransposeWrapper>();
+    x->op = DmaTranspose_des(in);
+    return x;
+    break;
+  }
+  case 8: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorDropoutWrapper> x = ptr<OperatorDropoutWrapper>();
+    x->op = Dropout_des(in);
+    return x;
+    break;
+  }
+  case 9: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorFindIndex8Wrapper> x = ptr<OperatorFindIndex8Wrapper>();
+    x->op = FindIndex8_des(in);
+    return x;
+    break;
+  }
+  case 10: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorIotaWrapper> x = ptr<OperatorIotaWrapper>();
+    x->op = Iota_des(in);
+    return x;
+    break;
+  }
+  case 11: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorLoadMaskRegisterWrapper> x =
+        ptr<OperatorLoadMaskRegisterWrapper>();
+    x->op = LoadMaskRegister_des(in);
+    return x;
+    break;
+  }
+  case 12: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorLoadStationaryWrapper> x = ptr<OperatorLoadStationaryWrapper>();
+    x->op = LoadStationary_des(in);
+    return x;
+    break;
+  }
+  case 13: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorLocalGatherWrapper> x = ptr<OperatorLocalGatherWrapper>();
+    x->op = LocalGather_des(in);
+    return x;
+    break;
+  }
+  case 14: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorMatMulWrapper> x = ptr<OperatorMatMulWrapper>();
+    x->op = MatMul_des(in);
+    return x;
+    break;
+  }
+  case 15: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorMatchReplace8Wrapper> x = ptr<OperatorMatchReplace8Wrapper>();
+    x->op = MatchReplace8_des(in);
+    return x;
+    break;
+  }
+  case 16: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorMatchValueLoadWrapper> x = ptr<OperatorMatchValueLoadWrapper>();
+    x->op = MatchValueLoad_des(in);
+    return x;
+    break;
+  }
+  case 17: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorMax8Wrapper> x = ptr<OperatorMax8Wrapper>();
+    x->op = Max8_des(in);
+    return x;
+    break;
+  }
+  case 18: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorMemSetWrapper> x = ptr<OperatorMemSetWrapper>();
+    x->op = MemSet_des(in);
+    return x;
+    break;
+  }
+  case 19: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorRangeSelectWrapper> x = ptr<OperatorRangeSelectWrapper>();
+    x->op = RangeSelect_des(in);
+    return x;
+    break;
+  }
+  case 20: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorReciprocalWrapper> x = ptr<OperatorReciprocalWrapper>();
+    x->op = Reciprocal_des(in);
+    return x;
+    break;
+  }
+  case 21: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorScalarTensorTensorWrapper> x =
+        ptr<OperatorScalarTensorTensorWrapper>();
+    x->op = ScalarTensorTensor_des(in);
+    return x;
+    break;
+  }
+  case 22: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorShuffleWrapper> x = ptr<OperatorShuffleWrapper>();
+    x->op = Shuffle_des(in);
+    return x;
+    break;
+  }
+  case 23: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorTensorReduceWrapper> x = ptr<OperatorTensorReduceWrapper>();
+    x->op = TensorReduce_des(in);
+    return x;
+    break;
+  }
+  case 24: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorTensorTensorScanWrapper> x =
+        ptr<OperatorTensorTensorScanWrapper>();
+    x->op = TensorTensorScan_des(in);
+    return x;
+    break;
+  }
+  case 25: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<OperatorTransposeWrapper> x = ptr<OperatorTransposeWrapper>();
+    x->op = Transpose_des(in);
+    return x;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool Value_des(FILE *in, Ptr<Value> &x) {
+Ptr<Value> Value_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 101)
-    return false;
-  *x = static_cast<Value *>(region_alloc(region, sizeof(**x)));
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 1)
-      return false;
-    if (!String_des(in, &(*x)->var.x))
-      return false;
-    (*x)->tag = ValueVar;
+      throw std::runtime_error("rror");
+    Ptr<ValueVarWrapper> x = ptr<ValueVarWrapper>();
+    x->x = String_des(in);
+    return x;
     break;
-  case 1:
-    if (l != 1)
-      return false;
-    if (!Bool_des(in, &(*x)->boolean.value))
-      return false;
-    (*x)->tag = ValueBool;
-    break;
-  case 2:
-    if (l != 1)
-      return false;
-    if (!Int_des(in, &(*x)->int32.value))
-      return false;
-    (*x)->tag = ValueInt;
-    break;
-  case 3:
-    if (l != 1)
-      return false;
-    if (!Float_des(in, &(*x)->float32.value))
-      return false;
-    (*x)->tag = ValueFloat;
-    break;
-  case 4:
-    if (l != 1)
-      return false;
-    if (!Access_des(in, &(*x)->access.a))
-      return false;
-    (*x)->tag = ValueAccess;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<ValueBoolWrapper> x = ptr<ValueBoolWrapper>();
+    x->value = Bool_des(in);
+    return x;
+    break;
+  }
+  case 2: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<ValueIntWrapper> x = ptr<ValueIntWrapper>();
+    x->value = Int_des(in);
+    return x;
+    break;
+  }
+  case 3: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<ValueFloatWrapper> x = ptr<ValueFloatWrapper>();
+    x->value = Float_des(in);
+    return x;
+    break;
+  }
+  case 4: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<ValueAccessWrapper> x = ptr<ValueAccessWrapper>();
+    x->a = Access_des(in);
+    return x;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool Keyword_des(FILE *in, Ptr<Keyword> &x) {
+Ptr<Keyword> Keyword_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 102 || c != 0 || l != 2)
-    return false;
-  *x = static_cast<Keyword *>(region_alloc(region, sizeof(**x)));
-  if (!String_des(in, &(*x)->name))
-    return false;
-  if (!Value_des(in, &(*x)->value))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<Keyword> x = ptr<Keyword>();
+  x->name = String_des(in);
+  x->value = Value_des(in);
+  return x;
 }
 
-bool Expr_des(FILE *in, Ptr<Expr> &x) {
+Ptr<Expr> Expr_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 103)
-    return false;
-  *x = static_cast<Expr *>(region_alloc(region, sizeof(**x)));
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 1)
-      return false;
-    if (!Value_des(in, &(*x)->value.v))
-      return false;
-    (*x)->tag = ExprValue;
+      throw std::runtime_error("rror");
+    Ptr<ExprValueWrapper> x = ptr<ExprValueWrapper>();
+    x->v = Value_des(in);
+    return x;
     break;
-  case 1:
-    if (l != 3)
-      return false;
-    if (!String_des(in, &(*x)->call.f))
-      return false;
-    if (!List_des(in, &(*x)->call.args))
-      return false;
-    if (!List_des(in, &(*x)->call.kwargs))
-      return false;
-    (*x)->tag = ExprCall;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 3)
+      throw std::runtime_error("rror");
+    Ptr<ExprCallWrapper> x = ptr<ExprCallWrapper>();
+    x->f = String_des(in);
+    x->args = List_Value_des(in);
+    x->kwargs = List_Keyword_des(in);
+    return x;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool Stmt_des(FILE *in, Ptr<Stmt> &x) {
+Ptr<Stmt> Stmt_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 104)
-    return false;
-  *x = static_cast<Stmt *>(region_alloc(region, sizeof(**x)));
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 1)
-      return false;
-    if (!Value_des(in, &(*x)->ret.v))
-      return false;
-    (*x)->tag = StmtRet;
+      throw std::runtime_error("rror");
+    Ptr<StmtRetWrapper> x = ptr<StmtRetWrapper>();
+    x->v = Value_des(in);
+    return x;
     break;
-  case 1:
+  }
+  case 1: {
     if (l != 2)
-      return false;
-    if (!String_des(in, &(*x)->assign.x))
-      return false;
-    if (!Expr_des(in, &(*x)->assign.e))
-      return false;
-    (*x)->tag = StmtAssign;
+      throw std::runtime_error("rror");
+    Ptr<StmtAssignWrapper> x = ptr<StmtAssignWrapper>();
+    x->x = String_des(in);
+    x->e = Expr_des(in);
+    return x;
     break;
-  case 2:
+  }
+  case 2: {
     if (l != 3)
-      return false;
-    if (!Access_des(in, &(*x)->store.dst))
-      return false;
-    if (!Operator_des(in, &(*x)->store.op))
-      return false;
-    if (!List_des(in, &(*x)->store.args))
-      return false;
-    (*x)->tag = StmtStore;
+      throw std::runtime_error("rror");
+    Ptr<StmtStoreWrapper> x = ptr<StmtStoreWrapper>();
+    x->dst = Access_des(in);
+    x->op = Operator_des(in);
+    x->args = List_Value_des(in);
+    return x;
     break;
-  default:
-    return false;
   }
-  return true;
+  default:
+    throw std::runtime_error("rror");
+  }
 }
 
-bool Kernel_des(FILE *in, Ptr<Kernel> &x) {
+Ptr<Kernel> Kernel_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 105 || c != 0 || l != 4)
-    return false;
-  *x = static_cast<Kernel *>(region_alloc(region, sizeof(**x)));
-  if (!String_des(in, &(*x)->name))
-    return false;
-  if (!List_des(in, &(*x)->inputs))
-    return false;
-  if (!List_des(in, &(*x)->outputs))
-    return false;
-  if (!List_des(in, &(*x)->body))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<Kernel> x = ptr<Kernel>();
+  x->name = String_des(in);
+  x->inputs = List_TensorArg_des(in);
+  x->outputs = List_TensorArg_des(in);
+  x->body = List_Stmt_des(in);
+  return x;
 }
 
-bool List_des(FILE *in, List<Ptr<Index>> &x) { return true; }
+List<Ptr<Index>> List_Index_des(FILE *in) {
+  List<Ptr<Index>> x;
+  return x;
+}
 
-bool List_des(FILE *in, List<Ptr<APPair>> &x) { return true; }
+List<Ptr<APPair>> List_APPair_des(FILE *in) {
+  List<Ptr<APPair>> x;
+  return x;
+}
 
-bool Option_des(FILE *in, Option<TensorSubDim> &x) { return true; }
+Option<TensorSubDim> Option_TensorSubDim_des(FILE *in) {
+  Option<TensorSubDim> x;
+  return x;
+}
 
-bool List_des(FILE *in, List<Ptr<Value>> &x) { return true; }
+List<Ptr<Value>> List_Value_des(FILE *in) {
+  List<Ptr<Value>> x;
+  return x;
+}
 
-bool List_des(FILE *in, List<Ptr<Keyword>> &x) { return true; }
+List<Ptr<Keyword>> List_Keyword_des(FILE *in) {
+  List<Ptr<Keyword>> x;
+  return x;
+}
 
-bool List_des(FILE *in, List<Ptr<TensorArg>> &x) { return true; }
+List<Ptr<TensorArg>> List_TensorArg_des(FILE *in) {
+  List<Ptr<TensorArg>> x;
+  return x;
+}
 
-bool List_des(FILE *in, List<Ptr<Stmt>> &x) { return true; }
+List<Ptr<Stmt>> List_Stmt_des(FILE *in) {
+  List<Ptr<Stmt>> x;
+  return x;
+}
 
-bool KLRFile_des(FILE *in, Ptr<KLRFile> &x) {
+Ptr<KLRFile> KLRFile_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 217 || c != 247 || l != 3)
-    return false;
-  *x = static_cast<KLRFile *>(region_alloc(region, sizeof(**x)));
-  if (!Nat_des(in, &(*x)->major))
-    return false;
-  if (!Nat_des(in, &(*x)->minor))
-    return false;
-  if (!Nat_des(in, &(*x)->patch))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<KLRFile> x = ptr<KLRFile>();
+  x->major = Nat_des(in);
+  x->minor = Nat_des(in);
+  x->patch = Nat_des(in);
+  return x;
 }
 
-bool KLRMetaData_des(FILE *in, Ptr<KLRMetaData> &x) {
+Ptr<KLRMetaData> KLRMetaData_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 235 || c != 0 || l != 1)
-    return false;
-  *x = static_cast<KLRMetaData *>(region_alloc(region, sizeof(**x)));
-  if (!String_des(in, &(*x)->format))
-    return false;
-  return true;
+    throw std::runtime_error("rror");
+  Ptr<KLRMetaData> x = ptr<KLRMetaData>();
+  x->format = String_des(in);
+  return x;
 }
 
-bool Contents_des(FILE *in, Ptr<Contents> &x) {
+Ptr<Contents> Contents_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
-    return false;
+    throw std::runtime_error("rror");
   if (t != 236)
-    return false;
-  *x = static_cast<Contents *>(region_alloc(region, sizeof(**x)));
+    throw std::runtime_error("rror");
   switch (c) {
-  case 0:
+  case 0: {
     if (l != 1)
-      return false;
-    if (!Kernel_des(in, &(*x)->python.kernel))
-      return false;
-    (*x)->tag = ContentsPython;
+      throw std::runtime_error("rror");
+    Ptr<ContentsPythonWrapper> x = ptr<ContentsPythonWrapper>();
+    x->kernel = Kernel_des(in);
+    return x;
     break;
-  case 1:
-    if (l != 1)
-      return false;
-    if (!Kernel_des(in, &(*x)->nki.kernel))
-      return false;
-    (*x)->tag = ContentsNki;
-    break;
-  case 2:
-    if (l != 1)
-      return false;
-    if (!Kernel_des(in, &(*x)->klir.kernel))
-      return false;
-    (*x)->tag = ContentsKlir;
-    break;
-  case 3:
-    if (l != 1)
-      return false;
-    if (!String_des(in, &(*x)->hlo.name))
-      return false;
-    (*x)->tag = ContentsHlo;
-    break;
-  default:
-    return false;
   }
-  return true;
+  case 1: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<ContentsNkiWrapper> x = ptr<ContentsNkiWrapper>();
+    x->kernel = Kernel_des(in);
+    return x;
+    break;
+  }
+  case 2: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<ContentsKlirWrapper> x = ptr<ContentsKlirWrapper>();
+    x->kernel = Kernel_des(in);
+    return x;
+    break;
+  }
+  case 3: {
+    if (l != 1)
+      throw std::runtime_error("rror");
+    Ptr<ContentsHloWrapper> x = ptr<ContentsHloWrapper>();
+    x->name = String_des(in);
+    return x;
+    break;
+  }
+  default:
+    throw std::runtime_error("rror");
+  }
 }
+} // namespace klr

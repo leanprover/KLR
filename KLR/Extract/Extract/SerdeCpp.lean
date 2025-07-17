@@ -21,12 +21,14 @@ namespace Des
 private def desName : SimpleType -> String
   | .const `Lean.Name => "String_des"
   | .const `KLR.Core.Reg => "Nat_des"
+  | .list t => s!"List_{t.name}_des"
+  | .option t => s!"Option_{t.name}_des"
   | t => s!"{t.name}_des"
 
 private def genSimpleSig (ty : SimpleType) (term : String := ";") : MetaM Unit := do
   if term != ";" then
     IO.println ""
-  IO.println s!"bool {desName ty}(FILE *in, {Cpp.genType ty}& x){term}"
+  IO.println s!"{Cpp.genType ty} {desName ty}(FILE *in){term}"
 
 private def genSig (ty : LeanType) (term : String := ";") : MetaM Unit := do
   match ty with
@@ -36,58 +38,64 @@ private def genSig (ty : LeanType) (term : String := ";") : MetaM Unit := do
       let ty := if ty.isEnum then .enum n else .const n
       genSimpleSig ty term
 
+private def genOptionDes (ty : SimpleType) : MetaM Unit := do
+  IO.println s!"Option<{Cpp.genType ty}> x;"
+  IO.println "return x;"
+
+private def genListDes (ty : SimpleType) : MetaM Unit := do
+  IO.println s!"List<{Cpp.genType ty}> x;"
+  IO.println "return x;"
+
 -- Generate deserialization for a structure or inductive constructor.
 -- This includes the constructor tag value, followed by an array of
 -- the fields (constructor arguments).
 private def genFields (var : String) (fs : List Field) : MetaM Unit := do
   for f in fs do
-    IO.println s!"if (!{desName f.type}(in, &(*x)->{var}{f.name}))
-      return false;"
+    IO.println s!"x->{var}{f.name} = {desName f.type}(in);"
 
 private def genDes (ty : LeanType) : MetaM Unit := do
   genSig ty " {"
   match ty with
-  | .simple (.option ty) -- => genOptionDes ty
-  | .simple (.list ty) -- => genListDes ty
+  | .simple (.option ty) => genOptionDes ty
+  | .simple (.list ty) => genListDes ty
   | .simple _ => pure ()
   | .prod name fs => do
       match <- KLR.Serde.serdeTags name with
       | (typeTag, [(_, valTag)]) =>
         IO.println s!"u8 t, c, l;
-          if (!deserialize_tag(in, &t, &c, &l)) return false;
+          if (!deserialize_tag(in, &t, &c, &l))
+            throw std::runtime_error(\"rror\");
           if (t != {typeTag} || c != {valTag} || l != {fs.length})
-            return false;
-          *x = static_cast<{name}*>(region_alloc(region, sizeof(**x)));"
+            throw std::runtime_error(\"rror\");
+          {Cpp.genType (.const name)} x = ptr<{name}>();"
         genFields "" fs
+        IO.println "return x;"
       | _ => throwError "unexected tags for product"
   | .sum name variants => do
       let tags <- KLR.Serde.serdeTags name
       IO.println s!"u8 t, c, l;
-        if (!deserialize_tag(in, &t, &c, &l)) return false;
-        if (t != {tags.fst}) return false;"
-      if ty.isEnum then
-        IO.println "(void)region;"
-      else
-        IO.println s!"*x = static_cast<{name}*>(region_alloc(region, sizeof(**x)));"
+        if (!deserialize_tag(in, &t, &c, &l)) throw std::runtime_error(\"rror\");
+        if (t != {tags.fst}) throw std::runtime_error(\"rror\");"
       IO.println s!"switch (c) \{"
       for v in variants do
         match v with
         | .prod n fs => do
           match tags.snd.lookup n with
           | some val => do
-            IO.println s!"case {val}:"
-            IO.println s!" if (l != {fs.length}) return false;"
-            if ty.isEnum
-            then IO.println s!"*x = {Cpp.enumFullName n};"
+            IO.println s!"case {val}: \{"
+            IO.println s!" if (l != {fs.length}) throw std::runtime_error(\"rror\");"
+            if ty.isEnum then
+              IO.println s!"return {Cpp.enumFullName n};"
             else
-              genFields (Cpp.varName n ++ ".") fs
-              IO.println s!"(*x)->tag = {n};"
-            IO.println "break;"
+              IO.println s!"Ptr<{Cpp.subclassName n}> x = ptr<{Cpp.subclassName n}>();"
+              genFields "" fs
+              IO.println "return x;"
+            IO.println "break;}"
           | none => throwError s!"no tag for {n}"
         | _ => throwError s!"Expecting product for {name}.{v.name}"
-      IO.println "default: return false;"
+      IO.println "default: throw std::runtime_error(\"rror\");"
       IO.println "}"
-  IO.println "return true;"
+  --IO.println "  throw std::runtime_error(\"error\");"
   IO.println "}"
 
 end Des
@@ -105,9 +113,11 @@ private def genC (tys : List LeanType) : MetaM Unit := do
 def generateKlrH : MetaM Unit := do
   IO.println <| Cpp.headerH ["klir_ast.hpp"]
   genH (<- C.klrAST)
+  IO.println "}" -- TODO close namepace!
 
 def generateKlrC : MetaM Unit := do
   IO.println <| Cpp.headerC ["klir_serde.hpp"]
   genC (<- C.commonAST)
   genC (<- C.klrAST)
   genC (<- C.fileAST)
+  IO.println "}" -- TODO close namepace!
