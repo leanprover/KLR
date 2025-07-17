@@ -51,14 +51,14 @@ def makeOpNode (op : Operator) (output : String) (ty : KLR.TGR.TensorTy): Vertex
   .mk
     (sanitize output)
     (.mk ([
-      ("label", s!"{opName op}\\n{output}\n{ty.shape}"),
+      ("label", s!"{opName op}\\n{output}\\n{ty.shape}"),
     ] ++ attrs))
 
-def makeConstNode (name : String) (usedAt : String): Vertex :=
+def makeConstNode (op : String) (name : String) (shape : TensorTy) (usedBy : String): Vertex :=
   .mk
-    s!"node_const_{name}_{usedAt}"
+    s!"node_const_{name}_{usedBy}"
     (.mk [
-      ("label", s!"const\\n{name} ({usedAt})"),
+      ("label", s!"{op}\\n{name}\\n{shape.shape}"),
       ("shape", "diamond"),
       ("style", "filled"),
       ("fillcolor", "lightyellow"),
@@ -84,7 +84,8 @@ def graph (f : TGR.Function) : Graph := Id.run do
   let mut edges := []
   -- Every variables in the function that is the result of a `constant` operatior
   let mut consts := f.statements.filterMap (fun
-    | .assign v (.const _ _ _) _ => .some v
+    | .assign v (.const ..) shape => .some ("const", v, shape)
+    | .assign v (.full ..) shape => .some ("full", v, shape)
     | _ => .none)
   -- A closure that creates edges from a list of inputs to an output variable.
   -- If the input is a constant, it creates a vertex for that constant.
@@ -92,31 +93,31 @@ def graph (f : TGR.Function) : Graph := Id.run do
     let mut vertices := []
     let mut edges := []
     for input in inputs do
-      if consts.contains input then
-        let node := makeConstNode input output
+      if let .some (op, v, shape) := consts.find? fun (_, v, _) => v == input then
+        let node := makeConstNode op v shape output
         vertices := node :: vertices
         edges := (makeEdge node.id output) :: edges
       else
-        edges := (makeEdge input output) :: edges
+        edges := (makeEdge (sanitize input) output) :: edges
     return (vertices, edges)
 
   -- Walk the program statements and create vertices and edges.
   for s in f.statements do
     match s with
-    | .assign _ (.const _ _ _) _ => ()
+    | .assign _ (.const ..) _  | .assign _ (.full ..) _ => pure ()
     | .assign v op ty =>
-      let deps := dependencies op |>.map sanitize
-      let (newVertices, newEdges) := makeEdges deps (sanitize v)
+      let deps := dependencies op
+      let (newVertices, newEdges) ← makeEdges deps (sanitize v)
       vertices := [makeOpNode op v ty] ++ newVertices ++ vertices
       edges := newEdges ++ edges
     | .ret vars =>
       let node := makeReturnNode f.name
-      let deps := vars.map sanitize
-      let (newVertices, newEdges) := makeEdges deps node.id
+      let deps := vars
+      let (newVertices, newEdges) ←  makeEdges deps node.id
       vertices := [node] ++ newVertices ++ vertices
       edges := newEdges ++ edges
-    | .comment _ => ()
+    | .comment _ => pure ()
 
-  .mk f.name vertices edges
+  pure $ .mk f.name vertices edges
 
 end KLR.TGR.Graph
