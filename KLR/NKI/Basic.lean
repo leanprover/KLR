@@ -62,7 +62,7 @@ inductive Expr' where
   | access (expr : Expr) (indices : List Index)
   | binOp (op : BinOp) (left right : Expr)
   | ifExp (test body orelse : Expr)
-  | call (f: Expr) (args: List Expr) (keywords : List Keyword)
+  | call (f: Expr) (typeArgs : List Expr) (args: List Expr) (keywords : List Keyword)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 5]
@@ -123,6 +123,7 @@ structure Fun where
   file : String
   line : Nat
   body : List Stmt
+  typeParams : List String
   args : List Param
   returns : Option Expr
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp

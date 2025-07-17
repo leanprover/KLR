@@ -704,7 +704,7 @@ partial def expr' : Expr' -> Trace Term
       let tru <- expr tru  -- eagerly evaluate both branches
       let fls <- expr fls  -- to report errors to user
       return if tst then tru else fls
-  | .call f args kws => fnCall f args kws (.none, .none)
+  | .call f _ args kws => fnCall f args kws (.none, .none)
 
 -- Convert an expression in assignment context (an L-Value).
 partial def LValue (e : Expr) : Trace Term :=
@@ -755,7 +755,7 @@ partial def stmt' : Stmt' -> Trace StmtResult
       return .done
   | .assign xs e =>
       (do match (xs, e.expr) with
-      | ([x], .call f args kws) =>
+      | ([x], .call f _ args kws) =>
         let xval <- expr x -- Interpret x as RValue
         let res <- fnCall f args kws (.some xval, .none)
         -- Emit side effects, possibly the fn call itself
@@ -767,7 +767,7 @@ partial def stmt' : Stmt' -> Trace StmtResult
         return .done
   | .augAssign x op e =>
       (do match e.expr with
-      | .call f args kws =>
+      | .call f _ args kws =>
         -- Interpret x as RValue, to pass it as a 'dst' keyword argument
         let xval <- expr x
         let res <- fnCall f args kws (.some xval, .some op)

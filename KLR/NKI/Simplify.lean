@@ -69,7 +69,7 @@ private def cmpOp : Python.CmpOp -> Simplify BinOp
 -- Use of unary operators should be rare; we convert them into function calls.
 -- TODO: what names should we use for these functions?
 private def unaryOp (op : Python.UnaryOp) : Simplify (Expr -> Expr') :=
-  let call s e := .call ⟨.var s, e.pos⟩ [e] []
+  let call s e := .call ⟨.var s, e.pos⟩ [] [e] []
   match op with
   | .invert => return call `builtin.op.invert
   | .not => return call `builtin.op.not
@@ -148,11 +148,12 @@ private def expr' (e' : Python.Expr') : Simplify Expr' :=
       let l <- exprs l
       return (<- compare a ops l).expr
   | .ifExp c t e => return .ifExp (<- expr c) (<- expr t) (<- expr e)
-  | .call f args kws => do
+  | .call f typArgs args kws => do
       let f <- expr f
+      let typeArgs <- exprs typArgs
       let args <- exprs args
       let kws <- keywords kws
-      return .call f args kws
+      return .call f typeArgs args kws
   termination_by sizeOf e'
 
 private def index (e : Python.Expr) : Simplify Index := do
@@ -317,6 +318,7 @@ private def func (f : Python.Fun) : Simplify Fun :=
     name := f.name
     file := "unknown"  -- TODO: fix me
     line := f.line
+    typeParams := f.typeParams
     args := <- params f.args
     body := <- stmts f.body
     returns := <- f.returns.mapM expr

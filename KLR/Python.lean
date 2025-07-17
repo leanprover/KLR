@@ -100,7 +100,7 @@ inductive Expr' where
   | unaryOp (op : UnaryOp) (operand : Expr)
   | compare (left : Expr) (ops : List CmpOp) (comparators : List Expr)
   | ifExp (test body orelse : Expr)
-  | call (f: Expr) (args: List Expr) (keywords : List Keyword)
+  | call (f: Expr) (typArgs : List Expr) (args: List Expr) (keywords : List Keyword)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 9]
@@ -195,6 +195,7 @@ structure Fun where
   name : String
   line : Nat
   source : String
+  typeParams : List String
   args : Args
   body: List Stmt
   returns : Option Expr

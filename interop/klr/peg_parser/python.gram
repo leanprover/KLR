@@ -646,6 +646,12 @@ type_param[type_param_ty] (memo):
 
 type_param_bound[expr_ty]: ':' e=expression { e }
 
+# Type arguments
+# --------------
+
+type_arguments[expr_ty]:
+    | '[' t=','.expression+ ']' &'(' { t }
+
 # EXPRESSIONS
 # -----------
 
@@ -804,8 +810,9 @@ await_primary[expr_ty] (memo):
 primary[expr_ty]:
     | a=primary '.' b=NAME { _PyAST_Attribute(a, b->v.Name.id, Load, EXTRA) }
     | a=primary b=genexp { _PyAST_Call(a, CHECK(asdl_expr_seq*, (asdl_expr_seq*)_PyPegen_singleton_seq(p, b)), NULL, EXTRA) }
-    | a=primary '(' b=[arguments] ')' {
+    | a=primary t=[type_arguments] '(' b=[arguments] ')' {
         _PyAST_Call(a,
+                 (t) ? ((expr_ty) t)->v.Call.type_args : NULL,
                  (b) ? ((expr_ty) b)->v.Call.args : NULL,
                  (b) ? ((expr_ty) b)->v.Call.keywords : NULL,
                  EXTRA) }
@@ -983,6 +990,7 @@ args[expr_ty]:
     | a[asdl_expr_seq*]=','.(starred_expression | ( assignment_expression | expression !':=') !'=')+ b=[',' k=kwargs {k}] {
         _PyPegen_collect_call_seqs(p, a, b, EXTRA) }
     | a=kwargs { _PyAST_Call(_PyPegen_dummy_name(p),
+                          NULL,
                           CHECK_NULL_ALLOWED(asdl_expr_seq*, _PyPegen_seq_extract_starred_exprs(p, a)),
                           CHECK_NULL_ALLOWED(asdl_keyword_seq*, _PyPegen_seq_delete_starred_exprs(p, a)),
                           EXTRA) }
@@ -1056,9 +1064,10 @@ t_primary[expr_ty]:
     | a=t_primary '.' b=NAME &t_lookahead { _PyAST_Attribute(a, b->v.Name.id, Load, EXTRA) }
     | a=t_primary '[' b=slices ']' &t_lookahead { _PyAST_Subscript(a, b, Load, EXTRA) }
     | a=t_primary b=genexp &t_lookahead {
-        _PyAST_Call(a, CHECK(asdl_expr_seq*, (asdl_expr_seq*)_PyPegen_singleton_seq(p, b)), NULL, EXTRA) }
-    | a=t_primary '(' b=[arguments] ')' &t_lookahead {
+        _PyAST_Call(a, NULL, CHECK(asdl_expr_seq*, (asdl_expr_seq*)_PyPegen_singleton_seq(p, b)), NULL, EXTRA) }
+    | a=t_primary t=[type_arguments] '(' b=[arguments] ')' &t_lookahead {
         _PyAST_Call(a,
+                 (t) ? ((expr_ty) t)->v.Call.type_args : NULL,
                  (b) ? ((expr_ty) b)->v.Call.args : NULL,
                  (b) ? ((expr_ty) b)->v.Call.keywords : NULL,
                  EXTRA) }
