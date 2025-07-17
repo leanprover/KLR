@@ -10,7 +10,7 @@ do
   mv tmp.h $f
 done
 
-for f in serde_*.c topy_*.c
+for f in serde_*.c topy_*.c klir_*.[hc]pp
 do
   clang-format -i $f
 done

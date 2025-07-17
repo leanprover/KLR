@@ -5,8 +5,10 @@ Authors: Paul Govereau, Sean McLaughlin
 -/
 import Extract.Basic
 import Extract.C
+import Extract.Cpp
 import Extract.Python
 import Extract.Serde
+import Extract.SerdeCpp
 import Extract.ToPython
 import Lean
 
@@ -20,6 +22,12 @@ private def withFile (file : String) (m : MetaM Unit) : MetaM Unit := do
 private def dir := "../../interop/klr"
 
 run_meta do
+  withFile s!"{dir}/klir_ast.hpp" Cpp.generateKlrAST
+  withFile s!"{dir}/klir_serde.hpp" SerdeCpp.generateKlrH
+  withFile s!"{dir}/klir_serde.cpp" SerdeCpp.generateKlrC
+
+/-
+--run_meta do
   withFile s!"{dir}/ast_common.h" C.generateCommonAST
   withFile s!"{dir}/ast_file.h" C.generateFileAST
   withFile s!"{dir}/ast_python_core.h" C.generatePythonAST
@@ -39,3 +47,5 @@ run_meta do
   withFile s!"{dir}/serde_klir.c" Serde.generateKlrC
   withFile s!"{dir}/topy_nki.h" ToPython.generateNkiH
   withFile s!"{dir}/topy_nki.c" ToPython.generateNkiC
+
+  -/
