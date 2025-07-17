@@ -96,6 +96,7 @@ See comment on section `ConcreteMapImpl` below.
   utilities above. initialized with a concrete graph and transition funcset,
   the solver is called - exercising the pipeline end-to-end.
 -/
+import KLR.Compile.DFSimp
 
 -- sigh i shouldn't have to do this
 abbrev ℕ := Nat
@@ -198,6 +199,7 @@ section Basics
 
   infix:100 "⊔" => Max.max
 
+  @[df_simp]
   def NodeMap.instBEq {α β : Type} [NodeMap α] [BEq β] : BEq ⟦α, β⟧ := {
     beq μ₀ μ₁ := μ₀ fold⟪true, (fun a prev => prev ∧ (μ₀◃a == μ₁◃a))⟫
   }
@@ -300,7 +302,6 @@ section Basics
 
 end Basics
 
-
 /-
   The section `DataflowProblemSolver ` is parameterized on an instance of `DataflowProblem α β`.
   It builds on the definitions of maps `⟦α, β⟧` from `NodeMap α`, and on the transition functions
@@ -313,20 +314,29 @@ end Basics
   the dataflow problem, and a `I' ν : Prop` - which captures that `ν` satisfies the dataflow problem.
 -/
 section DataflowProblemSolver
+
   variable {α β : Type} [BEq α] {DP: DataflowProblem α β}
   open DataflowProblem
 
+  @[df_simp]
   def ν₀ : ⟦α, (β × Bool)⟧ := ⟪↦(⊥, true)⟫
 
+  @[df_simp]
   def ε (a₀ a₁ : Node α) : Bool := List.elem a₁ (σ◃a₀)
 
+  @[df_simp]
   def strip_bools (ν : ⟦α, (β × Bool)⟧) := ν map⟪fun (β, _)=>β⟫
 
+  @[df_simp]
   def E (P : (Node α) → (Node α) → Prop) := ∀ (a₀ a₁) (_:ε a₀ a₁), P a₀ a₁
+  @[df_simp]
   def R (ν₀ : ⟦α, (β × Bool)⟧) (ν₁ : ⟦α, β⟧) [LE β]: Prop := E (fun a₀ a₁ => (ν₀◃a₀).2 ∨ (τ◃a₀) ((ν₀◃a₀).1) ≤ (ν₁◃a₁))
+  @[df_simp]
   def I (ν : ⟦α, (β × Bool)⟧) : Prop := R ν (strip_bools ν)
 
+  @[df_simp]
   def R' (ν₀ ν₁ : ⟦α, β⟧) : Prop := E (fun a₀ a₁ => (τ◃a₀) (ν₀◃a₀) ≤ ν₁◃a₁)
+  @[df_simp]
   def I' (ν : ⟦α, β⟧) : Prop := R' ν ν
 
   theorem base_case : @I α β _ DP ν₀ := by {
@@ -337,17 +347,21 @@ section DataflowProblemSolver
     rw [NodeMap.of_const_get]
   }
 
+  @[df_simp]
   def δ (ν : ⟦α, (β × Bool)⟧) (a : Node α) : ⟦α, β⟧ := -- step
     of_func⟪(fun a' => if ε a a' then ((τ◃a) (ν◃a).1) else ⊥)⟫
 
+  @[df_simp]
   def Δ₀ (ν : ⟦α, (β × Bool)⟧) : ⟦α, β⟧ :=
     ν fold⟪ν map⟪(·.1)⟫, (fun a ν₀ => if (ν◃a).2 then ν₀ ⊔ (δ ν a) else ν₀)⟫
 
+  @[df_simp]
   def Δ (ν : ⟦α, (β × Bool)⟧) : ⟦α, (β × Bool)⟧ :=
     let ν' := Δ₀ ν
     of_func⟪fun a => let (β, β') := ((ν◃a).1, (ν'◃a)); (β', β != β')⟫
 
 
+  @[df_simp]
   def is_fix (ν : ⟦α, (β × Bool)⟧) : Bool :=
     ν map⟪fun x↦x.2⟫ == ⟪↦false⟫
 
@@ -529,6 +543,7 @@ section DataflowProblemSolver
       }
   }
 
+  -- don't want to unroll this automatically
   def DataflowProblem.solve_to_depth {α β : Type}
     (depth : ℕ)
     (DP : DataflowProblem α β)
@@ -546,6 +561,7 @@ section DataflowProblemSolver
           else
             solve_to_depth depth' DP ν' h'
 
+  @[df_simp]
   def DataflowProblem.solve {α β : Type} [BEq α]
     (DP : DataflowProblem α β)
     : Option ((ν : ⟦α, β⟧) ×' I' ν)
@@ -585,27 +601,35 @@ section FiniteDataflowProblemSolver
     le_supl (β₀ β₁ : β) : β₀ ≤ Max.max β₀ β₁
     le_supr (β₀ β₁ : β) : β₁ ≤ Max.max β₀ β₁
 
+  @[df_simp]
   def LtProp : NodeProp ℕ where
     node_prop n' := n' < n
 
+  @[df_simp]
   def NodeT := @Node ℕ (LtProp n)
 
+  @[df_simp]
   def node_to_fin (nd : NodeT n) : (Fin n)
     := {val := @nd.data, isLt := @nd.sound}
 
+  @[df_simp]
   def fin_to_node (fin : Fin n) : (NodeT n)
     := @Node.mk ℕ (LtProp n) fin.val fin.isLt
 
+  @[df_simp]
   def nodes : Vector (NodeT n) n
     := Vector.ofFn (fin_to_node n)
 
+  @[df_simp]
   def vector_fn {β : Type} (f : NodeT n → β) : Vector β n
     := Vector.ofFn (f ∘ (fin_to_node n))
 
+  @[df_simp]
   def FiniteNodeProp : NodeProp ℕ := {
       node_prop n' := n' < n
     }
 
+  @[df_simp]
   def FiniteNodeMap : NodeMap ℕ := {
     FiniteNodeProp n with
       μ β := Vector β n
@@ -697,6 +721,7 @@ section FiniteDataflowProblemSolver
     This is the end of the section because the returned instance provides the
     `DataflowProblem.solve` function.
   -/
+  @[df_simp]
   def FiniteDataflowProblem {β : Type}
     [BEq β]
     [P:Preorder β]
@@ -854,6 +879,7 @@ section InnerMapImpl
     it allows significant code reuse and defines dataflowproblems
     with `β` equal to a map type minimally.
   -/
+  @[df_simp]
   def FNM : NodeMap ℕ := (FiniteNodeMap num_keys)
 
   /-
@@ -866,6 +892,7 @@ section InnerMapImpl
     proven properties of `⟦⬝, ⬝⟧` types. None are
     very surprising.
   -/
+  @[df_simp]
   def FSI {_:NodeMap ℕ}: FiniteSolverInput (⟦ℕ, ρ⟧) := {
     num_nodes := num_nodes
     edges := edges
@@ -935,6 +962,7 @@ section InnerMapImpl
     `Node ℕ` instances (of each `NodeMap ℕ` class!). None of these proofs
     are surprising.
   -/
+  @[df_simp]
   def Solution : Option (SolutionT ρ num_nodes num_keys edges transitions) :=
     let NMK : NodeMap ℕ := FNM num_keys
     let DP : DataflowProblem ℕ ⟦ℕ, ρ⟧ := FiniteDataflowProblem num_nodes
@@ -1422,6 +1450,7 @@ namespace UseDefImpl
 
   end DataflowInstance
 end UseDefImpl
+
 
 
 -- thanks for reading! - Julia 💕

@@ -14,6 +14,7 @@ instance VarAction.toString : ToString VarAction where
     | Write name _ => s!"Write({name})"
     | None => "None"
 
+@[simp]
 def VarAction.var := fun
   | Read name => some name
   | Write name _ => some name
@@ -295,7 +296,27 @@ def test_kernel : Kernel := {
   args := [],
   globals := [] }
 
-def walker := NKIWalker.processFun test_kernel.funs[0]
+/-
+def test():
+	x = 0
+	x
+-/
+@[simp]
+def test_kernel_min : Kernel := {
+  entry := "test.test",
+  funs := [{ name := "test.test",
+             file := "unknown",
+             line := 1,
+             body := [{ stmt := KLR.NKI.Stmt'.expr
+                                  { expr := KLR.NKI.Expr'.value (KLR.NKI.Value.int 0),
+                                    pos := { line := 2, column := 1, lineEnd := some 2, columnEnd := some 2 } },
+                        pos := { line := 2, column := 1, lineEnd := some 2, columnEnd := some 2 } }],
+             args := [] }],
+  args := [],
+  globals := [] }
+
+@[simp]
+def walker := NKIWalker.processFun test_kernel_min.funs[0]
 #eval walker
 
 @[simp]
@@ -322,22 +343,127 @@ instance : ToString Bool where
 
 
 #eval walker.num_nodes
-example : walker.num_nodes = 12 := by {
-  simp_all!
+example : walker.num_nodes = 2 := by {
+  simp
 }
 
+#eval walker.vars.length
+example : walker.vars.length = 0 := by {
+  simp
+}
+
+
+--attribute [df_simp] List.foldl
+--attribute [df_simp] Vector.ofFn
+--attribute [df_simp] Array.ofFn
+
+def 𝕐 : NKIWalker := ({ num_nodes := 1, last_node := 0, actions := fun x => VarAction.None,
+                                  edges := fun _ _ => false, breaks := [], conts := [], rets := [],
+                                  vars := [] } : NKIWalker).processStmtList
+                              [{
+                                  stmt :=
+                                    Stmt'.assign
+                                      { expr := Expr'.var "x",
+                                        pos := { line := 2, column := 1, lineEnd := some 2, columnEnd := some 2 } }
+                                      none
+                                      (some
+                                        { expr := Expr'.value (Value.int 0),
+                                          pos := { line := 2, column := 5, lineEnd := some 2, columnEnd := some 6 } }),
+                                  pos := { line := 2, column := 1, lineEnd := some 2, columnEnd := some 6 } },
+                                {
+                                  stmt :=
+                                    Stmt'.expr
+                                      { expr := Expr'.var "x",
+                                        pos := { line := 3, column := 1, lineEnd := some 3, columnEnd := some 2 } },
+                                  pos :=
+                                    { line := 3, column := 1, lineEnd := some 3, columnEnd := some 2 } }]
+
+
+#eval 𝕐.num_nodes
+example : 𝕐.num_nodes = 3:= by {
+  unfold 𝕐
+  unfold NKIWalker.processStmtList
+  simp
+
+}
+
+
 @[simp]
-def 𝕏 := (Solution
+def 𝕏opt := (Solution
       (ρ:=Bool)
       (le_supl:=by trivial)
       (le_supr:=by trivial)
       (num_nodes:=walker.num_nodes)
       (num_keys:=walker.vars.length)
       (edges:=walker.edges)
-      (transitions:=transitions)).get (by {
-        sorry
-      })
+      (transitions:=transitions))
+
+
+#eval 𝕏opt
+#synth (BEq (ℕ × Bool))
+
+--theorem optsimp {α} (a : α) : (Option.some a).isSome := by simp
+
+theorem 𝕏present : 𝕏opt.isSome := by {
+    unfold 𝕏opt
+    unfold Solution
+    unfold FiniteDataflowProblem
+    unfold DataflowProblem.solve
+    dsimp only []
+    unfold DataflowProblem.solve_to_depth
+    dsimp only []
+    unfold ν₀
+    unfold Δ
+    unfold Δ₀
+    unfold is_fix
+    dsimp only [NodeMap.fold]
+
+
+
+    unfold NodeMap.of_func NodeMap.fold NodeMap.app_unary NodeMap.get
+    dsimp
+
+
+
+
+
+    unfold FiniteNodeMap
+
+    let FNM := (FiniteNodeMap walker.num_nodes)
+    let F [NodeMap ℕ] [BEq (⟦ℕ, Bool⟧ × Bool)]:= fun a => (
+              ⟪↦(⊥, true)⟫ fold⟪⟪↦(⊥, true)⟫map⟪fun x => x.fst⟫,fun a ν₀ =>
+                          if (⟪↦(⊥, true)⟫◃a).snd = true then ν₀⊔δ ⟪↦(⊥, true)⟫ a else ν₀⟫◃a,
+              (⟪↦(⊥, true)⟫◃a).fst
+                !=
+                ⟪↦(⊥, true)⟫fold⟪⟪↦(⊥, true)⟫map⟪fun x => x.fst⟫,fun a ν₀ =>
+                            if (⟪↦(⊥, true)⟫◃a).snd = true then ν₀⊔δ ⟪↦(⊥, true)⟫ a else ν₀⟫◃a)
+    rw [F]
+
+}
+
+
+
+def 𝕏 := 𝕏opt.get 𝕏present
+
+
+      /-(by {
+        unfold Option.isSome
+        simp [df_simp]
+
+        repeat unfold DataflowProblem.solve_to_depth
+
+
+
+        unfold Option.isSome.match_1 Option.casesOn Option.rec
+
+        simp [df_simp]
+
+
+
+      })-/
 #eval! 𝕏
+
+example : 𝕏.vals 2 0 (by {simp}) (by {}) = false
 
 theorem reads_valid
   : ∀ n k, (hn: n < walker.num_nodes) → (hk: k < walker.vars.length) →
