@@ -1,3 +1,16 @@
+/-
+# NKI Dataflow
+
+This file uses the Dataflow solver (`InnerMapImpl.Solution`) from `Dataflow.lean`
+to analyize NKI functions.
+
+For example, see `test_kernel` below, serialized NKI ASTs can be generated from `klr compile`,
+converted to CFGs by the `NKIWalker` class below,
+paired with definitions of variable well-definition corresponding to syntactic defs and uses,
+and analyzed to get `𝕏opt : Option SolutionT`, which can be printed to view the liveness of
+all variables at all program points `#eval 𝕏opt`
+-/
+
 import KLR.NKI.Basic
 import KLR.Compile.Dataflow
 
