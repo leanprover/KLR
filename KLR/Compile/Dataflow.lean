@@ -246,6 +246,16 @@ section Basics
       }
     }
 
+  theorem NodeMap.of_const_map {α β γ: Type} [BEq β] [BEq γ] [LawfulBEq γ] [NodeMap α]
+    (b : β) (f : β → γ) : (NodeMap.const (α:=α) b) map⟪f⟫ == ⟪↦(f b)⟫ := by {
+      rw [beq_ext]
+      intro a
+      rw [of_map_get, of_const_get, of_const_get]
+      simp
+    }
+
+  --theorem NodeMap.of_func_map {α β γ: Type} [BEq β] [NodeMap α] (μ : ⟦α, β⟧) f (stt : γ) : μ fold⟪stt, f⟫
+
   instance {α β : Type} [NodeMap α] [ToString α] [ToString β] : ToString ⟦α, β⟧ where
     toString μ := μ fold⟪"", (fun nd repr => repr ++
       "\n{" ++ toString nd.data ++ ": " ++ toString (μ◃nd) ++ "}")⟫
@@ -835,23 +845,27 @@ section InnerMapImpl
       vals (n k : ℕ) : (n < num_nodes) → (k < num_keys) → ρ
       props (n m k : ℕ) : (hn : n < num_nodes) → (hm : m < num_nodes) → (hk : k < num_keys) →
         (edges n m) → transitions n k (vals n k hn hk) ≤ (vals m k hm hk)
+      key_labels : ℕ → Option String --for debugging printing
 
     def SolutionT.toString [ToString ρ]
     (𝕊 : SolutionT ρ num_nodes num_keys edges transitions)
     : String :=
       let 𝕍 := 𝕊.vals
       let nd_to_string n (hn :n < num_nodes) : String :=
-        let entries := (List.range num_keys).filterMap
-          (fun k => if hk: k < num_keys then some (ToString.toString (𝕍 n k hn hk)) else none)
+        let entries := (List.range num_keys).filterMap -- all entries will map to some _ but this isn't a dependent map
+          (fun k => if hk: k < num_keys then
+            let pre := match 𝕊.key_labels k with | some s => s!"{s}:" | none => "";
+            some (s!"{pre}{(𝕍 n k hn hk)}")
+          else none)
         String.intercalate " " entries
-      let lines := (List.range num_nodes).filterMap
+      let lines := (List.range num_nodes).filterMap -- all entries will map to some _ but this isn't a dependent map
         (fun n => if hn: n < num_nodes then (
           let s := nd_to_string n hn; some (s!"Node {n}: {s}")
         ) else none)
       String.intercalate "\n" ([""] ++ lines ++ [""])
 
-      instance [ToString ρ] : ToString (SolutionT ρ num_nodes num_keys edges transitions) where
-        toString := (SolutionT.toString ρ num_nodes num_keys edges transitions)
+    instance [ToString ρ] : ToString (SolutionT ρ num_nodes num_keys edges transitions) where
+      toString := SolutionT.toString ρ num_nodes num_keys edges transitions
 
   end SolutionImpl
 
@@ -1014,6 +1028,7 @@ section InnerMapImpl
       some {
         vals := vals
         props := props
+        key_labels _ := none
       }
 end InnerMapImpl
 /-

@@ -200,8 +200,8 @@ def NKIWalker.processFun (f : Fun) : NKIWalker :=
 @[simp]
 def NKIWalker.isClosed (walker : NKIWalker) := walker.breaks.isEmpty ∧ walker.conts.isEmpty
 
-
 /-
+file test.py:
 def test():
 	x = 0
 	if cond0:
@@ -210,6 +210,8 @@ def test():
 		y = 0
 		print(y)
 	print(y)
+
+bash: `klr compile test.py` yields the following serialization of a NKI Kernel
 -/
 @[simp]
 def test_kernel : Kernel := {
@@ -297,29 +299,14 @@ def test_kernel : Kernel := {
   globals := [] }
 
 /-
-def test():
-	x = 0
-	x
+  Perform the walk of the AST, converting it into a CFG
 -/
-@[simp]
-def test_kernel_min : Kernel := {
-  entry := "test.test",
-  funs := [{ name := "test.test",
-             file := "unknown",
-             line := 1,
-             body := [{ stmt := KLR.NKI.Stmt'.expr
-                                  { expr := KLR.NKI.Expr'.value (KLR.NKI.Value.int 0),
-                                    pos := { line := 2, column := 1, lineEnd := some 2, columnEnd := some 2 } },
-                        pos := { line := 2, column := 1, lineEnd := some 2, columnEnd := some 2 } }],
-             args := [] }],
-  args := [],
-  globals := [] }
-
-@[simp]
-def walker := NKIWalker.processFun test_kernel_min.funs[0]
+def walker := NKIWalker.processFun test_kernel.funs[0]
 #eval walker
 
-@[simp]
+/-
+  extract the transitions from the walker
+-/
 def transitions (n k : ℕ) (pre : Bool) : Bool :=
   (n = 0) ∨
   if _ : k < walker.vars.length then
@@ -338,57 +325,13 @@ instance : HasBot Bool where
 
 instance : ToString Bool where
   toString := fun
-    | true => "_"
-    | false => "DEF"
+    | true => "❌"
+    | false => "✅"
 
 
-#eval walker.num_nodes
-example : walker.num_nodes = 2 := by {
-  simp
-}
-
-#eval walker.vars.length
-example : walker.vars.length = 0 := by {
-  simp
-}
-
-
---attribute [df_simp] List.foldl
---attribute [df_simp] Vector.ofFn
---attribute [df_simp] Array.ofFn
-
-def 𝕐 : NKIWalker := ({ num_nodes := 1, last_node := 0, actions := fun x => VarAction.None,
-                                  edges := fun _ _ => false, breaks := [], conts := [], rets := [],
-                                  vars := [] } : NKIWalker).processStmtList
-                              [{
-                                  stmt :=
-                                    Stmt'.assign
-                                      { expr := Expr'.var "x",
-                                        pos := { line := 2, column := 1, lineEnd := some 2, columnEnd := some 2 } }
-                                      none
-                                      (some
-                                        { expr := Expr'.value (Value.int 0),
-                                          pos := { line := 2, column := 5, lineEnd := some 2, columnEnd := some 6 } }),
-                                  pos := { line := 2, column := 1, lineEnd := some 2, columnEnd := some 6 } },
-                                {
-                                  stmt :=
-                                    Stmt'.expr
-                                      { expr := Expr'.var "x",
-                                        pos := { line := 3, column := 1, lineEnd := some 3, columnEnd := some 2 } },
-                                  pos :=
-                                    { line := 3, column := 1, lineEnd := some 3, columnEnd := some 2 } }]
-
-
-#eval 𝕐.num_nodes
-example : 𝕐.num_nodes = 3:= by {
-  unfold 𝕐
-  unfold NKIWalker.processStmtList
-  simp
-
-}
-
-
-@[simp]
+/-
+  perform dataflow analysis
+-/
 def 𝕏opt := (Solution
       (ρ:=Bool)
       (le_supl:=by trivial)
@@ -396,105 +339,22 @@ def 𝕏opt := (Solution
       (num_nodes:=walker.num_nodes)
       (num_keys:=walker.vars.length)
       (edges:=walker.edges)
-      (transitions:=transitions))
-
+      (transitions:=transitions)).map (fun a ↦ {a with
+        key_labels k := walker.vars[k]?
+      })
 
 #eval 𝕏opt
-#synth (BEq (ℕ × Bool))
-
---theorem optsimp {α} (a : α) : (Option.some a).isSome := by simp
-
-theorem 𝕏present : 𝕏opt.isSome := by {
-    unfold 𝕏opt
-    unfold Solution
-    unfold FiniteDataflowProblem
-    unfold DataflowProblem.solve
-    dsimp only []
-    unfold DataflowProblem.solve_to_depth
-    dsimp only []
-    unfold ν₀
-    unfold Δ
-    unfold Δ₀
-    unfold is_fix
-    dsimp only [NodeMap.fold]
-
-
-
-    unfold NodeMap.of_func NodeMap.fold NodeMap.app_unary NodeMap.get
-    dsimp
-
-
-
-
-
-    unfold FiniteNodeMap
-
-    let FNM := (FiniteNodeMap walker.num_nodes)
-    let F [NodeMap ℕ] [BEq (⟦ℕ, Bool⟧ × Bool)]:= fun a => (
-              ⟪↦(⊥, true)⟫ fold⟪⟪↦(⊥, true)⟫map⟪fun x => x.fst⟫,fun a ν₀ =>
-                          if (⟪↦(⊥, true)⟫◃a).snd = true then ν₀⊔δ ⟪↦(⊥, true)⟫ a else ν₀⟫◃a,
-              (⟪↦(⊥, true)⟫◃a).fst
-                !=
-                ⟪↦(⊥, true)⟫fold⟪⟪↦(⊥, true)⟫map⟪fun x => x.fst⟫,fun a ν₀ =>
-                            if (⟪↦(⊥, true)⟫◃a).snd = true then ν₀⊔δ ⟪↦(⊥, true)⟫ a else ν₀⟫◃a)
-    rw [F]
-
-}
-
-
-
-def 𝕏 := 𝕏opt.get 𝕏present
-
-
-      /-(by {
-        unfold Option.isSome
-        simp [df_simp]
-
-        repeat unfold DataflowProblem.solve_to_depth
-
-
-
-        unfold Option.isSome.match_1 Option.casesOn Option.rec
-
-        simp [df_simp]
-
-
-
-      })-/
-#eval! 𝕏
-
-example : 𝕏.vals 2 0 (by {simp}) (by {}) = false
-
-theorem reads_valid
-  : ∀ n k, (hn: n < walker.num_nodes) → (hk: k < walker.vars.length) →
-    walker.actions n = VarAction.Read (walker.vars[k]) → 𝕏.vals n k hn hk :=
-    fun n k hn hk h ↦ match n with
-      | 0 => sorry
-      | 1 => sorry
-      | 2 => sorry
-      | 3 => sorry
-      | 4 => sorry
-      | 5 => sorry
-      | 6 => sorry
-      | 7 => sorry
-      | 8 => sorry
-      | 9 => sorry
-      | 10 => sorry
-      | 11 => sorry
-      | n + 12 => sorry
-
-
-
-
-structure Path where
-  nodes : List ℕ
-  nonempty : nodes ≠ []
-  sound : ∀ i (_ : i < nodes.length - 1), walker.edges nodes[i] nodes[i+1]
-
-def Path.motive (path : Path) :=
-  𝕏.vals (path.nodes.getLast path.nonempty)
-
-  match walker.actions (path.nodes.getLast path.nonempty) with
-  | VarAction.Read name =>
-   ∃ i, i < path.nodes.length - 1 ∧ walker.actions i = VarAction.Read name
-  | _ => True
+/-
+Node 0: x:✅ cond0:✅ print:✅ y:✅
+Node 1: x:❌ cond0:❌ print:❌ y:❌
+Node 2: x:✅ cond0:❌ print:❌ y:❌
+Node 3: x:✅ cond0:❌ print:❌ y:❌
+Node 4: x:✅ cond0:❌ print:❌ y:❌
+Node 5: x:✅ cond0:❌ print:❌ y:❌
+Node 6: x:✅ cond0:❌ print:❌ y:✅
+Node 7: x:✅ cond0:❌ print:❌ y:✅
+Node 8: x:✅ cond0:❌ print:❌ y:❌
+Node 9: x:✅ cond0:❌ print:❌ y:❌
+Node 10: x:✅ cond0:❌ print:❌ y:❌
+Node 11: x:✅ cond0:❌ print:❌ y:❌
+-/
