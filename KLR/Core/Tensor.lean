@@ -140,6 +140,7 @@ structure TensorSram where
   name    : String
   dtype   : Dtype
   shape   : Shape
+  flattenedFreeElements : Nat := shape.freeElements
   address : Address
   parWF   : shape.parDim <= address.parSize
   freeWF  : shape.freeElements * dtype.size <= address.freeSize
@@ -168,7 +169,7 @@ def make (name : String)
   let addr := addr.getD (Address.withDefaultSize default shape dtype)
   if parWF : shape.parDim <= addr.parSize then
     if freeWF : shape.freeElements * dtype.size <= addr.freeSize then
-      return ⟨ name, dtype, shape, addr, parWF, freeWF ⟩
+      return ⟨ name, dtype, shape, shape.freeElements, addr, parWF, freeWF ⟩
   throw "Tensor does not fit within memory location"
 
 def withShape (name : TensorSram) (shape : Shape) : Err TensorSram :=
