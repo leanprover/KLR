@@ -29,7 +29,6 @@ section DefVarAction
       | Write name _ => s!"Write({name})"
       | None => "None"
 
-  @[simp]
   def VarAction.var := fun
     | Read name => some name
     | Write name _ => some name
@@ -57,7 +56,6 @@ section DefNKIWalker
         s!"Node {num} : {walker.actions n} ↦ Nodes {tgts}\n"
       String.intercalate "\n" ((List.range walker.num_nodes).map row ++ ["vars: ", walker.vars.toString])
 
-  @[simp]
   def NKIWalker.init : NKIWalker := {
     num_nodes := 1
     last_node := 0
@@ -69,7 +67,7 @@ section DefNKIWalker
     vars := []
   }
 
-  @[simp]
+
   def NKIWalker.processAction (walker : NKIWalker) (action : VarAction) : NKIWalker :=
     let N := walker.num_nodes
     {walker with
@@ -83,22 +81,22 @@ section DefNKIWalker
               | none => walker.vars
     }
 
-  @[simp]
+
   def NKIWalker.setLast (walker : NKIWalker) (last_node : ℕ) : NKIWalker := {walker with
     last_node := last_node
   }
 
-  @[simp]
+
   def NKIWalker.addEdge (walker : NKIWalker) (a b : ℕ) : NKIWalker := {walker with
     edges A B := (A, B) = (a, b) ∨ walker.edges A B
   }
 
-  @[simp]
+
   def NKIWalker.addBreak (walker : NKIWalker) : NKIWalker := {walker with
     breaks := walker.breaks ++ [walker.last_node]
   }
 
-  @[simp]
+
   def NKIWalker.clearBreaks (walker : NKIWalker) : NKIWalker := {walker with
     breaks := []
   }
@@ -107,12 +105,12 @@ section DefNKIWalker
     conts := walker.conts ++ [walker.last_node]
   }
 
-  @[simp]
+
   def NKIWalker.clearConts (walker : NKIWalker) : NKIWalker := {walker with
     conts := []
   }
 
-  @[simp]
+
   def NKIWalker.addReturn (walker : NKIWalker) : NKIWalker := {walker with
     rets := walker.rets ++ [walker.last_node]
   }
@@ -130,7 +128,7 @@ section DefNKIWalker
   end-/
 
   mutual
-  @[simp]
+
   def NKIWalker.processExpr (walker : NKIWalker) (expr : Expr) : NKIWalker :=
     let ⟨expr, _⟩ := expr
     match _ : expr with
@@ -154,14 +152,14 @@ section DefNKIWalker
         try {rcases h' : expr with ⟨⟨⟩, ⟨⟩⟩ <;> simp_all <;> omega}
       }
 
-  @[simp]
+
   def NKIWalker.processExprList (walker : NKIWalker) (exprs : List Expr) : NKIWalker :=
     exprs.foldl NKIWalker.processExpr walker
     termination_by sizeOf exprs
   end
 
   mutual
-  @[simp]
+
   def NKIWalker.processStmt (walker : NKIWalker) (stmt : Stmt) : NKIWalker :=
     let ⟨stmt, _⟩ := stmt
     match _ : stmt with
@@ -205,18 +203,18 @@ section DefNKIWalker
       try rcases h : (els, stmt) with ⟨⟨⟨⟩, ⟨⟩⟩, ⟨⟨⟩, ⟨⟩⟩⟩ <;> simp_all <;> omega
       try rcases h : (body, stmt) with ⟨⟨⟨⟩, ⟨⟩⟩, ⟨⟨⟩, ⟨⟩⟩⟩ <;> simp_all <;> omega
 
-  @[simp]
+
   def NKIWalker.processStmtList (walker : NKIWalker) (stmts : List Stmt) : NKIWalker :=
     stmts.foldl NKIWalker.processStmt walker
     termination_by sizeOf stmts
   end
 
-  @[simp]
+
   def NKIWalker.processFun (f : Fun) : NKIWalker :=
     let body_walker := (NKIWalker.init.processStmtList f.body).processAction VarAction.None
     body_walker.rets.foldl (fun walker ret ↦ walker.addEdge ret body_walker.last_node) body_walker
 
-  @[simp]
+
   def NKIWalker.isClosed (walker : NKIWalker) := walker.breaks.isEmpty ∧ walker.conts.isEmpty
 
 end DefNKIWalker
@@ -236,10 +234,10 @@ section Test
 
   bash: `klr compile test.py` yields the following serialization of a NKI Kernel
   -/
-  @[simp]
+
   def test_kernel : Kernel := {
     entry := "test.test",
-    funs := [{ name := "test.test",
+    funs := [{name := "test.test",
               file := "unknown",
               line := 1,
               body := [{ stmt := KLR.NKI.Stmt'.assign
@@ -252,7 +250,7 @@ section Test
                         { stmt := KLR.NKI.Stmt'.ifStm
                                     { expr := KLR.NKI.Expr'.var "cond0",
                                       pos := { line := 3, column := 4, lineEnd := some 3, columnEnd := some 9 } }
-                                    [{ stmt := KLR.NKI.Stmt'.expr
+                                    [{stmt := KLR.NKI.Stmt'.expr
                                                 { expr := KLR.NKI.Expr'.call
                                                             { expr := KLR.NKI.Expr'.var "print",
                                                               pos := { line := 4,
@@ -260,7 +258,7 @@ section Test
                                                                         lineEnd := some 4,
                                                                         columnEnd := some 7 } }
                                                             [{ expr := KLR.NKI.Expr'.var "x",
-                                                                pos := { line := 4,
+                                                                pos := {line := 4,
                                                                         column := 8,
                                                                         lineEnd := some 4,
                                                                         columnEnd := some 9 } }]
@@ -269,8 +267,8 @@ section Test
                                                             column := 2,
                                                             lineEnd := some 4,
                                                             columnEnd := some 10 } },
-                                      pos := { line := 4, column := 2, lineEnd := some 4, columnEnd := some 10 } }]
-                                    [{ stmt := KLR.NKI.Stmt'.assign
+                                      pos := {line := 4, column := 2, lineEnd := some 4, columnEnd := some 10 } }]
+                                    [{stmt := KLR.NKI.Stmt'.assign
                                                 { expr := KLR.NKI.Expr'.var "y",
                                                   pos := { line := 6,
                                                             column := 2,
@@ -291,7 +289,7 @@ section Test
                                                                         lineEnd := some 7,
                                                                         columnEnd := some 7 } }
                                                             [{ expr := KLR.NKI.Expr'.var "y",
-                                                                pos := { line := 7,
+                                                                pos := {line := 7,
                                                                         column := 8,
                                                                         lineEnd := some 7,
                                                                         columnEnd := some 9 } }]
@@ -305,12 +303,12 @@ section Test
                         { stmt := KLR.NKI.Stmt'.expr
                                     { expr := KLR.NKI.Expr'.call
                                                 { expr := KLR.NKI.Expr'.var "print",
-                                                  pos := { line := 8,
+                                                  pos := {line := 8,
                                                           column := 1,
                                                           lineEnd := some 8,
                                                           columnEnd := some 6 } }
-                                                [{ expr := KLR.NKI.Expr'.var "y",
-                                                  pos := { line := 8,
+                                                [{expr := KLR.NKI.Expr'.var "y",
+                                                  pos := {line := 8,
                                                             column := 7,
                                                             lineEnd := some 8,
                                                             columnEnd := some 8 } }]
