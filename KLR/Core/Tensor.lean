@@ -407,14 +407,14 @@ def shapePure (a : Access) : Shape :=
 end Access
 
 /-
-A tensor in HBM. The address is an offset into HBM.
+A tensor access pattern in HBM. The address is an offset into HBM.
 -/
 @[serde tag = 121]
-structure TensorHbm where
+structure HbmTensor where
+  name : String
   dtype   : Dtype
   address : Nat
-  shape   : List Nat
-  strides : List Nat
+  dims : List APPair
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 -- register number
@@ -475,6 +475,6 @@ Tensor arguments can be either HBM or abstract SRAM tensors.
 -/
 @[serde tag = 125]
 inductive TensorArg where
-  | hbm (tensor : TensorHbm)
+  | hbm (tensor : HbmTensor)
   | sram (tensor : TensorSram)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp

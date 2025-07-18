@@ -289,7 +289,8 @@ structure AffineSelect where
 
 /- DmaCopy instruction
 
-Generate descriptors to use the DMA to perform a copy.
+Generate descriptors to use the DMA to perform a copy. This is only used
+for sbuf/psum transfers. For interacting with the HBM, use DmaHbmLoad/Store
 
 TODO: this operation is stateful since it uses the DMA queues. How
 do we represent that at the KLR level?
@@ -297,6 +298,32 @@ do we represent that at the KLR level?
 @[serde tag = 148]
 structure DmaCopy where
   dst            : TensorRef
+  src            : TensorRef
+  compute_op     : DgeComputeOp
+  dstBoundsCheck : DmaBounds
+  srcBoundsCheck : DmaBounds
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+/- DmaHbmLoad instruction
+
+Uses the DMA to load a tensor from HBM into SBUF.
+-/
+@[serde tag = 148]
+structure DmaHbmLoad where
+  dst            : TensorRef
+  src            : HbmTensor
+  compute_op     : DgeComputeOp
+  dstBoundsCheck : DmaBounds
+  srcBoundsCheck : DmaBounds
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+/- DmaHbmStore instruction
+
+Uses the DMA to load a tensor from HBM into SBUF.
+-/
+@[serde tag = 148]
+structure DmaHbmStore where
+  dst            : HbmTensor
   src            : TensorRef
   compute_op     : DgeComputeOp
   dstBoundsCheck : DmaBounds
@@ -548,7 +575,32 @@ structure TensorReduce where
   negated      : Bool
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
+/- TensorScalar instruction
+
+output[k] = (input[k] <op0> imm0) <op1> imm1
+-/
 @[serde tag = 171]
+structure TensorScalar where
+  dst : TensorRef
+  src : TensorRef
+  imm0 : Immediate
+  op0 : AluOp
+  imm1 : Immediate
+  op1 : AluOp
+  reverse : TensorScalarReverseOps
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+/- TensorTensor instruction
+-/
+@[serde tag = 172]
+structure TensorTensor where
+  dst : TensorRef
+  src0 : TensorRef
+  src1 : TensorRef
+  op : AluOp
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 173]
 inductive Operator where
   | Activate (op : Activate)
   | AffineSelect (op : AffineSelect)
@@ -557,6 +609,8 @@ inductive Operator where
   | Copy (op : Copy)
   | CopyPredicated (op : CopyPredicated)
   | DmaCopy (op : DmaCopy)
+  | DmaHbmLoad (op : DmaHbmLoad)
+  | DmaHbmStore (op : DmaHbmStore)
   | DmaTranspose (op : DmaTranspose)
   | Dropout (op : Dropout)
   | FindIndex8 (op : FindIndex8)
@@ -574,6 +628,8 @@ inductive Operator where
   | ScalarTensorTensor (op : ScalarTensorTensor)
   | Shuffle (op : Shuffle)
   | TensorReduce (op : TensorReduce)
+  | TensorScalar (op : TensorScalar)
+  | TensorTensor (op : TensorTensor)
   | TensorTensorScan (op : TensorTensorScan)
   | Transpose (op : Transpose)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
