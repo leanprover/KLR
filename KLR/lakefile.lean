@@ -22,8 +22,14 @@ package Util
 @[default_target]
 lean_lib Util
 
+-- Lean somehow gets the wrong versions if we don't import batteries and aesop manually
+require aesop from git
+  "https://github.com/leanprover-community/aesop" @ "v4.21.0"
+
+require "leanprover-community" / "batteries" @ git "v4.21.0"
+
 require plausible from git
-  "https://github.com/leanprover-community/plausible" @ "v4.20.0"
+  "https://github.com/leanprover-community/plausible" @ "v4.21.0"
 
 require TensorLib from git
   "https://github.com/leanprover/TensorLib.git" @ "v0.0.12"
