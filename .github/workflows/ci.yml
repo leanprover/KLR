@@ -49,8 +49,8 @@ jobs:
         # Leaving in this workaround for some spurious crashes during the build, due to a bug in lean-action,
         # in case it's not really fixed.
         # https://github.com/leanprover/lean-action/issues/116#issuecomment-2663316227
-        # with:
-        #   use-github-cache: false
+        with:
+          use-github-cache: false
 
       - name: Run Lean tests
         run: lake exe klr
