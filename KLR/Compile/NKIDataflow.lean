@@ -67,6 +67,20 @@ section DefNKIWalker
     vars := []
   }
 
+  structure NKIWalker.Path (walker : NKIWalker) where
+    nodes : List ℕ -- head of `nodes` is end of path
+
+  def NKIWalker.Path.writes (walker : NKIWalker) (path : NKIWalker.Path walker) (name : String) : Bool :=
+    path.nodes.any (match walker.actions · with | VarAction.Write name' _ => name = name' | _ => false)
+
+  def NKIWalker.Path.reads (walker : NKIWalker) (path : NKIWalker.Path walker) (name : String) : Bool :=
+    match path with
+    | ⟨List.cons n _⟩ => match walker.actions n with | VarAction.Read name' => name = name' | _ => false
+    | _ => false
+
+  -- proving (or failing to prove) this is the goal!!
+  def NKIWalker.sound (walker : NKIWalker) : Prop :=
+    ∀ (path : walker.Path) (name : String), (path.reads walker name) → (path.writes walker name)
 
   def NKIWalker.processAction (walker : NKIWalker) (action : VarAction) : NKIWalker :=
     let N := walker.num_nodes
