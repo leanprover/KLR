@@ -45,15 +45,21 @@ lean_exe "klr" where
 
 require Archive from "KLR/Util/Archive"
 
+-- Lean somehow gets the wrong versions if we don't import batteries and aesop manually
+require aesop from git
+  "https://github.com/leanprover-community/aesop" @ "v4.21.0"
+
+require "leanprover-community" / "batteries" @ git "v4.21.0"
+
 require Cli from git
-  "https://github.com/leanprover/lean4-cli.git" @ "v4.20.0"
+  "https://github.com/leanprover/lean4-cli.git" @ "v4.21.0"
 
 require Gzip from "KLR/Util/Gzip"
 
 require NRT from "KLR/NRT"
 
 require plausible from git
-  "https://github.com/leanprover-community/plausible" @ "v4.20.0"
+  "https://github.com/leanprover-community/plausible" @ "v4.21.0"
 
 require TensorLib from git
   "https://github.com/leanprover/TensorLib.git" @ "v0.0.13"
