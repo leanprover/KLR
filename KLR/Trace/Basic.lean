@@ -300,7 +300,7 @@ nki memView (self : Address) (dtype : Dtype) (shape : Shape) (name : String := "
   let name := (<- genName (.mkStr1 name)).toString
   if parWF: shape.parDim <= self.parSize then
     if freeWF: shape.freeElements * dtype.size <= self.freeSize then
-      let tensor := ⟨ name, dtype, shape, self, parWF, freeWF ⟩
+      let tensor := ⟨ name, dtype, shape, shape.freeElements, self, parWF, freeWF ⟩
       let ty := TermType.tensor dtype shape
       return .expr (.value (.access (.simple tensor))) ty
     else throw "shape is too large for memory region"
