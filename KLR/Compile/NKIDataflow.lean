@@ -68,6 +68,17 @@ section DefNKIWalker
   }
 
   def NKIWalker.Node (walker : NKIWalker) : Type := Fin (walker.num_nodes)
+  def NKIWalker.Var (walker : NKIWalker) : Type := Fin (walker.vars.length)
+
+  def NKIWalker.reads (walker : NKIWalker) (n : walker.Node) (v : walker.Var) : Bool :=
+    match walker.actions n.val with
+    | VarAction.Read name => name = walker.vars.get v
+    | _ => false
+
+  def NKIWalker.writes (walker : NKIWalker) (n : walker.Node) (v : walker.Var) : Bool :=
+    match walker.actions n.val with
+    | VarAction.Write name _ => name = walker.vars.get v
+    | _ => false
 
   def NKIWalker.isPath (walker : NKIWalker) : List walker.Node → Prop := fun
     | [] => True
@@ -78,22 +89,20 @@ section DefNKIWalker
     nodes : List walker.Node
     nodes_sound : walker.isPath nodes
 
-  def NKIWalker.Path.writes (walker : NKIWalker) (𝕡 : walker.Path) (name : String) : Bool :=
-    𝕡.nodes.any (fun n ↦ match walker.actions n.val with
-                            | VarAction.Write name' _ => name = name'
-                            | _ => false)
+  def NKIWalker.Path.writes (walker : NKIWalker) (𝕡 : walker.Path) (v : walker.Var) : Bool :=
+    𝕡.nodes.any (walker.writes . v)
 
   def NKIWalker.Path.terminal_is (walker : NKIWalker) (𝕡 : walker.Path) (motive : walker.Node → Bool) : Bool :=
     match 𝕡.nodes with
     | n :: _ => motive n
     | _ => false
 
-  def NKIWalker.Path.reads_terminal (walker : NKIWalker) (𝕡 : walker.Path) (name : String) : Bool :=
-    𝕡.terminal_is walker (fun ⟨n, _⟩ ↦ match walker.actions n with | VarAction.Read name' => name = name' | _ => false)
+  def NKIWalker.Path.reads_terminal (walker : NKIWalker) (𝕡 : walker.Path) (v : walker.Var) : Bool :=
+    𝕡.terminal_is walker (walker.reads . v)
 
   -- proving (or failing to prove) this is the goal!!
   def NKIWalker.sound (walker : NKIWalker) : Prop :=
-    ∀ (𝕡 : walker.Path) (name : String), (𝕡.reads_terminal walker name) → (𝕡.writes walker name)
+    ∀ (𝕡 : walker.Path) v, (𝕡.reads_terminal walker v) → (𝕡.writes walker v)
 
   def NKIWalker.processAction (walker : NKIWalker) (action : VarAction) : NKIWalker :=
     let N := walker.num_nodes
@@ -417,31 +426,30 @@ section Test
   #check ν
   #check σ
 
-  def NKIWalker.Var : Type := Fin (walker.vars.length)
 
-  def NKIWalker.Path.def_terminal (𝕡 : walker.Path) (v : NKIWalker.Var) : Bool :=
+
+  def NKIWalker.Path.def_terminal (𝕡 : walker.Path) (v : walker.Var) : Bool :=
     let ⟨k, hk⟩ := v
     𝕡.terminal_is walker (fun ⟨n, hn⟩ ↦ ν h𝕏 n k hn hk)
 
-  def ℍ : ∀ (𝕡 : ℙ) (v : NKIWalker.Var),
-            let ⟨k, hk⟩ := v
-            let kvar : String := walker.vars[k]'hk
-            (𝕡.def_terminal h𝕏 v) → (𝕡.writes walker kvar)
+  def ℍ : ∀ (𝕡 : ℙ) v, (𝕡.def_terminal h𝕏 v) → (𝕡.writes walker v)
         := by {
-          sorry
+          sorry -- proof by induction on 𝕡, "the hard part"
         }
 
-  def 𝕀 : ∀ (𝕡 : ℙ) (v : NKIWalker.Var),
-            let ⟨k, hk⟩ := v
-            let kvar : String := walker.vars[k]'hk
-            (𝕡.reads_terminal walker kvar) → (𝕡.def_terminal h𝕏 v)
+  def 𝕀 : ∀ (𝕡 : ℙ) v, (𝕡.reads_terminal walker v) → (𝕡.def_terminal h𝕏 v)
         := by {
-          sorry
+          sorry -- proof by relying an an easily computable hypothesis (abstracted as a var to prove this goal)
         }
 
   -- yay!
   def 𝕁 : walker.sound := by {
-    sorry
+    unfold NKIWalker.sound
+    intro 𝕡 name reads
+    apply ℍ
+    apply 𝕀
+    assumption
+    assumption
   }
 
 
