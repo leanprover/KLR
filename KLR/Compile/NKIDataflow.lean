@@ -480,31 +480,25 @@ section Test
       omega
     }
 
+  def NKIWalker.Path.motive (𝕡 : walker.Path) (v : walker.Var) : Prop := 𝕡.var_def_at_terminal h𝕏 v → 𝕡.writes_somewhere walker v
+
+  def length_motive n := ∀ (𝕡 : ℙ) v, 𝕡.nodes.length = n → (𝕡.motive h𝕏 v)
+
+  def sound_at_zero : length_motive h𝕏 0 := sorry
+  def sound_at_one : length_motive h𝕏 1 := sorry
+  def sound_ind : ∀ n, length_motive h𝕏 n → length_motive h𝕏 (n + 2) := sorry
+
+  def sound_everywhere : ∀ n, length_motive h𝕏 n := fun
+    | 0 => sound_at_zero h𝕏
+    | 1 => sound_at_one h𝕏
+    | n + 2 => sound_ind h𝕏 n (sound_everywhere n)
+
   --no def without a write
-  def ℍ : ∀ (𝕡 : ℙ) v, (𝕡.var_def_at_terminal h𝕏 v) → (𝕡.writes_somewhere walker v)
-        := by {
-          intro 𝕡₁ v
-          cases 𝕡₁_def : 𝕡₁
-          rename_i nodes₁ is_path₁
-          cases v_def : v
-          rename_i k hk
-          induction nodes₁; simp
-          {
-            --inductive hypothesis case
-            rename_i n₁ tl₁ IndHyp
-            intro var_def_at₁
-            by_cases non_entry : 𝕡₁.nodes.length ≥ 2; swap
-            {
-              have non_entry' : 𝕡₁.nodes.length < 2 := by omega
-              exfalso
-              apply (𝕡₁.not_def_at_entry h𝕏 v non_entry')
-              rw [𝕡₁_def, v_def]
-              assumption
-            }
-            let ⟨n₁', n₀, tl, ε, is_unroll, isPath⟩ := 𝕡₁.unroll walker non_entry
-            sorry
-          }
-        }
+  def ℍ : ∀ (𝕡 : ℙ) v, (𝕡.var_def_at_terminal h𝕏 v) → (𝕡.writes_somewhere walker v) := by {
+    intro 𝕡 v
+    apply sound_everywhere
+    rfl
+  }
 
   --no read without a def
   def 𝕀 : ∀ (𝕡 : ℙ) v, (𝕡.reads_at_terminal walker v) → (𝕡.var_def_at_terminal h𝕏 v)
