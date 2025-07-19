@@ -452,13 +452,4 @@ section Test
     assumption
   }
 
-
-/-
-            match 𝕡.nodes.head? with
-              | some hd => if hhd : hd < walker.num_nodes
-                    then @ν h𝕏 hd k hhd hk → 𝕡.writes walker kvar
-                    else False
-              | none => True
-        := sorry-/
-
 end Test
