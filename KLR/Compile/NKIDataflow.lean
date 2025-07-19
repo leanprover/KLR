@@ -77,7 +77,6 @@ section DefNKIWalker
     | VarAction.Read name => name = walker.vars.get v
     | _ => false
 
-  @[simp]
   def NKIWalker.writes (walker : NKIWalker) (n : walker.Node) (v : walker.Var) : Bool :=
     match walker.actions n.val with
     | VarAction.Write name _ => name = walker.vars.get v
@@ -102,9 +101,24 @@ section DefNKIWalker
   def NKIWalker.Path.writes_somewhere (walker : NKIWalker) (𝕡 : walker.Path) (v : walker.Var) : Bool :=
     𝕡.nodes.tail.any (walker.writes . v)
 
+  -- easier to rewrite this than find it in the library lol
+  abbrev mem_lifts {α} (a : α) (ℓ : List α) : a ∈ ℓ.tail → a ∈ ℓ := by {
+    intro h
+    cases ℓ
+    contradiction
+    simp_all
+  }
+
   def NKIWalker.Path.writes_somewhere_lifts (walker : NKIWalker) (𝕡₀ 𝕡₁ : walker.Path) (v : walker.Var)
     : 𝕡₁.nodes.tail = 𝕡₀.nodes → 𝕡₀.writes_somewhere walker v → 𝕡₁.writes_somewhere walker v := by {
-      sorry
+      simp [writes_somewhere]
+      intro unroll n₀ n₀_in n₀_writes
+      exists n₀
+      apply And.intro
+      simp [unroll]
+      apply mem_lifts
+      assumption
+      assumption
     }
 
   def NKIWalker.Path.true_at_terminus (walker : NKIWalker) (𝕡 : walker.Path) (motive : walker.Node → Bool) : Bool :=
@@ -476,18 +490,19 @@ section Test
     | [] | _ :: _ :: _ => by simp
 
   @[simp]
-  def NKIWalker.Path.motive (𝕡 : ℙ) (v : walker.Var) : Prop := 𝕡.var_def_at_terminus h𝕏 v → 𝕡.writes_somewhere walker v
+  abbrev NKIWalker.Path.motive (𝕡 : ℙ) (v : walker.Var) : Prop
+    := 𝕡.var_def_at_terminus h𝕏 v → 𝕡.writes_somewhere walker v
 
   @[simp]
-  def length_motive n := ∀ (𝕡 : ℙ) v, 𝕡.nodes.length = n → (𝕡.motive h𝕏 v)
+  abbrev length_motive n := ∀ (𝕡 : ℙ) v, 𝕡.nodes.length = n → (𝕡.motive h𝕏 v)
 
-  def sound_at_zero : length_motive h𝕏 0 := by {
+  abbrev sound_at_zero : length_motive h𝕏 0 := by {
     simp [NKIWalker.Path.var_def_at_terminus, NKIWalker.Path.true_at_terminus,  NKIWalker.Path.writes_somewhere]
     intro _ _ is_zero
     simp [is_zero]
   }
 
-  def sound_at_one : length_motive h𝕏 1 := by {
+  abbrev sound_at_one : length_motive h𝕏 1 := by {
     simp
     intro 𝕡 v _ _
     exfalso
@@ -496,7 +511,7 @@ section Test
     assumption
   }
 
-  def sound_ind : ∀ len, len ≥ 1 → length_motive h𝕏 len → length_motive h𝕏 (len + 1) := by {
+  abbrev sound_ind : ∀ len, len ≥ 1 → length_motive h𝕏 len → length_motive h𝕏 (len + 1) := by {
     unfold length_motive
     intro len len_nonzero IndHyp 𝕡₁ v 𝕡₁_len ν₁
     cases 𝕡₁_def : 𝕡₁
@@ -526,13 +541,13 @@ section Test
       rename_i _ name _
       simp [NKIWalker.Path.writes_somewhere]
       simp [𝕡₁_def] at unroll
-      simp [←unroll, action_def]
+      simp [←unroll, action_def, NKIWalker.writes]
       apply Or.inl
       assumption
     }
   }
 
-  def sound_everywhere : ∀ n, length_motive h𝕏 n := fun
+  abbrev sound_everywhere : ∀ n, length_motive h𝕏 n := fun
     | 0 => sound_at_zero h𝕏
     | 1 => sound_at_one h𝕏
     | n + 2 => sound_ind h𝕏 (n + 1) (by omega) (sound_everywhere (n + 1))
