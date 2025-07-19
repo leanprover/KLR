@@ -67,20 +67,33 @@ section DefNKIWalker
     vars := []
   }
 
+  def NKIWalker.Node (walker : NKIWalker) : Type := Fin (walker.num_nodes)
+
+  def NKIWalker.isPath (walker : NKIWalker) : List walker.Node → Prop := fun
+    | [] => True
+    | [n] => walker.edges 0 n.val
+    | n₁ :: n₀ :: tl => walker.isPath (n₀ :: tl) ∧ (walker.edges n₀.val n₁.val)
+
   structure NKIWalker.Path (walker : NKIWalker) where
-    nodes : List ℕ -- head of `nodes` is end of path
+    nodes : List walker.Node
+    nodes_sound : walker.isPath nodes
 
-  def NKIWalker.Path.writes (walker : NKIWalker) (path : NKIWalker.Path walker) (name : String) : Bool :=
-    path.nodes.any (match walker.actions · with | VarAction.Write name' _ => name = name' | _ => false)
+  def NKIWalker.Path.writes (walker : NKIWalker) (𝕡 : walker.Path) (name : String) : Bool :=
+    𝕡.nodes.any (fun n ↦ match walker.actions n.val with
+                            | VarAction.Write name' _ => name = name'
+                            | _ => false)
 
-  def NKIWalker.Path.reads (walker : NKIWalker) (path : NKIWalker.Path walker) (name : String) : Bool :=
-    match path with
-    | ⟨List.cons n _⟩ => match walker.actions n with | VarAction.Read name' => name = name' | _ => false
+  def NKIWalker.Path.terminal_is (walker : NKIWalker) (𝕡 : walker.Path) (motive : walker.Node → Bool) : Bool :=
+    match 𝕡.nodes with
+    | n :: _ => motive n
     | _ => false
+
+  def NKIWalker.Path.reads_terminal (walker : NKIWalker) (𝕡 : walker.Path) (name : String) : Bool :=
+    𝕡.terminal_is walker (fun ⟨n, _⟩ ↦ match walker.actions n with | VarAction.Read name' => name = name' | _ => false)
 
   -- proving (or failing to prove) this is the goal!!
   def NKIWalker.sound (walker : NKIWalker) : Prop :=
-    ∀ (path : walker.Path) (name : String), (path.reads walker name) → (path.writes walker name)
+    ∀ (𝕡 : walker.Path) (name : String), (𝕡.reads_terminal walker name) → (𝕡.writes walker name)
 
   def NKIWalker.processAction (walker : NKIWalker) (action : VarAction) : NKIWalker :=
     let N := walker.num_nodes
@@ -393,5 +406,51 @@ section Test
   Node 10: x:✅ cond0:❌ print:❌ y:❌
   Node 11: x:✅ cond0:❌ print:❌ y:❌
   -/
+
+  variable (h𝕏 : 𝕏opt.isSome)
+
+  def 𝕏 := 𝕏opt.get h𝕏
+  def ν := (𝕏 h𝕏).vals
+  def σ := (𝕏 h𝕏).props
+  def ℙ := walker.Path
+
+  #check ν
+  #check σ
+
+  def NKIWalker.Var : Type := Fin (walker.vars.length)
+
+  def NKIWalker.Path.def_terminal (𝕡 : walker.Path) (v : NKIWalker.Var) : Bool :=
+    let ⟨k, hk⟩ := v
+    𝕡.terminal_is walker (fun ⟨n, hn⟩ ↦ ν h𝕏 n k hn hk)
+
+  def ℍ : ∀ (𝕡 : ℙ) (v : NKIWalker.Var),
+            let ⟨k, hk⟩ := v
+            let kvar : String := walker.vars[k]'hk
+            (𝕡.def_terminal h𝕏 v) → (𝕡.writes walker kvar)
+        := by {
+          sorry
+        }
+
+  def 𝕀 : ∀ (𝕡 : ℙ) (v : NKIWalker.Var),
+            let ⟨k, hk⟩ := v
+            let kvar : String := walker.vars[k]'hk
+            (𝕡.reads_terminal walker kvar) → (𝕡.def_terminal h𝕏 v)
+        := by {
+          sorry
+        }
+
+  -- yay!
+  def 𝕁 : walker.sound := by {
+    sorry
+  }
+
+
+/-
+            match 𝕡.nodes.head? with
+              | some hd => if hhd : hd < walker.num_nodes
+                    then @ν h𝕏 hd k hhd hk → 𝕡.writes walker kvar
+                    else False
+              | none => True
+        := sorry-/
 
 end Test
