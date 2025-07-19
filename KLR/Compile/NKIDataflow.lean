@@ -438,11 +438,12 @@ section Test
   abbrev ℙ := walker.Path
   abbrev 𝕟 := walker.Node
   abbrev 𝕍 := walker.Var
+  abbrev 𝔼 (n₀ n₁ : walker.Node) := walker.edges n₀.val n₁.val
 
   abbrev ν (n : 𝕟) (v : 𝕍) := (𝕏 h𝕏).vals n.val v.val n.isLt v.isLt
-  def σ (n₀ n₁ : 𝕟) (v : 𝕍) : transitions n₀.val v.val (ν h𝕏 n₀ v) ≤ ν h𝕏 n₁ v := by {
-    let X := (𝕏 h𝕏).props n₀.val n₁.val v.val n₀.isLt n₁.isLt v.isLt
-    sorry
+
+  abbrev σ (n₀ n₁ : 𝕟) (v : 𝕍) (𝔼n:𝔼 n₀ n₁): transitions n₀.val v.val (ν h𝕏 n₀ v) ≤ ν h𝕏 n₁ v := by {
+    apply (𝕏 h𝕏).props n₀.val n₁.val v.val n₀.isLt n₁.isLt v.isLt 𝔼n
   }
 
   #check 𝕏
@@ -510,9 +511,16 @@ section Test
     {
       -- is not defined at n₀ -- the terminus of 𝕡₀, but is at n₁, the terminus of 𝕡₁
       -- since we have ε : edge from n₀ to n₁, σ n₀ n₀
-      let X := σ h𝕏 n₀ n₁ v ε
-      simp [transitions, LE.le, instLEOfPreorder, Preorder.toLE, instPreorderBool_compile, Bool.instLE] at X
-
+      let σ' := σ h𝕏 n₀ n₁ v ε
+      simp [transitions, LE.le, instLEOfPreorder, Preorder.toLE, instPreorderBool_compile, Bool.instLE, ν₀, ν₁] at σ'
+      let ⟨_, σ''⟩ := σ'
+      cases action_def : walker.actions n₀.val <;> rw [action_def] at σ'' <;> try simp at σ''
+      rename_i _ name _
+      simp [NKIWalker.Path.writes_somewhere]
+      simp [𝕡₁_def] at unroll
+      simp [←unroll, action_def]
+      apply Or.inl
+      assumption
     }
   }
 
