@@ -102,17 +102,22 @@ section DefNKIWalker
   def NKIWalker.Path.writes_somewhere (walker : NKIWalker) (𝕡 : walker.Path) (v : walker.Var) : Bool :=
     𝕡.nodes.tail.any (walker.writes . v)
 
-  def NKIWalker.Path.true_at_terminal (walker : NKIWalker) (𝕡 : walker.Path) (motive : walker.Node → Bool) : Bool :=
+  def NKIWalker.Path.writes_somewhere_lifts (walker : NKIWalker) (𝕡₀ 𝕡₁ : walker.Path) (v : walker.Var)
+    : 𝕡₁.nodes.tail = 𝕡₀.nodes → 𝕡₀.writes_somewhere walker v → 𝕡₁.writes_somewhere walker v := by {
+      sorry
+    }
+
+  def NKIWalker.Path.true_at_terminus (walker : NKIWalker) (𝕡 : walker.Path) (motive : walker.Node → Bool) : Bool :=
     match 𝕡.nodes with
     | n :: _ => motive n
     | _ => false
 
-  def NKIWalker.Path.reads_at_terminal (walker : NKIWalker) (𝕡 : walker.Path) (v : walker.Var) : Bool :=
-    𝕡.true_at_terminal walker (walker.reads . v)
+  def NKIWalker.Path.reads_at_terminus (walker : NKIWalker) (𝕡 : walker.Path) (v : walker.Var) : Bool :=
+    𝕡.true_at_terminus walker (walker.reads . v)
 
   -- proving (or failing to prove) this is the goal!!
   def NKIWalker.sound (walker : NKIWalker) : Prop :=
-    ∀ (𝕡 : walker.Path) v, (𝕡.reads_at_terminal walker v) → (𝕡.writes_somewhere walker v)
+    ∀ (𝕡 : walker.Path) v, (𝕡.reads_at_terminus walker v) → (𝕡.writes_somewhere walker v)
 
   def NKIWalker.processAction (walker : NKIWalker) (action : VarAction) : NKIWalker :=
     let N := walker.num_nodes
@@ -429,11 +434,16 @@ section Test
 
   variable (h𝕏 : 𝕏opt.isSome)
 
-  def 𝕏 := 𝕏opt.get h𝕏
-  def ν := (𝕏 h𝕏).vals
-  def σ := (𝕏 h𝕏).props
-  def ℙ := walker.Path
+  abbrev 𝕏 := 𝕏opt.get h𝕏
+  abbrev ℙ := walker.Path
+  abbrev 𝕟 := walker.Node
+  abbrev 𝕍 := walker.Var
 
+  abbrev ν (n : 𝕟) (v : 𝕍) := (𝕏 h𝕏).vals n.val v.val n.isLt v.isLt
+  def σ (n₀ n₁ : 𝕟) (v : 𝕍) : transitions n₀.val v.val (ν h𝕏 n₀ v) ≤ ν h𝕏 n₁ v := by {
+    let X := (𝕏 h𝕏).props n₀.val n₁.val v.val n₀.isLt n₁.isLt v.isLt
+    sorry
+  }
 
   #check 𝕏
   #check ν
@@ -441,51 +451,38 @@ section Test
   #check ℙ
 
 
-  def NKIWalker.Path.var_def_at_terminal (𝕡 : walker.Path) (v : walker.Var) : Bool :=
-    let ⟨k, hk⟩ := v
-    𝕡.true_at_terminal walker (fun ⟨n, hn⟩ ↦ ¬ ν h𝕏 n k hn hk)
+  def NKIWalker.Path.var_def_at_terminus (𝕡 : ℙ) (v : 𝕍) : Bool := 𝕡.true_at_terminus walker (¬ν h𝕏 . v)
 
-  def NKIWalker.Path.not_def_at_entry (𝕡 : walker.Path) (v : walker.Var) : 𝕡.nodes.length < 2 → ¬ 𝕡.var_def_at_terminal h𝕏 v :=
+  def NKIWalker.Path.not_def_at_entry (𝕡 : ℙ) (v : walker.Var) : 𝕡.nodes.length = 1 → ¬ 𝕡.var_def_at_terminus h𝕏 v :=
     match h : 𝕡.nodes with
-    | [] => by {
-        intro
-        cases v
-        simp [NKIWalker.Path.var_def_at_terminal, NKIWalker.Path.true_at_terminal]
-        rw [h]
-      }
-    | [⟨n, hn⟩] => by {
+    | [n] => by {
         intro
         cases v
         rename_i k hk
-        simp [NKIWalker.Path.var_def_at_terminal, NKIWalker.Path.true_at_terminal]
+        simp [NKIWalker.Path.var_def_at_terminus, NKIWalker.Path.true_at_terminus]
         rw [h]
         simp
-        have h_edge: walker.edges 0 n := by {
+        have h_edge: walker.edges 0 n.val := by {
           have h𝕡 := 𝕡.nodes_sound
           unfold NKIWalker.isPath at h𝕡
           rw [h] at h𝕡
           simp at h𝕡
           assumption
         }
-        let X := σ h𝕏 0 n k walker.num_nodes_nonzero hn hk h_edge
-        simp [transitions, LE.le, instLEOfPreorder, Preorder.toLE, instPreorderBool_compile, Bool.instLE] at X
-        assumption
+        apply σ h𝕏 ⟨0,  walker.num_nodes_nonzero⟩ n ⟨k, hk⟩ h_edge
+        simp [transitions, LE.le, instLEOfPreorder, Preorder.toLE, instPreorderBool_compile, Bool.instLE]
       }
-    | _ :: _ :: tl => by {
-      intro h
-      simp at h
-      omega
-    }
+    | [] | _ :: _ :: _ => by simp
 
   @[simp]
-  def NKIWalker.Path.motive (𝕡 : walker.Path) (v : walker.Var) : Prop := 𝕡.var_def_at_terminal h𝕏 v → 𝕡.writes_somewhere walker v
+  def NKIWalker.Path.motive (𝕡 : ℙ) (v : walker.Var) : Prop := 𝕡.var_def_at_terminus h𝕏 v → 𝕡.writes_somewhere walker v
 
   @[simp]
   def length_motive n := ∀ (𝕡 : ℙ) v, 𝕡.nodes.length = n → (𝕡.motive h𝕏 v)
 
   def sound_at_zero : length_motive h𝕏 0 := by {
-    simp [NKIWalker.Path.var_def_at_terminal, NKIWalker.Path.true_at_terminal,  NKIWalker.Path.writes_somewhere]
-    intro 𝕡 ⟨h, k⟩ is_zero
+    simp [NKIWalker.Path.var_def_at_terminus, NKIWalker.Path.true_at_terminus,  NKIWalker.Path.writes_somewhere]
+    intro _ _ is_zero
     simp [is_zero]
   }
 
@@ -494,26 +491,45 @@ section Test
     intro 𝕡 v _ _
     exfalso
     apply (𝕡.not_def_at_entry h𝕏 v)
-    omega
+    assumption
     assumption
   }
 
-  def sound_ind : ∀ n, length_motive h𝕏 n → length_motive h𝕏 (n + 2) := sorry
+  def sound_ind : ∀ len, len ≥ 1 → length_motive h𝕏 len → length_motive h𝕏 (len + 1) := by {
+    unfold length_motive
+    intro len len_nonzero IndHyp 𝕡₁ v 𝕡₁_len ν₁
+    cases 𝕡₁_def : 𝕡₁
+    rename_i nodes₁ is_path₁
+    let ⟨n₁, n₀, tl₀, ε, unroll, is_path₀⟩ := 𝕡₁.unroll walker (by omega)
+    simp [NKIWalker.Path.var_def_at_terminus, NKIWalker.Path.true_at_terminus, ←unroll] at ν₁
+    let 𝕡₀ : ℙ := ⟨n₀ :: tl₀, is_path₀⟩
+    cases ν₀ : ν h𝕏 n₀ v
+    {
+      -- v is defined at n₀ - the terminus of 𝕡₀, so writes somewhere by ind hypo, then lift
+    }
+    {
+      -- is not defined at n₀ -- the terminus of 𝕡₀, but is at n₁, the terminus of 𝕡₁
+      -- since we have ε : edge from n₀ to n₁, σ n₀ n₀
+      let X := σ h𝕏 n₀ n₁ v ε
+      simp [transitions, LE.le, instLEOfPreorder, Preorder.toLE, instPreorderBool_compile, Bool.instLE] at X
+
+    }
+  }
 
   def sound_everywhere : ∀ n, length_motive h𝕏 n := fun
     | 0 => sound_at_zero h𝕏
     | 1 => sound_at_one h𝕏
-    | n + 2 => sound_ind h𝕏 n (sound_everywhere n)
+    | n + 2 => sound_ind h𝕏 (n + 1) (by omega) (sound_everywhere (n + 1))
 
   --no def without a write
-  def ℍ : ∀ (𝕡 : ℙ) v, (𝕡.var_def_at_terminal h𝕏 v) → (𝕡.writes_somewhere walker v) := by {
+  def ℍ : ∀ (𝕡 : ℙ) v, (𝕡.var_def_at_terminus h𝕏 v) → (𝕡.writes_somewhere walker v) := by {
     intro 𝕡 v
     apply sound_everywhere
     rfl
   }
 
   --no read without a def
-  def 𝕀 : ∀ (𝕡 : ℙ) v, (𝕡.reads_at_terminal walker v) → (𝕡.var_def_at_terminal h𝕏 v)
+  def 𝕀 : ∀ (𝕡 : ℙ) v, (𝕡.reads_at_terminus walker v) → (𝕡.var_def_at_terminus h𝕏 v)
         := by {
           sorry -- proof by relying an an easily computable hypothesis (abstracted as a var to prove this goal)
         }
