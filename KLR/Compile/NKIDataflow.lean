@@ -507,6 +507,14 @@ section Test
     cases ν₀ : ν h𝕏 n₀ v
     {
       -- v is defined at n₀ - the terminus of 𝕡₀, so writes somewhere by ind hypo, then lift
+      rw [←𝕡₁_def]
+      apply (NKIWalker.Path.writes_somewhere_lifts walker 𝕡₀ 𝕡₁ v); simp [←unroll, 𝕡₀]
+      apply IndHyp
+      simp [←unroll] at 𝕡₁_len
+      simp [𝕡₀]
+      assumption
+      simp [NKIWalker.Path.var_def_at_terminus, NKIWalker.Path.true_at_terminus, 𝕡₀]
+      assumption
     }
     {
       -- is not defined at n₀ -- the terminus of 𝕡₀, but is at n₁, the terminus of 𝕡₁
