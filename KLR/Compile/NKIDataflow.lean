@@ -493,8 +493,8 @@ section Test
   #check σ
   #check ℙ
 
-
-  def NKIWalker.Path.var_def_at_terminus (𝕡 : ℙ) (v : 𝕍) : Bool := 𝕡.true_at_terminus walker (¬ν h𝕏 . v)
+  abbrev var_def (n : 𝕟) (v : 𝕍) : Bool := ¬ν h𝕏 n v
+  def NKIWalker.Path.var_def_at_terminus (𝕡 : ℙ) (v : 𝕍) : Bool := 𝕡.true_at_terminus walker (var_def h𝕏 . v)
 
   def NKIWalker.Path.not_def_at_entry (𝕡 : ℙ) (v : 𝕍) : 𝕡.nodes.length = 1 → ¬ 𝕡.var_def_at_terminus h𝕏 v :=
     match h : 𝕡.nodes with
@@ -580,31 +580,67 @@ section Test
     | 1 => sound_at_one h𝕏
     | n + 2 => sound_ind h𝕏 (n + 1) (by omega) (sound_everywhere (n + 1))
 
-  --no def without a write
-  def ℍ : ∀ (𝕡 : ℙ) v, (𝕡.var_def_at_terminus h𝕏 v) → (𝕡.writes_somewhere walker v) := by {
+  def no_def_without_a_write : ∀ (𝕡 : ℙ) v, (𝕡.var_def_at_terminus h𝕏 v) → (𝕡.writes_somewhere walker v) := by {
     intro 𝕡 v
     apply sound_everywhere
     rfl
   }
 
-  variable (is_safe : ∀ (n : 𝕟) (v : 𝕍), walker.reads n v → ¬ν h𝕏 n v)
+  abbrev is_safe_at (n : 𝕟) (v : 𝕍) : Prop := walker.reads n v → var_def h𝕏 n v
 
-  --no read without a def
-  def 𝕀 : ∀ (𝕡 : ℙ) v, (𝕡.reads_at_terminus walker v) → (𝕡.var_def_at_terminus h𝕏 v)
-        := by {
-          simp [NKIWalker.Path.var_def_at_terminus, NKIWalker.Path.reads_at_terminus, NKIWalker.Path.true_at_terminus]
-          intro 𝕡 v h
-          cases nodes_def : 𝕡.nodes with | nil | cons n ℓ <;> simp_all [nodes_def]
-        }
+  abbrev is_safe : Prop := ∀ (n : 𝕟) (v : 𝕍), is_safe_at h𝕏 n v
 
-  -- no read without a write :)
-  def 𝕁 : walker.sound := by {
-    unfold NKIWalker.sound
-    intro 𝕡 name reads
-    apply ℍ
-    apply 𝕀
-    assumption
+  abbrev local_safety_decidable : ∀ n v, Decidable (is_safe_at h𝕏 n v) := by {
+    intro n v
+    unfold is_safe_at
+    cases reads? : walker.reads n v <;>
+    cases defs? : var_def h𝕏 n v <;>
+    simp [is_safe_at] <;> try {apply isTrue; trivial}
+    apply isFalse; trivial
+  }
+
+  inductive Safety : Prop
+  | Unsafe : Safety
+  | Safe : is_safe h𝕏 → Safety
+
+  abbrev forall_fin {n} (f : Fin n → Bool) : Bool := (Vector.ofFn f).all (.)
+
+  abbrev forall_fin_sound (f : Fin n → Bool) : forall_fin f → (m : Fin n) → (f m) := by {
+    simp [forall_fin]
+    intro h m
+    apply h
+  }
+
+  abbrev decide_safety : Safety h𝕏 := by {
+    let safe := forall_fin (fun n ↦ forall_fin (fun v ↦ decide (is_safe_at h𝕏 n v)))
+    by_cases safety : safe
+    swap; apply Safety.Unsafe -- if any reads occur where a var isnt def this will hit and fail
+    apply Safety.Safe
+    unfold is_safe
+    intro n v
+    have safety_at_n := forall_fin_sound _ safety n
+    have safety := (forall_fin_sound _ safety_at_n v)
+    apply of_decide_eq_true
     assumption
   }
 
+  section IfSafe
+    variable (safety : ∀ (n : 𝕟) (v : 𝕍), walker.reads n v → ¬ν h𝕏 n v)
+
+    def no_read_without_a_def : ∀ (𝕡 : ℙ) v, (𝕡.reads_at_terminus walker v) → (𝕡.var_def_at_terminus h𝕏 v)
+          := by {
+            simp [NKIWalker.Path.var_def_at_terminus, NKIWalker.Path.reads_at_terminus, NKIWalker.Path.true_at_terminus]
+            intro 𝕡 v h
+            cases nodes_def : 𝕡.nodes with | nil | cons n ℓ <;> simp_all [nodes_def]
+          }
+
+    def no_read_without_a_write : walker.sound := by {
+      unfold NKIWalker.sound
+      intro 𝕡 name reads
+      apply no_def_without_a_write
+      apply no_read_without_a_def
+      assumption
+      assumption
+    }
+  end IfSafe
 end Test
