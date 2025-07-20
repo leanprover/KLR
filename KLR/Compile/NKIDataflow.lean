@@ -13,6 +13,7 @@ all variables at all program points `#eval 𝕏opt`
 
 import KLR.NKI.Basic
 import KLR.Compile.Dataflow
+import KLR.Compile.DataflowTestKernels
 
 open KLR.NKI
 
@@ -313,111 +314,15 @@ section DefNKIWalker
 
 end DefNKIWalker
 
-section Test
+section WithKernel
+  variable [HasKernel]
 
-  /-
-  file test.py:
-  def test():
-    x = 0
-    if cond0:
-      print(x)
-    else:
-      y = 0
-      print(y)
-    print(y)
-
-  bash: `klr compile test.py` yields the following serialization of a NKI Kernel
-  -/
-
-  def test_kernel : Kernel := {
-    entry := "test.test",
-    funs := [{name := "test.test",
-              file := "unknown",
-              line := 1,
-              body := [{ stmt := KLR.NKI.Stmt'.assign
-                                    { expr := KLR.NKI.Expr'.var "x",
-                                      pos := { line := 2, column := 1, lineEnd := some 2, columnEnd := some 2 } }
-                                    none
-                                    (some { expr := KLR.NKI.Expr'.value (KLR.NKI.Value.int 0),
-                                            pos := { line := 2, column := 5, lineEnd := some 2, columnEnd := some 6 } }),
-                          pos := { line := 2, column := 1, lineEnd := some 2, columnEnd := some 6 } },
-                        { stmt := KLR.NKI.Stmt'.ifStm
-                                    { expr := KLR.NKI.Expr'.var "cond0",
-                                      pos := { line := 3, column := 4, lineEnd := some 3, columnEnd := some 9 } }
-                                    [{stmt := KLR.NKI.Stmt'.expr
-                                                { expr := KLR.NKI.Expr'.call
-                                                            { expr := KLR.NKI.Expr'.var "print",
-                                                              pos := { line := 4,
-                                                                        column := 2,
-                                                                        lineEnd := some 4,
-                                                                        columnEnd := some 7 } }
-                                                            [{ expr := KLR.NKI.Expr'.var "x",
-                                                                pos := {line := 4,
-                                                                        column := 8,
-                                                                        lineEnd := some 4,
-                                                                        columnEnd := some 9 } }]
-                                                            [],
-                                                  pos := { line := 4,
-                                                            column := 2,
-                                                            lineEnd := some 4,
-                                                            columnEnd := some 10 } },
-                                      pos := {line := 4, column := 2, lineEnd := some 4, columnEnd := some 10 } }]
-                                    [{stmt := KLR.NKI.Stmt'.assign
-                                                { expr := KLR.NKI.Expr'.var "y",
-                                                  pos := { line := 6,
-                                                            column := 2,
-                                                            lineEnd := some 6,
-                                                            columnEnd := some 3 } }
-                                                none
-                                                (some { expr := KLR.NKI.Expr'.value (KLR.NKI.Value.int 0),
-                                                        pos := { line := 6,
-                                                                  column := 6,
-                                                                  lineEnd := some 6,
-                                                                  columnEnd := some 7 } }),
-                                      pos := { line := 6, column := 2, lineEnd := some 6, columnEnd := some 7 } },
-                                    { stmt := KLR.NKI.Stmt'.expr
-                                                { expr := KLR.NKI.Expr'.call
-                                                            { expr := KLR.NKI.Expr'.var "print",
-                                                              pos := { line := 7,
-                                                                        column := 2,
-                                                                        lineEnd := some 7,
-                                                                        columnEnd := some 7 } }
-                                                            [{ expr := KLR.NKI.Expr'.var "y",
-                                                                pos := {line := 7,
-                                                                        column := 8,
-                                                                        lineEnd := some 7,
-                                                                        columnEnd := some 9 } }]
-                                                            [],
-                                                  pos := { line := 7,
-                                                            column := 2,
-                                                            lineEnd := some 7,
-                                                            columnEnd := some 10 } },
-                                      pos := { line := 7, column := 2, lineEnd := some 7, columnEnd := some 10 } }],
-                          pos := { line := 3, column := 1, lineEnd := some 7, columnEnd := some 10 } },
-                        { stmt := KLR.NKI.Stmt'.expr
-                                    { expr := KLR.NKI.Expr'.call
-                                                { expr := KLR.NKI.Expr'.var "print",
-                                                  pos := {line := 8,
-                                                          column := 1,
-                                                          lineEnd := some 8,
-                                                          columnEnd := some 6 } }
-                                                [{expr := KLR.NKI.Expr'.var "y",
-                                                  pos := {line := 8,
-                                                            column := 7,
-                                                            lineEnd := some 8,
-                                                            columnEnd := some 8 } }]
-                                                [],
-                                      pos := { line := 8, column := 1, lineEnd := some 8, columnEnd := some 9 } },
-                          pos := { line := 8, column := 1, lineEnd := some 8, columnEnd := some 9 } }],
-              args := [] }],
-    args := [],
-    globals := [] }
+  abbrev 𝕂 := HasKernel.kernel
 
   /-
     Perform the walk of the AST, converting it into a CFG
   -/
-  def walker := NKIWalker.processFun test_kernel.funs[0]
-  #eval walker
+  def walker [HasKernel] : NKIWalker := NKIWalker.processFun 𝕂
 
   /-
     extract the transitions from the walker
@@ -458,22 +363,6 @@ section Test
           key_labels k := walker.vars[k]?
         })
 
-  #eval 𝕏opt
-  /-
-  Node 0: x:✅ cond0:✅ print:✅ y:✅
-  Node 1: x:❌ cond0:❌ print:❌ y:❌
-  Node 2: x:✅ cond0:❌ print:❌ y:❌
-  Node 3: x:✅ cond0:❌ print:❌ y:❌
-  Node 4: x:✅ cond0:❌ print:❌ y:❌
-  Node 5: x:✅ cond0:❌ print:❌ y:❌
-  Node 6: x:✅ cond0:❌ print:❌ y:✅
-  Node 7: x:✅ cond0:❌ print:❌ y:✅
-  Node 8: x:✅ cond0:❌ print:❌ y:❌
-  Node 9: x:✅ cond0:❌ print:❌ y:❌
-  Node 10: x:✅ cond0:❌ print:❌ y:❌
-  Node 11: x:✅ cond0:❌ print:❌ y:❌
-  -/
-
   variable (h𝕏 : 𝕏opt.isSome)
 
   abbrev 𝕏 := 𝕏opt.get h𝕏
@@ -488,10 +377,10 @@ section Test
     apply (𝕏 h𝕏).props n₀.val n₁.val v.val n₀.isLt n₁.isLt v.isLt 𝔼n
   }
 
-  #check 𝕏
-  #check ν
-  #check σ
-  #check ℙ
+  --#check 𝕏
+  --#check ν
+  --#check σ
+  --#check ℙ
 
   abbrev var_def (n : 𝕟) (v : 𝕍) : Bool := ¬ν h𝕏 n v
   def NKIWalker.Path.var_def_at_terminus (𝕡 : ℙ) (v : 𝕍) : Bool := 𝕡.true_at_terminus walker (var_def h𝕏 . v)
@@ -666,6 +555,12 @@ section Test
     rw [specific_safety]
     trivial
   }
+end WithKernel
 
-  #eval decide_sound.well?
-end Test
+instance  : HasKernel := safe_kernel_1
+
+#eval decide_sound.well?
+
+instance : HasKernel := unsafe_kernel_2
+
+#eval decide_sound.well?
