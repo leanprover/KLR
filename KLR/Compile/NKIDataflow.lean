@@ -82,21 +82,49 @@ section DefNKIWalker
     | VarAction.Write name _ => name = walker.vars.get v
     | _ => false
 
-  def NKIWalker.isPath (walker : NKIWalker) : List walker.Node → Bool := fun
+  def NKIWalker.is_path (walker : NKIWalker) : List walker.Node → Bool := fun
     | [] => True
     | [n] => walker.edges 0 n.val
-    | n₁ :: n₀ :: tl => walker.isPath (n₀ :: tl) ∧ (walker.edges n₀.val n₁.val)
+    | n₁ :: n₀ :: tl => walker.is_path (n₀ :: tl) ∧ (walker.edges n₀.val n₁.val)
+
+  def NKIWalker.is_path_lowers (walker : NKIWalker) :
+    ∀ n ℓ, walker.is_path (n::ℓ) → walker.is_path ℓ := by {
+      intro n₁ ℓ₁ h
+      cases ℓ₁ with | nil => simp [is_path] | cons n₀ ℓ₀
+      simp_all [is_path]
+    }
 
   structure NKIWalker.Path (walker : NKIWalker) where
     nodes : List walker.Node
-    nodes_sound : walker.isPath nodes
+    nodes_sound : walker.is_path nodes
 
+
+  -- a path can always be unrolled into a shorter valid one, with proof of an edge across the unrolling
   def NKIWalker.Path.unroll (walker : NKIWalker) (𝕡 : walker.Path)
     : 𝕡.nodes.length ≥ 2 →
       ∃ (n₁ n₀ : walker.Node) (tl : List walker.Node),
-        (walker.edges n₀.val n₁.val) ∧ (n₁ :: n₀ :: tl = 𝕡.nodes) ∧ (walker.isPath (n₀ :: tl)) := by {
-            sorry
-    }
+        (walker.edges n₀.val n₁.val) ∧ (n₁ :: n₀ :: tl = 𝕡.nodes) ∧ (walker.is_path (n₀ :: tl)) := by {
+          intro not_tiny
+          rcases 𝕡_def : 𝕡.nodes
+          simp [𝕡_def] at not_tiny
+          rename_i n₁ tl₁
+          rcases tl₁_def : tl₁
+          simp [𝕡_def, tl₁_def] at not_tiny
+          rename_i n₀ tl₀
+          exists n₁, n₀, tl₀
+          apply And.intro
+          {
+            let sound := 𝕡.nodes_sound
+            simp [𝕡_def, tl₁_def, is_path] at sound
+            exact sound.right
+          }
+          {
+            simp [←tl₁_def]
+            apply walker.is_path_lowers n₁ tl₁
+            rw [←𝕡_def]
+            apply 𝕡.nodes_sound
+          }
+        }
 
   def NKIWalker.Path.writes_somewhere (walker : NKIWalker) (𝕡 : walker.Path) (v : walker.Var) : Bool :=
     𝕡.nodes.tail.any (walker.writes . v)
@@ -468,7 +496,7 @@ section Test
 
   def NKIWalker.Path.var_def_at_terminus (𝕡 : ℙ) (v : 𝕍) : Bool := 𝕡.true_at_terminus walker (¬ν h𝕏 . v)
 
-  def NKIWalker.Path.not_def_at_entry (𝕡 : ℙ) (v : walker.Var) : 𝕡.nodes.length = 1 → ¬ 𝕡.var_def_at_terminus h𝕏 v :=
+  def NKIWalker.Path.not_def_at_entry (𝕡 : ℙ) (v : 𝕍) : 𝕡.nodes.length = 1 → ¬ 𝕡.var_def_at_terminus h𝕏 v :=
     match h : 𝕡.nodes with
     | [n] => by {
         intro
@@ -479,7 +507,7 @@ section Test
         simp
         have h_edge: walker.edges 0 n.val := by {
           have h𝕡 := 𝕡.nodes_sound
-          unfold NKIWalker.isPath at h𝕡
+          unfold NKIWalker.is_path at h𝕡
           rw [h] at h𝕡
           simp at h𝕡
           assumption
@@ -490,7 +518,7 @@ section Test
     | [] | _ :: _ :: _ => by simp
 
   @[simp]
-  abbrev NKIWalker.Path.motive (𝕡 : ℙ) (v : walker.Var) : Prop
+  abbrev NKIWalker.Path.motive (𝕡 : ℙ) (v : 𝕍) : Prop
     := 𝕡.var_def_at_terminus h𝕏 v → 𝕡.writes_somewhere walker v
 
   @[simp]
@@ -559,10 +587,14 @@ section Test
     rfl
   }
 
+  variable (is_safe : ∀ (n : 𝕟) (v : 𝕍), walker.reads n v → ¬ν h𝕏 n v)
+
   --no read without a def
   def 𝕀 : ∀ (𝕡 : ℙ) v, (𝕡.reads_at_terminus walker v) → (𝕡.var_def_at_terminus h𝕏 v)
         := by {
-          sorry -- proof by relying an an easily computable hypothesis (abstracted as a var to prove this goal)
+          simp [NKIWalker.Path.var_def_at_terminus, NKIWalker.Path.reads_at_terminus, NKIWalker.Path.true_at_terminus]
+          intro 𝕡 v h
+          cases nodes_def : 𝕡.nodes with | nil | cons n ℓ <;> simp_all [nodes_def]
         }
 
   -- no read without a write :)
