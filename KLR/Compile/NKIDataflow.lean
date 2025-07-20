@@ -599,9 +599,19 @@ section Test
     apply isFalse; trivial
   }
 
-  inductive Safety : Prop
-  | Unsafe : Safety
-  | Safe : is_safe h𝕏 → Safety
+  inductive Maybe P
+  | No : Maybe P
+  | Yes : P → Maybe P
+
+  def Maybe.well? (s : Maybe P) := match s with
+  | No => false
+  | _ => true
+
+  def decide_success : Maybe (𝕏opt.isSome) := by {
+   cases h : 𝕏opt with | none => apply Maybe.No | some => {
+    apply Maybe.Yes; simp
+   }
+  }
 
   abbrev forall_fin {n} (f : Fin n → Bool) : Bool := (Vector.ofFn f).all (.)
 
@@ -611,11 +621,11 @@ section Test
     apply h
   }
 
-  abbrev decide_safety : Safety h𝕏 := by {
+  def decide_safety : Maybe (is_safe h𝕏) := by {
     let safe := forall_fin (fun n ↦ forall_fin (fun v ↦ decide (is_safe_at h𝕏 n v)))
     by_cases safety : safe
-    swap; apply Safety.Unsafe -- if any reads occur where a var isnt def this will hit and fail
-    apply Safety.Safe
+    swap; apply Maybe.No -- if any reads occur where a var isnt def this will hit and fail
+    apply Maybe.Yes
     unfold is_safe
     intro n v
     have safety_at_n := forall_fin_sound _ safety n
@@ -643,4 +653,19 @@ section Test
       assumption
     }
   end IfSafe
+
+  def decide_sound : Maybe (walker.sound) := by {
+    clear h𝕏
+    cases decide_success with | No => apply Maybe.No | Yes success
+    cases (decide_safety success) with | No => apply Maybe.No | Yes safety
+    apply Maybe.Yes
+    apply no_read_without_a_write success
+    intro n v h
+    have specific_safety := safety n v h
+    simp [is_safe_at, var_def] at specific_safety
+    rw [specific_safety]
+    trivial
+  }
+
+  #eval decide_sound.well?
 end Test
