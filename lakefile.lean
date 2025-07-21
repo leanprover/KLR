@@ -45,12 +45,6 @@ lean_exe "klr" where
 
 require Archive from "KLR/Util/Archive"
 
--- Lean somehow gets the wrong versions if we don't import batteries and aesop manually
-require aesop from git
-  "https://github.com/leanprover-community/aesop" @ "v4.21.0"
-
-require "leanprover-community" / "batteries" @ git "v4.21.0"
-
 require Cli from git
   "https://github.com/leanprover/lean4-cli.git" @ "v4.21.0"
 

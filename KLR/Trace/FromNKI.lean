@@ -78,7 +78,7 @@ instance : FromNKI Expr where
     | .store ..    => err "store"
     | .pointer ..  => err "pointer"
     | .expr e _    => return e
-    | .oper op     => err "oper"
+    | .oper _     => err "oper"
 
 instance : FromNKI Address where
   fromNKI?
