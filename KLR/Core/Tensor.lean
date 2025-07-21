@@ -174,9 +174,10 @@ def make (name : String)
 def withShape (name : TensorSram) (shape : Shape) : Err TensorSram :=
   make name.name name.dtype shape (name.address.withDefaultSize shape name.dtype)
 
+-- NOTE: The Prop fields count towards the list, but have zero size
 instance : ToCBOR TensorSram where
   toCBOR t :=
-    Serde.cborTag 114 0 5
+    Serde.cborTag 114 0 7
     ++ @Serde.toCBOR String _ t.name
     ++ @Serde.toCBOR Dtype _ t.dtype
     ++ @Serde.toCBOR Shape _ t.shape
@@ -190,7 +191,7 @@ instance : FromCBOR TensorSram where
       throw s!"expecting TensorSRam (got tag {ty})"
     if val != 0 then
       throw s!"expecting TensorSRam (got val tag {val})"
-    if len != 5 then
+    if len != 7 then
       throw s!"expecting TensorSRam (got len {len})"
     let (arr, sz, name) <- @Serde.parseCBOR' String _ arr 4
     let (arr, sz, dtype) <- @Serde.parseCBOR' Dtype _ arr sz
@@ -268,9 +269,10 @@ def size (slice : Slice) : Nat :=
 #guard (make! 0 10 (-1)).size == 0
 #guard (make! 10 0 1).size == 0
 
+-- NOTE: The Prop fields count towards the list, but have zero size
 instance : ToCBOR Slice where
   toCBOR t :=
-    Serde.cborTag 115 0 3
+    Serde.cborTag 115 0 4
     ++ @Serde.toCBOR Nat _ t.l
     ++ @Serde.toCBOR Nat _ t.u
     ++ @Serde.toCBOR Int _ t.step
@@ -282,7 +284,7 @@ instance : FromCBOR Slice where
       throw s!"expecting Slice (got tag {ty})"
     if val != 0 then
       throw s!"expecting Slice (got val tag {val})"
-    if len != 3 then
+    if len != 4 then
       throw s!"expecting Slice (got len {len})"
     let (arr, sz, l) <- @Serde.parseCBOR' Nat _ arr 4
     let (arr, sz, u) <- @Serde.parseCBOR' Nat _ arr sz
@@ -347,9 +349,10 @@ theorem shape.noFail :
   induction indexes <;> simp ; trivial
   done
 
+-- NOTE: The Prop fields count towards the list, but have zero size
 instance : ToCBOR AccessBasic where
   toCBOR t :=
-    Serde.cborTag 117 0 2
+    Serde.cborTag 117 0 3
     ++ @Serde.toCBOR TensorSram _ t.tensor
     ++ @Serde.toCBOR (List Index) _ t.indexes
 
@@ -360,7 +363,7 @@ instance : FromCBOR AccessBasic where
       throw s!"expecting AccessBasic (got tag {ty})"
     if val != 0 then
       throw s!"expecting AccessBasic (got val tag {val})"
-    if len != 2 then
+    if len != 3 then
       throw s!"expecting AccessBasic (got len {len})"
     let (arr, sz, tensor) <- @Serde.parseCBOR' TensorSram _ arr 4
     let (_, sz, indexes) <- @Serde.parseCBOR' (List Index) _ arr sz
