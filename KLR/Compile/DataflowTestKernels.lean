@@ -3,6 +3,9 @@ open KLR.NKI
 
 section TestKernels
 
+def start_highlight := "⦃!" --"◯" --"⇉"
+def end_highlight := "⦄" --"◯" --"⇇"
+
 class HasKernel where
     kernel : Fun
     kernel_str : String
@@ -19,8 +22,8 @@ def highlight_pos_set [HasKernel] (actions : List Pos) (s : String) : String :=
   let starts := actions.flatMap findStart
   let ends := actions.flatMap findEnd
   let out_str_at n : List Char :=
-    let st := if n ∈ starts then ['⟦'] else []
-    let ed := if n ∈ ends then ['⟧'] else []
+    let st := if n ∈ starts then start_highlight.toList else []
+    let ed := if n ∈ ends then end_highlight.toList else []
     st ++ ed ++ [s.toList[n]!]
   ⟨((List.range s.length).flatMap out_str_at)⟩
 
