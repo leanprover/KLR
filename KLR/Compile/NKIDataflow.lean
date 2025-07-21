@@ -275,12 +275,15 @@ section DefNKIWalker
       let complete := else_walker.processAction VarAction.None
       complete.addEdge then_walker.last_node complete.last_node
     | Stmt'.forLoop (x : Expr) (iter: Expr) (body: List Stmt) =>
-      let intro_walker := (walker.processExpr x).processExpr iter
+      let intro_walker := walker.processExpr iter
       let outer_breaks := intro_walker.breaks
       let outer_conts := intro_walker.conts
       let inner_walker := ((intro_walker.clearBreaks).clearConts).processAction VarAction.None
       let enter_node := inner_walker.last_node
-      let inner_walked := inner_walker.processStmtList body
+      let inner_pre_walk := match x with
+        | ⟨Expr'.var name, pos⟩ => inner_walker.processAction (VarAction.Write name none pos)
+        | _ => inner_walker
+      let inner_walked := inner_pre_walk.processStmtList body
       let nearly_complete := (inner_walked.addEdge inner_walked.last_node enter_node).setLast enter_node
       let complete := nearly_complete.processAction VarAction.None
       let exit_node := complete.last_node
