@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -/
 
-import KLR.NKI.Basic
-import KLR.NKI.Simplify
-import KLR.NKI.SimplifyOperators
-import KLR.NKI.Typed
+import KLR.NKI.Typed.Grammar
+import KLR.NKI.Typed.Syntax
+import KLR.NKI.Typed.Tests
+import KLR.NKI.Typed.Types
