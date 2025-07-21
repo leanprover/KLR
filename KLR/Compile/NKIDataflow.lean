@@ -20,20 +20,20 @@ open KLR.NKI
 section DefVarAction
 
   inductive VarAction where
-    | Read (name : String)
-    | Write (name : String) (ty : Option Expr)
+    | Read (name : String) (pos : Pos)
+    | Write (name : String) (ty : Option Expr) (pos : Pos)
     | None
 
   instance VarAction.toString : ToString VarAction where
     toString := fun
-      | Read name => s!"Read({name})"
-      | Write name _ => s!"Write({name})"
-      | None => "None"
+      | Read name pos => s!"Read({name} @ {pos.line}, {pos.column})"
+      | Write name _ pos => s!"Write({name} @ {pos.line}, {pos.column})"
+      | _ => "None"
 
   def VarAction.var := fun
-    | Read name => some name
-    | Write name _ => some name
-    | None => none
+    | Read name _ => some name
+    | Write name _ _ => some name
+    | _ => none
 
 end DefVarAction
 
@@ -75,12 +75,12 @@ section DefNKIWalker
 
   def NKIWalker.reads (walker : NKIWalker) (n : walker.Node) (v : walker.Var) : Bool :=
     match walker.actions n.val with
-    | VarAction.Read name => name = walker.vars.get v
+    | VarAction.Read name _ => name = walker.vars.get v
     | _ => false
 
   def NKIWalker.writes (walker : NKIWalker) (n : walker.Node) (v : walker.Var) : Bool :=
     match walker.actions n.val with
-    | VarAction.Write name _ => name = walker.vars.get v
+    | VarAction.Write name _ _ => name = walker.vars.get v
     | _ => false
 
   def NKIWalker.is_path (walker : NKIWalker) : List walker.Node → Bool := fun
@@ -225,10 +225,10 @@ section DefNKIWalker
   mutual
 
   def NKIWalker.processExpr (walker : NKIWalker) (expr : Expr) : NKIWalker :=
-    let ⟨expr, _⟩ := expr
+    let ⟨expr, pos⟩ := expr
     match _ : expr with
     | Expr'.value _ => walker
-    | Expr'.var (name : String) => walker.processAction (VarAction.Read name)
+    | Expr'.var (name : String) => walker.processAction (VarAction.Read name pos)
     | Expr'.proj (expr : Expr) _ => walker.processExpr expr
     | Expr'.tuple (elements : List Expr) => walker.processExprList elements
     | Expr'.access (expr : Expr) _ => walker.processExpr expr
@@ -256,7 +256,7 @@ section DefNKIWalker
   mutual
 
   def NKIWalker.processStmt (walker : NKIWalker) (stmt : Stmt) : NKIWalker :=
-    let ⟨stmt, _⟩ := stmt
+    let ⟨stmt, pos⟩ := stmt
     match _ : stmt with
     | Stmt'.expr (e : Expr) => walker.processExpr e
     | Stmt'.assert (e : Expr) => walker.processExpr e
@@ -264,11 +264,11 @@ section DefNKIWalker
     | Stmt'.assign ⟨Expr'.var name, _⟩ (ty : Option Expr) (e : Option Expr) =>
       let withty := (match ty with | some ty => walker.processExpr ty | none => walker)
       let withe := (match e with | some e => withty.processExpr e | none => withty)
-      withe.processAction (VarAction.Write name ty)
+      withe.processAction (VarAction.Write name ty pos)
     | Stmt'.assign _ (ty : Option Expr) (e : Option Expr) =>
       let withty := (match ty with | some ty => walker.processExpr ty | none => walker)
       let withe := (match e with | some e => withty.processExpr e | none => withty)
-      withe.processAction (VarAction.Write "NONVAR" ty)
+      withe.processAction (VarAction.Write "<unhandled: writes_to_non_identifier>" ty pos)
     | Stmt'.ifStm (e : Expr) (thn : List Stmt) (els : List Stmt) =>
       let then_walker := (walker.processExpr e).processStmtList thn
       let else_walker := (then_walker.setLast walker.last_node).processStmtList els
@@ -331,7 +331,7 @@ section WithKernel
     (n = 0) ∨
     if _ : k < walker.vars.length then
       match walker.actions n with
-        | VarAction.Write name _ => ¬ (name = walker.vars[k]) ∧ pre
+        | VarAction.Write name _ _ => ¬ (name = walker.vars[k]) ∧ pre
         | _ => pre
     else
       pre
@@ -488,9 +488,16 @@ section WithKernel
     apply isFalse; trivial
   }
 
-  inductive Maybe P
-  | No : Maybe P
+  inductive Maybe (P : Prop) -- option type plus message option
   | Yes : P → Maybe P
+  | No : Maybe P
+  | NoBC : String → Maybe P  --no because of message
+
+  instance Maybe.toString : ToString (Maybe P) where
+    toString := fun
+    | Yes _ => s!"YES [SAFETY PROVEN]"
+    | No => "NO [SAFETY NOT PROVEN]"
+    | NoBC s => s!"NO [SAFETY NOT PROVEN] BECAUSE: {s}"
 
   def Maybe.well? (s : Maybe P) := match s with
   | No => false
@@ -510,10 +517,24 @@ section WithKernel
     apply h
   }
 
+  abbrev 𝕀 (α) (a : α) := a
+
+  def get_unsafe_reads : List VarAction :=
+    (List.ofFn (fun n : 𝕟 ↦ (n, List.ofFn (𝕀 𝕍)))).flatMap (fun (n, vs) ↦
+      if vs.any (fun v ↦ ¬ decide (is_safe_at h𝕏 n v)) then [walker.actions n.val] else [])
+
+  def get_unsafe_pos : List Pos :=
+    (get_unsafe_reads h𝕏).flatMap (fun | VarAction.Read _ pos => [pos] | _ => [])
+
+  --def print_unsafe_reads : String :=
+    --(get_unsafe_reads h𝕏).foldl
+
   def decide_safety : Maybe (is_safe h𝕏) := by {
     let safe := forall_fin (fun n ↦ forall_fin (fun v ↦ decide (is_safe_at h𝕏 n v)))
     by_cases safety : safe
-    swap; apply Maybe.No -- if any reads occur where a var isnt def this will hit and fail
+    swap;
+    -- if any reads occur where a var isnt def this will hit and fail
+    apply Maybe.NoBC; apply kernel_highlighted_repr; apply get_unsafe_pos h𝕏
     apply Maybe.Yes
     unfold is_safe
     intro n v
@@ -545,8 +566,13 @@ section WithKernel
 
   def decide_sound : Maybe (walker.sound) := by {
     clear h𝕏
-    cases decide_success with | No => apply Maybe.No | Yes success
-    cases (decide_safety success) with | No => apply Maybe.No | Yes safety
+    cases decide_success with
+      | No | NoBC _ => apply Maybe.No
+      | Yes success
+    cases (decide_safety success) with
+      | No => apply Maybe.No
+      | NoBC s => apply Maybe.NoBC s
+      | Yes safety
     apply Maybe.Yes
     apply no_read_without_a_write success
     intro n v h
@@ -559,8 +585,8 @@ end WithKernel
 
 instance  : HasKernel := safe_kernel_1
 
-#eval decide_sound.well?
+#eval decide_sound
 
 instance : HasKernel := unsafe_kernel_2
 
-#eval decide_sound.well?
+#eval decide_sound

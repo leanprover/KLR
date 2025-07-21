@@ -1,23 +1,45 @@
 import KLR.NKI.Basic
 open KLR.NKI
 
+section TestKernels
+
 class HasKernel where
     kernel : Fun
-    repr : String
+    kernel_str : String
+
+instance : ToString Pos where toString p := s!"{p.line}, {p.lineEnd}, {p.column}, {p.columnEnd}"
+
+def highlight_pos_set [HasKernel] (actions : List Pos) (s : String) : String :=
+  let newlines : List Nat := (List.range s.length).filter (fun n ↦ s.toList[n]! = '\n')
+
+  let findStart (pos : Pos) : List Nat := [newlines[pos.line - 1]! + pos.column + 1]
+  let findEnd (pos : Pos) : List Nat := match pos.lineEnd, pos.columnEnd with
+    | some l, some c => [newlines[l - 1]! + c + 1]
+    | _, _ => []
+  let starts := actions.flatMap findStart
+  let ends := actions.flatMap findEnd
+  let out_str_at n : List Char :=
+    let st := if n ∈ starts then ['⟦'] else []
+    let ed := if n ∈ ends then ['⟧'] else []
+    st ++ ed ++ [s.toList[n]!]
+  ⟨((List.range s.length).flatMap out_str_at)⟩
+
+def kernel_highlighted_repr [HasKernel] (actions : List Pos) : String :=
+  highlight_pos_set actions HasKernel.kernel_str
+
 
 def safe_kernel_1 : HasKernel where
-  repr := "
+  kernel_str :="
   def test():
-	x = 0
-	c = 0
-	p = 0
-	if c:
-		p(x)
-	else:
-		y = 0
-		p(y)
-	p(x)
-  "
+  x = 0
+  c = 0
+  p = 0
+  if c:
+    p(x)
+  else:
+    y = 0
+    p(y)
+  p(x)"
   kernel := { name := "test.test",
               file := "unknown",
               line := 1,
@@ -112,8 +134,11 @@ def safe_kernel_1 : HasKernel where
                           pos := { line := 10, column := 1, lineEnd := some 10, columnEnd := some 5 } }],
               args := [] }
 
+
+#eval safe_kernel_1.kernel_str.toList[0] = '\n'
+
 def unsafe_kernel_2 : HasKernel where
-  repr := "
+  kernel_str := "
   def test():
 	x = 0
 	c = 0
@@ -218,3 +243,6 @@ def unsafe_kernel_2 : HasKernel where
                                       pos := { line := 10, column := 1, lineEnd := some 10, columnEnd := some 5 } },
                           pos := { line := 10, column := 1, lineEnd := some 10, columnEnd := some 5 } }],
               args := [] }
+
+
+end TestKernels
