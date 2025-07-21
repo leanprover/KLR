@@ -583,10 +583,14 @@ section WithKernel
   }
 end WithKernel
 
-instance  : HasKernel := safe_kernel_1
+instance : HasKernel := safe_kernel_1
 
 #eval decide_sound
 
 instance : HasKernel := unsafe_kernel_2
+
+#eval decide_sound
+
+instance : HasKernel := unsafe_kernel_3
 
 #eval decide_sound

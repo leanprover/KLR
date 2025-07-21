@@ -13,3 +13,5 @@ KLR/test.py
 .gitignore
 KLR/Compile/test.lean
 KLR/test.ast
+KLR/.DS_Store
+.DS_Store
