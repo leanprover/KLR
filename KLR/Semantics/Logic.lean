@@ -188,9 +188,18 @@ theorem wp_adequacy_pre {pl pr : @prog DataT} {sl sr : @state DataT} {Φf : @val
     (H : ∀ n, (state_interp sl sr ∗ state_frag sl sr ⊢ |==> ▷^[n] ⌜(NML.NMLSemantics DataT).PRelS n K (pl, sl) (pr, sr) Φf ⌝)) :
     ∀ n, (NML.NMLSemantics DataT).PRelS n K (pl, sl) (pr, sr) Φf := by
   intro n
+
+
+  -- UPred.ownM <|
+  -- UPred.ownM <| ◯V HasHHMap.hhmap (fun (_ : K) (v : V) => some (DFrac.own 1, toAgree <| .mk v)) m
+
+
   apply UPred.soundness_pure_gen (A := @PROPR DataT) (n := n)
-    (a := (●V StoreO.map (.lift <| Iris.toAgree ∘ .mk) ⟨KLR.Core.ProdChipMemory.mk sl.memory sr.memory⟩) •
-          (◯V StoreO.map (Option.lift <| fun c => ⟨Iris.DFrac.own 1, Iris.toAgree <| .mk <| c⟩) ⟨KLR.Core.ProdChipMemory.mk sl.memory sr.memory⟩))
+    (a :=
+      (●V HasHHMap.hhmap (fun (_ : KLR.Core.ProdIndex) (v : _) => some (Iris.toAgree <| Iris.LeibnizO.mk v))
+          (KLR.Core.ProdChipMemory.mk sl.memory sr.memory)) •
+      (◯V HasHHMap.hhmap (fun (_ : KLR.Core.ProdIndex) (v : _) => some (Iris.DFrac.own 1, Iris.toAgree <| .mk v))
+          (KLR.Core.ProdChipMemory.mk sl.memory sr.memory : KLR.Core.ProdChipMemory _)))
   · refine Iris.CMRA.Valid.validN ?_
     apply View.view_both_valid.mpr
     -- TODO: This is basically heap_view_both_valid, when I get around to finishing that

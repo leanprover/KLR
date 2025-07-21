@@ -126,15 +126,23 @@ section iris
 instance {T : Type _} : AllocHeap (ProdChipMemory T) ProdIndex T where
   get := sorry
   set := sorry
-  of_fun := sorry
   fresh := sorry
   get_set_eq := sorry
   get_set_ne := sorry
-  of_fun_get := sorry
-  point := sorry
-  fresh_get := sorry
-  point_get_eq := sorry
-  point_get_ne := sorry
+  empty := sorry
+  hmap := sorry
+  merge := sorry
+  get_empty := sorry
+  get_hmap := sorry
+  get_merge := sorry
+  notFull := sorry
+  get_fresh := sorry
+
+
+instance {T1 T2 : Type _} : HasHHMap (ProdChipMemory T1) (ProdChipMemory T2) ProdIndex T1 T2 where
+  hhmap := sorry
+  hhmap_get := sorry
+
 end iris
 
 -- def TProd (H : Type _ → Type _) (T : Type _) : Type _ := H T × H T
