@@ -110,7 +110,7 @@ instance : Tensors TensorArg where
   tensors | .sram t => [t] | _ => []
 
 -- TODO: not efficient
-instance [inst : Tensors a] : Tensors (List a) where
+instance [Tensors a] : Tensors (List a) where
   tensors l := (l.flatMap tensors).eraseDups
 
 instance : Tensors Access where

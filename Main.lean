@@ -186,12 +186,8 @@ private def parse (p : Parsed) : IO KLR.Python.Kernel := do
 def info (p : Parsed) : IO UInt32 := do
   let file := p.positionalArg! "file" |>.as! String
   let dump := p.flag? "dump"
-  IO.println s!"readilfd {file}"
   let arr <- IO.FS.readBinFile file
-  IO.println s!"got {arr.size}"
   let contents <- KLR.File.parseBytes arr .cbor
-
-  IO.println s!"CONTENTS : {repr contents}"
 
   -- handle content dump
   if let some format := dump then
@@ -254,10 +250,12 @@ def trace (p : Parsed) : IO UInt32 := do
   let (warnings, klr) <- KLR.Trace.runNKIKernel k
   if !warnings.isEmpty then IO.eprintln warnings
   if !warnings1.isEmpty then IO.eprintln warnings1
+  let kernel : Core.Kernel := klr
   match p.flag? "outfile" with
   | some arg =>
     let f := FilePath.mk (arg.as! String)
-    File.writeKLRFile f .cbor klr
+    IO.println (reprStr kernel)
+    File.writeKLRFile f .cbor kernel
   | none =>
     IO.println (reprStr klr)
   return 0

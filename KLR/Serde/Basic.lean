@@ -158,7 +158,7 @@ private def fromFixed (arr : ByteArray) (tag : UInt8) (next f : ByteArray -> Err
       next arr
     else if b0 == tag then
       f (arr.drop 1)
-    else throw s!"expecting unsigned integer (tag {tag})"
+    else throw s!"expecting unsigned integer (got tag {tag})"
   else throw "expecting unsigned integer: got EOF"
 
 instance : FromCBOR UInt8 where
@@ -701,7 +701,7 @@ instance [FromCBOR a] : FromCBOR (Option a) where
     | #[ 0xd9, 0xff, 1, 0x81 ] => do
       let (sz, v) <- parse (arr.drop 4)
       return (sz + 4, some v)
-    | _ => throw "expecting option"
+    | x => throw s!"expecting option {x}"
 
 /--
 info: Unable to find a counter-example

@@ -177,11 +177,11 @@ def withShape (name : TensorSram) (shape : Shape) : Err TensorSram :=
 instance : ToCBOR TensorSram where
   toCBOR t :=
     Serde.cborTag 114 0 5
-    ++ Serde.toCBOR t.name
-    ++ Serde.toCBOR t.dtype
-    ++ Serde.toCBOR t.shape
-    ++ Serde.toCBOR t.address
-    ++ Serde.toCBOR t.freeElements
+    ++ @Serde.toCBOR String _ t.name
+    ++ @Serde.toCBOR Dtype _ t.dtype
+    ++ @Serde.toCBOR Shape _ t.shape
+    ++ @Serde.toCBOR Address _ t.address
+    ++ @Serde.toCBOR Nat _ t.freeElements
 
 instance : FromCBOR TensorSram where
   parse arr := do
@@ -192,15 +192,34 @@ instance : FromCBOR TensorSram where
       throw s!"expecting TensorSRam (got val tag {val})"
     if len != 5 then
       throw s!"expecting TensorSRam (got len {len})"
-    let (arr, sz, name) <- Serde.parseCBOR' arr 4
-    let (arr, sz, dtype) <- Serde.parseCBOR' arr sz
-    let (arr, sz, shape) <- Serde.parseCBOR' arr sz
-    let (arr, sz, address) <- Serde.parseCBOR' arr sz
+    let (arr, sz, name) <- @Serde.parseCBOR' String _ arr 4
+    let (arr, sz, dtype) <- @Serde.parseCBOR' Dtype _ arr sz
+    let (arr, sz, shape) <- @Serde.parseCBOR' Shape _ arr sz
+    let (arr, sz, address) <- @Serde.parseCBOR' Address _ arr sz
     let (_, sz, _) <- @Serde.parseCBOR' Nat _ arr sz
     let t <- make name dtype shape address
     return (sz, t)
 
 end TensorSram
+/-
+def t : TensorSram := {
+  name := "t"
+  dtype := .float32
+  shape := ⟨ 128, [32] ⟩
+  address := ⟨ .sbuf, 128, 512, none, none ⟩
+  parWF := Nat.le_of_ble_eq_true rfl
+  freeWF := Nat.le_of_ble_eq_true rfl
+  }
+
+#eval t
+def xx := Serde.toCBOR t.address
+def yy : Err Address := Serde.fromCBOR xx
+#eval yy
+def arr := Serde.toCBOR t
+#eval arr
+def mt : Err TensorSram := Serde.fromCBOR arr
+#eval mt
+-/
 
 /--
 Basic indexing elements: integers and slices.
@@ -252,9 +271,9 @@ def size (slice : Slice) : Nat :=
 instance : ToCBOR Slice where
   toCBOR t :=
     Serde.cborTag 115 0 3
-    ++ Serde.toCBOR t.l
-    ++ Serde.toCBOR t.u
-    ++ Serde.toCBOR t.step
+    ++ @Serde.toCBOR Nat _ t.l
+    ++ @Serde.toCBOR Nat _ t.u
+    ++ @Serde.toCBOR Int _ t.step
 
 instance : FromCBOR Slice where
   parse arr := do
@@ -265,9 +284,9 @@ instance : FromCBOR Slice where
       throw s!"expecting Slice (got val tag {val})"
     if len != 3 then
       throw s!"expecting Slice (got len {len})"
-    let (arr, sz, l) <- Serde.parseCBOR' arr 4
-    let (arr, sz, u) <- Serde.parseCBOR' arr sz
-    let (_arr, sz, step) <- Serde.parseCBOR' arr sz
+    let (arr, sz, l) <- @Serde.parseCBOR' Nat _ arr 4
+    let (arr, sz, u) <- @Serde.parseCBOR' Nat _ arr sz
+    let (_, sz, step) <- @Serde.parseCBOR' Int _ arr sz
     let s <- make l u step
     return (sz, s)
 
@@ -331,8 +350,8 @@ theorem shape.noFail :
 instance : ToCBOR AccessBasic where
   toCBOR t :=
     Serde.cborTag 117 0 2
-    ++ Serde.toCBOR t.tensor
-    ++ Serde.toCBOR t.indexes
+    ++ @Serde.toCBOR TensorSram _ t.tensor
+    ++ @Serde.toCBOR (List Index) _ t.indexes
 
 instance : FromCBOR AccessBasic where
   parse arr := do
@@ -343,8 +362,8 @@ instance : FromCBOR AccessBasic where
       throw s!"expecting AccessBasic (got val tag {val})"
     if len != 2 then
       throw s!"expecting AccessBasic (got len {len})"
-    let (arr, sz, tensor) <- Serde.parseCBOR' arr 4
-    let (_arr, sz, indexes) <- Serde.parseCBOR' arr sz
+    let (arr, sz, tensor) <- @Serde.parseCBOR' TensorSram _ arr 4
+    let (_, sz, indexes) <- @Serde.parseCBOR' (List Index) _ arr sz
     let acc <- make tensor indexes
     return (sz, acc)
 

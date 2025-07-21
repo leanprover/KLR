@@ -938,7 +938,7 @@ bool Core_DmaCopy_ser(FILE *out, struct Core_DmaCopy *x) {
 }
 
 bool Core_DmaHbmLoad_ser(FILE *out, struct Core_DmaHbmLoad *x) {
-  if (!cbor_encode_tag(out, 148, 0, 5))
+  if (!cbor_encode_tag(out, 188, 0, 5))
     return false;
   if (!Core_TensorRef_ser(out, x->dst))
     return false;
@@ -954,7 +954,7 @@ bool Core_DmaHbmLoad_ser(FILE *out, struct Core_DmaHbmLoad *x) {
 }
 
 bool Core_DmaHbmStore_ser(FILE *out, struct Core_DmaHbmStore *x) {
-  if (!cbor_encode_tag(out, 148, 0, 5))
+  if (!cbor_encode_tag(out, 189, 0, 5))
     return false;
   if (!Core_TensorHbm_ser(out, x->dst))
     return false;
@@ -2935,7 +2935,7 @@ bool Core_DmaHbmLoad_des(FILE *in, struct region *region,
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 148 || c != 0 || l != 5)
+  if (t != 188 || c != 0 || l != 5)
     return false;
   *x = region_alloc(region, sizeof(**x));
   if (!Core_TensorRef_des(in, region, &(*x)->dst))
@@ -2956,7 +2956,7 @@ bool Core_DmaHbmStore_des(FILE *in, struct region *region,
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 148 || c != 0 || l != 5)
+  if (t != 189 || c != 0 || l != 5)
     return false;
   *x = region_alloc(region, sizeof(**x));
   if (!Core_TensorHbm_des(in, region, &(*x)->dst))

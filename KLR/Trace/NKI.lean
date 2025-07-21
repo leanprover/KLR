@@ -43,6 +43,7 @@ def NKIBuiltins : List (Name × BuiltinFn) :=
   --, (nl "ndarray", Tensor.ndarray) see comment in Tensor.lean
   --, (nisa "tensor_scalar", Tensor.tensor_scalar)
   , (nisa "dma_copy", Isa.dma_copy)
+  , (nisa "tensor_copy", Isa.tensor_copy)
   , (nisa "activation", Isa.activation)
   ]
 

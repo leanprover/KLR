@@ -644,4 +644,59 @@ def Layout.rowMajorForm (s : Shape) : Layout s.freeDim where
   steps_dim := by simp
   nums_dim := by simp
 
+/-
+def t : TensorSram := {
+  name := "t"
+  dtype := .float32
+  shape := ⟨32, [512]⟩
+  address := ⟨ .sbuf, 32, 512 * 4, none, none ⟩
+  parWF := Nat.le_of_ble_eq_true rfl
+  freeWF := Nat.le_of_ble_eq_true rfl
+  }
+
+def access : Access := .simple t
+
+def l : Layout 1 := Layout.rowMajorForm t.shape
+def spanp := access.interpPar
+#eval spanp
+
+def layout := access.interpFree $ Layout.rowMajorForm t.shape
+#eval layout
+
+def span : IndexSpan := {
+  start := 4
+  step := 2
+  num := 2
+  step_nz := Ne.symm (not_eq_of_beq_eq_false rfl)
+  get_nonneg := by omega
+  }
+
+def spanc : IndexSpan := IndexSpan.clipComp spanp span
+#eval spanc
+
+def spans : FreeSpans 1 := {
+  spans := [span]
+  spans_dim := rfl
+  }
+
+def ap : AccessPattern := CompileIndex.freePairs t 0 layout
+#eval ap
+
+---
+def slc : Slice := {
+  l := 4
+  u := 20
+  step := 2
+  wf := Ne.symm (not_eq_of_beq_eq_false rfl)
+  }
+def s1 := coordToIndexSpan 2
+def s2 := slc.toIndexSpan 8
+
+def s3 : IndexSpan := IndexSpan.clipComp s2 s1
+
+#eval s1
+#eval s2
+#eval s3
+
+-/
 end KLR.Core

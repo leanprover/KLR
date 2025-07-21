@@ -1415,7 +1415,7 @@ Ptr<DmaHbmLoad> DmaHbmLoad_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 148 || c != 0 || l != 5)
+  if (t != 188 || c != 0 || l != 5)
     throw std::runtime_error("Invalid Tag");
   Ptr<DmaHbmLoad> x = ptr<DmaHbmLoad>();
   x->dst = TensorRef_des(in);
@@ -1430,7 +1430,7 @@ Ptr<DmaHbmStore> DmaHbmStore_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 148 || c != 0 || l != 5)
+  if (t != 189 || c != 0 || l != 5)
     throw std::runtime_error("Invalid Tag");
   Ptr<DmaHbmStore> x = ptr<DmaHbmStore>();
   x->dst = TensorHbm_des(in);

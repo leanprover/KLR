@@ -309,7 +309,7 @@ structure DmaCopy where
 
 Uses the DMA to load a tensor from HBM into SBUF.
 -/
-@[serde tag = 148]
+@[serde tag = 188] -- TODO tag is messed up
 structure DmaHbmLoad where
   dst            : TensorRef
   src            : TensorHbm
@@ -322,7 +322,7 @@ structure DmaHbmLoad where
 
 Uses the DMA to load a tensor from HBM into SBUF.
 -/
-@[serde tag = 148]
+@[serde tag = 189] -- TODO tag is messed up
 structure DmaHbmStore where
   dst            : TensorHbm
   src            : TensorRef
