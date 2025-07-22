@@ -18,6 +18,7 @@ import KLR.Core
 import KLR.Trace.Types
 import KLR.Trace.Builtin
 import KLR.Trace.Tensor
+import KLR.Trace.ISA
 
 /-
 # NKI built-ins
@@ -40,7 +41,10 @@ def NKIBuiltins : List (Name × BuiltinFn) :=
   , (nl "store", Tensor.store)
   , (nl "zeros", Tensor.zeros)
   --, (nl "ndarray", Tensor.ndarray) see comment in Tensor.lean
-  , (nisa "tensor_scalar", Tensor.tensor_scalar)
+  --, (nisa "tensor_scalar", Tensor.tensor_scalar)
+  , (nisa "dma_copy", Isa.dma_copy)
+  , (nisa "tensor_copy", Isa.tensor_copy)
+  , (nisa "activation", Isa.activation)
   ]
 
 -- NKI environment, including constants and the names of builtin functions
@@ -56,6 +60,7 @@ def NKIEnv : List (Name × Term) :=
   , const_var (nl "hbm")
   , const_var (nl "sbuf")
   , const_var (nl "psum")
+  , const_var (nl "exp")
   , (nl "mgrid", .mgrid)
   ]
   ++ NKIBuiltins.map fun (x,_) => (x, .builtin x (.obj x) none)

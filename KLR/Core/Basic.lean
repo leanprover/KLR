@@ -86,14 +86,14 @@ inductive Stmt where
   | ret (v : Value)
   | assign (x : String) (e : Expr)
   | store (dst : Access) (op : Operator) (args : List Value)
-  --| operator (op : Operator)
+  | oper (op : Operator)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 105]
 structure Kernel where
   name : String
-  inputs : List TensorArg
-  outputs : List TensorArg
+  inputs : List TensorSram -- TODO change to TensorArg
+  outputs : List TensorSram -- TODO change to TensorArg
   body : List Stmt
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
@@ -110,7 +110,7 @@ instance : Tensors TensorArg where
   tensors | .sram t => [t] | _ => []
 
 -- TODO: not efficient
-instance [inst : Tensors a] : Tensors (List a) where
+instance [Tensors a] : Tensors (List a) where
   tensors l := (l.flatMap tensors).eraseDups
 
 instance : Tensors Access where
@@ -131,6 +131,7 @@ instance : Tensors Stmt where
   | .ret v => tensors v
   | .assign _ e => tensors e
   | .store dst _ vs => tensors (tensors dst :: vs.map tensors)
+  | .oper _ => [] -- TODO
 
 def Kernel.internal (k : Kernel) : List TensorSram :=
   let ts := (k.body.map tensors).flatten.eraseDups

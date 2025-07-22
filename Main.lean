@@ -187,7 +187,7 @@ def info (p : Parsed) : IO UInt32 := do
   let file := p.positionalArg! "file" |>.as! String
   let dump := p.flag? "dump"
   let arr <- IO.FS.readBinFile file
-  let contents <- KLR.File.parseBytes arr .any
+  let contents <- KLR.File.parseBytes arr .cbor
 
   -- handle content dump
   if let some format := dump then
@@ -217,6 +217,8 @@ def info (p : Parsed) : IO UInt32 := do
     IO.println s!"Globals: {gs}"
   | .hlo name =>
     IO.println s!"HLO Call Site {name}"
+  | .klir kernel =>
+    IO.println s!"AST summary for KLIR kernel {kernel.name}"
   return 0
 
 def compile (p : Parsed) : IO UInt32 := do
@@ -248,7 +250,14 @@ def trace (p : Parsed) : IO UInt32 := do
   let (warnings, klr) <- KLR.Trace.runNKIKernel k
   if !warnings.isEmpty then IO.eprintln warnings
   if !warnings1.isEmpty then IO.eprintln warnings1
-  writeContent "klr" p (asString p klr)
+  let kernel : Core.Kernel := klr
+  match p.flag? "outfile" with
+  | some arg =>
+    let f := FilePath.mk (arg.as! String)
+    IO.println (reprStr kernel)
+    File.writeKLRFile f .cbor kernel
+  | none =>
+    IO.println (reprStr klr)
   return 0
 
 def nkiToKLR (p : Parsed) : IO UInt32 := do

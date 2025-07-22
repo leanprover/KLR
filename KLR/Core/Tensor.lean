@@ -140,8 +140,8 @@ structure TensorSram where
   name    : String
   dtype   : Dtype
   shape   : Shape
-  flattenedFreeElements : Nat := shape.freeElements
   address : Address
+  freeElements : Nat := shape.freeElements
   parWF   : shape.parDim <= address.parSize
   freeWF  : shape.freeElements * dtype.size <= address.freeSize
   deriving Repr
@@ -151,11 +151,10 @@ instance : BEq TensorSram where
              l.dtype == r.dtype &&
              l.shape == r.shape &&
              l.address == r.address
+
 -- TODO
-instance : FromCBOR TensorSram := ⟨ fun _ => throw "" ⟩
 instance : FromJson TensorSram := ⟨ fun _ => throw "" ⟩
 instance : FromSexp TensorSram := ⟨ fun _ => throw "" ⟩
-instance : ToCBOR TensorSram := ⟨ fun _ => default ⟩
 instance : ToSexp TensorSram := ⟨ fun _ => default ⟩
 instance : ToJson TensorSram := ⟨ fun _ => default ⟩
 
@@ -169,11 +168,38 @@ def make (name : String)
   let addr := addr.getD (Address.withDefaultSize default shape dtype)
   if parWF : shape.parDim <= addr.parSize then
     if freeWF : shape.freeElements * dtype.size <= addr.freeSize then
-      return ⟨ name, dtype, shape, shape.freeElements, addr, parWF, freeWF ⟩
+      return ⟨ name, dtype, shape, addr, shape.freeElements, parWF, freeWF ⟩
   throw "Tensor does not fit within memory location"
 
 def withShape (name : TensorSram) (shape : Shape) : Err TensorSram :=
   make name.name name.dtype shape (name.address.withDefaultSize shape name.dtype)
+
+-- NOTE: The Prop fields count towards the list, but have zero size
+instance : ToCBOR TensorSram where
+  toCBOR t :=
+    Serde.cborTag 114 0 7
+    ++ @Serde.toCBOR String _ t.name
+    ++ @Serde.toCBOR Dtype _ t.dtype
+    ++ @Serde.toCBOR Shape _ t.shape
+    ++ @Serde.toCBOR Address _ t.address
+    ++ @Serde.toCBOR Nat _ t.freeElements
+
+instance : FromCBOR TensorSram where
+  parse arr := do
+    let (ty,val,len,arr) <- Serde.parseCBORTag arr
+    if ty != 114 then
+      throw s!"expecting TensorSRam (got tag {ty})"
+    if val != 0 then
+      throw s!"expecting TensorSRam (got val tag {val})"
+    if len != 7 then
+      throw s!"expecting TensorSRam (got len {len})"
+    let (arr, sz, name) <- @Serde.parseCBOR' String _ arr 4
+    let (arr, sz, dtype) <- @Serde.parseCBOR' Dtype _ arr sz
+    let (arr, sz, shape) <- @Serde.parseCBOR' Shape _ arr sz
+    let (arr, sz, address) <- @Serde.parseCBOR' Address _ arr sz
+    let (_, sz, _) <- @Serde.parseCBOR' Nat _ arr sz
+    let t <- make name dtype shape address
+    return (sz, t)
 
 end TensorSram
 
@@ -193,14 +219,11 @@ structure Slice where
   u : Nat
   step : Int
   wf : step ≠ 0
-  --deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
   deriving BEq, Repr
 
 -- TODO
-instance : FromCBOR Slice := ⟨ fun _ => throw "" ⟩
 instance : FromJson Slice := ⟨ fun _ => throw "" ⟩
 instance : FromSexp Slice := ⟨ fun _ => throw "" ⟩
-instance : ToCBOR Slice := ⟨ fun _ => default ⟩
 instance : ToSexp Slice := ⟨ fun _ => default ⟩
 instance : ToJson Slice := ⟨ fun _ => default ⟩
 
@@ -225,6 +248,29 @@ def size (slice : Slice) : Nat :=
 #guard (make! 10 0 (-1)).size == 10
 #guard (make! 0 10 (-1)).size == 0
 #guard (make! 10 0 1).size == 0
+
+-- NOTE: The Prop fields count towards the list, but have zero size
+instance : ToCBOR Slice where
+  toCBOR t :=
+    Serde.cborTag 115 0 4
+    ++ @Serde.toCBOR Nat _ t.l
+    ++ @Serde.toCBOR Nat _ t.u
+    ++ @Serde.toCBOR Int _ t.step
+
+instance : FromCBOR Slice where
+  parse arr := do
+    let (ty,val,len,arr) <- Serde.parseCBORTag arr
+    if ty != 115 then
+      throw s!"expecting Slice (got tag {ty})"
+    if val != 0 then
+      throw s!"expecting Slice (got val tag {val})"
+    if len != 4 then
+      throw s!"expecting Slice (got len {len})"
+    let (arr, sz, l) <- @Serde.parseCBOR' Nat _ arr 4
+    let (arr, sz, u) <- @Serde.parseCBOR' Nat _ arr sz
+    let (_, sz, step) <- @Serde.parseCBOR' Int _ arr sz
+    let s <- make l u step
+    return (sz, s)
 
 end Slice
 
@@ -256,10 +302,8 @@ instance : BEq AccessBasic where
   beq l r := l.tensor == r.tensor && l.indexes == r.indexes
 
 -- TODO
-instance : FromCBOR AccessBasic := ⟨ fun _ => throw "" ⟩
 instance : FromJson AccessBasic := ⟨ fun _ => throw "" ⟩
 instance : FromSexp AccessBasic := ⟨ fun _ => throw "" ⟩
-instance : ToCBOR AccessBasic := ⟨ fun _ => default ⟩
 instance : ToSexp AccessBasic := ⟨ fun _ => default ⟩
 instance : ToJson AccessBasic := ⟨ fun _ => default ⟩
 
@@ -284,6 +328,27 @@ theorem shape.noFail :
   let { tensor, indexes, lenWF : AccessBasic } := a
   induction indexes <;> simp ; trivial
   done
+
+-- NOTE: The Prop fields count towards the list, but have zero size
+instance : ToCBOR AccessBasic where
+  toCBOR t :=
+    Serde.cborTag 117 0 3
+    ++ @Serde.toCBOR TensorSram _ t.tensor
+    ++ @Serde.toCBOR (List Index) _ t.indexes
+
+instance : FromCBOR AccessBasic where
+  parse arr := do
+    let (ty,val,len,arr) <- Serde.parseCBORTag arr
+    if ty != 117 then
+      throw s!"expecting AccessBasic (got tag {ty})"
+    if val != 0 then
+      throw s!"expecting AccessBasic (got val tag {val})"
+    if len != 3 then
+      throw s!"expecting AccessBasic (got len {len})"
+    let (arr, sz, tensor) <- @Serde.parseCBOR' TensorSram _ arr 4
+    let (_, sz, indexes) <- @Serde.parseCBOR' (List Index) _ arr sz
+    let acc <- make tensor indexes
+    return (sz, acc)
 
 end AccessBasic
 
@@ -411,7 +476,7 @@ end Access
 A tensor access pattern in HBM. The address is an offset into HBM.
 -/
 @[serde tag = 121]
-structure HbmTensor where
+structure TensorHbm where
   name : String
   dtype   : Dtype
   address : Nat
@@ -476,6 +541,6 @@ Tensor arguments can be either HBM or abstract SRAM tensors.
 -/
 @[serde tag = 125]
 inductive TensorArg where
-  | hbm (tensor : HbmTensor)
+  | hbm (tensor : TensorHbm)
   | sram (tensor : TensorSram)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
