@@ -210,10 +210,25 @@ theorem ChipMemory.get_set_ne {t : ChipMemory α} {k k' : ChipIndex} {v} : k ≠
   intro H
   cases k <;> cases k' <;> simp only [get, set]
   · rw [Store.get_set_ne (H <| congrArg ChipIndex.psumPhysIndex ·)]
-  · sorry
+  · rename_i i1 j1 i2 j2
+    if hi : i1 = i2
+      then if hj : j1 = j2 then exfalso; simp_all
+           else simp [Store.get_set_eq hi, Store.get_set_ne hj]
+                cases _ : (Store.get t.psumUnbounded i2) <;> simp_all; rfl
+      else simp [Store.get_set_ne hi]
   · rw [Store.get_set_ne (H <| congrArg ChipIndex.sbufPhysIndex ·)]
-  · sorry
-  · sorry
+  · rename_i i1 j1 i2 j2
+    if hi : i1 = i2
+      then if hj : j1 = j2 then exfalso; simp_all
+           else simp [Store.get_set_eq hi, Store.get_set_ne hj]
+                cases _ : (Store.get t.sbufUnbounded i2) <;> simp_all; rfl
+      else simp [Store.get_set_ne hi]
+  · rename_i i1 j1 i2 j2
+    if hi : i1 = i2
+      then if hj : j1 = j2 then exfalso; simp_all
+           else simp [Store.get_set_eq hi, Store.get_set_ne hj]
+                cases _ : (Store.get t.hbmUnbounded i2) <;> simp_all; rfl
+      else simp [Store.get_set_ne hi]
 
 theorem ChipMemory.get_empty : get (empty : ChipMemory α) k = none := by
   cases k <;> simp [empty, Heap.get_empty]
@@ -221,19 +236,39 @@ theorem ChipMemory.get_empty : get (empty : ChipMemory α) k = none := by
 theorem ChipMemory.get_hmap : get (hmap f t) k = (get t k).bind (f k) := by
   cases k
   · simp [hmap, Heap.get_hmap]
-  · simp only [get, hmap]
-    sorry
+  · rename_i i j
+    simp [Heap.get_hmap]
+    cases (Store.get t.psumUnbounded i) <;> simp [Store.get, Heap.hmap]
   · simp [hmap, Heap.get_hmap]
-  · sorry
-  · sorry
+  · rename_i i j
+    simp [Heap.get_hmap]
+    cases (Store.get t.sbufUnbounded i) <;> simp [Store.get, Heap.hmap]
+  · rename_i i j
+    simp [Heap.get_hmap]
+    cases (Store.get t.hbmUnbounded i) <;> simp [Store.get, Heap.hmap]
 
 theorem ChipMemory.get_merge : get (merge op t1 t2) k = Option.merge op (get t1 k) (get t2 k) := by
   cases k
   · simp [hmap, Heap.get_merge]
-  · sorry
+  · rename_i i j
+    simp [hmap, Heap.get_merge, Option.merge]
+    cases _ : Store.get t1.psumUnbounded i <;>
+    cases _ : Store.get t2.psumUnbounded i <;>
+    simp_all [Heap.get_merge] <;>
+    grind
   · simp [hmap, Heap.get_merge]
-  · sorry
-  · sorry
+  · rename_i i j
+    simp [hmap, Heap.get_merge, Option.merge]
+    cases _ : Store.get t1.sbufUnbounded i <;>
+    cases _ : Store.get t2.sbufUnbounded i <;>
+    simp_all [Heap.get_merge] <;>
+    grind
+  · rename_i i j
+    simp [hmap, Heap.get_merge, Option.merge]
+    cases _ : Store.get t1.hbmUnbounded i <;>
+    cases _ : Store.get t2.hbmUnbounded i <;>
+    simp_all [Heap.get_merge] <;>
+    grind
 
 instance ChipMemoryHeapInst : Heap (ChipMemory α) ChipIndex α where
   get        := ChipMemory.get
@@ -251,16 +286,14 @@ instance {α β} : HasHHMap (ChipMemory α) (ChipMemory β) ChipIndex α β wher
   hhmap f h :=
     ⟨ hhmap (fun i => f (.psumPhysIndex i)) h.psumPhysical,
       hhmap (fun i i_store => some <| hhmap (fun j => f (.psumUnboundedIndex i j)) i_store) h.psumUnbounded,
-      hhmap (fun i => f (.psumPhysIndex i)) h.sbufPhysical,
+      hhmap (fun i => f (.sbufPhysIndex i)) h.sbufPhysical,
       hhmap (fun i i_store => some <| hhmap (fun j => f (.sbufUnboundedIndex i j)) i_store) h.sbufUnbounded,
       hhmap (fun i i_store => some <| hhmap (fun j => f (.hbmIndex i j)) i_store) h.hbmUnbounded ⟩
   hhmap_get {t k} f := by
-    cases k <;> simp_all [Store.get]
-    · sorry
-    · sorry
-    · sorry
-    · sorry
-    · sorry
+    cases k <;> simp_all [Store.get, hhmap, Option.bind] <;> rename_i i j
+    · cases _ : t.psumUnbounded.bank i <;> simp
+    · cases _ : t.sbufUnbounded.bank i <;> simp
+    · cases _ : t.hbmUnbounded.bank i <;> simp
 
 structure ProdStore (T : Type _) where
   left  : T
