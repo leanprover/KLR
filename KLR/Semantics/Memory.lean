@@ -289,11 +289,7 @@ instance {α β} : HasHHMap (ChipMemory α) (ChipMemory β) ChipIndex α β wher
       hhmap (fun i => f (.sbufPhysIndex i)) h.sbufPhysical,
       hhmap (fun i i_store => some <| hhmap (fun j => f (.sbufUnboundedIndex i j)) i_store) h.sbufUnbounded,
       hhmap (fun i i_store => some <| hhmap (fun j => f (.hbmIndex i j)) i_store) h.hbmUnbounded ⟩
-  hhmap_get {t k} f := by
-    cases k <;> simp_all [Store.get, hhmap, Option.bind] <;> rename_i i j
-    · cases _ : t.psumUnbounded.bank i <;> simp
-    · cases _ : t.sbufUnbounded.bank i <;> simp
-    · cases _ : t.hbmUnbounded.bank i <;> simp
+  hhmap_get {t k} f := by cases k <;> simp_all [Store.get, hhmap, Option.bind] <;> grind
 
 structure ProdStore (T : Type _) where
   left  : T
