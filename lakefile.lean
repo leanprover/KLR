@@ -61,4 +61,6 @@ require TensorLib from git
 -- Comment the above and uncomment this for local development
 -- require TensorLib from "../TensorLib"
 
+require "chasenorman" / "Canonical"
+
 require Util from "KLR"
