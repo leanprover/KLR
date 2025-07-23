@@ -9,7 +9,7 @@ import SHerLOC.Analysis.Graph
 
 open StableHLO.Analysis (Graph Edge Vertex)
 
--- This module provides a way to convert an TGR function into a DOT graph representation.
+/- This module provides a way to convert an TGR function into a DOT graph representation. -/
 namespace KLR.TGR.Graph
 
 /-
@@ -82,13 +82,13 @@ we create a separate vertex for each use of a constant.
 def graph (f : TGR.Function) : Graph := Id.run do
   let mut vertices := []
   let mut edges := []
-  -- Every variables in the function that is the result of a `constant` operatior
+  /- Every variables in the function that is the result of a `constant` operatior -/
   let mut consts := f.statements.filterMap (fun
     | .assign v (.const ..) shape => .some ("const", v, shape)
     | .assign v (.full ..) shape => .some ("full", v, shape)
     | _ => .none)
-  -- A closure that creates edges from a list of inputs to an output variable.
-  -- If the input is a constant, it creates a vertex for that constant.
+  /- A closure that creates edges from a list of inputs to an output variable.
+  If the input is a constant, it creates a vertex for that constant. -/
   let (makeEdges : List String → String → (List Vertex) × (List Edge)) := fun inputs output => Id.run do
     let mut vertices := []
     let mut edges := []
@@ -101,7 +101,7 @@ def graph (f : TGR.Function) : Graph := Id.run do
         edges := (makeEdge (sanitize input) output) :: edges
     return (vertices, edges)
 
-  -- Walk the program statements and create vertices and edges.
+  /- Walk the program statements and create vertices and edges. -/
   for s in f.statements do
     match s with
     | .assign _ (.const ..) _  | .assign _ (.full ..) _ => pure ()

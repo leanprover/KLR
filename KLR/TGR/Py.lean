@@ -89,7 +89,7 @@ def shapeToPy (s : Shape) : String :=
   s.val.map toString |> ",".intercalate
 
 def varToPy (arg : Var) : String :=
-  -- Prefix, since Python variables can't start with a digit
+  /- Prefix, since Python variables can't start with a digit -/
   s!"var_{arg}"
 
 def opToPy (op : Operator) : String :=
@@ -148,7 +148,7 @@ def compileProgram (p : Program) : Format :=
       p.functions.map compileFunction
     joinSep lines line
 
--- Compile the TGR program to a Python program.
+/- Compile the TGR program to a Python program. -/
 def compile (p : Program) : String :=
   (compileProgram p).pretty
 

@@ -30,7 +30,7 @@ deriving Inhabited, Repr, Nonempty
 
 abbrev Var := String
 
--- scalar-scalar binary operators
+/- scalar-scalar binary operators -/
 inductive BinaryOp where
   | add
   | sub
@@ -41,7 +41,7 @@ inductive BinaryOp where
   | cmp
 deriving Inhabited, Repr
 
--- scalar unary operators
+/- scalar unary operators -/
 inductive UnaryOp where
   | exp
   | sqrt
@@ -60,33 +60,31 @@ the output shape information exists in two redundant places: in the `Statement`
 and in the `Operator`.
 -/
 inductive Operator where
-  -- An argument to the function, identified by its index.
+  /- An argument to the function, identified by its index. -/
   | arg (index : Nat)
 
-  -- apply a binary operator element-wise to two tensors
+  /- apply a binary operator element-wise to two tensors -/
   | binaryOp (op : BinaryOp) (a b : Var)
-  -- apply a unary operator element-wise to a tensor
+  /- apply a unary operator element-wise to a tensor -/
   | unaryOp (op : UnaryOp) (a : Var)
-  -- apply a reduction operation to a tensor, reducing it along the specified dimensions
+  /- apply a reduction operation to a tensor, reducing it along the specified dimensions -/
   | reductionOp (op : BinaryOp) (a b : Var) (dim : List Nat)
 
-  -- perform a batch matrix multiplication on two tensors.
-  -- Specifically, computes the einsum bij,bkj->bik
+  /- perform a batch matrix multiplication on two tensors.
+  Specifically, computes the einsum bij,bkj->bik -/
   | batchMatmul (a b : Var)
-  -- create a tensor with a range of values within the given limits and with the specified stride
+  /- create a tensor with a range of values within the given limits and with the specified stride -/
   | arange (start : Nat) (stop : Nat) (step : Nat) (shape : Shape)
-  -- concatenate a list of tensors along the specified dimension
+  /- concatenate a list of tensors along the specified dimension -/
   | concat (tensors : List Var) (dim : Nat)
-  -- select elements from two tensors based on a condition tensor
+  /- select elements from two tensors based on a condition tensor -/
   | select (cond a b : Var)
-  -- create a tensor filled with a specific value, with the given shape
-  -- Note: the tensor is always a scalar-array
+  /- create a tensor filled with a specific value, with the given shape
+  Note: the tensor is always a scalar-array -/
   | full (value : Tensor) (shape : Shape)
-  -- transpose a tensor with the provided permutation of dimensions
+  /- transpose a tensor with the provided permutation of dimensions -/
   | transpose (a : Var) (dims : List Nat)
-  -- unused
-  | split_with_sizes (a : Var) (sizes : List Nat) -- ??
-  -- reshape a tensor to the specified shape
+  /- reshape a tensor to the specified shape -/
   | reshape (a : Var) (shape : Shape)
   /-
     broadcast a tensor to the specified shape
@@ -97,15 +95,15 @@ inductive Operator where
     existing ones of size 1.
   -/
   | broadcast (a : Var) (shape : Shape)
-  -- create a constant tensor with the given values and shape
+  /- create a constant tensor with the given values and shape -/
   | const (values : Tensor) (shape : Shape) (dtype : Dtype)
-  -- gather elements from a tensor using the provided indices and offset dimensions
-  -- TODO: gather is complicated and not used except for in llama, so for now
-  -- we just pass through the semantics of HLO's gather
+  /- gather elements from a tensor using the provided indices and offset dimensions
+  TODO: gather is complicated and not used except for in llama, so for now
+  we just pass through the semantics of HLO's gather -/
   | gather (input indices : Var) (offsetDims collapsedSliceDims startIndexMap : List Nat) (indexVectorDim : Nat)
-  -- slice a tensor along specified dimensions, with start, limit, and stride
+  /- slice a tensor along specified dimensions, with start, limit, and stride -/
   | slice (a : Var) (slice : List Slice)
-  -- call another function, passing input values and receiving outputs
+  /- call another function, passing input values and receiving outputs -/
   | call (callee : String) (inputValues : List Var)
 deriving Inhabited, Repr
 
@@ -114,7 +112,7 @@ A statement in TGR (Tensor Graph Representation).
 In SSA form, so each variable is assigned exactly once.
 -/
 inductive Statement where
-  -- A comment in the code, for making the dumped IR readable
+  /- A comment in the code, for making the dumped IR readable -/
   | comment (msg : String)
   /-
   Assign the result of `op` to `dest` , with resulting shape `shape`
@@ -123,7 +121,7 @@ inductive Statement where
   operator, to avoid having to recompute it with fallible operations later.
   -/
   | assign (dest : Var) (op : Operator) (shape : TensorTy)
-  -- Return variables `vars` from the function
+  /- Return variables `vars` from the function -/
   | ret (vars : List Var)
 deriving Inhabited, Repr
 
@@ -138,12 +136,12 @@ structure Function where
   statements : List Statement
 deriving Inhabited, Repr, Nonempty
 
--- An TGR program
+/- A TGR program -/
 structure Program where
   functions : List Function
 deriving Inhabited, Repr, Nonempty
 
--- Returns the list of variables that this operator immediately depends on.
+/- Returns the list of variables that this operator immediately depends on. -/
 def dependencies : Operator → List Var
   | .arg _ => []
   | .binaryOp _ a b => [a, b]
@@ -155,7 +153,6 @@ def dependencies : Operator → List Var
   | .select cond a b => [cond, a, b]
   | .full .. => []
   | .transpose a _ => [a]
-  | .split_with_sizes a _ => [a]
   | .reshape a _ => [a]
   | .broadcast a .. => [a]
   | .const .. => []
@@ -163,19 +160,19 @@ def dependencies : Operator → List Var
   | .slice a .. => [a]
   | .call _ inputs => inputs
 
--- Returns the list of all variables defined in this function.
+/- Returns the list of all variables defined in this function. -/
 def vars (f : Function) : List Var :=
   f.statements.filterMap (fun
     | .assign dest .. => .some dest
     | _ => .none)
 
--- Finds the operator that assigns to a variable in the function.
+/- Finds the operator that assigns to a variable in the function. -/
 def findVar (f : Function) (v : Var) : Option Operator :=
   f.statements.findSome? (fun
     | .assign dest op _ => if dest == v then .some op else .none
     | _ => .none)
 
--- TODO: move these toString instances to the TensorLib repo
+/- TODO: move these toString instances to the TensorLib repo -/
 instance : ToString Slice where
   toString s :=
     let {start, stop, step, ..} := s
@@ -235,7 +232,6 @@ instance : ToString Operator where
     | .select cond a b => s!"select({cond}, {a}, {b})"
     | .full v shape => s!"full({repr v}, shape={shape})"
     | .transpose a dims => s!"transpose({a}, dims={dims})"
-    | .split_with_sizes a sizes => s!"split_with_sizes({a}, sizes={sizes})"
     | .reshape a shape => s!"reshape({a}, shape={shape})"
     | .broadcast a shape => s!"broadcast({a}, shape={shape})"
     | .const t shape dtype => s!"const({repr t}, shape={shape}, dtype={dtype})"
@@ -264,7 +260,7 @@ instance : ToString Program where
     let functionsStr := p.functions.map toString |> "\n".intercalate
     s!"# Program\n" ++ functionsStr
 
--- Human readable name for the operator.
+/- Human readable name for the operator. -/
 def opName : Operator → String
   | .arg _ => s!"arg"
   | .binaryOp binOp .. => s!"{binOp}"
@@ -276,7 +272,6 @@ def opName : Operator → String
   | .select .. => s!"select"
   | .full .. => s!"full"
   | .transpose .. => s!"transpose"
-  | .split_with_sizes .. => s!"split_with_sizes"
   | .reshape .. => s!"reshape"
   | .broadcast .. => s!"broadcast"
   | .const .. => s!"const"
