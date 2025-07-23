@@ -18,7 +18,6 @@ def converRevOps (reverse0 : Bool) (reverse1 : Bool) : TensorScalarReverseOps :=
     | false, true => .second
     | true, true => .both
 
-
 def immediateToValue (imm : Immediate) : Value :=
   match imm with
   | .int i => .int i.toInt
@@ -47,10 +46,10 @@ def accumCmdToValue (ac : AccumCmd) : Value :=
 -- set_option linter.unusedVariables false
 
 nki nc_matmul
- (dst : TensorName)
- (stationary : TensorName)
+ (dst : Access)
+ (stationary : Access)
  -- kwargs
- (moving : TensorName)
+ (moving : Access)
  (_is_stationary_onezero : Bool := false) -- FIXME good to have
  (_is_moving_zero : Bool := false) -- FiXME good to have
  (is_transpose : Bool := false)
@@ -59,41 +58,45 @@ nki nc_matmul
  (_mask : Option Immediate := none) := do
     -- got to emit load statioary before
     -- accumulated flag is not supported yet
-    let dstT : TensorRef := .abstract $ .simple dst
-    let movingT : TensorRef := .abstract $ .simple moving
-    let stationaryT : TensorRef := .abstract $ .simple stationary
+    let dstT : TensorRef := .abstract dst
+    let movingT : TensorRef := .abstract moving
+    let stationaryT : TensorRef := .abstract stationary
     let accFlag : MatmulGroupElement := .whole -- TODO: need to figure out which one it is
     let ls : LoadStationary := ⟨ stationaryT, is_transpose ⟩
     let mm : MatMul := ⟨ dstT, movingT, accFlag ⟩
-    return .oper [(.loadStationary ls), (.matMul mm)]
+    Trace.add_stmt $ .oper (.loadStationary ls)
+    Trace.add_stmt $ .oper (.matMul mm)
+    return .none
 
 nki nc_transpose
- (dst : TensorName)
- (data : TensorName)
+ (dst : Access)
+ (data : Access)
  -- kwargs
  (_mask : Option Immediate := none)
  (_dtype : Option Dtype := none)
  (_engine : Engine := Engine.unassigned) := do
-  let dstT : TensorRef := .abstract $ .simple dst
-  let srcT : TensorRef := .abstract $ .simple data
+  let dstT : TensorRef := .abstract dst
+  let srcT : TensorRef := .abstract data
   let trn : Transpose := ⟨ dstT, srcT ⟩
-  return .oper [.transpose trn]
+  Trace.add_stmt $ .oper (.transpose trn)
+  return .none
 
 nki activation
- (dst : TensorName)
+ (dst : Access)
  (op : ActivationFunc)
- (data : TensorName)
+ (data : Access)
  --
  (bias : Immediate := .float 0) -- Also can be a tensor. Default is none
  (scale : Immediate := .float 1.0) -- This also can accept a tensor
  (_reduce_op : Option AluOp := none)
- (_reduce_res : Option TensorName := none)
+ (_reduce_res : Option Access := none)
  (reduce_cmd : AccumCmd := .Idle)
  (_mask : Option Immediate := none) := do
-  let dstT : TensorRef := .abstract $ .simple dst
-  let dataT : TensorRef := .abstract $ .simple data
-  let ac : Activate :=  ⟨ dstT, dataT, reduce_cmd, op, scale, bias, .float 0 ⟩ -- FIXME scale is probably wrong
-  return .oper [.activate ac]
+  let dstT : TensorRef := .abstract dst
+  let dataT : TensorRef := .abstract data
+  let ac : Activate := ⟨ dstT, dataT, reduce_cmd, op, scale, bias, .float 0 ⟩ -- FIXME scale is probably wrong
+  Trace.add_stmt $ .oper (.activate ac)
+  return .none
 
 --  nki activation_reduce
 --   (dst: TensorName)
@@ -138,20 +141,21 @@ nki activation
 --      return .expr (.call "activation_reduce" args kwargs) ty
 
 nki tensor_reduce
-  (dst: TensorName)
+  (dst: Access)
   (op : AluOp)
-  (data : TensorName)
+  (data : Access)
   (_axis : Sum Immediate Shape)
   --
   (_mask : Option Immediate := none)
   (_dtype : Option Dtype := none)
   (negate : Bool := false)
   (_keepdims : Bool := false) := do
-    let dstT : TensorRef := .abstract $ <-  Access.mkBasic dst []
-    let dataT : TensorRef := .abstract $ .simple data
+    let dstT : TensorRef := .abstract dst
+    let dataT : TensorRef := .abstract data
     let opDim := .X -- FIXME - get actual value
     let reduce : TensorReduce := ⟨ dstT, dataT, op, opDim, negate ⟩
-    return .oper [.tensorReduce reduce]
+    Trace.add_stmt $ .oper (.tensorReduce reduce)
+    return .none
 
 -- nki tensor_partition_reduce
 --   (dst: TensorName)
@@ -205,12 +209,11 @@ nki tensor_reduce
 --     let ty := .tensor dst.dtype dst.shape
 --     return .expr (.call "tensor_tensor" args kwargs) ty
 
-
 nki tensor_tensor_scan
- (dst: TensorName)
- (data0 : TensorName)
- (data1 : TensorName)
- (initial : Sum Immediate TensorName)
+ (dst: Access)
+ (data0 : Access)
+ (data1 : Access)
+ (initial : Sum Immediate Access)
  (op0 : AluOp)
  (op1 : AluOp)
  (reverse0 : Bool := false)
@@ -218,9 +221,9 @@ nki tensor_tensor_scan
  --
  (_dtype : Option Dtype := none)
  (_mask : Option Immediate := none) := do
-    let dstT : TensorRef := .abstract $ .simple dst
-    let data0T : TensorRef := .abstract $ .simple data0
-    let data1T : TensorRef := .abstract $ .simple data1
+    let dstT : TensorRef := .abstract dst
+    let data0T : TensorRef := .abstract data0
+    let data1T : TensorRef := .abstract data1
     let rev : TensorScalarReverseOps := converRevOps reverse0 reverse1
 
     if initial.isRight then
@@ -228,8 +231,8 @@ nki tensor_tensor_scan
     let imm := <- initial.getLeft?
 
     let tts : TensorTensorScan := ⟨ dstT, data0T, data1T, op0, op1, rev, imm, .Idle ⟩
-    return .oper [.tensorTensorScan tts]
-
+    Trace.add_stmt $ .oper (.tensorTensorScan tts)
+    return .none
 
 -- nki scalar_tensor_tensor
 --  (dst : TensorName)
@@ -336,16 +339,17 @@ nki tensor_tensor_scan
 
 
 nki tensor_copy
- (dst: TensorName)
- (src : TensorName)
+ (dst: Access)
+ (src : Access)
  --
  (_mask : Option Immediate := none)
  (_dtype : Option Dtype := none)
  (_engine : Engine := Engine.unassigned) := do
-    let dstT := .abstract $ .simple dst
-    let srcT := .abstract $ .simple src
+    let dstT := .abstract dst
+    let srcT := .abstract src
     let copy := ⟨ dstT, srcT, .none ⟩
-    return .oper [.copy copy]
+    Trace.add_stmt $ .oper (.copy copy)
+    return .none
 
 -- nki tensor_copy_dynamic_src
 --  (dst : TensorName)
@@ -398,54 +402,57 @@ nki tensor_copy
 
 nki tensor_copy_predicated
  --
- (src : TensorName)
- (dst : TensorName)
- (predicate : TensorName)
+ (src : Access)
+ (dst : Access)
+ (predicate : Access)
  (_mask : Option Immediate := none)
  (_dtype : Option Dtype := none)
  (_reverse_pred : Bool := false) := do
-    let dstT : TensorRef := .abstract $ .simple dst
-    let srcT : TensorRef := .abstract $ .simple src
-    let predicateT : TensorRef := .abstract $ .simple predicate
+    let dstT : TensorRef := .abstract  dst
+    let srcT : TensorRef := .abstract  src
+    let predicateT : TensorRef := .abstract  predicate
     let cp : CopyPredicated := ⟨ dstT, srcT, predicateT ⟩
-    return .oper [.copyPredicated cp]
+    Trace.add_stmt $ .oper (.copyPredicated cp)
+    return .none
 
 nki reciprocal
- (dst: TensorName)
- (data : TensorName)
+ (dst: Access)
+ (data : Access)
  --
  (_dtype : Option Dtype := none)
  (_mask : Option Immediate := none) := do
-    let dstT : TensorRef := .abstract $ .simple dst
-    let srcT : TensorRef := .abstract $ .simple data
-    return .oper [.reciprocal ⟨ dstT, srcT ⟩]
+    let dstT : TensorRef := .abstract dst
+    let srcT : TensorRef := .abstract data
+    Trace.add_stmt $ .oper (.reciprocal ⟨ dstT, srcT ⟩)
+    return .none
 
 nki iota
- (dst: TensorName)
+ (dst: Access)
  (_expr : Int) -- TODO: Placeholder. Figure out this type
  --
  (_dtype : Option Dtype := none)
  (_mask : Option Immediate := none) := do
-    let dstT : TensorRef := .abstract $ .simple dst
+    let dstT : TensorRef := .abstract dst
     let pattern : DataPattern := ⟨ 0, [] ⟩  -- FIXME
-    return .oper [.iota ⟨ dstT, pattern ⟩]
-
+    Trace.add_stmt $ .oper (.iota ⟨ dstT, pattern ⟩)
+    return .none
 
 nki dropout
- (dst: TensorName)
- (data : TensorName)
- (prob : Sum Immediate TensorName)
+ (dst: Access)
+ (data : Access)
+ (prob : Sum Immediate Access)
  --
  (_mask : Option Immediate := none)
  (_dtype : Option Dtype := none) := do
-    let dstT : TensorRef := .abstract $ .simple dst
-    let dataT : TensorRef := .abstract $ .simple data
+    let dstT : TensorRef := .abstract dst
+    let dataT : TensorRef := .abstract data
 
     if prob.isRight then
       throw "Tensor probability is not supported"
     let prob := <- prob.getLeft?
 
-    return .oper [.dropout ⟨ dstT, dataT, .KeepRate , prob  ⟩]
+    Trace.add_stmt $ .oper (.dropout ⟨ dstT, dataT, .KeepRate , prob  ⟩)
+    return .none
 
 -- nki affine_select
 --  (dst: TensorName)
@@ -457,7 +464,6 @@ nki dropout
 --  (dtype : Option Dtype := none) := do
 --     let dstT : TensorRef := .abstract $ .simple dst []
 --     return .oper $ .AffineSelect ⟨ dst,  ⟩
-
 
 -- nki range_select
 --  (dst: TensorName)
@@ -480,112 +486,118 @@ nki dropout
 --     return .oper $ .RangeSelect
 
 nki memset
- (dst: TensorName)
+ (dst: Access)
  (shape : Shape)
  (value : Immediate)
  (_dtype : Dtype)
  --
  (_mask : Option Immediate := none)
  (_engine : Engine := Engine.unassigned) := do
-    let dstT : TensorRef := .abstract $ .simple dst
+    let dstT : TensorRef := .abstract dst
     let ms : MemSet := ⟨ dstT, value, shape.freeElements ⟩ -- TODO: Check with someone
-    return .oper [.memSet ms]
+    Trace.add_stmt $ .oper (.memSet ms)
+    return .none
 
 nki bn_stats
- (dst: TensorName)
- (data : TensorName)
+ (dst: Access)
+ (data : Access)
  --
  (_mask: Option Immediate := none)
  (_dtype: Option Dtype := none) := do
-    let dstT : TensorRef := .abstract $ .simple dst
-    let dataT : TensorRef := .abstract $ .simple data
-    return .oper [.batchNormStats ⟨ dstT, dataT ⟩]
+    let dstT : TensorRef := .abstract dst
+    let dataT : TensorRef := .abstract data
+    Trace.add_stmt $ .oper (.batchNormStats ⟨ dstT, dataT ⟩)
+    return .none
 
 nki bn_aggr
- (dst: TensorName)
- (data : TensorName)
+ (dst: Access)
+ (data : Access)
  --
  (_mask : Option Immediate := none)
  (_dtype : Option Dtype := none) := do
-    let dstT : TensorRef := .abstract $ .simple dst
-    let dataT : TensorRef := .abstract $ .simple data
-    return .oper [.batchNormAggregate ⟨ dstT, dataT ⟩]
+    let dstT : TensorRef := .abstract dst
+    let dataT : TensorRef := .abstract data
+    Trace.add_stmt $ .oper (.batchNormAggregate ⟨ dstT, dataT ⟩)
+    return .none
 
 nki local_gather
- (dst: TensorName)
- (src_buffer : TensorName)
- (_index : TensorName)
+ (dst: Access)
+ (src_buffer : Access)
+ (_index : Access)
  (_num_elem_per_idx : Immediate := .int 1)
  (_num_valid_indices : Option Immediate := none)
  --
  (_mask: Option Immediate := none) := do
-    let dstT : TensorRef := .abstract $ .simple dst
-    let srcT : TensorRef := .abstract $ .simple src_buffer
-    return .oper [.localGather ⟨ dstT, srcT, .skip, false ⟩]  -- FIXME proper index miss behavior
+    let dstT : TensorRef := .abstract dst
+    let srcT : TensorRef := .abstract src_buffer
+    Trace.add_stmt $ .oper (.localGather ⟨ dstT, srcT, .skip, false ⟩) -- FIXME proper index miss behavior
+    return .none
 
 nki dma_copy
  --
- (dst : TensorName)
- (src : TensorName)
+ (dst : Access)
+ (src : Access)
  (_mask: Option Immediate := none)
  (dst_rmw_op : Option AluOp := none)
  (_oob_mode : Option Int := none)           -- FIXME: use actual type
  (_dge_mode : Option Int := none) := do     -- FIXME: use actual type
-  let dstT : TensorRef := .abstract $ .simple dst
-  let srcT : TensorRef := .abstract $ .simple src
+  let dstT : TensorRef := .abstract dst
+  let srcT : TensorRef := .abstract src
   let op : DgeComputeOp := <- match dst_rmw_op with
     | none => .ok .none
     | some rmw_op => match rmw_op with
       | .add => .ok .add
       | _ => throw "Unsupported operation"
   let copy := ⟨ dstT, srcT, op, .disable , .disable ⟩ -- FIXME
-  return .oper [.dmaCopy copy]
-
+  Trace.add_stmt $ .oper (.dmaCopy copy)
+  return .none
 
 nki max8
- (dst: TensorName)
+ (dst: Access)
  --
- (src : TensorName)
+ (src : Access)
  (_mask : Option Immediate := none)
  (_dtype : Option Dtype := none) := do
-    let dstT : TensorRef := .abstract $ .simple dst
-    let srcT : TensorRef := .abstract $ .simple src
-    return .oper [.max8 ⟨ dstT, srcT ⟩]
-
+    let dstT : TensorRef := .abstract dst
+    let srcT : TensorRef := .abstract src
+    Trace.add_stmt $ .oper (.max8 ⟨ dstT, srcT ⟩)
+    return .none
 
 nki nc_find_index8
- (dst: TensorName)
+ (dst: Access)
  --
- (data : TensorName)
+ (data : Access)
  (_vals : Int) -- TODO should be a list
  (_mask : Option Immediate := none)
  (_dtype : Option Dtype := none) := do
-    let dstT : TensorRef := .abstract $ .simple dst
-    let srcT : TensorRef := .abstract $ .simple data
-    return .oper [.findIndex8 ⟨ dstT, srcT ⟩]
-
+    let dstT : TensorRef := .abstract dst
+    let srcT : TensorRef := .abstract data
+    Trace.add_stmt $ .oper (.findIndex8 ⟨ dstT, srcT ⟩)
+    return .none
 
 nki nc_match_replace8
- (dst: TensorName)
+ (dst: Access)
  --
- (data : TensorName)
- (_vals : TensorName) -- A tensor of 8 values to replace
+ (data : Access)
+ (_vals : Access) -- A tensor of 8 values to replace
  (imm : Immediate)
  (_dst_idx : Option Int := none) -- Should be an Index
  (_mask: Option Immediate := none)
  (_dtype: Option Dtype := none) := do
-    let dstT : TensorRef := .abstract $ .simple dst
-    let srcT : TensorRef := .abstract $ .simple data
-    return .oper [.matchReplace8 ⟨ dstT, srcT, imm  ⟩]
+    let dstT : TensorRef := .abstract dst
+    let srcT : TensorRef := .abstract data
+    Trace.add_stmt $ .oper (.matchReplace8 ⟨ dstT, srcT, imm  ⟩)
+    return .none
 
 
 nki nc_stream_shuffle
- (src : TensorName)
- (dst : TensorName)
- (_shuffle_mask : TensorName)  -- TODO should be a list
+ (src : Access)
+ (dst : Access)
+ (_shuffle_mask : Access)  -- TODO should be a list
  --
  (_dtype: Option Dtype := none)
  (_mask: Option Immediate := none) := do
-    let dstT : TensorRef := .abstract $ .simple dst
-    let srcT : TensorRef := .abstract $ .simple src
-    return .oper [.shuffle ⟨ dstT, srcT  ⟩]
+    let dstT : TensorRef := .abstract dst
+    let srcT : TensorRef := .abstract src
+    Trace.add_stmt $ .oper (.shuffle ⟨ dstT, srcT  ⟩)
+    return .none
