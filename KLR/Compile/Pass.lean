@@ -22,7 +22,7 @@ import KLR.Util
 -/
 
 namespace KLR.Compile.Pass
-export Core (Pos)
+export Core (Name Pos)
 
 /-
 # Assigning Source Locations to Errors and Warnings
@@ -57,8 +57,6 @@ The filename, line offset, and positions are found in the abstract syntax tree
 that is being processed. In the case of nested `withFile` or `withPos`, the
 inner-most call will assign the location information: these functions will
 ignore any messages that already have source locations attached.
-
-TODO: This monad is useful in lots of places, should live somewhere else.
 -/
 
 inductive PosError where
@@ -92,17 +90,22 @@ instance : ToString PosError where
 
 end PosError
 
-structure PosState where
+/-
+A simple utility monad which contains state that is generally useful for
+compiler passes.
+-/
+structure PassState where
+  freshVarNum : Nat := 0 -- counter for generating fresh names
   warnings : Array PosError := #[]  -- located warnings
   newWarns : Array PosError := #[]  -- raw warnings
 
-namespace PosState
+namespace PassState
 
 /-
 When a new warning is emitted, it is initially unlocated and goes into the
 `newWarns` array to indicate that it needs to be located.
 -/
-def warn (msg : String) (ps : PosState) : PosState :=
+def warn (msg : String) (ps : PassState) : PassState :=
   { ps with
     newWarns := ps.newWarns.push (.raw msg)
   }
@@ -111,7 +114,7 @@ def warn (msg : String) (ps : PosState) : PosState :=
 When we `locate` a state, all new warnings are given the same position and
 moves to the `warnings` array of located warnings.
 -/
-def locate (pos : Pos) (ps : PosState) : PosState :=
+def locate (pos : Pos) (ps : PassState) : PassState :=
   { ps with
     warnings := ps.warnings.append (ps.newWarns.map (.locate pos))
     newWarns := #[]
@@ -122,7 +125,7 @@ When we add a file name, we first locate any unlocated warnings, and then we
 add a filename to any warnings without one.
 The order of operations is: warn, locate, addFile.
 -/
-def addFile (file : String) (lineOffset : Nat) (ps : PosState) : PosState :=
+def addFile (file : String) (lineOffset : Nat) (ps : PassState) : PassState :=
   { ps.locate { line := lineOffset, column := 0 } with
     warnings := ps.warnings.map (.addFile file lineOffset)
   }
@@ -132,48 +135,57 @@ We should always have at least one `locate` or `addFile` at the outermost
 level, or we may lose warnings trapped in the `newWarn` array. The `finalize`
 function can be used to make sure all warnings are moved over.
 -/
-def finalize (file : String) (ps : PosState) : PosState :=
+def finalize (file : String) (ps : PassState) : PassState :=
   addFile file 0 ps
 
-end PosState
+end PassState
 
-abbrev PosM := EStateM PosError PosState
+abbrev PassM := EStateM PosError PassState
 
-namespace PosM
+namespace PassM
 
-instance : MonadExceptOf String PosM where
+instance : MonadExceptOf String PassM where
   throw msg := throw (.raw msg)
   tryCatch m f := tryCatch m (fun e => f e.msg)
 
-def withPos (pos : Pos) (m : PosM a) : PosM a :=
+def withPos (pos : Pos) (m : PassM a) : PassM a :=
   fun s => match m s with
     | .ok x s => .ok x (s.locate pos)
     | .error e s => .error (e.locate pos) (s.locate pos)
 
-def withFile (file : String) (lineOffset : Nat) (m : PosM a) : PosM a :=
+def withFile (file : String) (lineOffset : Nat) (m : PassM a) : PassM a :=
   fun s => match m s with
     | .ok x s => .ok x (s.addFile file lineOffset)
     | .error e s => .error (e.addFile file lineOffset) (s.addFile file lineOffset)
 
-end PosM
-
--- Emit a warning / linter message
-def warn (msg : String) : PosM Unit :=
-  modify (PosState.warn msg)
+end PassM
 
 /-
-PosM will often be used within a monad transformer, so we provide "unlifted"
-versions of `withPos` and `withFile` for convenience. Note: The standard library
+Generate a fresh name, based on a previous name. Users can not create names
+with numeric components, so these will not conflict with user names.
+-/
+def freshName (name : Name := .anonymous) : PassM Name :=
+  modifyGet fun s =>
+    let n := s.freshVarNum + 1
+    (.num name n, { s with freshVarNum := n })
+
+-- Emit a warning / linter message
+def warn (msg : String) : PassM Unit :=
+  modify (PassState.warn msg)
+
+/-
+PassM will often be used within a monad transformer, so we provide "unlifted"
+versions of the monad utilities for convenience. Note: The standard library
 provides MonadControl instances for the common monads and monad transformers.
 -/
 
-def withPos [Monad m] [MonadControlT PosM m]
+def withPos [Monad m] [MonadControlT PassM m]
             (pos : Pos) (x : m a) : m a :=
-  control fun mapInBase => (PosM.withPos pos) (mapInBase x)
+  control fun mapInBase => (PassM.withPos pos) (mapInBase x)
 
-def withFile [Monad m] [MonadControlT PosM m]
+def withFile [Monad m] [MonadControlT PassM m]
              (file : String) (lineOffset : Nat) (x : m a) : m a :=
-  control fun mapInBase => (PosM.withFile file lineOffset) (mapInBase x)
+  control fun mapInBase => (PassM.withFile file lineOffset) (mapInBase x)
 
-abbrev PassM st := StateT st PosM
-
+-- Passes will commonly want to add more state
+abbrev Pass st := StateT st PassM

@@ -27,14 +27,25 @@ open Lean Meta
 /-
 The types below are a simplified representation of Lean structures and
 inductives that can be used for generating C++ and Python code.
+
+We have a case for prop, which we use as a place holder for any types in Prop
+when scanning the Lean definitions. We could just skip the Prop types, but it
+may be useful to know that the type contains props at some point. Extractors
+can ignore these if they choose, or represent them with a unit type.
+
+There is a special case for enum, which is just a constant where we know the
+type is an inductive where none of the constructors have any arguments. This
+property is only known after we collect the whole type, so there is a
+post-processing step which rewrites const to enum in those cases.
 -/
 
 inductive SimpleType where
-  | bool | nat | int | float | string
+  | bool | nat | int | float | string | prop
   | const (name : Name)
   | enum (name : Name)
   | option (elementType : SimpleType)
   | list (elementType : SimpleType)
+  | pair (left right : SimpleType)
   deriving Repr, BEq
 
 namespace SimpleType
@@ -42,21 +53,26 @@ namespace SimpleType
 -- Usually we want to handle common types separately.
 -- For instance, placing them in a common, shared file.
 def isCommon : SimpleType -> Bool
-  | .bool | .nat | .int | .float | .string => true
+  | .bool | .nat | .int | .float | .string | .prop => true
   | .const .. | .enum .. => false
   | .option t | .list t => t.isCommon
+  | .pair l r => l.isCommon && r.isCommon
 
--- For languages like C, we use, e.g. Bool_List instead of List Bool
+-- Create a name for a simple type.
+-- For example, List Nat becomes Nat.List. We reverse the names so there
+-- is no chance of confusion with the Lean types.
 def name : SimpleType -> Name
   | .bool => `Bool
   | .nat => `Nat
   | .int => `Int
   | .float => `Float
   | .string => `String
+  | .prop => `Prop
   | .const name
   | .enum name => name
   | .option t => .str t.name "Option"
   | .list t => .str t.name "List"
+  | .pair l r => .str (l.name ++ r.name) "Pair"
 
 -- For languages like C we need to generate unique types for
 -- each instance of list and option. Ths function collects all of
@@ -64,6 +80,7 @@ def name : SimpleType -> Name
 def containers : SimpleType -> List SimpleType
   | .list t => .list t :: t.containers
   | .option t => .option t :: t.containers
+  | .pair l r => .pair l r :: l.containers ++ r.containers
   | _ => []
 
 end SimpleType
@@ -106,26 +123,34 @@ where
   | .const n => if enums.contains n then .enum n else .const n
   | .option t => .option (rewrite t)
   | .list t => .list (rewrite t)
+  | .pair l r => .pair (rewrite l) (rewrite r)
   | t => t
 
 -- return the Names of container types
 def containers : LeanType -> List SimpleType
-  | .simple .. => []
+  | .simple t => t.containers
   | .prod _ fs => fs.flatMap fun f => f.type.containers
   | .sum _ ts => ts.flatMap fun t => t.containers
 
 end LeanType
 
-private def collectType [Monad m] [MonadError m] : Expr -> m SimpleType
+private def collectType : Expr -> MetaM SimpleType
   | .const `Bool [] => return .bool
   | .const `Nat [] => return .nat
+  | .const `UInt32 [] => return .nat
   | .const `Int [] => return .int
+  | .const `Int32 [] => return .int
   | .const `Float [] => return .float
+  | .const `Float32 [] => return .float
   | .const `String [] => return .string
   | .const n [] => return .const n
   | .app (.const `List [0]) t => return .list (<- collectType t)
   | .app (.const `Option [0]) t => return .option (<- collectType t)
-  | e => throwError s!"Unsupported Lean Type {e}"
+  | .app (.app (.const `Prod [0,0]) l) r => return .pair (<- collectType l) (<- collectType r)
+  | e => do
+    match <- inferType e with
+    | .sort .zero => return .prop
+    | t => throwError s!"Unsupported Lean Type {repr e} : {repr t}"
 
 private def collectBody (ci : ConstructorVal) : MetaM (List Field) :=
   forallTelescopeReducing ci.type fun xs _ => do

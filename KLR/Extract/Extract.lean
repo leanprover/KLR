@@ -37,6 +37,7 @@ run_meta do
   --withFile s!"{dir}/ast_python_core.py" Python.generatePythonAST
   withFile s!"{dir}/ast_nki.h" C.generateNkiAST
   withFile s!"{dir}/ast_nki.py" Python.generateNkiAST
+  withFile s!"{dir}/ast_klir.h" C.generateKlrAST
   withFile s!"{dir}/serde_common.h" Serde.generateCommonH
   withFile s!"{dir}/serde_common.c" Serde.generateCommonC
   withFile s!"{dir}/serde_file.h" Serde.generateFileH
@@ -45,5 +46,7 @@ run_meta do
   withFile s!"{dir}/serde_python_core.c" Serde.generatePythonC
   withFile s!"{dir}/serde_nki.h" Serde.generateNkiH
   withFile s!"{dir}/serde_nki.c" Serde.generateNkiC
+  withFile s!"{dir}/serde_klir.h" Serde.generateKlrH
+  withFile s!"{dir}/serde_klir.c" Serde.generateKlrC
   withFile s!"{dir}/topy_nki.h" ToPython.generateNkiH
   withFile s!"{dir}/topy_nki.c" ToPython.generateNkiC

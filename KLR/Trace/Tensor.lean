@@ -47,11 +47,11 @@ these represent the memory we need to allocate in the dram, sbuf, etc.
 -/
 def declare (name : String)
             (dtype : Dtype) (shape : Shape) (memory : Memory)
-            : Trace TensorSram := do
+            : Trace TensorName := do
   let pos := (<- get).pos
   let tname := s!"{name}.{pos.line}.{pos.column}"
   let size := Address.defaultSize shape dtype
-  TensorSram.make tname dtype shape $ some {
+  TensorName.make tname dtype shape $ some {
     memory := memory
     parSize := size.1
     freeSize := size.2

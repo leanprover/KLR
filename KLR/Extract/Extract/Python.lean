@@ -38,12 +38,14 @@ private def genType : SimpleType -> String
   | .nat | .int => "int"
   | .float => "float"
   | .string => "str"
+  | .prop => panic! "TODO"
   | .const name
   | .enum name => s!"\"{PyName name}\""
   | .option .string => "str"
   | .option t => s!"Optional[{genType t}]"
   | .list .string => "list[str]"
   | .list t => s!"list[{genType t}]"
+  | .pair .. => panic! "TODO"
 
 private def under (s : String) : String :=
   if s == "" || s.endsWith "_" then s

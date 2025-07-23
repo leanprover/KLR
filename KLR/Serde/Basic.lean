@@ -158,7 +158,7 @@ private def fromFixed (arr : ByteArray) (tag : UInt8) (next f : ByteArray -> Err
       next arr
     else if b0 == tag then
       f (arr.drop 1)
-    else throw s!"expecting unsigned integer (tag {tag})"
+    else throw s!"expecting unsigned integer (got tag {tag})"
   else throw "expecting unsigned integer: got EOF"
 
 instance : FromCBOR UInt8 where
@@ -366,7 +366,7 @@ instance : ToCBOR Int64 where
 instance : FromCBOR UInt64 where
   parse arr :=
     fromFixed arr 0x1b
-      (parseMap UInt16 fun x => x.toUInt64)
+      (parseMap UInt32 fun x => x.toUInt64)
       fun arr => return (9, <- (arr.take 8).toUInt64BE)
 
 instance : FromCBOR Int64 where
@@ -389,6 +389,19 @@ instance : FromCBOR Int64 where
 #guard (toCBOR (-1000000 : Int64)).data == #[0x3a, 0, 0x0f, 0x42, 0x3f]
 #guard (toCBOR Int64.maxValue).data == #[0x1b, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
 #guard (toCBOR Int64.minValue).data == #[0x3b, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+
+-- TODO: These examples were added after finding a bug in the UInt64 instance
+-- The plausible test never caught this bug, so that is interesting.
+
+#guard (roundtrip (0 : UInt64))
+#guard (roundtrip (255 : UInt64))
+#guard (roundtrip (256 : UInt64))
+#guard (roundtrip (1000000 : UInt64))
+#guard (roundtrip (1000000000000 : UInt64))
+#guard (roundtrip (18446744073709551615 : UInt64))
+#guard (roundtrip (-1000000 : Int64))
+#guard (roundtrip Int64.maxValue)
+#guard (roundtrip Int64.minValue)
 
 /--
 info: Unable to find a counter-example

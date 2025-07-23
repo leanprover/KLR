@@ -22,6 +22,7 @@ struct Python_Const {
     Python_Const_float,
     Python_Const_string,
     Python_Const_ellipsis,
+    Python_Const_tensor,
   } tag;
   union {
     struct Python_Const_bool {
@@ -36,6 +37,10 @@ struct Python_Const {
     struct Python_Const_string {
       char *value;
     } s;
+    struct Python_Const_tensor {
+      struct Nat_List *shape;
+      char *dtype;
+    } tensor;
   };
 };
 
@@ -89,7 +94,6 @@ enum Python_BinOp {
 struct Python_Expr_ {
   enum Python_Expr_Tag {
     Python_Expr_const = 1,
-    Python_Expr_tensor,
     Python_Expr_name,
     Python_Expr_attr,
     Python_Expr_tuple,
@@ -107,10 +111,6 @@ struct Python_Expr_ {
     struct Python_Expr_const {
       struct Python_Const *value;
     } c;
-    struct Python_Expr_tensor {
-      struct Python_Expr_List *shape;
-      char *dtype;
-    } tensor;
     struct Python_Expr_name {
       char *id;
       enum Python_Ctx ctx;
@@ -295,17 +295,6 @@ mkPython_Expr_const(struct Python_Const *value, struct region *region) {
   res->expr = region_alloc(region, sizeof(*res->expr));
   res->expr->tag = Python_Expr_const;
   res->expr->c.value = value;
-  return res;
-}
-
-static inline struct Python_Expr *
-mkPython_Expr_tensor(struct Python_Expr_List *shape, char *dtype,
-                     struct region *region) {
-  struct Python_Expr *res = region_alloc(region, sizeof(*res));
-  res->expr = region_alloc(region, sizeof(*res->expr));
-  res->expr->tag = Python_Expr_tensor;
-  res->expr->tensor.shape = shape;
-  res->expr->tensor.dtype = dtype;
   return res;
 }
 

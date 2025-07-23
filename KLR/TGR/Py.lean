@@ -89,7 +89,7 @@ def shapeToPy (s : Shape) : String :=
   s.val.map toString |> ",".intercalate
 
 def varToPy (arg : Var) : String :=
-  -- Prefix, since Python variables can't start with a digit
+  /- Prefix, since Python variables can't start with a digit -/
   s!"var_{arg}"
 
 def opToPy (op : Operator) : String :=
@@ -108,10 +108,9 @@ def opToPy (op : Operator) : String :=
   | .transpose a dims =>
     let dimsStr := dims.map toString |> ", ".intercalate
     s!"np.transpose({varToPy a}, axes=[{dimsStr}])"
-  | .split_with_sizes .. => panic! s!"Split with sizes operation not implemented in Python translation"
   | .reshape a shape => s!"{varToPy a}.reshape({shapeToPy shape})"
   | .broadcast a shape => s!"np.broadcast_to({varToPy a}, ({shapeToPy shape}))"
-  | .const _ shape _ => s!"np.random.random(({shapeToPy shape}))" -- TODO: make this use the actual constant value
+  | .const t => s!"np.random.random(({shapeToPy t.shape}))" -- TODO: make this use the actual constant value
   | .gather .. => panic! s!"Gather operation not implemented in Python translation"
   | .slice .. => panic! s!"Slice operation not implemented in Python translation"
   | .call .. =>
@@ -148,7 +147,7 @@ def compileProgram (p : Program) : Format :=
       p.functions.map compileFunction
     joinSep lines line
 
--- Compile the TGR program to a Python program.
+/- Compile the TGR program to a Python program. -/
 def compile (p : Program) : String :=
   (compileProgram p).pretty
 

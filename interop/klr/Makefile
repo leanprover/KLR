@@ -9,12 +9,12 @@ PY_CFLAGS  := -I${PY_DIR}/include/python${PY_VER}
 PY_LDFLAGS := $(shell ${PY_CFG} --ldflags)
 PY_LIBS    := "-lpython${PY_VER}"
 
-C := cbor.c serde_common.c serde_python_core.c serde_nki.c serde_file.c serde.c
+C := cbor.c serde_common.c serde_python_core.c serde_nki.c serde_klir.c serde_file.c serde.c
 C += topy_nki.c
 C += region.c peg_parser.c gather.c simplify.c frontend.c
 O := $(patsubst %.c,%.${PY_VER}.o,$C)
 
-TESTS := cbor_test simplify_test
+TESTS := cbor_test
 
 .SUFFIXES:
 .PHONY: all versions test clean

@@ -19,6 +19,7 @@ bool NKI_Expr__ser(FILE *out, struct NKI_Expr_ *x);
 bool NKI_Expr_ser(FILE *out, struct NKI_Expr *x);
 bool NKI_Index_ser(FILE *out, struct NKI_Index *x);
 bool NKI_Keyword_ser(FILE *out, struct NKI_Keyword *x);
+bool NKI_Pattern_ser(FILE *out, struct NKI_Pattern *x);
 bool NKI_Stmt__ser(FILE *out, struct NKI_Stmt_ *x);
 bool NKI_Stmt_ser(FILE *out, struct NKI_Stmt *x);
 bool NKI_Param_ser(FILE *out, struct NKI_Param *x);
@@ -29,6 +30,7 @@ bool NKI_Expr_List_ser(FILE *out, struct NKI_Expr_List *x);
 bool NKI_Index_List_ser(FILE *out, struct NKI_Index_List *x);
 bool NKI_Keyword_List_ser(FILE *out, struct NKI_Keyword_List *x);
 bool NKI_Expr_Option_ser(FILE *out, struct NKI_Expr *x);
+bool NKI_Pattern_List_ser(FILE *out, struct NKI_Pattern_List *x);
 bool NKI_Stmt_List_ser(FILE *out, struct NKI_Stmt_List *x);
 bool NKI_Param_List_ser(FILE *out, struct NKI_Param_List *x);
 bool NKI_Fun_List_ser(FILE *out, struct NKI_Fun_List *x);
@@ -40,6 +42,7 @@ bool NKI_Expr__des(FILE *in, struct region *region, struct NKI_Expr_ **x);
 bool NKI_Expr_des(FILE *in, struct region *region, struct NKI_Expr **x);
 bool NKI_Index_des(FILE *in, struct region *region, struct NKI_Index **x);
 bool NKI_Keyword_des(FILE *in, struct region *region, struct NKI_Keyword **x);
+bool NKI_Pattern_des(FILE *in, struct region *region, struct NKI_Pattern **x);
 bool NKI_Stmt__des(FILE *in, struct region *region, struct NKI_Stmt_ **x);
 bool NKI_Stmt_des(FILE *in, struct region *region, struct NKI_Stmt **x);
 bool NKI_Param_des(FILE *in, struct region *region, struct NKI_Param **x);
@@ -53,6 +56,8 @@ bool NKI_Index_List_des(FILE *in, struct region *region,
 bool NKI_Keyword_List_des(FILE *in, struct region *region,
                           struct NKI_Keyword_List **x);
 bool NKI_Expr_Option_des(FILE *in, struct region *region, struct NKI_Expr **x);
+bool NKI_Pattern_List_des(FILE *in, struct region *region,
+                          struct NKI_Pattern_List **x);
 bool NKI_Stmt_List_des(FILE *in, struct region *region,
                        struct NKI_Stmt_List **x);
 bool NKI_Param_List_des(FILE *in, struct region *region,

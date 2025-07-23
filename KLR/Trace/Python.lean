@@ -33,6 +33,7 @@ def const : Const -> Term
   | .float f  => .expr (.value $ .float f)  .float
   | .string s => .string s
   | .ellipsis => .ellipsis
+  | .tensor .. => panic! "Untranslated tensor value"
 
 /-
 # Evaluating index expressions
@@ -220,11 +221,11 @@ the following stuff (excerpted from a matmul example):
 If advanced indexing returns a copy of the view, the store statement does not
 make sense. Therefore, advanced indexing in NKI must have view semantics.
 -/
-def advancedAccessPattern (tensor : Core.TensorSram) : Term -> Err Core.AccessPattern
+def advancedAccessPattern (tensor : Core.TensorName) : Term -> Err Core.AccessPattern
   | .tuple l | .list l => mkAccessPattern tensor l
   | t => mkAccessPattern tensor [t]
 where
-  mkAccessPattern (tensor : Core.TensorSram) (inds: List Term) : Err Core.AccessPattern
+  mkAccessPattern (tensor : Core.TensorName) (inds: List Term) : Err Core.AccessPattern
   := do
     let sizes := tensor.shape.toList
     if sizes.length ≠ inds.length
@@ -299,8 +300,8 @@ where
 #guard
   match do
     let shape <- Core.Shape.fromList [/-parnum-/2,3,4]
-    Core.TensorSram.make "x" Core.Dtype.int8 shape none with
-  | .ok (tensor:Core.TensorSram) =>
+    Core.TensorName.make "x" Core.Dtype.int8 shape none with
+  | .ok (tensor:Core.TensorName) =>
     let mk (ls:List Int): TensorLib.Tensor :=
       let t := TensorLib.Tensor.ofIntList! TensorLib.Dtype.int64 ls
       let t3d := t.reshape! (TensorLib.Shape.mk [2,3,4])
@@ -442,7 +443,7 @@ def access (t : Term) (i : Term) : Err Term := do
       -- tensor does not have such fields.
       return .tensor res
   | .expr .. => do
-      let tensor : Core.TensorSram <- fromNKI? t
+      let tensor : Core.TensorName <- fromNKI? t
       -- Try basic indexing first
       tryCatch
          (do
@@ -456,6 +457,7 @@ def access (t : Term) (i : Term) : Err Term := do
           let access := Core.Access.pattern ap
           let shape <- Tensor.inferShape access
           return .expr (.value (.access access)) (.tensor tensor.dtype shape))
+    | .oper .. => throw "not implemented yet"
 
 
 --
@@ -533,6 +535,9 @@ def toPureExpr : Term -> Trace Term
       -- Assume that people do not write a code that has mgrid appearing solely
       -- without a subscript on the RHS of assignment...
       throw "unimplemented"
+  | .oper op => do
+      op.forM fun o => add_stmt (.oper o)
+      return .none
 
 -- Unpack an RValue.
 -- If the input Trace.Term was tuple or list, this is an identity function.
@@ -692,8 +697,18 @@ partial def fnCall (f:Expr) (args:List Expr) (kws:List Keyword)
 
 
 partial def expr' : Expr' -> Trace Term
+  | .const (.tensor s dty) => do
+      let shape <- Core.Shape.fromList s
+      let name <- genName "t".toName
+      let dtype <- fromNKI? (.expr (.value $ .var dty) .none)
+      let addr : Core.Address := {
+        memory := .hbm
+        parSize := shape.parDim
+        freeSize := shape.freeElements * dtype.size
+      }
+      let tensor <- Core.TensorName.make name.toString dtype shape (some addr)
+      return .expr (.value $ .access $ .simple tensor) (.tensor dtype shape)
   | .const c => return const c
-  | .tensor .. => throw "unimplemented"
   | .name id _ => lookup id.toName
   | .attr e id _ => do ((<- expr e : Term).attr id)
   | .tuple l _ => return .tuple (<- l.mapM expr)
@@ -847,7 +862,7 @@ where
   | .simple t => return .simple (renameTN s t)
   | .basic { tensor, indexes, .. } => Core.Access.mkBasic (renameTN s tensor) indexes
   | .pattern ap => return .pattern { ap with tensor := renameTN s ap.tensor }
-  renameTN (s : String) (t : Core.TensorSram) : Core.TensorSram := { t with name := s }
+  renameTN (s : String) (t : Core.TensorName) : Core.TensorName := { t with name := s }
 
 /-
 Function calls are split into two parts because we need to handle the top-level
@@ -943,9 +958,9 @@ def traceKernel (k : Kernel) : Trace Core.Kernel := do
       let kwargs <- k.kwargs.mapM fun kw => return (kw.id, <- expr kw.value)
       let args <- bind_args f args kwargs (rename := true)
       -- TODO: fix this after modifying Python AST to take TensorArg
-      let _res <- call f args
-      let inputs := [] --tensors (args.map fun x => x.snd)
-      let outputs := [] --tensors res
+      let res <- call f args
+      let inputs := tensors (args.map fun x => x.snd)
+      let outputs := tensors res
       return {
         name := k.entry
         inputs := inputs

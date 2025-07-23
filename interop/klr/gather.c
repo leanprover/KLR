@@ -165,7 +165,10 @@ static void add_work(struct state *st, PyObject *f) {
 
   // skip nki functions (for now)
   // TODO: remove once we have our own namespace
-  if (strncmp("nki", name, 3) == 0)
+  if (strncmp("nki.", name, 4) == 0)
+    return;
+
+  if (strncmp("neuronxcc.nki.", name, 14) == 0)
     return;
 
   if (have_fun(st, name))
@@ -1041,6 +1044,8 @@ done:
 }
 
 static struct Python_Fun* function(struct state *st, PyObject *f) {
+  // goto cleanup if anything goes wrong
+  struct Python_Fun *fn = NULL;
   struct scope old_scope = st->scope;
   struct _mod *m = parse_function(st, f);
 
@@ -1051,27 +1056,34 @@ static struct Python_Fun* function(struct state *st, PyObject *f) {
       m->v.Interactive.body->typed_elements[0]->kind != FunctionDef_kind
       )
   {
-    st->scope = old_scope;
-    return NULL;
+    goto cleanup;
   }
 
   struct _stmt *s = m->v.Interactive.body->typed_elements[0];
   struct Python_Args *as = args(st, s->v.FunctionDef.args);
-
-  struct Python_Stmt_List *body = stmts(st, s->v.FunctionDef.body);
-  free_python_ast(m);
-
-  char *name = py_fun_name(st, f);
-  struct Python_Fun *fn = NULL;
-  if (as && body && name) {
-    fn = region_alloc(st->region, sizeof(*fn));
-    fn->name = name;
-    fn->line = st->scope.line_offset;
-    fn->source = st->scope.src;
-    fn->body = body;
-    fn->args = as;
+  if (!as) {
+    goto cleanup;
   }
 
+  struct Python_Stmt_List *body = stmts(st, s->v.FunctionDef.body);
+  if (!body) {
+    goto cleanup;
+  }
+
+  char *name = py_fun_name(st, f);
+  if (!name) {
+    goto cleanup;
+  }
+
+  fn = region_alloc(st->region, sizeof(*fn));
+  fn->name = name;
+  fn->line = st->scope.line_offset;
+  fn->source = st->scope.src;
+  fn->body = body;
+  fn->args = as;
+
+cleanup:
+  free_python_ast(m);
   st->scope = old_scope;
   return fn;
 }

@@ -145,6 +145,8 @@ inductive Term where
   | pointer  : Core.Address -> Term
   | expr     : Expr -> TermType -> Term
   | mgrid    : Term
+  -- accepting a list of operators here might be lazy, but will suffice for now
+  | oper     : List Core.Operator -> Term
   deriving Repr, BEq
 
 instance : Inhabited Term where
@@ -155,7 +157,7 @@ namespace Term
 -- TODO: not efficient!
 -- TODO: this is partial because of the use of flatMap
 -- the ▷ syntax in Util could be updated to handle this case.
-partial def tensor_list : Term -> List Core.TensorSram
+partial def tensor_list : Term -> List Core.TensorName
   | .module _ | .builtin .. | .source _ | .mgrid
   | .none | .string _
   | .ellipsis | .slice ..
@@ -166,6 +168,7 @@ partial def tensor_list : Term -> List Core.TensorSram
   | .tuple l | .list l => (l.flatMap tensor_list).eraseDups
   | .store a _ v => (tensors a ++ tensors v).eraseDups
   | .expr e _ => tensors e
+  | .oper _ =>  [] -- TODO fix me
 
 instance : Tensors Term := ⟨ Term.tensor_list ⟩
 

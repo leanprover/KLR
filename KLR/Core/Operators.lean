@@ -54,7 +54,7 @@ inductive ActivationImm where
 
 /-
 Used for Iota and AffineSelect, represents something similar to an
-TensorView but that is only used to generate data, not to index. Much like
+TensorSram but that is only used to generate data, not to index. Much like
 LEA in x86.
 -/
 @[serde tag = 133]
@@ -216,6 +216,7 @@ inductive MatmulGroupElement where
   | first
   | middle
   | last
+  | whole
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- Whether an immediate should be written, or nothing should be written, when an index misses -/
@@ -304,32 +305,6 @@ structure DmaCopy where
   srcBoundsCheck : DmaBounds
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-/- DmaHbmLoad instruction
-
-Uses the DMA to load a tensor from HBM into SBUF.
--/
-@[serde tag = 148]
-structure DmaHbmLoad where
-  dst            : TensorRef
-  src            : HbmTensor
-  compute_op     : DgeComputeOp
-  dstBoundsCheck : DmaBounds
-  srcBoundsCheck : DmaBounds
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-/- DmaHbmStore instruction
-
-Uses the DMA to load a tensor from HBM into SBUF.
--/
-@[serde tag = 148]
-structure DmaHbmStore where
-  dst            : HbmTensor
-  src            : TensorRef
-  compute_op     : DgeComputeOp
-  dstBoundsCheck : DmaBounds
-  srcBoundsCheck : DmaBounds
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
 /- DmaTranspose instruction
 Use the DMA to reverse the dimensions of a tensor.
 -/
@@ -376,7 +351,7 @@ Sets `count` elements of `dst` to `value`
 @[serde tag = 153]
 structure MemSet where
   dst   : TensorRef
-  value : UInt32
+  value : Immediate
   count : Nat
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
@@ -516,7 +491,7 @@ Same as FindIndex8, but replaces the found values in src with `replaceValue`-/
 structure MatchReplace8 where
   dst          : TensorRef
   src          : TensorRef
-  replaceValue : Float32
+  replaceValue : Immediate
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- Max8 instruction
@@ -602,34 +577,32 @@ structure TensorTensor where
 
 @[serde tag = 173]
 inductive Operator where
-  | Activate (op : Activate)
-  | AffineSelect (op : AffineSelect)
-  | BatchNormAggregate (op : BatchNormAggregate)
-  | BatchNormStats (op : BatchNormStats)
-  | Copy (op : Copy)
-  | CopyPredicated (op : CopyPredicated)
-  | DmaCopy (op : DmaCopy)
-  | DmaHbmLoad (op : DmaHbmLoad)
-  | DmaHbmStore (op : DmaHbmStore)
-  | DmaTranspose (op : DmaTranspose)
-  | Dropout (op : Dropout)
-  | FindIndex8 (op : FindIndex8)
-  | Iota (op : Iota)
-  | LoadMaskRegister (op : LoadMaskRegister)
-  | LoadStationary (op : LoadStationary)
-  | LocalGather (op : LocalGather)
-  | MatMul (op : MatMul)
-  | MatchReplace8 (op : MatchReplace8)
-  | MatchValueLoad (op : MatchValueLoad)
-  | Max8 (op : Max8)
-  | MemSet (op : MemSet)
-  | RangeSelect (op : RangeSelect)
-  | Reciprocal (op : Reciprocal)
-  | ScalarTensorTensor (op : ScalarTensorTensor)
-  | Shuffle (op : Shuffle)
-  | TensorReduce (op : TensorReduce)
-  | TensorScalar (op : TensorScalar)
-  | TensorTensor (op : TensorTensor)
-  | TensorTensorScan (op : TensorTensorScan)
-  | Transpose (op : Transpose)
+  | activate (op : Activate)
+  | affineSelect (op : AffineSelect)
+  | batchNormAggregate (op : BatchNormAggregate)
+  | batchNormStats (op : BatchNormStats)
+  | copy (op : Copy)
+  | copyPredicated (op : CopyPredicated)
+  | dmaCopy (op : DmaCopy)
+  | dmaTranspose (op : DmaTranspose)
+  | dropout (op : Dropout)
+  | findIndex8 (op : FindIndex8)
+  | iota (op : Iota)
+  | loadMaskRegister (op : LoadMaskRegister)
+  | loadStationary (op : LoadStationary)
+  | localGather (op : LocalGather)
+  | matMul (op : MatMul)
+  | matchReplace8 (op : MatchReplace8)
+  | matchValueLoad (op : MatchValueLoad)
+  | max8 (op : Max8)
+  | memSet (op : MemSet)
+  | rangeSelect (op : RangeSelect)
+  | reciprocal (op : Reciprocal)
+  | scalarTensorTensor (op : ScalarTensorTensor)
+  | shuffle (op : Shuffle)
+  | tensorReduce (op : TensorReduce)
+  | tensorScalar (op : TensorScalar)
+  | tensorTensor (op : TensorTensor)
+  | tensorTensorScan (op : TensorTensorScan)
+  | transpose (op : Transpose)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
