@@ -123,12 +123,53 @@ instance : Tensors Expr where
   | .value v => tensors v
   | .call _ args kwargs => tensors (args ++ kwargs.map fun kw => kw.value)
 
+instance : Tensors TensorRef where
+  tensors
+  | .abstract a => tensors a
+  | .sbuf _ => []
+  | .psum _ => []
+  | .hbm _ => []
+  | .register _ => []
+
+instance : Tensors Operator where
+  tensors op :=
+    let refs := match op with
+      | .activate d => [d.dst, d.src]
+      | .affineSelect a => [a.dst, a.src]
+      | .dmaCopy d => [d.dst, d.src]
+      | .dmaTranspose d => [d.dst, d.src]
+      | .dropout d => [d.dst, d.src]
+      | .iota i => [i.dst]
+      | .loadMaskRegister _ => []
+      | .loadStationary l => [l.src]
+      | .localGather l => [l.dst, l.src]
+      | .matMul m => [m.dst, m.moving]
+      | .memSet m => [m.dst]
+      | .rangeSelect r => [r.dst, r.src]
+      | .shuffle s => [s.dst, s.src]
+      | .tensorReduce r => [r.dst, r.src]
+      | .tensorTensorScan t => [t.dst, t.src0, t.src1]
+      | .scalarTensorTensor s => [s.dst, s.src0, s.src1]
+      | .transpose t => [t.dst, t.src]
+      | .copy c => [c.dst, c.src]
+      | .copyPredicated c => [c.dst, c.src, c.predicate]
+      | .batchNormAggregate b => [b.dst, b.src]
+      | .batchNormStats b => [b.dst, b.src]
+      | .findIndex8 f => [f.dst, f.src]
+      | .matchReplace8 m => [m.dst, m.src]
+      | .matchValueLoad m => [m.src]
+      | .max8 m => [m.dst, m.src]
+      | .reciprocal r => [r.dst, r.src]
+      | .tensorScalar t => [t.dst, t.src]
+      | .tensorTensor t => [t.dst, t.src0, t.src1]
+    refs.flatMap tensors
+
 instance : Tensors Stmt where
   tensors
   | .ret v => tensors v
   | .assign _ e => tensors e
   | .store dst _ vs => tensors (tensors dst :: vs.map tensors)
-  | .oper _ => [] -- TODO
+  | .oper op => tensors op
 
 def Kernel.internal (k : Kernel) : List TensorName :=
   let ts := (k.body.map tensors).flatten.eraseDups
