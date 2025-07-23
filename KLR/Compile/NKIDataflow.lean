@@ -331,7 +331,7 @@ section DefNKIWalker
 end DefNKIWalker
 
 section WithKernel
-  variable [HasKernel]
+  variable [HK : HasKernel]
 
   abbrev 𝕂 := HasKernel.kernel
 
@@ -378,224 +378,229 @@ section WithKernel
         (transitions:=transitions)).map (fun a ↦ {a with
           key_labels k := walker.vars[k]?
         })
+  class HasSuccess where
+    success : 𝕏opt.isSome
+  section WithSuccess
+    variable [HS : HasSuccess]
 
-  variable (h𝕏 : 𝕏opt.isSome)
 
-  abbrev 𝕏 := 𝕏opt.get h𝕏
-  abbrev ℙ := walker.Path
-  abbrev 𝕟 := walker.Node
-  abbrev 𝕍 := walker.Var
-  abbrev 𝔼 (n₀ n₁ : walker.Node) := walker.edges n₀.val n₁.val
+    abbrev 𝕏 := 𝕏opt.get HasSuccess.success
+    abbrev ℙ := walker.Path
+    abbrev 𝕟 := walker.Node
+    abbrev 𝕍 := walker.Var
+    abbrev 𝔼 (n₀ n₁ : walker.Node) := walker.edges n₀.val n₁.val
 
-  abbrev ν (n : 𝕟) (v : 𝕍) := (𝕏 h𝕏).vals n.val v.val n.isLt v.isLt
+    abbrev ν (n : 𝕟) (v : 𝕍) := 𝕏.vals n.val v.val n.isLt v.isLt
 
-  abbrev σ (n₀ n₁ : 𝕟) (v : 𝕍) (𝔼n:𝔼 n₀ n₁): transitions n₀.val v.val (ν h𝕏 n₀ v) ≤ ν h𝕏 n₁ v := by {
-    apply (𝕏 h𝕏).props n₀.val n₁.val v.val n₀.isLt n₁.isLt v.isLt 𝔼n
-  }
-
-  --#check 𝕏
-  --#check ν
-  --#check σ
-  --#check ℙ
-
-  abbrev var_def (n : 𝕟) (v : 𝕍) : Bool := ¬ν h𝕏 n v
-  def NKIWalker.Path.var_def_at_terminus (𝕡 : ℙ) (v : 𝕍) : Bool := 𝕡.true_at_terminus walker (var_def h𝕏 . v)
-
-  def NKIWalker.Path.not_def_at_entry (𝕡 : ℙ) (v : 𝕍) : 𝕡.nodes.length = 1 → ¬ 𝕡.var_def_at_terminus h𝕏 v :=
-    match h : 𝕡.nodes with
-    | [n] => by {
-        intro
-        cases v
-        rename_i k hk
-        simp [NKIWalker.Path.var_def_at_terminus, NKIWalker.Path.true_at_terminus]
-        rw [h]
-        simp
-        have h_edge: walker.edges 0 n.val := by {
-          have h𝕡 := 𝕡.nodes_sound
-          unfold NKIWalker.is_path at h𝕡
-          rw [h] at h𝕡
-          simp at h𝕡
-          assumption
-        }
-        apply σ h𝕏 ⟨0,  walker.num_nodes_nonzero⟩ n ⟨k, hk⟩ h_edge
-        simp [transitions, LE.le, instLEOfPreorder, Preorder.toLE, instPreorderBool_compile, Bool.instLE]
-      }
-    | [] | _ :: _ :: _ => by simp
-
-  @[simp]
-  abbrev NKIWalker.Path.motive (𝕡 : ℙ) (v : 𝕍) : Prop
-    := 𝕡.var_def_at_terminus h𝕏 v → 𝕡.writes_somewhere walker v
-
-  @[simp]
-  abbrev length_motive n := ∀ (𝕡 : ℙ) v, 𝕡.nodes.length = n → (𝕡.motive h𝕏 v)
-
-  abbrev sound_at_zero : length_motive h𝕏 0 := by {
-    simp [NKIWalker.Path.var_def_at_terminus, NKIWalker.Path.true_at_terminus,  NKIWalker.Path.writes_somewhere]
-    intro _ _ is_zero
-    simp [is_zero]
-  }
-
-  abbrev sound_at_one : length_motive h𝕏 1 := by {
-    simp
-    intro 𝕡 v _ _
-    exfalso
-    apply (𝕡.not_def_at_entry h𝕏 v)
-    assumption
-    assumption
-  }
-
-  abbrev sound_ind : ∀ len, len ≥ 1 → length_motive h𝕏 len → length_motive h𝕏 (len + 1) := by {
-    unfold length_motive
-    intro len len_nonzero IndHyp 𝕡₁ v 𝕡₁_len ν₁
-    cases 𝕡₁_def : 𝕡₁
-    rename_i nodes₁ is_path₁
-    let ⟨n₁, n₀, tl₀, ε, unroll, is_path₀⟩ := 𝕡₁.unroll walker (by omega)
-    simp [NKIWalker.Path.var_def_at_terminus, NKIWalker.Path.true_at_terminus, ←unroll] at ν₁
-    let 𝕡₀ : ℙ := ⟨n₀ :: tl₀, is_path₀⟩
-    cases ν₀ : ν h𝕏 n₀ v
-    {
-      -- v is defined at n₀ - the terminus of 𝕡₀, so writes somewhere by ind hypo, then lift
-      rw [←𝕡₁_def]
-      apply (NKIWalker.Path.writes_somewhere_lifts walker 𝕡₀ 𝕡₁ v); simp [←unroll, 𝕡₀]
-      apply IndHyp
-      simp [←unroll] at 𝕡₁_len
-      simp [𝕡₀]
-      assumption
-      simp [NKIWalker.Path.var_def_at_terminus, NKIWalker.Path.true_at_terminus, 𝕡₀]
-      assumption
+    abbrev σ (n₀ n₁ : 𝕟) (v : 𝕍) (𝔼n:𝔼 n₀ n₁): transitions n₀.val v.val (ν n₀ v) ≤ ν n₁ v := by {
+      apply 𝕏.props n₀.val n₁.val v.val n₀.isLt n₁.isLt v.isLt 𝔼n
     }
-    {
-      -- is not defined at n₀ -- the terminus of 𝕡₀, but is at n₁, the terminus of 𝕡₁
-      -- since we have ε : edge from n₀ to n₁, σ n₀ n₀
-      let σ' := σ h𝕏 n₀ n₁ v ε
-      simp [transitions, LE.le, instLEOfPreorder, Preorder.toLE, instPreorderBool_compile, Bool.instLE, ν₀, ν₁] at σ'
-      let ⟨_, σ''⟩ := σ'
-      cases action_def : walker.actions n₀.val <;> rw [action_def] at σ'' <;> try simp at σ''
-      rename_i _ name _
-      simp [NKIWalker.Path.writes_somewhere]
-      simp [𝕡₁_def] at unroll
-      simp [←unroll, action_def, NKIWalker.writes]
-      apply Or.inl
-      assumption
-    }
-  }
 
-  abbrev sound_everywhere : ∀ n, length_motive h𝕏 n := fun
-    | 0 => sound_at_zero h𝕏
-    | 1 => sound_at_one h𝕏
-    | n + 2 => sound_ind h𝕏 (n + 1) (by omega) (sound_everywhere (n + 1))
+    --#check 𝕏
+    --#check ν
+    --#check σ
+    --#check ℙ
 
-  def no_def_without_a_write : ∀ (𝕡 : ℙ) v, (𝕡.var_def_at_terminus h𝕏 v) → (𝕡.writes_somewhere walker v) := by {
-    intro 𝕡 v
-    apply sound_everywhere
-    rfl
-  }
+    abbrev var_def (n : 𝕟) (v : 𝕍) : Bool := ν n v = false
+    def NKIWalker.Path.var_def_at_terminus (𝕡 : ℙ) (v : 𝕍) : Bool := 𝕡.true_at_terminus walker (var_def . v)
 
-  abbrev is_safe_at (n : 𝕟) (v : 𝕍) : Prop := walker.reads n v → var_def h𝕏 n v
-
-  abbrev is_safe : Prop := ∀ (n : 𝕟) (v : 𝕍), is_safe_at h𝕏 n v
-
-  abbrev local_safety_decidable : ∀ n v, Decidable (is_safe_at h𝕏 n v) := by {
-    intro n v
-    unfold is_safe_at
-    cases reads? : walker.reads n v <;>
-    cases defs? : var_def h𝕏 n v <;>
-    simp [is_safe_at] <;> try {apply isTrue; trivial}
-    apply isFalse; trivial
-  }
-
-  inductive Maybe (P : Prop) -- option type plus message option
-  | Yes : P → Maybe P
-  | No : Maybe P
-  | NoBC : String → Maybe P  --no because of message
-
-  instance Maybe.toString : ToString (Maybe P) where
-    toString := fun
-    | Yes _ => s!"YES [SAFETY PROVEN]"
-    | No => "NO [SAFETY NOT PROVEN]"
-    | NoBC s => s!"NO [SAFETY NOT PROVEN] BECAUSE: {s}"
-
-  def Maybe.well? (s : Maybe P) := match s with
-  | No => false
-  | _ => true
-
-  def decide_success : Maybe (𝕏opt.isSome) := by {
-   cases h : 𝕏opt with | none => apply Maybe.No | some => {
-    apply Maybe.Yes; simp
-   }
-  }
-
-  abbrev forall_fin {n} (f : Fin n → Bool) : Bool := (Vector.ofFn f).all (.)
-
-  abbrev forall_fin_sound (f : Fin n → Bool) : forall_fin f → (m : Fin n) → (f m) := by {
-    simp [forall_fin]
-    intro h m
-    apply h
-  }
-
-  abbrev 𝕀 (α) (a : α) := a
-
-  def get_unsafe_reads : List VarAction :=
-    (List.ofFn (fun n : 𝕟 ↦ (n, List.ofFn (𝕀 𝕍)))).flatMap (fun (n, vs) ↦
-      if vs.any (fun v ↦ ¬ decide (is_safe_at h𝕏 n v)) then [walker.actions n.val] else [])
-
-  def get_unsafe_pos : List Pos :=
-    (get_unsafe_reads h𝕏).flatMap (fun | VarAction.Read _ pos => [pos] | _ => [])
-
-  --def print_unsafe_reads : String :=
-    --(get_unsafe_reads h𝕏).foldl
-
-  def decide_safety : Maybe (is_safe h𝕏) := by {
-    let safe := forall_fin (fun n ↦ forall_fin (fun v ↦ decide (is_safe_at h𝕏 n v)))
-    by_cases safety : safe
-    swap;
-    -- if any reads occur where a var isnt def this will hit and fail
-    apply Maybe.NoBC; apply kernel_highlighted_repr; apply get_unsafe_pos h𝕏
-    apply Maybe.Yes
-    unfold is_safe
-    intro n v
-    have safety_at_n := forall_fin_sound _ safety n
-    have safety := (forall_fin_sound _ safety_at_n v)
-    apply of_decide_eq_true
-    assumption
-  }
-
-  section IfSafe
-    variable (safety : ∀ (n : 𝕟) (v : 𝕍), walker.reads n v → ¬ν h𝕏 n v)
-
-    def no_read_without_a_def : ∀ (𝕡 : ℙ) v, (𝕡.reads_at_terminus walker v) → (𝕡.var_def_at_terminus h𝕏 v)
-          := by {
-            simp [NKIWalker.Path.var_def_at_terminus, NKIWalker.Path.reads_at_terminus, NKIWalker.Path.true_at_terminus]
-            intro 𝕡 v h
-            cases nodes_def : 𝕡.nodes with | nil | cons n ℓ <;> simp_all [nodes_def]
+    def NKIWalker.Path.not_def_at_entry (𝕡 : ℙ) (v : 𝕍) : 𝕡.nodes.length = 1 → ¬ 𝕡.var_def_at_terminus v :=
+      match h : 𝕡.nodes with
+      | [n] => by {
+          intro
+          cases v
+          rename_i k hk
+          simp [NKIWalker.Path.var_def_at_terminus, NKIWalker.Path.true_at_terminus]
+          rw [h]
+          simp
+          have h_edge: walker.edges 0 n.val := by {
+            have h𝕡 := 𝕡.nodes_sound
+            unfold NKIWalker.is_path at h𝕡
+            rw [h] at h𝕡
+            simp at h𝕡
+            assumption
           }
+          apply σ ⟨0,  walker.num_nodes_nonzero⟩ n ⟨k, hk⟩ h_edge
+          simp [transitions, LE.le, instLEOfPreorder, Preorder.toLE, instPreorderBool_compile, Bool.instLE]
+        }
+      | [] | _ :: _ :: _ => by simp
 
-    def no_read_without_a_write : walker.sound := by {
-      unfold NKIWalker.sound
-      intro 𝕡 name reads
-      apply no_def_without_a_write
-      apply no_read_without_a_def
+    @[simp]
+    abbrev NKIWalker.Path.motive (𝕡 : ℙ) (v : 𝕍) : Prop
+      := 𝕡.var_def_at_terminus v → 𝕡.writes_somewhere walker v
+
+    @[simp]
+    abbrev length_motive n := ∀ (𝕡 : ℙ) v, 𝕡.nodes.length = n → (𝕡.motive v)
+
+    abbrev sound_at_zero : length_motive 0 := by {
+      simp [NKIWalker.Path.var_def_at_terminus, NKIWalker.Path.true_at_terminus,  NKIWalker.Path.writes_somewhere]
+      intro _ _ is_zero
+      simp [is_zero]
+    }
+
+    abbrev sound_at_one : length_motive 1 := by {
+      simp
+      intro 𝕡 v _ _
+      exfalso
+      apply (𝕡.not_def_at_entry v)
       assumption
       assumption
     }
-  end IfSafe
+
+    abbrev sound_ind : ∀ len, len ≥ 1 → length_motive len → length_motive (len + 1) := by {
+      unfold length_motive
+      intro len len_nonzero IndHyp 𝕡₁ v 𝕡₁_len ν₁
+      cases 𝕡₁_def : 𝕡₁
+      rename_i nodes₁ is_path₁
+      let ⟨n₁, n₀, tl₀, ε, unroll, is_path₀⟩ := 𝕡₁.unroll walker (by omega)
+      simp [NKIWalker.Path.var_def_at_terminus, NKIWalker.Path.true_at_terminus, ←unroll] at ν₁
+      let 𝕡₀ : ℙ := ⟨n₀ :: tl₀, is_path₀⟩
+      cases ν₀ : ν n₀ v
+      {
+        -- v is defined at n₀ - the terminus of 𝕡₀, so writes somewhere by ind hypo, then lift
+        rw [←𝕡₁_def]
+        apply (NKIWalker.Path.writes_somewhere_lifts walker 𝕡₀ 𝕡₁ v); simp [←unroll, 𝕡₀]
+        apply IndHyp
+        simp [←unroll] at 𝕡₁_len
+        simp [𝕡₀]
+        assumption
+        simp [NKIWalker.Path.var_def_at_terminus, NKIWalker.Path.true_at_terminus, 𝕡₀]
+        assumption
+      }
+      {
+        -- is not defined at n₀ -- the terminus of 𝕡₀, but is at n₁, the terminus of 𝕡₁
+        -- since we have ε : edge from n₀ to n₁, σ n₀ n₀
+        let σ' := σ n₀ n₁ v ε
+        simp [transitions, LE.le, instLEOfPreorder, Preorder.toLE, instPreorderBool_compile, Bool.instLE, ν₀, ν₁] at σ'
+        let ⟨_, σ''⟩ := σ'
+        cases action_def : walker.actions n₀.val <;> rw [action_def] at σ'' <;> try simp at σ''
+        rename_i _ name _
+        simp [NKIWalker.Path.writes_somewhere]
+        simp [𝕡₁_def] at unroll
+        simp [←unroll, action_def, NKIWalker.writes]
+        apply Or.inl
+        assumption
+      }
+    }
+
+    abbrev sound_everywhere : ∀ n, length_motive n := fun
+      | 0 => sound_at_zero
+      | 1 => sound_at_one
+      | n + 2 => sound_ind (n + 1) (by omega) (sound_everywhere (n + 1))
+
+    def no_def_without_a_write : ∀ (𝕡 : ℙ) v, (𝕡.var_def_at_terminus v) → (𝕡.writes_somewhere walker v) := by {
+      intro 𝕡 v
+      apply sound_everywhere
+      rfl
+    }
+
+    abbrev is_safe_at (n : 𝕟) (v : 𝕍) : Prop := walker.reads n v → var_def n v
+
+    abbrev is_safe : Prop := ∀ (n : 𝕟) (v : 𝕍), is_safe_at n v
+
+    abbrev local_safety_decidable : ∀ n v, Decidable (is_safe_at n v) := by {
+      intro n v
+      unfold is_safe_at
+      cases reads? : walker.reads n v <;>
+      cases defs? : var_def n v <;>
+      simp [is_safe_at] <;> try {apply isTrue; trivial}
+      apply isFalse; trivial
+    }
+
+    inductive Maybe (P : Prop) -- option type plus message option
+    | Yes : P → Maybe P
+    | No : Maybe P
+    | NoBC : String → Maybe P  --no because of message
+
+    instance Maybe.toString : ToString (Maybe P) where
+      toString := fun
+      | Yes _ => s!"YES [SAFETY PROVEN]"
+      | No => "NO [SAFETY NOT PROVEN]"
+      | NoBC s => s!"NO [SAFETY NOT PROVEN] BECAUSE: {s}"
+
+    def Maybe.well? (s : Maybe P) := match s with
+    | No => false
+    | _ => true
+
+    def decide_success : Maybe (𝕏opt.isSome) := by {
+    cases h : 𝕏opt with | none => apply Maybe.No | some => {
+      apply Maybe.Yes; simp
+    }
+    }
+
+    abbrev forall_fin {n} (f : Fin n → Bool) : Bool := (Vector.ofFn f).all (.)
+
+    abbrev forall_fin_sound (f : Fin n → Bool) : forall_fin f → (m : Fin n) → (f m) := by {
+      simp [forall_fin]
+      intro h m
+      apply h
+    }
+
+    abbrev 𝕀 (α) (a : α) := a
+
+    def get_unsafe_reads : List VarAction :=
+      (List.ofFn (fun n : 𝕟 ↦ (n, List.ofFn (𝕀 𝕍)))).flatMap (fun (n, vs) ↦
+        if vs.any (fun v ↦ ¬ decide (is_safe_at n v)) then [walker.actions n.val] else [])
+
+    def get_unsafe_pos : List Pos :=
+      get_unsafe_reads.flatMap (fun | VarAction.Read _ pos => [pos] | _ => [])
+
+    --def print_unsafe_reads : String :=
+      --(get_unsafe_reads h𝕏).foldl
+
+    def decide_safety : Maybe is_safe := by {
+      let safe := forall_fin (fun n ↦ forall_fin (fun v ↦ decide (is_safe_at n v)))
+      by_cases safety : safe
+      swap;
+      -- if any reads occur where a var isnt def this will hit and fail
+      apply Maybe.NoBC; apply kernel_highlighted_repr; apply get_unsafe_pos
+      apply Maybe.Yes
+      unfold is_safe
+      intro n v
+      have safety_at_n := forall_fin_sound _ safety n
+      have safety := (forall_fin_sound _ safety_at_n v)
+      apply of_decide_eq_true
+      assumption
+    }
+
+    class IsSafe where
+      safety : is_safe
+    section WithSafety
+      variable [IS : IsSafe]
+
+      def no_read_without_a_def : ∀ (𝕡 : ℙ) v, (𝕡.reads_at_terminus walker v) → (𝕡.var_def_at_terminus v)
+            := by {
+              simp [NKIWalker.Path.var_def_at_terminus, NKIWalker.Path.reads_at_terminus, NKIWalker.Path.true_at_terminus]
+              intro 𝕡 v h
+              cases nodes_def : 𝕡.nodes with | nil | cons n ℓ <;> simp_all
+              let safety := IS.safety
+              simp [is_safe, is_safe_at] at safety
+              apply safety
+              assumption
+            }
+
+      def no_read_without_a_write : walker.sound := by {
+        unfold NKIWalker.sound
+        intro 𝕡 name reads
+        apply no_def_without_a_write
+        apply no_read_without_a_def
+        assumption
+      }
+    end WithSafety
+  end WithSuccess
 
   def decide_sound : Maybe (walker.sound) := by {
-    clear h𝕏
     cases decide_success with
       | No | NoBC _ => apply Maybe.No
       | Yes success
-    cases (decide_safety success) with
+    have HS : HasSuccess := ⟨success⟩
+    cases decide_safety with
       | No => apply Maybe.No
       | NoBC s => apply Maybe.NoBC s
       | Yes safety
+    have IS : IsSafe := ⟨safety⟩
     apply Maybe.Yes
-    apply no_read_without_a_write success
-    intro n v h
-    have specific_safety := safety n v h
-    simp [is_safe_at, var_def] at specific_safety
-    rw [specific_safety]
-    trivial
+    apply no_read_without_a_write
   }
 end WithKernel
 
