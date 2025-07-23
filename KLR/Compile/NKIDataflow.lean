@@ -59,9 +59,9 @@ section DefNKIWalker
       String.intercalate "\n" ((List.range walker.num_nodes).map row ++ ["vars: ", walker.vars.toString])
 
   def NKIWalker.init : NKIWalker := {
-    num_nodes := 1
+    num_nodes := 1 -- zero is always the first node
     num_nodes_nonzero := by trivial
-    last_node := 0
+    last_node := 0 -- zero is always the first node
     actions _ := VarAction.None
     edges _ _ := false
     breaks := []
@@ -270,8 +270,9 @@ section DefNKIWalker
       let withe := (match e with | some e => withty.processExpr e | none => withty)
       withe.processAction (VarAction.Write "<unhandled: writes_to_non_identifier>" ty pos)
     | Stmt'.ifStm (e : Expr) (thn : List Stmt) (els : List Stmt) =>
-      let then_walker := (walker.processExpr e).processStmtList thn
-      let else_walker := (then_walker.setLast walker.last_node).processStmtList els
+      let cond_walker := walker.processExpr e
+      let then_walker := cond_walker.processStmtList thn
+      let else_walker := (then_walker.setLast cond_walker.last_node).processStmtList els
       let complete := else_walker.processAction VarAction.None
       complete.addEdge then_walker.last_node complete.last_node
     | Stmt'.forLoop (x : Expr) (iter: Expr) (body: List Stmt) =>
@@ -312,6 +313,18 @@ section DefNKIWalker
     let body_walker := (NKIWalker.init.processStmtList f.body).processAction VarAction.None
     body_walker.rets.foldl (fun walker ret ↦ walker.addEdge ret body_walker.last_node) body_walker
 
+
+  -- WIP
+  def NKIWalker.processCoFun (f : Fun) : NKIWalker :=
+    let walker := processFun f
+    let invert n := walker.num_nodes - n - 1
+    let invert_action := fun
+      | VarAction.Read name pos => VarAction.Write name none pos
+      | VarAction.Write name _ pos => VarAction.Read name pos
+      | VarAction.None => VarAction.None
+    {walker with
+      edges n₀ n₁ := walker.edges (invert n₁) (invert n₀)
+      actions n := invert_action (walker.actions (invert n))}
 
   def NKIWalker.isClosed (walker : NKIWalker) := walker.breaks.isEmpty ∧ walker.conts.isEmpty
 
