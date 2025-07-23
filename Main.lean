@@ -250,7 +250,7 @@ def trace (p : Parsed) : IO UInt32 := do
   let (warnings, klr) <- KLR.Trace.runNKIKernel k
   if !warnings.isEmpty then IO.eprintln warnings
   if !warnings1.isEmpty then IO.eprintln warnings1
-  let kernel : Core.Kernel := klr
+  let kernel <- Core.lowerAccessPatterns klr
   match p.flag? "outfile" with
   | some arg =>
     let f := FilePath.mk (arg.as! String)

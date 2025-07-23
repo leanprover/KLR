@@ -18,3 +18,4 @@ import KLR.Core.Basic
 -- TODO fix pretty printer
 --import KLR.Core.Pretty
 import KLR.Core.Indexing
+import KLR.Core.LowerAP
