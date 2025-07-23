@@ -2,13 +2,60 @@
 # NKI Dataflow
 
 This file uses the Dataflow solver (`InnerMapImpl.Solution`) from `Dataflow.lean`
-to analyize NKI functions.
+to analyize NKI functions (`HasKernel.kernel`) from `DataflowTestKernels.lean`.
+the final output is the def `decide_safety` - it is built on a kernel, a succesful
+dataflow solution, and a safety analysis of the kernel. This is all arranges as follows:
 
-For example, see `test_kernel` below, serialized NKI ASTs can be generated from `klr compile`,
-converted to CFGs by the `NKIWalker` class below,
-paired with definitions of variable well-definition corresponding to syntactic defs and uses,
-and analyzed to get `𝕏opt : Option SolutionT`, which can be printed to view the liveness of
-all variables at all program points `#eval 𝕏opt`
+`section DefVarAction` defines the `VarAction` inductive which describes the
+  semantically significant actions of NKI statements for the sake of our
+  analysis: namely, named reads and writes to variables.
+
+`section DefNKIWalker`defines the `NKIWalker` structure that can walk a
+  NKI AST to construct a walker instance that contains the entire CFG
+  structure of the kernel:
+  `def NKIWalker.processFun (f : Fun) : NKIWalker := ...`
+
+the remainder of the file is organized in a module/functor-like structure
+of parameterization of sections on typeclasses. each of the below
+sections takes an instance of a class that bundles an important computational
+step, and performs computation on it leading to some dependent output.
+
+`class HasKernel where kernel : Fun` - defined in `DataflowTestKernels.lean`, wraps a `NKI.Fun` kernel function
+
+`section WithKernel [HasKernel]` - uses a kernel to construct an instance
+  of a dataflow problem, whose (option-wrapped) solution `𝕏opt` is the final
+  output
+
+  `class HasSuccess where success : 𝕏opt.isSome` - makes available the result
+    that the dataflow analysis was succesful, i.e `𝕏opt ≠ none`
+
+  `section WithSuccess [HasSuccess]` - uses a success result to finish defining
+    our desired semantic properties of paths, and checks source functions
+    to ensure that reads occur only in places the (succesful) dataflow
+    analysis deemed safe
+
+    `class HasSafety where safety : is_safe` - makes availabe
+      the result that the syntactic safety chcking was succesful
+
+    `section WithSafety [HasSafety]` - defines
+      `def no_read_without_a_write [HasKernel] [HasSuccess] [HasSafety] : walker.sound := ...`
+      which provides an instance `is_safe`:
+        `abbrev is_safe : Prop := ∀ (n : 𝕟) (v : 𝕍), walker.reads n v → var_def n v`
+      of soundness for this NKI program, conditional on
+      a nki program being avaiable (`HasKernel`), dataflow analysis succeeding (`HasSuccess`)
+      and syntactic safety checks succeeding (`HasSafety`).
+
+  `def decide_sound [HasKernel]: Maybe (walker.sound) := ...` -
+    exists inside `WithKernel` (so instantiating depends on a kernel),
+    but outside `WithSuccess` and `WithSafety` because success and safety
+    are decided based on the kernel not releid upon as parameters.
+
+this provides the final workflow:
+  - provide a NKI kernel to analyze as an `instance : HasKernel`
+  - read `decide_sound [HasKernel]`, which will evalute all
+    success and safety checks and provide a result of success,
+    with propositional proof of desired path semantics, or a
+    failure with a message constructed from the NKI source
 -/
 
 import KLR.NKI.Basic
@@ -364,7 +411,6 @@ section WithKernel
       | true => "❌"
       | false => "✅"
 
-
   /-
     perform dataflow analysis
   -/
@@ -378,6 +424,7 @@ section WithKernel
         (transitions:=transitions)).map (fun a ↦ {a with
           key_labels k := walker.vars[k]?
         })
+
   class HasSuccess where
     success : 𝕏opt.isSome
   section WithSuccess

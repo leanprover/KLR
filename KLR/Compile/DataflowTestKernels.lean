@@ -1,3 +1,10 @@
+/-
+  This file defines a `class HasKernel` that can provide an instance of a NKI kernel function
+  if present. it also defines a few instances of this class corresponding to different kernels.
+  `kernel_str : String` is an additional attribute of `HasKernel` that records the source-level
+  code for output sake.
+-/
+
 import KLR.NKI.Basic
 open KLR.NKI
 
