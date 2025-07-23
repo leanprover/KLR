@@ -65,7 +65,7 @@ def elabEnum : CommandElab
 where
   -- TODO: I can't figure out how to type `modifiers` or `dcs`
   doit modifiers (name : TSyntax `ident) (items : TSyntaxArray `item) dcs : CommandElabM Unit := do
-    let mut values : List (TSyntax `Lean.Parser.Command.ctor × TSyntax `num) := []
+    let mut unsortedValues : List (TSyntax `Lean.Parser.Command.ctor × TSyntax `num) := []
     let mut ctors : Array (TSyntax `Lean.Parser.Command.ctor) := #[]
     let mut numValues : Array Nat := #[]
     let mut current : Nat := 0 -- The next value to use for an un-numbered constructor
@@ -77,17 +77,18 @@ where
     for item in items do
       match item with
       | `(item| $id:ctor := $v:num) => do
-        values := (id, v) :: values
+        unsortedValues := (id, v) :: unsortedValues
         ctors := ctors.push id
       | `(item| $id:ctor) => do
         let id := ⟨id⟩
         let (numValues', current') := nextNat numValues current
         numValues := numValues'
         current := current'
-        values := (id, Syntax.mkNumLit (toString current)) :: values
+        unsortedValues := (id, Syntax.mkNumLit (toString current)) :: unsortedValues
         current := current + 1
         ctors := ctors.push id
       | e => throwError s!"invalid enum item {e}"
+    let values := unsortedValues.mergeSort fun (_, n1) (_, n2) => n1.getNat <= n2.getNat
     let nums := (values.map fun (_, n) => n.getNat)
     match hasDuplicate nums with
     | some k =>
@@ -106,7 +107,6 @@ where
     let toUInt8Name := mkIdent (.str typeName "toUInt8")
     let mut cases : Array (TSyntax `Lean.Parser.Term.matchAltExpr) := #[]
     let mut terms : Array (TSyntax `term) := #[]
-    -- let nums' : Array Nat := nums.map fun n => n.
     for (c, n) in values do
       -- TODO: How should I actually turn a ctor to a term?
       -- Sketchy to grab the 3rd field, but I saw this in dbg_trace:
@@ -115,7 +115,6 @@ where
       terms := terms.push c
       let case <- `(matchAltExpr| | $c => $n:num)
       cases := cases.push case
-    terms := terms.insertionSort fun x y => x.raw.getId.toString < y.raw.getId.toString
     let toUInt8 <- `(
       private def $toUInt8Name:ident (x : $name) : UInt8 := match x with
         $cases:matchAlt*
@@ -219,7 +218,7 @@ deriving Repr
 #guard Foo.n.toUInt8 == 3
 #guard Foo.fromUInt8! Foo.x.toUInt8 == Foo.x
 #guard Foo.fromUInt8! Foo.m.toUInt8 == Foo.m
-#guard Foo.values == [.m, .n, .q, .r, .x, .y, .z]
+#guard Foo.values == [.x, .q, .y, .n, .z, .r, .m]
 #guard Foo.x < Foo.z
 #guard Foo.x <= Foo.z
 #guard toString Foo.x == "x"
