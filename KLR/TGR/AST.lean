@@ -96,7 +96,7 @@ inductive Operator where
   -/
   | broadcast (a : Var) (shape : Shape)
   /- create a constant tensor with the given values and shape -/
-  | const (values : Tensor) (shape : Shape) (dtype : Dtype)
+  | const (values : Tensor)
   /- gather elements from a tensor using the provided indices and offset dimensions
   TODO: gather is complicated and not used except for in llama, so for now
   we just pass through the semantics of HLO's gather -/
@@ -234,7 +234,7 @@ instance : ToString Operator where
     | .transpose a dims => s!"transpose({a}, dims={dims})"
     | .reshape a shape => s!"reshape({a}, shape={shape})"
     | .broadcast a shape => s!"broadcast({a}, shape={shape})"
-    | .const t shape dtype => s!"const({repr t}, shape={shape}, dtype={dtype})"
+    | .const t => s!"const(..., shape={t.shape})"
     | .gather a indices offsetDims collapsedSliceDims startIndexMap indexVectorDim
       => s!" gather({a}, indices={indices}, offsetDims={offsetDims}, collapsedSliceDims={collapsedSliceDims}, startIndexMap={startIndexMap}, indexVectorDim={indexVectorDim})"
     | .slice a slices => s!"slice({a}, {slices})"

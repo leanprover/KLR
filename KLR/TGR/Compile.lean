@@ -369,7 +369,7 @@ def compileOp  (op : StableHLO.Parsing.Operation) : Compile (List Statement) := 
           if t.shape.count != outputTy.shape.count then
             throw s!"Tensor literal shape {t.shape} does not match expected output shape {outputTy.shape}."
           let t ← t.reshape outputTy.shape
-          pure [.assign output (.const t outputTy.shape outputTy.dtype) outputTy]
+          pure [.assign output (.const t) outputTy]
       | _ => throw "Constant operation requires a 'value' attribute with tensor literal."
     /- tensor unary operators -/
     | .reshape => do
