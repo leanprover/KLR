@@ -19,7 +19,7 @@ TESTS := cbor_test
 .SUFFIXES:
 .PHONY: all versions test clean
 
-all: frontend${PY_EXT}
+all: frontend${PY_EXT} load_test
 
 versions:
 	$(MAKE) PY_VER=3.9
@@ -32,6 +32,7 @@ test: ${TESTS}
 clean:
 	rm -f *.o *.so
 	rm -f ${TESTS}
+	rm -f load_test
 
 peg_parser.${PY_VER}.o: $(wildcard *.c)
 
@@ -44,3 +45,8 @@ frontend${PY_EXT}: $(O)
 %_test: %_test.c %.c
 	clang -std=c17 -Wall -Wextra ${PY_CFLAGS} $< -o $@
 	./$@
+
+# Simulate production build
+load_test: *.cpp *.hpp region.c cbor.c
+	gcc -std=c17 -Wall -c region.c cbor.c
+	g++ --std=c++17 -Wall -o load_test load_test.cpp klir_serde.cpp klir_common.cpp cbor.o region.o
