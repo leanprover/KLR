@@ -226,7 +226,7 @@ instance : FromNKI Access where
     | .expr (.value $ .access a) _ => return a
     | _ => throw "expecting tensor access"
 
-instance : FromNKI TensorSram where
+instance : FromNKI TensorName where
   fromNKI?
     | .expr (.value (.access (.simple t))) _ => return t
     | _ => throw "expecting tensor"

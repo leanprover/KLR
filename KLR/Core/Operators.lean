@@ -54,7 +54,7 @@ inductive ActivationImm where
 
 /-
 Used for Iota and AffineSelect, represents something similar to an
-TensorView but that is only used to generate data, not to index. Much like
+TensorSram but that is only used to generate data, not to index. Much like
 LEA in x86.
 -/
 @[serde tag = 133]
@@ -299,32 +299,6 @@ do we represent that at the KLR level?
 @[serde tag = 148]
 structure DmaCopy where
   dst            : TensorRef
-  src            : TensorRef
-  compute_op     : DgeComputeOp
-  dstBoundsCheck : DmaBounds
-  srcBoundsCheck : DmaBounds
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-/- DmaHbmLoad instruction
-
-Uses the DMA to load a tensor from HBM into SBUF.
--/
-@[serde tag = 188] -- TODO tag is messed up
-structure DmaHbmLoad where
-  dst            : TensorRef
-  src            : TensorHbm
-  compute_op     : DgeComputeOp
-  dstBoundsCheck : DmaBounds
-  srcBoundsCheck : DmaBounds
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-/- DmaHbmStore instruction
-
-Uses the DMA to load a tensor from HBM into SBUF.
--/
-@[serde tag = 189] -- TODO tag is messed up
-structure DmaHbmStore where
-  dst            : TensorHbm
   src            : TensorRef
   compute_op     : DgeComputeOp
   dstBoundsCheck : DmaBounds
@@ -610,8 +584,6 @@ inductive Operator where
   | copy (op : Copy)
   | copyPredicated (op : CopyPredicated)
   | dmaCopy (op : DmaCopy)
-  | dmaHbmLoad (op : DmaHbmLoad)
-  | dmaHbmStore (op : DmaHbmStore)
   | dmaTranspose (op : DmaTranspose)
   | dropout (op : Dropout)
   | findIndex8 (op : FindIndex8)

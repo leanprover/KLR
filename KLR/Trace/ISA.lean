@@ -47,10 +47,10 @@ def accumCmdToValue (ac : AccumCmd) : Value :=
 -- set_option linter.unusedVariables false
 
 nki nc_matmul
- (dst : TensorSram)
- (stationary : TensorSram)
+ (dst : TensorName)
+ (stationary : TensorName)
  -- kwargs
- (moving : TensorSram)
+ (moving : TensorName)
  (_is_stationary_onezero : Bool := false) -- FIXME good to have
  (_is_moving_zero : Bool := false) -- FiXME good to have
  (is_transpose : Bool := false)
@@ -68,8 +68,8 @@ nki nc_matmul
     return .oper [(.loadStationary ls), (.matMul mm)]
 
 nki nc_transpose
- (dst : TensorSram)
- (data : TensorSram)
+ (dst : TensorName)
+ (data : TensorName)
  -- kwargs
  (_mask : Option Immediate := none)
  (_dtype : Option Dtype := none)
@@ -80,14 +80,14 @@ nki nc_transpose
   return .oper [.transpose trn]
 
 nki activation
- (dst : TensorSram)
+ (dst : TensorName)
  (op : ActivationFunc)
- (data : TensorSram)
+ (data : TensorName)
  --
  (bias : Immediate := .float 0) -- Also can be a tensor. Default is none
  (scale : Immediate := .float 1.0) -- This also can accept a tensor
  (_reduce_op : Option AluOp := none)
- (_reduce_res : Option TensorSram := none)
+ (_reduce_res : Option TensorName := none)
  (reduce_cmd : AccumCmd := .Idle)
  (_mask : Option Immediate := none) := do
   let dstT : TensorRef := .abstract $ .simple dst
@@ -96,14 +96,14 @@ nki activation
   return .oper [.activate ac]
 
 --  nki activation_reduce
---   (dst: TensorSram)
+--   (dst: TensorName)
 --   (op : ActivationFunc)
---   (data : TensorSram)
+--   (data : TensorName)
 --   --
 --   (reduce_op : Option AluOp := none)
---   (reduce_res : Option TensorSram := none)
---   (bias : Option TensorSram := none)
---   (scale : Sum Immediate TensorSram := .inl (.float 1.0))
+--   (reduce_res : Option TensorName := none)
+--   (bias : Option TensorName := none)
+--   (scale : Sum Immediate TensorName := .inl (.float 1.0))
 --   (mask : Option Immediate := none)
 --   (dtype : Option Dtype := none) := do
 --      let args := [
@@ -138,9 +138,9 @@ nki activation
 --      return .expr (.call "activation_reduce" args kwargs) ty
 
 nki tensor_reduce
-  (dst: TensorSram)
+  (dst: TensorName)
   (op : AluOp)
-  (data : TensorSram)
+  (data : TensorName)
   (_axis : Sum Immediate Shape)
   --
   (_mask : Option Immediate := none)
@@ -154,9 +154,9 @@ nki tensor_reduce
     return .oper [.tensorReduce reduce]
 
 -- nki tensor_partition_reduce
---   (dst: TensorSram)
+--   (dst: TensorName)
 --   (op : AluOp)
---   (data : TensorSram)
+--   (data : TensorName)
 --   --
 --   (mask : Option Immediate := none)
 --   (dtype : Option Dtype := none) := do
@@ -178,9 +178,9 @@ nki tensor_reduce
 --     return .expr (.call "tensor_partition_reduce" args kwargs) ty
 
 -- nki tensor_tensor
---  (dst: TensorSram)
---  (data1 : TensorSram)
---  (data2 : TensorSram)
+--  (dst: TensorName)
+--  (data1 : TensorName)
+--  (data2 : TensorName)
 --  (op : AluOp)
 --  --
 --  (dtype : Option Dtype := none)
@@ -207,10 +207,10 @@ nki tensor_reduce
 
 
 nki tensor_tensor_scan
- (dst: TensorSram)
- (data0 : TensorSram)
- (data1 : TensorSram)
- (initial : Sum Immediate TensorSram)
+ (dst: TensorName)
+ (data0 : TensorName)
+ (data1 : TensorName)
+ (initial : Sum Immediate TensorName)
  (op0 : AluOp)
  (op1 : AluOp)
  (reverse0 : Bool := false)
@@ -232,13 +232,13 @@ nki tensor_tensor_scan
 
 
 -- nki scalar_tensor_tensor
---  (dst : TensorSram)
+--  (dst : TensorName)
 --  --
---  (data : TensorSram)
+--  (data : TensorName)
 --  (op0 : AluOp)
---  (operand0 : Sum Immediate TensorSram)
+--  (operand0 : Sum Immediate TensorName)
 --  (op1 : AluOp)
---  (operand1 : Sum Immediate TensorSram)
+--  (operand1 : Sum Immediate TensorName)
 --  (reverse0 : Bool := false)
 --  (reverse1 : Bool := false)
 --  (dtype : Option Dtype := none)
@@ -257,13 +257,13 @@ nki tensor_tensor_scan
 --     return .oper (.ScalarTensorTensor stt)
 
 -- nki tensor_scalar
---  (dst: TensorSram)
---  (data : TensorSram)
+--  (dst: TensorName)
+--  (data : TensorName)
 --  (op0 : AluOp)
---  (operand0 : Sum Immediate TensorSram)
+--  (operand0 : Sum Immediate TensorName)
 --  (reverse0 : Bool := false)
 --  (op1 : Option AluOp := none)
---  (operand1 : Option (Sum Immediate TensorSram) := none)
+--  (operand1 : Option (Sum Immediate TensorName) := none)
 --  (reverse1 : Bool := false)
 --  --
 --  (dtype : Option Dtype := none)
@@ -301,13 +301,13 @@ nki tensor_tensor_scan
 --     return .expr (.call "tensor_scalar" args kwargs) ty
 
 -- nki tensor_scalar_reduce
---  (dst : TensorSram)
+--  (dst : TensorName)
 --  --
---  (data : TensorSram)
+--  (data : TensorName)
 --  (op0 : AluOp)
---  (operand0 : Sum Immediate TensorSram)
+--  (operand0 : Sum Immediate TensorName)
 --  (reduce_op : AluOp)
---  (reduce_res : TensorSram)
+--  (reduce_res : TensorName)
 --  (reverse0 : Bool := false)
 --  (dtype : Option Dtype := none)
 --  (mask : Option Immediate := none) := do
@@ -336,8 +336,8 @@ nki tensor_tensor_scan
 
 
 nki tensor_copy
- (dst: TensorSram)
- (src : TensorSram)
+ (dst: TensorName)
+ (src : TensorName)
  --
  (_mask : Option Immediate := none)
  (_dtype : Option Dtype := none)
@@ -348,8 +348,8 @@ nki tensor_copy
     return .oper [.copy copy]
 
 -- nki tensor_copy_dynamic_src
---  (dst : TensorSram)
---  (src : TensorSram)
+--  (dst : TensorName)
+--  (src : TensorName)
 --  --
 --  (mask : Option Immediate := none)
 --  (dtype : Option Dtype := none)
@@ -374,8 +374,8 @@ nki tensor_copy
 
 -- nki tensor_copy_dynamic_dst
 --  --
---  (dst : TensorSram)
---  (src : TensorSram)
+--  (dst : TensorName)
+--  (src : TensorName)
 --  (mask : Option Immediate := none)
 --  (dtype : Option Dtype := none)
 --  (engine : Engine := Engine.unassigned) := do
@@ -398,9 +398,9 @@ nki tensor_copy
 
 nki tensor_copy_predicated
  --
- (src : TensorSram)
- (dst : TensorSram)
- (predicate : TensorSram)
+ (src : TensorName)
+ (dst : TensorName)
+ (predicate : TensorName)
  (_mask : Option Immediate := none)
  (_dtype : Option Dtype := none)
  (_reverse_pred : Bool := false) := do
@@ -411,8 +411,8 @@ nki tensor_copy_predicated
     return .oper [.copyPredicated cp]
 
 nki reciprocal
- (dst: TensorSram)
- (data : TensorSram)
+ (dst: TensorName)
+ (data : TensorName)
  --
  (_dtype : Option Dtype := none)
  (_mask : Option Immediate := none) := do
@@ -421,7 +421,7 @@ nki reciprocal
     return .oper [.reciprocal ⟨ dstT, srcT ⟩]
 
 nki iota
- (dst: TensorSram)
+ (dst: TensorName)
  (_expr : Int) -- TODO: Placeholder. Figure out this type
  --
  (_dtype : Option Dtype := none)
@@ -432,9 +432,9 @@ nki iota
 
 
 nki dropout
- (dst: TensorSram)
- (data : TensorSram)
- (prob : Sum Immediate TensorSram)
+ (dst: TensorName)
+ (data : TensorName)
+ (prob : Sum Immediate TensorName)
  --
  (_mask : Option Immediate := none)
  (_dtype : Option Dtype := none) := do
@@ -448,7 +448,7 @@ nki dropout
     return .oper [.dropout ⟨ dstT, dataT, .KeepRate , prob  ⟩]
 
 -- nki affine_select
---  (dst: TensorSram)
+--  (dst: TensorName)
 --  (pred : Int) -- TODO Placeholder. Figure out this type
 --  (on_true_tile : Immediate)
 --  (on_false_value : Immediate)
@@ -460,15 +460,15 @@ nki dropout
 
 
 -- nki range_select
---  (dst: TensorSram)
+--  (dst: TensorName)
 --  --
---  (on_true_tile : TensorSram)
+--  (on_true_tile : TensorName)
 --  (comp_op0 : AluOp)
 --  (comp_op1 : AluOp)
---  (bound0 : TensorSram)
---  (bound1 : TensorSram)
+--  (bound0 : TensorName)
+--  (bound1 : TensorName)
 --  (reduce_cmd : AccumCmd := AccumCmd.Idle)
---  (reduce_res : Option TensorSram := none)
+--  (reduce_res : Option TensorName := none)
 --  (reduce_op : AluOp := .max)
 --  (range_start : Immediate := .float 0)
 --  (on_false_value : Immediate := .float 0)
@@ -480,7 +480,7 @@ nki dropout
 --     return .oper $ .RangeSelect
 
 nki memset
- (dst: TensorSram)
+ (dst: TensorName)
  (shape : Shape)
  (value : Immediate)
  (_dtype : Dtype)
@@ -492,8 +492,8 @@ nki memset
     return .oper [.memSet ms]
 
 nki bn_stats
- (dst: TensorSram)
- (data : TensorSram)
+ (dst: TensorName)
+ (data : TensorName)
  --
  (_mask: Option Immediate := none)
  (_dtype: Option Dtype := none) := do
@@ -502,8 +502,8 @@ nki bn_stats
     return .oper [.batchNormStats ⟨ dstT, dataT ⟩]
 
 nki bn_aggr
- (dst: TensorSram)
- (data : TensorSram)
+ (dst: TensorName)
+ (data : TensorName)
  --
  (_mask : Option Immediate := none)
  (_dtype : Option Dtype := none) := do
@@ -512,9 +512,9 @@ nki bn_aggr
     return .oper [.batchNormAggregate ⟨ dstT, dataT ⟩]
 
 nki local_gather
- (dst: TensorSram)
- (src_buffer : TensorSram)
- (_index : TensorSram)
+ (dst: TensorName)
+ (src_buffer : TensorName)
+ (_index : TensorName)
  (_num_elem_per_idx : Immediate := .int 1)
  (_num_valid_indices : Option Immediate := none)
  --
@@ -525,8 +525,8 @@ nki local_gather
 
 nki dma_copy
  --
- (dst : TensorSram)
- (src : TensorSram)
+ (dst : TensorName)
+ (src : TensorName)
  (_mask: Option Immediate := none)
  (dst_rmw_op : Option AluOp := none)
  (_oob_mode : Option Int := none)           -- FIXME: use actual type
@@ -543,9 +543,9 @@ nki dma_copy
 
 
 nki max8
- (dst: TensorSram)
+ (dst: TensorName)
  --
- (src : TensorSram)
+ (src : TensorName)
  (_mask : Option Immediate := none)
  (_dtype : Option Dtype := none) := do
     let dstT : TensorRef := .abstract $ .simple dst
@@ -554,9 +554,9 @@ nki max8
 
 
 nki nc_find_index8
- (dst: TensorSram)
+ (dst: TensorName)
  --
- (data : TensorSram)
+ (data : TensorName)
  (_vals : Int) -- TODO should be a list
  (_mask : Option Immediate := none)
  (_dtype : Option Dtype := none) := do
@@ -566,10 +566,10 @@ nki nc_find_index8
 
 
 nki nc_match_replace8
- (dst: TensorSram)
+ (dst: TensorName)
  --
- (data : TensorSram)
- (_vals : TensorSram) -- A tensor of 8 values to replace
+ (data : TensorName)
+ (_vals : TensorName) -- A tensor of 8 values to replace
  (imm : Immediate)
  (_dst_idx : Option Int := none) -- Should be an Index
  (_mask: Option Immediate := none)
@@ -580,9 +580,9 @@ nki nc_match_replace8
 
 
 nki nc_stream_shuffle
- (src : TensorSram)
- (dst : TensorSram)
- (_shuffle_mask : TensorSram)  -- TODO should be a list
+ (src : TensorName)
+ (dst : TensorName)
+ (_shuffle_mask : TensorName)  -- TODO should be a list
  --
  (_dtype: Option Dtype := none)
  (_mask: Option Immediate := none) := do

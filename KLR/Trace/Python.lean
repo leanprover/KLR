@@ -221,11 +221,11 @@ the following stuff (excerpted from a matmul example):
 If advanced indexing returns a copy of the view, the store statement does not
 make sense. Therefore, advanced indexing in NKI must have view semantics.
 -/
-def advancedAccessPattern (tensor : Core.TensorSram) : Term -> Err Core.AccessPattern
+def advancedAccessPattern (tensor : Core.TensorName) : Term -> Err Core.AccessPattern
   | .tuple l | .list l => mkAccessPattern tensor l
   | t => mkAccessPattern tensor [t]
 where
-  mkAccessPattern (tensor : Core.TensorSram) (inds: List Term) : Err Core.AccessPattern
+  mkAccessPattern (tensor : Core.TensorName) (inds: List Term) : Err Core.AccessPattern
   := do
     let sizes := tensor.shape.toList
     if sizes.length ≠ inds.length
@@ -300,8 +300,8 @@ where
 #guard
   match do
     let shape <- Core.Shape.fromList [/-parnum-/2,3,4]
-    Core.TensorSram.make "x" Core.Dtype.int8 shape none with
-  | .ok (tensor:Core.TensorSram) =>
+    Core.TensorName.make "x" Core.Dtype.int8 shape none with
+  | .ok (tensor:Core.TensorName) =>
     let mk (ls:List Int): TensorLib.Tensor :=
       let t := TensorLib.Tensor.ofIntList! TensorLib.Dtype.int64 ls
       let t3d := t.reshape! (TensorLib.Shape.mk [2,3,4])
@@ -443,7 +443,7 @@ def access (t : Term) (i : Term) : Err Term := do
       -- tensor does not have such fields.
       return .tensor res
   | .expr .. => do
-      let tensor : Core.TensorSram <- fromNKI? t
+      let tensor : Core.TensorName <- fromNKI? t
       -- Try basic indexing first
       tryCatch
          (do
@@ -706,7 +706,7 @@ partial def expr' : Expr' -> Trace Term
         parSize := shape.parDim
         freeSize := shape.freeElements * dtype.size
       }
-      let tensor <- Core.TensorSram.make name.toString dtype shape (some addr)
+      let tensor <- Core.TensorName.make name.toString dtype shape (some addr)
       return .expr (.value $ .access $ .simple tensor) (.tensor dtype shape)
   | .const c => return const c
   | .name id _ => lookup id.toName
@@ -862,7 +862,7 @@ where
   | .simple t => return .simple (renameTN s t)
   | .basic { tensor, indexes, .. } => Core.Access.mkBasic (renameTN s tensor) indexes
   | .pattern ap => return .pattern { ap with tensor := renameTN s ap.tensor }
-  renameTN (s : String) (t : Core.TensorSram) : Core.TensorSram := { t with name := s }
+  renameTN (s : String) (t : Core.TensorName) : Core.TensorName := { t with name := s }
 
 /-
 Function calls are split into two parts because we need to handle the top-level

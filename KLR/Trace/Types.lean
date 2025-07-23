@@ -157,7 +157,7 @@ namespace Term
 -- TODO: not efficient!
 -- TODO: this is partial because of the use of flatMap
 -- the ▷ syntax in Util could be updated to handle this case.
-partial def tensor_list : Term -> List Core.TensorSram
+partial def tensor_list : Term -> List Core.TensorName
   | .module _ | .builtin .. | .source _ | .mgrid
   | .none | .string _
   | .ellipsis | .slice ..
