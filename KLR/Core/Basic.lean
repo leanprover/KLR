@@ -83,10 +83,11 @@ inductive Expr where
 
 @[serde tag = 104]
 inductive Stmt where
-  | ret (v : Value)
-  | assign (x : String) (e : Expr)
-  | store (dst : Access) (op : Operator) (args : List Value)
+  /- execute `op`, a side-effectful operator -/
   | oper (op : Operator)
+  /- Execute body `(start-stop)/step` times, with the value of `register` set
+  according to the iteration bounds on each loop -/
+  | forLoop (register : Reg) (start : Int) (stop : Int) (step : Int) (body : List Stmt)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 105]
@@ -94,6 +95,8 @@ structure Kernel where
   name : String
   inputs : List TensorName
   outputs : List TensorName
+  /- A mapping from names to tensors for each constant tensor in the program -/
+  constants : List (String × TensorLib.Tensor)
   body : List Stmt
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
