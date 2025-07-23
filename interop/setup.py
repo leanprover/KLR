@@ -30,6 +30,7 @@ setup(
         "klr/serde.c",
         "klr/serde_common.c",
         "klr/serde_file.c",
+        "klr/serde_klir.c",
         "klr/serde_nki.c",
         "klr/serde_python_core.c",
         "klr/simplify.c",

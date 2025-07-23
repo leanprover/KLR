@@ -197,6 +197,7 @@ static void add_work(struct state *st, PyObject *f) {
 
 static struct Python_Const* value(struct state *st, PyObject *obj);
 static struct Python_Expr_List* const_exprs(struct state *st, PyObject *obj);
+static struct Nat_List* nat_list(struct state *st, PyObject *obj);
 
 #define mkPos(p,a,b,c,d) { \
   p = region_alloc(st->region, sizeof(*(p))); \
@@ -248,10 +249,34 @@ static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
     e->expr->name.ctx = Python_Ctx_load;
     return e;
   }
-  else
-  {
-    // TODO handle numpy tensors
-    return NULL;
+  else {
+    // Handle Numpy tensors
+    // Note: t is borrowed
+    PyTypeObject *t = Py_TYPE(obj);
+    if (!t || strcmp(t->tp_name, "numpy.ndarray"))
+      return NULL;
+
+    PyObject *shape = PyObject_GetAttrString(obj, "shape");
+    if (!shape) return NULL;
+
+    struct Nat_List *sh = nat_list(st, shape);
+    Py_DECREF(shape);
+    if (!sh) return NULL;
+
+    PyObject *dtype = PyObject_GetAttrString(obj, "dtype");
+    if (!dtype) return NULL;
+    PyObject *dstr = PyObject_Str(dtype);
+    Py_DECREF(dtype);
+    if (!dstr) return NULL;
+    char *dt = py_strdup(st, dstr);
+    Py_DECREF(dstr);
+
+    e->expr->tag = Python_Expr_const;
+    e->expr->c.value = region_alloc(st->region, sizeof(struct Python_Const));
+    e->expr->c.value->tag = Python_Const_tensor;
+    e->expr->c.value->tensor.shape = sh;
+    e->expr->c.value->tensor.dtype = dt;
+    return e;
   }
 
   return NULL;
@@ -298,6 +323,35 @@ static struct Python_Expr_List* const_exprs(struct state *st, PyObject *obj) {
     } else {
       current->next = node;
       current = node;
+    }
+  }
+  return head;
+}
+
+static struct Nat_List* nat_list(struct state *st, PyObject *obj) {
+  struct Python_Expr_List *es = const_exprs(st, obj);
+  if (!es) return NULL;
+
+  struct Nat_List *head = NULL, *tail = NULL;
+  for (; es; es = es->next) {
+    if (es->expr->expr->tag != Python_Expr_const)
+      return NULL;
+    struct Python_Const *c = es->expr->expr->c.value;
+    if (c->tag != Python_Const_int)
+      return NULL;
+    i32 i = c->i.value;
+    if (i < 0)
+      return NULL;
+
+    struct Nat_List *l = region_alloc(st->region, sizeof(*l));
+    l->next = NULL;
+    l->nat = (u32)i;
+
+    if (!head) {
+      head = tail = l;
+    } else {
+      tail->next = l;
+      tail = l;
     }
   }
   return head;

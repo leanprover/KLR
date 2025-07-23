@@ -77,22 +77,14 @@ def genType (t : SimpleType) : String :=
   | .list _ => s!"struct {t.name}*"
   | .pair .. => panic! "TODO"
 
-private def genStruct (name : Name)
-                      (fields : List Field)
-                      (var : Option String := none)
-                      : IO Unit := do
+private def genStruct (name : Name) (fields : List Field) : IO Unit := do
   IO.println s!"struct {name} \{"
   fields.forM fun f => do
     let ty := genType f.type
     IO.println s!"  {ty} {f.name};"
-  match var with
-  | some x => IO.println s!"} {x};"
-  | none => IO.println "};"
+  IO.println "};"
 
-private def genEnum (name : Name)
-                    (variants : List LeanType)
-                    (var : Option String := none)
-                    : IO Unit := do
+private def genEnum (name : Name) (variants : List LeanType) : IO Unit := do
   IO.println s!"enum {name} \{"
   match variants with
   | [] => pure ()
@@ -100,19 +92,25 @@ private def genEnum (name : Name)
     IO.println s!"{v.name} = 1,"
     for v in rest do
       IO.println s!"{v.name},"
-  match var with
-  | some x => IO.println s!"} {x};"
-  | none => IO.println "};"
+    IO.println "};"
 
 private def genUnion (name : Name) (variants : List LeanType) : MetaM Unit := do
+  let tagName := Name.str name "Tag"
+  genEnum tagName variants
+  for t in variants do
+    match t with
+    | .simple .. => pure ()
+    | .prod _ [] => pure ()
+    | .prod n fs => genStruct n fs
+    | .sum .. => throwError "unexpected union nesting"
   IO.println s!"struct {name} \{"
-  genEnum (.str name "Tag") variants "tag"
+  IO.println s!"enum {tagName} tag;"
   IO.println "union {"
   for t in variants do
     match t with
     | .simple t => IO.println s!"{t.name} {varName t.name};"
     | .prod _ [] => pure ()
-    | .prod n fs => genStruct n fs (varName n)
+    | .prod n .. => IO.println s!"struct {n} {varName n};"
     | .sum .. => throwError "unexpected union nesting"
   IO.println "};"
   IO.println "};"
@@ -133,39 +131,6 @@ def genCType (ty : LeanType) : MetaM Unit := do
     if ty.isEnum
     then genEnum name variants
     else genUnion name variants
-
-def genInitBody (retTy : Name) (t : LeanType) : MetaM Unit := do
-  match t with
-  | .prod name fields => do
-    let ptr := genType (.const retTy)
-    let element1 := (varName retTy).toLower
-    let element2 := varName name
-    IO.println "{"
-    IO.println s!"  {ptr} res = region_alloc(region, sizeof(*res));"
-    IO.println s!"  res->{element1} = region_alloc(region, sizeof(*res->{element1}));"
-    IO.println s!"  res->{element1}->tag = {name};"
-    for f in fields do
-      IO.println s!"  res->{element1}->{element2}.{f.name} = {f.name};"
-    IO.println "  return res;"
-    IO.println "}"
-  | _ => throwError "internal error"
-
-def genMkFuns (retTy : Name) (t : LeanType) : MetaM Unit := do
-  match t with
-  | .simple .. => return ()
-  | .prod name fields => do
-    let fnName := "mk" ++ (toString name).capitalize
-    let ptr := genType (.const retTy)
-    let args := fields.map fun f => genType f.type ++" "++ f.name.toString
-    let args := String.intercalate ", " args
-    let args := if args != "" then args ++ "," else args
-    IO.println ""
-    IO.println s!"static inline {ptr}"
-    IO.println s!"{fnName}({args} struct region *region)"
-    genInitBody retTy t
-  | .sum _ variants =>
-    for v in variants do
-      genMkFuns retTy v
 
 def commonAST : MetaM (List LeanType) := do
   let atomic := [.bool, .nat, .int, .float, .string]
@@ -225,7 +190,7 @@ def klrAST: MetaM (List LeanType) := do
     `KLR.Core.Dtype,
     `KLR.Core.Shape,
     `KLR.Core.Address,
-    `KLR.Core.TensorSram,
+    `KLR.Core.TensorName,
     `KLR.Core.Slice,
     `KLR.Core.Index,
     `KLR.Core.AccessBasic,
@@ -234,9 +199,8 @@ def klrAST: MetaM (List LeanType) := do
     `KLR.Core.Access,
     `KLR.Core.TensorHbm,
     `KLR.Core.ParQuadrant,
-    `KLR.Core.TensorView,
+    `KLR.Core.TensorSram,
     `KLR.Core.TensorRef,
-    `KLR.Core.TensorArg,
     -- Core.Operators (Parameters)
     `KLR.Core.Engine,
     `KLR.Core.Immediate,
@@ -280,6 +244,8 @@ def klrAST: MetaM (List LeanType) := do
     `KLR.Core.Reciprocal,
     `KLR.Core.Copy,
     `KLR.Core.TensorReduce,
+    `KLR.Core.TensorScalar,
+    `KLR.Core.TensorTensor,
     `KLR.Core.Operator,
     -- Core.Basic
     `KLR.Core.Value,
@@ -309,43 +275,31 @@ Authors: Paul Govereau, Sean McLaughlin
 def headerH (includes : List String := []) : String := header (isH := true) includes
 def headerC (includes : List String := []) : String := header (isH := false) includes
 
-private def genTypes (tys : List LeanType) : MetaM Unit :=
-  for ty in tys do
+private def genTypes (tys : MetaM (List LeanType)) : MetaM Unit :=
+  for ty in <- tys do
     genCType ty
-
-private def genAlloc (tys : List LeanType) (retTy name : Name) : MetaM Unit := do
-  match tys.find? (fun t => t.name == name) with
-  | none => throwError s!"Type {name} not found"
-  | some t => genMkFuns retTy t
 
 def generateCommonAST: MetaM Unit := do
   IO.println headerH
   IO.println "// KLR Common Abstract Syntax"
-  genTypes (<- commonAST)
+  genTypes commonAST
 
 def generateFileAST: MetaM Unit := do
-  IO.println (headerH ["ast_common.h", "ast_python_core.h", "ast_nki.h"])
+  IO.println (headerH ["ast_common.h", "ast_python_core.h", "ast_nki.h", "ast_klir.h"])
   IO.println "// KLR File Formats"
-  genTypes (<- fileAST)
+  genTypes fileAST
 
 def generatePythonAST : MetaM Unit := do
-  let tys <- pythonAST
   IO.println (headerH ["ast_common.h"])
   IO.println "// KLR.Python Abstract Syntax"
-  genTypes tys
-  genAlloc tys `KLR.Python.Expr `KLR.Python.Expr'
-  genAlloc tys `KLR.Python.Stmt `KLR.Python.Stmt'
+  genTypes pythonAST
 
 def generateNkiAST : MetaM Unit := do
-  let tys <- nkiAST
   IO.println (headerH ["ast_common.h"])
   IO.println "// KLR.NKI Abstract Syntax"
-  genTypes tys
-  genAlloc tys `KLR.NKI.Expr `KLR.NKI.Expr'
-  genAlloc tys `KLR.NKI.Stmt `KLR.NKI.Stmt'
+  genTypes nkiAST
 
 def generateKlrAST : MetaM Unit := do
-  let tys <- klrAST
   IO.println (headerH ["ast_common.h"])
   IO.println "// KLR.Core Abstract Syntax"
-  genTypes tys
+  genTypes klrAST
