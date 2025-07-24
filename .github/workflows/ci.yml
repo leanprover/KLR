@@ -6,14 +6,12 @@ name: CI
 on:
   push:
     branches:
-    - '**' # For now, let's build all branches. Roll this back if it gets too slow or we exhaust our quota.
+    - 'main' # Only build wheels for main branch
     tags:
     - 'v[0-9]+.[0-9]+.[0-9]+' # Build v1.2.3 tags as well. We'll use tags as the criteria for publishing
-  # As long as we're building on all branch pushes, we do not need to run on pull requests.
-  # If we stop that in the future, we'll want this back, so leaving in commented code.
-  # pull_request:
-  #   branches:
-  #   - '**' # * does not match '/' like sm/my-feature
+  pull_request:
+    branches:
+    - '**' # Run tests for all PRs
   workflow_dispatch: # For manually triggering a build: https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#workflow_dispatch
 
 jobs:
@@ -58,13 +56,25 @@ jobs:
       - name: List library dependencies
         run: ./bin/check-libs ./.lake/build/bin/klr
 
+      # Only build wheels for main branch or tags
+      - name: Check if should build wheels
+        id: check-build-wheels
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "should_build=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_build=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Install Python
+        if: steps.check-build-wheels.outputs.should_build == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
           cache: 'pip'
 
       - name: Install dependencies
+        if: steps.check-build-wheels.outputs.should_build == 'true'
         working-directory: ./interop
         run: |
           python -m pip install --upgrade pip
@@ -72,11 +82,13 @@ jobs:
 
       # temporarily disabled until we fix klr gather
       #- name: Run pytest
+      #  if: steps.check-build-wheels.outputs.should_build == 'true'
       #  working-directory: ./interop
       #  run: |
       #    pytest
 
       - name: Make a wheel
+        if: steps.check-build-wheels.outputs.should_build == 'true'
         # https://github.com/pypa/cibuildwheel
         # Hit this: https://github.com/pypa/cibuildwheel/discussions/1926
         env:
@@ -86,7 +98,9 @@ jobs:
         run: |
           pip install cibuildwheel build
           bin/make-wheel
+
       - uses: actions/upload-artifact@v4
+        if: steps.check-build-wheels.outputs.should_build == 'true'
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./.wheel/wheelhouse/*.whl
@@ -97,7 +111,7 @@ jobs:
       # platform specific and currently built outside the normal python tool ecosystem.
       # So let's include the one platform-arch that's most useful to us right now.
       - name: Upload sdist (Ubuntu x64 only)
-        if: matrix.os == 'ubuntu-latest'
+        if: steps.check-build-wheels.outputs.should_build == 'true' && matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v4
         with:
           name: sdist-${{ matrix.os }}-${{ strategy.job-index }}
