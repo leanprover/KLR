@@ -33,7 +33,7 @@ struct state {
   struct worklist {
     struct worklist *next;
     const char *name;
-    PyObject *f;
+    PyObject *f; // keep alive via INCREF until work item processed
   } *work;
 
   // Set of processed functions
@@ -44,7 +44,7 @@ struct state {
 
   // Current function scope
   struct scope {
-    PyObject *f;       // python function we are working on
+    PyObject *f;       // python function we are working on (borrowed reference to `self->work->f`)
     char *src;         // source code of `f` (in region)
     char *file;        // filename where `f` lives (in region)
     u32 line_offset;   // line number in `file` where `f` lives
@@ -61,13 +61,12 @@ struct state {
 // to report errors. In later phases we create our own error messages.
 // Note: if we get an error while building the error, the user will get
 // error we got here, e.g. NoMemory, etc.
-
 static void syntax_error(const struct state *st, const char *msg) {
-  PyObject *msg_obj = PyUnicode_FromString(msg);
+  PyObject *msg_obj = PyUnicode_FromString(msg); // new reference
   if (!msg_obj)
     return;
 
-  PyObject *args = PyTuple_Pack(1, msg_obj);
+  PyObject *args = PyTuple_Pack(1, msg_obj); // new reference
   Py_DECREF(msg_obj);
   if (!args)
     return;
@@ -83,6 +82,7 @@ static void syntax_error(const struct state *st, const char *msg) {
 }
 
 // returns true if we are having fun... if we have function `name`
+// This function never raises an exception.
 static bool have_fun(const struct state *st, const char *name) {
   for (struct Python_Fun_List *l = st->funs; l; l = l->next) {
     if (strcmp(l->fun->name, name) == 0)
@@ -91,6 +91,8 @@ static bool have_fun(const struct state *st, const char *name) {
   return false;
 }
 
+// Returns whether global exists.
+// This function never raises an exception.
 static bool have_global(const struct state *st, const char *name) {
   for (struct Python_Keyword_List *l = st->globals; l; l = l->next) {
     if (strcmp(l->keyword->id, name) == 0)
@@ -101,12 +103,11 @@ static bool have_global(const struct state *st, const char *name) {
 
 // Copy a Python string to our memory region.
 // Note: we disallow embedded NULLs (which can only show up in literals).
-// Note: zero-length strings are represented as NULL, which can also
-// indicate an error if AsUTF8AndSize set an exception.
+// On failure, returns NULL with an exception set.
 static char* py_strdup(struct state *st, PyObject *obj) {
   Py_ssize_t sz = 0;
   const char *s = PyUnicode_AsUTF8AndSize(obj, &sz);
-  if (!s || sz <= 0)
+  if (!s)
     return NULL;
 
   if (memchr(s, 0, sz)) {
@@ -118,9 +119,12 @@ static char* py_strdup(struct state *st, PyObject *obj) {
 }
 
 // Construct a path name from two strings.
+// On failure, returns NULL with an exception set.
 static char* path_name(struct state *st, const char *m, const char *x) {
-  if (!m || !x)
+  if (!m || !x) {
+    PyErr_Format(PyExc_TypeError, "NULL passed to %s", __func__);
     return NULL;
+  }
 
   size_t m_sz = strlen(m);
   size_t x_sz = strlen(x);
@@ -134,21 +138,49 @@ static char* path_name(struct state *st, const char *m, const char *x) {
 }
 
 // Construct a path name from two Python strings (in memory region)
+// On failure, returns NULL with an exception set.
 static inline char* py_path_name(struct state *st, PyObject *m, PyObject *x) {
-  if (!m || !x)
+  if (!m || !x) {
+    PyErr_Format(PyExc_TypeError, "NULL passed to %s", __func__);
     return NULL;
-  return path_name(st, PyUnicode_AsUTF8(m), PyUnicode_AsUTF8(x));
+  }
+  
+  const char *m_str = PyUnicode_AsUTF8(m);
+  if (!m_str) {
+    return NULL;
+  }
+
+  const char *x_str = PyUnicode_AsUTF8(x);
+  if (!x_str) {
+    return NULL;
+  }
+
+  return path_name(st, m_str, x_str);
 }
 
 // Construct full name of python function (in memory region)
+// On failure, returns NULL with an exception set.
 static char* py_fun_name(struct state *st, PyObject *f) {
-  PyObject *module = PyObject_GetAttrString(f, "__module__");
-  PyObject *name = PyObject_GetAttrString(f, "__name__");
-  char *f_name = py_path_name(st, module, name);
+  // goto cleanup if anything goes wrong
+  PyObject *module = NULL;
+  PyObject *name = NULL;
+  char *f_name = NULL;
 
+  module = PyObject_GetAttrString(f, "__module__"); // new reference
+  if (!module) {
+    goto cleanup;
+  }
+
+  name = PyObject_GetAttrString(f, "__name__"); // new reference
+  if (!name) {
+    goto cleanup;
+  }
+
+  f_name = py_path_name(st, module, name);
+
+cleanup:
   Py_XDECREF(module);
   Py_XDECREF(name);
-  PyErr_Clear();
   return f_name;
 }
 
@@ -160,8 +192,10 @@ static void add_work(struct state *st, PyObject *f) {
     return;
 
   char *name = py_fun_name(st, f);
-  if (!name)
+  if (!name) {
+    PyErr_Clear();
     return;
+  }
 
   // skip numpy (for performance)
   if (strncmp("numpy.", name, 6) == 0)
@@ -177,6 +211,7 @@ static void add_work(struct state *st, PyObject *f) {
       node->next = NULL;
       node->name = name;
       node->f = f;
+      Py_INCREF(node->f);
       *work = node;
       break;
     }
@@ -206,6 +241,7 @@ static struct Nat_List* nat_list(struct state *st, PyObject *obj);
                          obj->lineno, obj->end_lineno, \
                          obj->col_offset, obj->end_col_offset)
 
+// On failure, returns NULL with an exception set.
 static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
   struct Python_Expr *e = region_alloc(st->region, sizeof(*e));
   e->expr = region_alloc(st->region, sizeof(*e->expr));
@@ -218,26 +254,31 @@ static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
     return e;
   }
 
-  // value may have set an exception, clear it
+  // value() set an exception, clear it
   PyErr_Clear();
 
   // Check for other types of supported global values
   if (PyTuple_Check(obj)) {
     e->expr->tag = Python_Expr_tuple;
     e->expr->tuple.xs = const_exprs(st, obj);
+    if (!e->expr->tuple.xs && PyErr_Occurred()) { // NULL might just mean empty list
+      return NULL;
+    }
     e->expr->tuple.ctx = Python_Ctx_load;
     return e;
   }
   else if (PyList_Check(obj)) {
     e->expr->tag = Python_Expr_list;
     e->expr->list.xs = const_exprs(st, obj);
+    if (!e->expr->list.xs && PyErr_Occurred()) { // NULL might just mean empty list
+      return NULL;
+    }
     e->expr->list.ctx = Python_Ctx_load;
     return e;
   }
   else if (PyModule_Check(obj)) {
     const char *name = PyModule_GetName(obj);
     if (!name) {
-      PyErr_Clear();
       return NULL;
     }
     e->expr->tag = Python_Expr_name;
@@ -245,20 +286,15 @@ static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
     e->expr->name.ctx = Python_Ctx_load;
     return e;
   }
-  else {
-    // Handle Numpy & Torch tensors
-    // Note: t is borrowed
-    PyTypeObject *t = Py_TYPE(obj);
-    if (!t) return NULL;
+  else if (strcmp(Py_TYPE(obj)->tp_name, "tensor" /*nki*/) == 0 ||
+           strcmp(Py_TYPE(obj)->tp_name, "numpy.ndarray" /*numpy*/) == 0 ||
+           strcmp(Py_TYPE(obj)->tp_name, "Tensor" /*PyTorch*/) == 0 ||
+           strcmp(Py_TYPE(obj)->tp_name, "ShapedArray" /*JAX*/) == 0) {
 
-    if (strcmp(t->tp_name, "tensor" /*nki*/) != 0 &&
-        strcmp(t->tp_name, "numpy.ndarray" /*numpy*/) != 0 &&
-        strcmp(t->tp_name, "Tensor" /*PyTorch*/) != 0 &&
-        strcmp(t->tp_name, "ShapedArray" /*JAX*/) != 0)
+    PyObject *shape = PyObject_GetAttrString(obj, "shape"); // new reference
+    if (!shape) {
       return NULL;
-
-    PyObject *shape = PyObject_GetAttrString(obj, "shape");
-    if (!shape) return NULL;
+    }
 
     struct Nat_List *sh = nat_list(st, shape);
     Py_DECREF(shape);
@@ -293,17 +329,21 @@ static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
     return e;
   }
 
+  syntax_error(st, "unsupported const expr");
   return NULL;
 }
 
-// Note: in case of errors we will return an empty list (NULL)
+
+// Note: If NULL is returned, the list is empty or an exception has occurred.
+// Use PyErr_Occurred() to disambiguate.
 static struct Python_Expr_List* const_exprs(struct state *st, PyObject *obj) {
-  if (!obj)
+  if (!obj) {
+    PyErr_Format(PyExc_TypeError, "NULL passed to %s", __func__);
     return NULL;
+  }
 
   Py_ssize_t sz = PyObject_Length(obj);
-  if (sz <= 0) {
-    PyErr_Clear();
+  if (sz == -1) {
     return NULL;
   }
 
@@ -311,21 +351,18 @@ static struct Python_Expr_List* const_exprs(struct state *st, PyObject *obj) {
   for (Py_ssize_t i = 0; i < sz; i++) {
     struct Python_Expr_List *node = region_alloc(st->region, sizeof(*node));
 
-    PyObject *key = PyLong_FromLong(i);
+    PyObject *key = PyLong_FromLong(i); // new reference
     if (!key) {
-      PyErr_Clear();
       return NULL;
     }
 
-    // Note: Object_GetItem increments reference count
-    PyObject *item = PyObject_GetItem(obj, key);
+    PyObject *item = PyObject_GetItem(obj, key);  // new reference
     Py_DECREF(key);
     if (!item) {
-      PyErr_Clear();
       return NULL;
     }
 
-    struct Python_Expr *e = const_expr(st, item);
+    struct Python_Expr *e = const_expr(st, item); // new reference
     Py_DECREF(item);
     if (!e)
       return NULL;
@@ -342,20 +379,28 @@ static struct Python_Expr_List* const_exprs(struct state *st, PyObject *obj) {
   return head;
 }
 
+// Note: If NULL is returned, the list is empty or an exception has occurred.
+// Use PyErr_Occurred() to disambiguate.
 static struct Nat_List* nat_list(struct state *st, PyObject *obj) {
   struct Python_Expr_List *es = const_exprs(st, obj);
   if (!es) return NULL;
 
   struct Nat_List *head = NULL, *tail = NULL;
   for (; es; es = es->next) {
-    if (es->expr->expr->tag != Python_Expr_const)
+    if (es->expr->expr->tag != Python_Expr_const) {
+      syntax_error(st, "Expression not constant. List must contain constant integers >= 0.");
       return NULL;
+    }
     struct Python_Const *c = es->expr->expr->c.value;
-    if (c->tag != Python_Const_int)
+    if (c->tag != Python_Const_int) {
+      syntax_error(st, "Value not an integer. List must contain constant integers >= 0.");
       return NULL;
+    }
     i32 i = c->i.value;
-    if (i < 0)
+    if (i < 0) {
+      syntax_error(st, "Integer is negative. List must contain constant integers >= 0.");
       return NULL;
+    }
 
     struct Nat_List *l = region_alloc(st->region, sizeof(*l));
     l->next = NULL;
@@ -371,6 +416,9 @@ static struct Nat_List* nat_list(struct state *st, PyObject *obj) {
   return head;
 }
 
+// Add a new global (if necessary)
+// Note: we are ignoring possible errors from Python as this function
+// is allowed to fail.
 static void add_global(struct state *st, char *name, PyObject *obj) {
   if (!name || !obj)
     return;
@@ -378,37 +426,43 @@ static void add_global(struct state *st, char *name, PyObject *obj) {
   if (have_fun(st, name) || have_global(st, name))
     return;
 
+  struct Python_Expr *value = const_expr(st, obj);
+  if (!value) {
+    PyErr_Clear();
+    return;
+  }
+
   struct Python_Keyword_List *node = region_alloc(st->region, sizeof(*node));
   struct Python_Keyword *kw = region_alloc(st->region, sizeof(*kw));
   mkPos(kw->pos, 0, 0, 0, 0);
-  kw->value = const_expr(st, obj);
-  if (kw->value) {
-    kw->id = name;
-    node->next = st->globals;
-    node->keyword = kw;
-    st->globals = node;
-  }
+  kw->value = value;
+  kw->id = name;
+  node->next = st->globals;
+  node->keyword = kw;
+  st->globals = node;
 }
 
 
 // Lookup item `id` in dictionary `name` which should be an attribute of `f`.
 // e.g. f.name['id']
-static PyObject* lookup_(PyObject *f, const char *name, const char *id) {
+// Returns a new reference, or NULL if not found.
+// No exception is ever set, since it's OK for lookup to fail.
+static PyObject * lookup_(PyObject *f, const char *name, const char *id) {
   if (!f || !name || !id)
     return NULL;
 
-  PyObject *dict = PyObject_GetAttrString(f, name);
+  PyObject *dict = PyObject_GetAttrString(f, name); // new reference
   if (!dict) return NULL;
 
-  PyObject *value = PyDict_GetItemString(dict, id);
-  Py_DECREF(dict);
-
-  if (value)
-    Py_INCREF(value);
+  PyObject *value = PyDict_GetItemString(dict, id); // borrowed reference
+  Py_XINCREF(value); // incref, since it's a borrowed reference
+  Py_XDECREF(dict); // decref(dict) AFTER incref(value), else both might vanish
   return value;
 }
 
-// Lookup `id` in current function's environment
+// Lookup `id` in current function's environment.
+// Returns a new reference, or NULL if not found.
+// No exception is ever set, since it's OK for lookup to fail.
 static PyObject* lookup(struct state *st, const char *id) {
   PyObject *obj = lookup_(st->scope.f, "__globals__", id);
   if (!obj)
@@ -426,34 +480,41 @@ struct ref {
   PyObject *obj;
 };
 
-static struct ref reference(struct state *st, struct Python_Expr *e) {
-  struct ref ref = { NULL, NULL };
-  if (!e) return ref;
+// Record reference.
+// If reference found, return ref.obj containing new reference.
+// If not found, ref.obj will be NULL.
+// No exception is ever set, it's OK if we fail to record a reference,
+// later passes will raise more intelligent errors.
+static struct ref reference_and_lookup(struct state *st, struct Python_Expr *e) {
+  // goto cleanup if anything goes wrong
+  struct ref ref = { NULL, NULL }; // value to return
+  struct ref attr_value_ref = { NULL, NULL }; // need to look this up too if e is attr
+
+  if (!e) {
+    goto cleanup;
+  }
 
   switch(e->expr->tag) {
   case Python_Expr_name:
     ref.name = (char*)e->expr->name.id;
     ref.obj = lookup(st, ref.name);
     if (!ref.obj) {
-      ref.name = NULL;
-      break;
+      goto cleanup;
     }
     break;
 
   case Python_Expr_attr:
-    ref = reference(st, e->expr->attr.value);
-    if (!ref.obj) {
-      ref.name = NULL;
-      break;
+    attr_value_ref = reference_and_lookup(st, e->expr->attr.value); // new reference
+    if (!attr_value_ref.obj) {
+      goto cleanup;
     }
 
-    if (PyObject_HasAttrString(ref.obj, e->expr->attr.id)) {
-      ref.obj = PyObject_GetAttrString(ref.obj, e->expr->attr.id);
-      ref.name = path_name(st, ref.name, e->expr->attr.id);
-    } else {
-      Py_DECREF(ref.obj);
-      ref.name = NULL;
-      ref.obj = NULL;
+    if (PyObject_HasAttrString(attr_value_ref.obj, e->expr->attr.id)) {
+      ref.obj = PyObject_GetAttrString(attr_value_ref.obj, e->expr->attr.id);
+      if (!ref.obj) {
+        goto cleanup;
+      }
+      ref.name = path_name(st, attr_value_ref.name, e->expr->attr.id);
     }
     break;
 
@@ -461,6 +522,7 @@ static struct ref reference(struct state *st, struct Python_Expr *e) {
     break;
   }
 
+cleanup:
   if (ref.name && ref.obj) {
     if (PyFunction_Check(ref.obj)) {
       ref.name = py_fun_name(st, ref.obj);
@@ -468,9 +530,24 @@ static struct ref reference(struct state *st, struct Python_Expr *e) {
     } else {
       add_global(st, ref.name, ref.obj);
     }
+  } else {
+    // Something went wrong, ensure references are cleared out before return
+    Py_XDECREF(ref.obj);
+    ref.obj = NULL;
+    ref.name = NULL;
   }
+
+  Py_XDECREF(attr_value_ref.obj);
   PyErr_Clear(); // Make sure we don't report any errors
   return ref;
+}
+
+
+// Record reference. Any exceptions are ignored/cleared.
+// Later passes will raise more intelligent errors.
+static void reference(struct state *st, struct Python_Expr *e) {
+  struct ref ref = reference_and_lookup(st, e); // new reference
+  Py_XDECREF(ref.obj);
 }
 
 // -----------------------------------------------------------------------------
@@ -480,9 +557,12 @@ static struct ref reference(struct state *st, struct Python_Expr *e) {
 // TODO: We are restricting int and float types very early, which is different
 // from how the Lean code works.
 
+// On failure, returns NULL with an exception set.
 static struct Python_Const* value(struct state *st, PyObject *obj) {
-  if (!st || !obj)
+  if (!st || !obj) {
+    PyErr_Format(PyExc_TypeError, "NULL passed to %s", __func__);
     return NULL;
+  }
 
   struct Python_Const *c = region_alloc(st->region, sizeof(*c));
 
@@ -513,7 +593,7 @@ static struct Python_Const* value(struct state *st, PyObject *obj) {
   else if (PyFloat_Check(obj)) {
     c->tag = Python_Const_float;
     double d = PyFloat_AsDouble(obj);
-    if (PyErr_Occurred())
+    if (d == -1.0 && PyErr_Occurred())
       return NULL;
     // TODO: Using C semantics, which is technically undefined in this case
     c->f.value = (float)d;
@@ -528,6 +608,7 @@ static struct Python_Const* value(struct state *st, PyObject *obj) {
     c->tag = Python_Const_ellipsis;
   }
   else {
+    syntax_error(st, "unsupported value type");
     return NULL;
   }
 
@@ -599,16 +680,22 @@ static enum Python_CmpOp cmpop(cmpop_ty op) {
   }
 }
 
+// Note: If NULL is returned, the list is empty or an exception has occurred.
+// Use PyErr_Occurred() to disambiguate.
 static struct Python_CmpOp_List* cmpops(struct state *st, asdl_int_seq *ops) {
-  if (!ops)
+  if (!ops) {
+    PyErr_Format(PyExc_TypeError, "NULL passed to %s", __func__);
     return NULL;
+  }
 
   struct Python_CmpOp_List *head = NULL, *current = NULL;
   for (int i = 0; i < ops->size; i++) {
     struct Python_CmpOp_List *node = region_alloc(st->region, sizeof(*node));
     enum Python_CmpOp op = cmpop(ops->typed_elements[i]);
-    if (op == (u32)-1)
+    if (op == (u32)-1) {
+      syntax_error(st, "unsupported comparison op");
       return NULL;
+    }
 
     node->next = NULL;
     node->cmpop = op;
@@ -626,9 +713,13 @@ static struct Python_Expr_List* exprs(struct state *st, asdl_expr_seq *python);
 static struct Python_Keyword_List* keywords(struct state *st, asdl_keyword_seq *python);
 
 static struct Python_Expr* expr(struct state *st, struct _expr *python) {
-  if (!python)
+  if (!python) {
+    PyErr_Format(PyExc_TypeError, "NULL passed to %s", __func__);
     return NULL;
+  }
 
+  // goto cleanup if anything goes wrong
+  bool success = false; // set true at the end if everything went right
   struct pos old_pos = st->scope.pos;
   st->scope.pos.line = python->lineno;
   st->scope.pos.col = python->col_offset;
@@ -642,7 +733,7 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
       e->tag = Python_Expr_const;
       e->c.value = value(st, python->v.Constant.value);
       if (!e->c.value)
-        res = NULL;
+        goto cleanup;
       break;
     }
     // Names and attributes may be references which we need to track
@@ -651,28 +742,34 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
     case Name_kind: {
       e->tag = Python_Expr_name;
       e->name.id = py_strdup(st, python->v.Name.id);
+      if (!e->name.id) {
+        goto cleanup;
+      }
       e->name.ctx = context(python->v.Name.ctx);
       if (!e->name.id) {
-        res = NULL;
-        break;
+        goto cleanup;
       }
 
       if (e->name.ctx == Python_Ctx_load) {
-        struct ref r = reference(st, res);
-        if (r.name)
+        struct ref r = reference_and_lookup(st, res);
+        if (r.name) {
           e->name.id = r.name;
+          Py_DECREF(r.obj);
+        }
       }
       break;
     }
     case Attribute_kind: {
       e->tag = Python_Expr_attr;
       e->attr.value = expr(st, python->v.Attribute.value);
-      e->attr.id = py_strdup(st, python->v.Attribute.attr);
-      e->attr.ctx = context(python->v.Attribute.ctx);
-      if (!e->attr.value || !e->attr.id) {
-        res = NULL;
-        break;
+      if (!e->attr.value) {
+        goto cleanup;
       }
+      e->attr.id = py_strdup(st, python->v.Attribute.attr);
+      if (!e->attr.id) {
+        goto cleanup;
+      }
+      e->attr.ctx = context(python->v.Attribute.ctx); // can't fail
 
       if (e->attr.ctx == Python_Ctx_load)
         reference(st, res);
@@ -683,19 +780,31 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
     case Tuple_kind: {
       e->tag = Python_Expr_tuple;
       e->tuple.xs = exprs(st, python->v.Tuple.elts);
-      e->tuple.ctx = context(python->v.Tuple.ctx);
+      if (!e->tuple.xs && PyErr_Occurred()) { // disambiguate empty list vs error
+        goto cleanup;
+      }
+      e->tuple.ctx = context(python->v.Tuple.ctx); // can't fail
       break;
     }
     case List_kind: {
       e->tag = Python_Expr_list;
       e->list.xs = exprs(st, python->v.List.elts);
-      e->list.ctx = context(python->v.List.ctx);
+      if (!e->list.xs && PyErr_Occurred()) { // disambiguate empty list vs error
+        goto cleanup;
+      }
+      e->list.ctx = context(python->v.List.ctx); // can't fail
       break;
     }
     case Dict_kind: {
       e->tag = Python_Expr_dict;
       e->dict.keys = exprs(st, python->v.Dict.keys);
+      if (!e->dict.keys  && PyErr_Occurred()) { // disambiguate empty list vs error
+        goto cleanup;
+      }
       e->dict.values = exprs(st, python->v.Dict.values);
+      if (!e->dict.values && PyErr_Occurred()) { // disambiguate empty list vs error
+        goto cleanup;
+      }
       break;
     }
 
@@ -703,15 +812,19 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
     case Subscript_kind: {
       e->tag = Python_Expr_subscript;
       e->subscript.tensor = expr(st, python->v.Subscript.value);
+      if (!e->subscript.tensor) {
+        goto cleanup;
+      }
       e->subscript.index = expr(st, python->v.Subscript.slice);
-      e->subscript.ctx = context(python->v.Subscript.ctx);
-      if (!e->subscript.tensor || !e->subscript.index)
-        res = NULL;
+      if (!e->subscript.index) {
+        goto cleanup;
+      }
+      e->subscript.ctx = context(python->v.Subscript.ctx); // can't fail
       break;
     }
     case Slice_kind: {
       e->tag = Python_Expr_slice;
-      e->slice.l = expr(st, python->v.Slice.lower);
+      e->slice.l = expr(st, python->v.Slice.lower);// YOU ARE HERE NOT SURE IF Slice.lower MIGHT BE NULL
       e->slice.u = expr(st, python->v.Slice.upper);
       e->slice.step = expr(st, python->v.Slice.step);
       break;
@@ -746,7 +859,7 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
     case Compare_kind: {
       e->tag = Python_Expr_compare;
       e->compare.left = expr(st, python->v.Compare.left);
-      e->compare.ops = cmpops(st, python->v.Compare.ops);
+      e->compare.ops = cmpops(st, python->v.Compare.ops); // TODO: NULL is ambiguous
       e->compare.comparators = exprs(st, python->v.Compare.comparators);
       if (!e->compare.left || !e->compare.ops || !e->compare.comparators)
         res = NULL;
@@ -788,8 +901,11 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
       break;
   }
 
+  success = true;
+
+cleanup:
   st->scope.pos = old_pos;
-  return res;
+  return success ? res : NULL;
 }
 
 static struct Python_Expr_List *exprs(struct state *st, asdl_expr_seq *python) {
@@ -1205,13 +1321,14 @@ static struct Python_Fun* function(struct state *st, PyObject *f) {
   struct scope old_scope = st->scope;
   struct _mod *m = parse_function(st, f);
 
-  if (!m ||
-      m->kind != Interactive_kind ||
+  if (!m) {
+    goto cleanup;
+  }
+  if (m->kind != Interactive_kind ||
       !m->v.Interactive.body ||
       m->v.Interactive.body->size != 1 ||
-      m->v.Interactive.body->typed_elements[0]->kind != FunctionDef_kind
-      )
-  {
+      m->v.Interactive.body->typed_elements[0]->kind != FunctionDef_kind) {
+    // TODO raise error
     goto cleanup;
   }
 
@@ -1265,8 +1382,14 @@ bool gather(struct kernel *k) {
     st.work = work->next;
 
     struct Python_Fun *f = function(&st, work->f);
+    Py_DECREF(work->f); // done with this work item, decref PyObject
     if (!f) {
       result = false;
+      // clean up any leftover work items
+      while (st.work) {
+        Py_DECREF(st.work->f);
+        st.work = st.work->next;
+      }
       break;
     }
     struct Python_Fun_List *node = region_alloc(st.region, sizeof(*node));
@@ -1288,6 +1411,11 @@ bool gather(struct kernel *k) {
     k->python_region = st.region;
     k->python_kernel = python;
   }
+
+  // TODO: free region and do other cleanup.
+  // actually maybe have the kernel's init create the region
+  // seems like tp_deinit() is run even if tp_init() fails
+
   return result;
 }
 
