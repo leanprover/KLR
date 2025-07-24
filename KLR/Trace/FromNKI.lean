@@ -166,6 +166,15 @@ instance : FromNKI Dtype where
       | "numpy.float16" => .ok .float16
       | "numpy.float32" => .ok .float32
       | "numpy.bool" => .ok .uint8
+      -- pytorch variants
+      | "torch.uint8" => .ok .uint8
+      | "torch.int8" => .ok .int8
+      | "torch.int16" => .ok .int16
+      | "torch.int32" => .ok .int32
+      | "torch.float16" => .ok .float16
+      | "torch.bfloat16" => .ok .bfloat16
+      | "torch.float32" => .ok .float32
+      | "torch.bool" => .ok .uint8
       -- imported and string variants
       | "uint8" => .ok .uint8
       | "int8" => .ok .int8
