@@ -29,7 +29,7 @@ open Util (FromSexp ToSexp)
 -- Memory types on hardware
 @[serde tag = 110]
 inductive Memory where
-  | hbm | sbuf | pmem | reg
+  | hbm | sbuf | psum | reg
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /-
