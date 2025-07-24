@@ -162,6 +162,7 @@ instance : Tensors Operator where
       | .reciprocal r => [r.dst, r.src]
       | .tensorScalar t => [t.dst, t.src]
       | .tensorTensor t => [t.dst, t.src0, t.src1]
+      | .ncMatMul t => [t.dst, t.stationary, t.moving]
     refs.flatMap tensors
 
 instance : Tensors Stmt where

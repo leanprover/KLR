@@ -575,7 +575,23 @@ structure TensorTensor where
   op : AluOp
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
+/-
+# Pseudo Instructions for BIR
+-/
+
 @[serde tag = 173]
+structure NcMatMul where
+  dst : TensorRef
+  stationary : TensorRef
+  moving : TensorRef
+  isStationaryOneZero : Bool
+  isMovingZero : Bool
+  isTranspose : Bool
+  tilePosition : List Nat
+  tileSize : List Nat
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 174]
 inductive Operator where
   | activate (op : Activate)
   | affineSelect (op : AffineSelect)
@@ -605,4 +621,5 @@ inductive Operator where
   | tensorTensor (op : TensorTensor)
   | tensorTensorScan (op : TensorTensorScan)
   | transpose (op : Transpose)
+  | ncMatMul (op : NcMatMul)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp

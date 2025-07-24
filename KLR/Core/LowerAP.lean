@@ -79,11 +79,19 @@ def Operator.lowerAccessPatterns (k : Operator) : KLR.Err Operator :=
   | .scalarTensorTensor op => do return .scalarTensorTensor { op with dst := (← op.dst.lowerAccessPatterns), src0 := (← op.src0.lowerAccessPatterns), src1 := (← op.src1.lowerAccessPatterns) }
   | .shuffle            op => do return .shuffle            { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
   | .tensorReduce       op => do return .tensorReduce       { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
+
+  | .tensorScalar       op => do return .tensorScalar       { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
+  | .tensorTensor       op => do return .tensorTensor       { op with src0 := (← op.src0.lowerAccessPatterns), src1 := (← op.src1.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
+
   | .tensorTensorScan   op => do return .tensorTensorScan   { op with dst := (← op.dst.lowerAccessPatterns), src0 := (← op.src0.lowerAccessPatterns), src1 := (← op.src1.lowerAccessPatterns) }
   | .transpose          op => do return .transpose          { op with src := (← op.src.lowerAccessPatterns) }
-  -- Above are all of the cases, but for some reason,
-  -- I get a timeout when I don't include a default case.
-  | _ => .error "Unreachable"
+  | .ncMatMul           op => do
+    return .ncMatMul { op with
+      dst        := (<- op.dst.lowerAccessPatterns)
+      stationary := (<- op.stationary.lowerAccessPatterns)
+      moving     := (<- op.moving.lowerAccessPatterns)
+    }
+
 
 def Stmt.lowerAccessPatterns : Stmt → KLR.Err Stmt
   | .oper op => return .oper (<- op.lowerAccessPatterns)

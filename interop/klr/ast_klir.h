@@ -563,6 +563,17 @@ struct Core_TensorTensor {
   enum Core_AluOp op;
 };
 
+struct Core_NcMatMul {
+  struct Core_TensorRef *dst;
+  struct Core_TensorRef *stationary;
+  struct Core_TensorRef *moving;
+  bool isStationaryOneZero;
+  bool isMovingZero;
+  bool isTranspose;
+  struct Nat_List *tilePosition;
+  struct Nat_List *tileSize;
+};
+
 enum Core_Operator_Tag {
   Core_Operator_activate = 1,
   Core_Operator_affineSelect,
@@ -592,6 +603,7 @@ enum Core_Operator_Tag {
   Core_Operator_tensorTensor,
   Core_Operator_tensorTensorScan,
   Core_Operator_transpose,
+  Core_Operator_ncMatMul,
 };
 struct Core_Operator_activate {
   struct Core_Activate *op;
@@ -677,6 +689,9 @@ struct Core_Operator_tensorTensorScan {
 struct Core_Operator_transpose {
   struct Core_Transpose *op;
 };
+struct Core_Operator_ncMatMul {
+  struct Core_NcMatMul *op;
+};
 struct Core_Operator {
   enum Core_Operator_Tag tag;
   union {
@@ -708,6 +723,7 @@ struct Core_Operator {
     struct Core_Operator_tensorTensor tensorTensor;
     struct Core_Operator_tensorTensorScan tensorTensorScan;
     struct Core_Operator_transpose transpose;
+    struct Core_Operator_ncMatMul ncMatMul;
   };
 };
 

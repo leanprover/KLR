@@ -82,6 +82,7 @@ Ptr<Copy> Copy_des(FILE *in);
 Ptr<TensorReduce> TensorReduce_des(FILE *in);
 Ptr<TensorScalar> TensorScalar_des(FILE *in);
 Ptr<TensorTensor> TensorTensor_des(FILE *in);
+Ptr<NcMatMul> NcMatMul_des(FILE *in);
 Ptr<Operator> Operator_des(FILE *in);
 Ptr<Value> Value_des(FILE *in);
 Ptr<Keyword> Keyword_des(FILE *in);

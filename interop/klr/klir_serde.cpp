@@ -1722,11 +1722,29 @@ Ptr<TensorTensor> TensorTensor_des(FILE *in) {
   return x;
 }
 
+Ptr<NcMatMul> NcMatMul_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 173 || c != 0 || l != 8)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<NcMatMul> x = ptr<NcMatMul>();
+  x->dst = TensorRef_des(in);
+  x->stationary = TensorRef_des(in);
+  x->moving = TensorRef_des(in);
+  x->isStationaryOneZero = Bool_des(in);
+  x->isMovingZero = Bool_des(in);
+  x->isTranspose = Bool_des(in);
+  x->tilePosition = List_Nat_des(in);
+  x->tileSize = List_Nat_des(in);
+  return x;
+}
+
 Ptr<Operator> Operator_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 173)
+  if (t != 174)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -1954,6 +1972,14 @@ Ptr<Operator> Operator_des(FILE *in) {
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorTransposeWrapper> x = ptr<OperatorTransposeWrapper>();
     x->op = Transpose_des(in);
+    return x;
+    break;
+  }
+  case 28: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorNcMatMulWrapper> x = ptr<OperatorNcMatMulWrapper>();
+    x->op = NcMatMul_des(in);
     return x;
     break;
   }
