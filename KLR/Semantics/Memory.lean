@@ -66,6 +66,7 @@ structure PhyStoreIndex (s : PhyStoreSpec) where
   wf : s.inbounds index
 -/
 
+
 /-
 A model of NeuronCore memory banks.
 - The `bounded` field represents any tensors stored with explicit addresses. These correspond to
@@ -194,227 +195,122 @@ inductive ChipIndex
   sbufUnbounded := Heap.merge op x.sbufUnbounded y.sbufUnbounded
   hbmUnbounded  := Heap.merge op x.hbmUnbounded y.hbmUnbounded
 
-/-
-/-- A pre-heap doesn't necessarily satisfy all of the heap laws on its own, but can still be precomposed with
-a heap to get a heap. -/
-class PreHeap (T : Type _) (K V : outParam (Type _)) where
-  get : T → K → Option V
-  set : T → K → Option V → T
-  empty : T
-  hmap (f : K → V → Option V) : T → T
-  merge (op : V → V → V) : T → T → T
-  get_set_some_eq {t k k' v} : k = k' → get (set t k <| some v) k' = some v
-  get_set_some_ne {t k k' v} : k ≠ k' → get (set t k <| some v) k' = get t k'
-  -- get_set_none_ne {t k k' v} : k ≠ k' → get (set t k v) k' = get t k' ∨ v = none
-  -- get_set_some_eq {t k k' v} : k = k' → get (set t k v) k' = v ∨ v = none
-  -- get_set_some_ne {t k k' v} : k ≠ k' → get (set t k v) k' = get t k' ∨ v = none
-  -- get_hmap : get (hmap f t) k = (get t k).bind (f k)
-  -- get_merge : get (merge op t1 t2) k = Option.merge op (get t1 k) (get t2 k)
--/
-
-
-/-
-instance : PreHeap (ChipMemory α) ChipIndex (LocalStore α) where
-  get := ChipMemory.get
-  set := ChipMemory.set
-  empty := ChipMemory.empty
-  hmap := ChipMemory.hmap
-  merge := ChipMemory.merge
-  get_set_some_eq {t k k' v} H := by
-    cases k <;> cases k' <;> simp_all [ChipMemory.get, ChipMemory.set, Store.get_set_eq]
-  get_set_some_ne {t k k' v} H := by
-    cases k <;> cases k' <;> simp_all [ChipMemory.get, ChipMemory.set, Store.get_set_ne]
--/
+def ChipMemory.hhmap_store (f : ChipIndex → LocalStore α → Option (LocalStore β)) (s : ChipMemory α) : ChipMemory β :=
+  ⟨ f .psumPhysIndex s.psumPhysical |>.getD Heap.empty,
+    hhmap (f <| .psumUnboundedIndex ·) s.psumUnbounded,
+    f .sbufPhysIndex s.sbufPhysical |>.getD Heap.empty,
+    hhmap (f <| .sbufUnboundedIndex ·) s.sbufUnbounded,
+    hhmap (f <| .hbmIndex ·) s.hbmUnbounded ⟩
 
 structure ChipCellIndex where
   chip : ChipIndex
   cell : Nat × Nat
 
-/-
-instance instPreHeapComp [PreHeap T K1 T'] [Heap T' K2 V] : Heap T (K1 × K2) V where
-  get h k := PreHeap.get h k.1 |>.bind (Store.get · k.2)
-  set h k v :=
-    match PreHeap.get h k.1, v with
-    | none, none => h --
-    | none, some v' => PreHeap.set h k.1 (some (Store.set Heap.empty k.2 (some v')))
-    | some t', _ => PreHeap.set h k.1 (some (Store.set t' k.2 v))
-  empty := PreHeap.empty
-  hmap f h := PreHeap.hmap (fun k1 t1 => some <| Heap.hmap (fun k2 v => f (k1, k2) v) t1) h
-  merge op x y := PreHeap.merge (Heap.merge op) x y
--/
-
-  /- Why try to specify this all at?? Just give a second heap
-
-  get_set_eq {t k k' v} H := by
-    cases k' <;> cases k <;> rename_i i1 j1 i2 j2 <;> rcases H with ⟨rfl, rfl⟩; simp
-    simp [Option.bind, Option.getD]
-    rcases h1 : PreHeap.get t i1 with (_|v1) <;>
-    rcases h2 : v with (_|v') <;>
-    simp_all [PreHeap.get_set_some_eq, Store.get_set_eq rfl]
-  get_set_ne {t k k' v} H := by
-    cases k' <;> cases k <;> rename_i i1 j1 i2 j2; simp
-    rcases Classical.em (i2 = i1) with (h1|h1) <;>
-    rcases Classical.em (j2 = j1) with (h2|h2) <;>
-    rcases v with (_|v') <;>
-    simp [Option.bind, Option.getD] <;>
-    rcases h3 : PreHeap.get t i2 <;>
-    simp only
-    all_goals try simp [PreHeap.get_set_some_eq h1]
-    all_goals try simp [PreHeap.get_set_some_ne h1]
-    all_goals try simp [Store.get_set_eq h2]
-    all_goals try simp [Store.get_set_ne h2]
-    all_goals try simp_all [Heap.get_empty]
-  get_empty {k} := by
-    simp [Option.bind]
-    cases h : PreHeap.get (PreHeap.empty : T) k.fst  <;> simp only
-    sorry
-  get_hmap {f t k} := by
-    sorry
-    -- ssimp [Heap.get_hmap]
-    -- scases (Store.get t k.fst) <;> simp [Store.get, Heap.hmap, Heap.get_hmap]
-  get_merge {op x y} k := by
-    rename_i i j
-    simp [hmap, Heap.get_merge, Option.merge]
-    sorry
-    -- cases _ : Store.get x k.fst  <;>
-    -- cases _ : Store.get y k.fst <;>
-    -- simp_all [Heap.get_merge] <;>
-    -- grind
-  -/
-
-
-/- TODO : Upstream
-instance instHeapComp [Heap T K1 T'] [Heap T' K2 V] : Heap T (K1 × K2) V where
-  get h k := Store.get h k.1 |>.bind (Store.get · k.2)
-  set h k v := Store.set h k.1 (some <| Store.set (Store.get h k.1 |>.getD Heap.empty) k.2 v)
-  empty := Heap.empty
-  hmap f h := Heap.hmap (fun k1 t1 => some <| Heap.hmap (fun k2 v => f (k1, k2) v) t1) h
-  merge op x y := Heap.merge (Heap.merge op) x y
-  get_set_eq {t k k' v} H := by cases k' <;> cases k <;> simp_all [Store.get_set_eq]
-  get_set_ne {t k k' v} H := by
-    cases k' <;> cases k <;> simp [Store.get_set_ne, Option.bind]
-    rename_i i1 j1 i2 j2
-    if hi : i2 = i1
-      then if hj : j1 = j2 then exfalso; simp_all
-           else
-             simp [Store.get_set_eq hi]
-             cases _ : (Store.get t i2) <;>
-             simp_all [Option.getD, Store.get_set_ne, Heap.get_empty]
-      else rw [Store.get_set_ne hi]
-  get_empty {k} := by cases k <;> simp_all [Heap.get_empty]
-  get_hmap {f t k} := by
-    simp [Heap.get_hmap]
-    cases (Store.get t k.fst) <;> simp [Store.get, Heap.hmap, Heap.get_hmap]
-  get_merge {op x y} k := by
-    rename_i i j
-    simp [hmap, Heap.get_merge, Option.merge]
-    cases _ : Store.get x k.fst  <;>
-    cases _ : Store.get y k.fst <;>
-    simp_all [Heap.get_merge] <;>
-    grind
--/
-
-
--- TODO (Thurs: Do the rest like this)
-
 @[simp] def ChipMemory.get (c : ChipMemory α) (i : ChipCellIndex) : Option α :=
   ChipMemory.get_store c i.chip |>.bind (Store.get · i.cell)
 
-/-
-
 @[simp] def ChipMemory.set (c : ChipMemory α) (i : ChipCellIndex) (v : Option α) : ChipMemory α :=
-  match i with
-  | .psumPhysIndex i =>
-      { c with psumPhysical  := Store.set c.psumPhysical i v }
-  | .psumUnboundedIndex t i =>
-      let tgt := Store.get c.psumUnbounded t |>.getD Heap.empty
-      { c with psumUnbounded := Store.set c.psumUnbounded t <| some <| Store.set tgt i v }
-  | .sbufPhysIndex i =>
-      { c with sbufPhysical  := Store.set c.sbufPhysical i v }
-  | .sbufUnboundedIndex t i =>
-      let tgt := Store.get c.sbufUnbounded t |>.getD Heap.empty
-      { c with sbufUnbounded := Store.set c.sbufUnbounded t <| some <| Store.set tgt i v }
-  | .hbmIndex t i =>
-      let tgt := Store.get c.hbmUnbounded t |>.getD Heap.empty
-      { c with hbmUnbounded := Store.set c.hbmUnbounded t <| some <| Store.set tgt i v }
+  let tgt := ChipMemory.get_store c i.chip |>.getD Heap.empty
+  ChipMemory.set_store c i.chip (some <| Store.set tgt i.cell v)
 
-@[simp] def ChipMemory.empty : ChipMemory α := ⟨Heap.empty, Heap.empty, Heap.empty, Heap.empty, Heap.empty⟩
+@[simp] def ChipMemory.empty : ChipMemory α :=
+  ⟨Heap.empty, Heap.empty, Heap.empty, Heap.empty, Heap.empty⟩
 
 @[simp] def ChipMemory.hmap (f : ChipCellIndex → α → Option α) (t : ChipMemory α) : ChipMemory α :=
-  ⟨ Heap.hmap (f <| .psumPhysIndex ·) t.psumPhysical,
-    Heap.hmap (fun store_i store_v => some <| Heap.hmap (fun i v => f (.psumUnboundedIndex store_i i) v) store_v) t.psumUnbounded,
-    Heap.hmap (f <| .sbufPhysIndex ·) t.sbufPhysical,
-    Heap.hmap (fun store_i store_v => some <| Heap.hmap (fun i v => f (.sbufUnboundedIndex store_i i) v) store_v) t.sbufUnbounded,
-    Heap.hmap (fun store_i store_v => some <| Heap.hmap (fun i v => f (.hbmIndex store_i i) v) store_v) t.hbmUnbounded ⟩
+  ChipMemory.hmap_store (fun i s => some <| Heap.hmap (f ⟨i, ·⟩ ·) s) t
 
 @[simp] def ChipMemory.merge (op : α → α → α) (x y : ChipMemory α) : ChipMemory α :=
-  ⟨ Heap.merge op x.psumPhysical y.psumPhysical,
-    Heap.merge (Heap.merge op) x.psumUnbounded y.psumUnbounded,
-    Heap.merge op x.sbufPhysical y.sbufPhysical,
-    Heap.merge (Heap.merge op) x.sbufUnbounded y.sbufUnbounded,
-    Heap.merge (Heap.merge op) x.hbmUnbounded y.hbmUnbounded ⟩
+  ChipMemory.merge_store (Heap.merge op) x y
+
+@[simp] def ChipMemory.hhmap (f : ChipCellIndex → α → Option β) (s : ChipMemory α) : ChipMemory β :=
+  ChipMemory.hhmap_store (fun i s' => some <| HasHHMap.hhmap (f ⟨i, ·⟩ ·) s') s
 
 theorem ChipMemory.get_set_eq {t : ChipMemory α} {k k' : ChipCellIndex} {v} : k = k' → get (set t k v) k' = v := by
-  intro H; cases k' <;> simp_all [Store.get_set_eq]
+  intro H; rcases k' with ⟨chip, cell⟩
+  cases chip <;> simp_all [get, set, Store.get_set_eq]
 
 theorem ChipMemory.get_set_ne {t : ChipMemory α} {k k' : ChipCellIndex} {v} : k ≠ k' → get (set t k v) k' = get t k' := by
-  intro H
-  cases k <;> cases k' <;> simp only [get, set]
-  · rw [Store.get_set_ne (H <| congrArg ChipCellIndex.psumPhysIndex ·)]
-  · rename_i i1 j1 i2 j2
-    if hi : i1 = i2
-      then if hj : j1 = j2 then exfalso; simp_all
-           else simp [Store.get_set_eq hi, Store.get_set_ne hj]
-                cases _ : (Store.get t.psumUnbounded i2) <;> simp_all; rfl
-      else simp [Store.get_set_ne hi]
-  · rw [Store.get_set_ne (H <| congrArg ChipCellIndex.sbufPhysIndex ·)]
-  · rename_i i1 j1 i2 j2
-    if hi : i1 = i2
-      then if hj : j1 = j2 then exfalso; simp_all
-           else simp [Store.get_set_eq hi, Store.get_set_ne hj]
-                cases _ : (Store.get t.sbufUnbounded i2) <;> simp_all; rfl
-      else simp [Store.get_set_ne hi]
-  · rename_i i1 j1 i2 j2
-    if hi : i1 = i2
-      then if hj : j1 = j2 then exfalso; simp_all
-           else simp [Store.get_set_eq hi, Store.get_set_ne hj]
-                cases _ : (Store.get t.hbmUnbounded i2) <;> simp_all; rfl
-      else simp [Store.get_set_ne hi]
+  intro H; rcases k with ⟨chip1, cell1⟩; rcases k' with ⟨chip2, cell2⟩
+  cases chip1 <;> cases chip2 <;>
+  simp only [get, set, get_store, set_store, Store.get_set_ne]
+  · simp; rw [Store.get_set_ne]; grind
+  · rename_i i j
+    simp [Option.bind, Option.getD]
+    rcases Classical.em (i = j) with (hij|hij) <;>
+    cases h : Store.get t.psumUnbounded i <;>
+    simp only []
+    · simp [Store.get_set_eq hij]
+      subst hij; simp [h]
+      rcases Classical.em (cell1 = cell2) with (hc|hc) <;> simp_all [Store.get_set_ne, Heap.get_empty]
+    · simp [Store.get_set_eq hij]
+      subst hij; simp [h]
+      rcases Classical.em (cell1 = cell2) with (hc|hc) <;> simp_all [Store.get_set_ne, Heap.get_empty]
+    · simp [Store.get_set_ne hij]
+    · simp [Store.get_set_ne hij]
+  · simp; rw [Store.get_set_ne]; grind
+  · rename_i i j
+    simp [Option.bind, Option.getD]
+    rcases Classical.em (i = j) with (hij|hij) <;>
+    cases h : Store.get t.sbufUnbounded i <;>
+    simp only []
+    · simp [Store.get_set_eq hij]
+      subst hij; simp [h]
+      rcases Classical.em (cell1 = cell2) with (hc|hc) <;> simp_all [Store.get_set_ne, Heap.get_empty]
+    · simp [Store.get_set_eq hij]
+      subst hij; simp [h]
+      rcases Classical.em (cell1 = cell2) with (hc|hc) <;> simp_all [Store.get_set_ne, Heap.get_empty]
+    · simp [Store.get_set_ne hij]
+    · simp [Store.get_set_ne hij]
+  · rename_i i j
+    simp [Option.bind, Option.getD]
+    rcases Classical.em (i = j) with (hij|hij) <;>
+    cases h : Store.get t.hbmUnbounded i <;>
+    simp only []
+    · simp [Store.get_set_eq hij]
+      subst hij; simp [h]
+      rcases Classical.em (cell1 = cell2) with (hc|hc) <;> simp_all [Store.get_set_ne, Heap.get_empty]
+    · simp [Store.get_set_eq hij]
+      subst hij; simp [h]
+      rcases Classical.em (cell1 = cell2) with (hc|hc) <;> simp_all [Store.get_set_ne, Heap.get_empty]
+    · simp [Store.get_set_ne hij]
+    · simp [Store.get_set_ne hij]
 
 theorem ChipMemory.get_empty : get (empty : ChipMemory α) k = none := by
-  cases k <;> simp [empty, Heap.get_empty]
+  rcases k with ⟨chip, _⟩; rcases chip <;> simp [empty, Heap.get_empty]
 
 theorem ChipMemory.get_hmap : get (hmap f t) k = (get t k).bind (f k) := by
-  cases k
+  rcases k with ⟨chip, _⟩
+  cases chip
   · simp [hmap, Heap.get_hmap]
   · rename_i i j
     simp [Heap.get_hmap]
-    cases (Store.get t.psumUnbounded i) <;> simp [Store.get, Heap.hmap]
+    cases (Store.get t.psumUnbounded j) <;> simp [Store.get, Heap.hmap]
   · simp [hmap, Heap.get_hmap]
   · rename_i i j
     simp [Heap.get_hmap]
-    cases (Store.get t.sbufUnbounded i) <;> simp [Store.get, Heap.hmap]
+    cases (Store.get t.sbufUnbounded j) <;> simp [Store.get, Heap.hmap]
   · rename_i i j
     simp [Heap.get_hmap]
-    cases (Store.get t.hbmUnbounded i) <;> simp [Store.get, Heap.hmap]
+    cases (Store.get t.hbmUnbounded j) <;> simp [Store.get, Heap.hmap]
 
 theorem ChipMemory.get_merge : get (merge op t1 t2) k = Option.merge op (get t1 k) (get t2 k) := by
-  cases k
+  rcases k with ⟨chip, _⟩
+  cases chip
   · simp [hmap, Heap.get_merge]
-  · rename_i i j
+  · rename_i i
     simp [hmap, Heap.get_merge, Option.merge]
     cases _ : Store.get t1.psumUnbounded i <;>
     cases _ : Store.get t2.psumUnbounded i <;>
     simp_all [Heap.get_merge] <;>
     grind
   · simp [hmap, Heap.get_merge]
-  · rename_i i j
+  · rename_i i
     simp [hmap, Heap.get_merge, Option.merge]
     cases _ : Store.get t1.sbufUnbounded i <;>
     cases _ : Store.get t2.sbufUnbounded i <;>
     simp_all [Heap.get_merge] <;>
     grind
-  · rename_i i j
+  · rename_i i
     simp [hmap, Heap.get_merge, Option.merge]
     cases _ : Store.get t1.hbmUnbounded i <;>
     cases _ : Store.get t2.hbmUnbounded i <;>
@@ -434,13 +330,12 @@ instance ChipMemoryHeapInst : Heap (ChipMemory α) ChipCellIndex α where
   get_merge  := ChipMemory.get_merge
 
 instance {α β} : HasHHMap (ChipMemory α) (ChipMemory β) ChipCellIndex α β where
-  hhmap f h :=
-    ⟨ hhmap (fun i => f (.psumPhysIndex i)) h.psumPhysical,
-      hhmap (fun i i_store => some <| hhmap (fun j => f (.psumUnboundedIndex i j)) i_store) h.psumUnbounded,
-      hhmap (fun i => f (.sbufPhysIndex i)) h.sbufPhysical,
-      hhmap (fun i i_store => some <| hhmap (fun j => f (.sbufUnboundedIndex i j)) i_store) h.sbufUnbounded,
-      hhmap (fun i i_store => some <| hhmap (fun j => f (.hbmIndex i j)) i_store) h.hbmUnbounded ⟩
-  hhmap_get {t k} f := by cases k <;> simp_all [Store.get, hhmap, Option.bind] <;> grind
+  hhmap := ChipMemory.hhmap
+  hhmap_get {t k} f := by
+    rcases k with ⟨chip, cell⟩
+    cases chip <;>
+    simp_all [Store.get, hhmap, ChipMemory.hhmap_store, Option.bind] <;>
+    grind
 
 structure ProdStore (T : Type _) where
   left  : T
@@ -483,42 +378,3 @@ abbrev NeuronIndex := ChipCellIndex
 
 abbrev ProdNeuronMemory (DataT : Type _) := ProdStore (ChipMemory (UCell UInt8 DataT))
 abbrev ProdNeuronIndex := ProdIndex ChipCellIndex
-
-/-- Composition of Heaps
-NB. Potentially dangerous instance. -/
-instance instHeapComp [Heap T K1 T'] [Heap T' K2 V] : Heap T (K1 × K2) V where
-  get h k := Store.get h k.1 |>.bind (Store.get · k.2)
-  set h k v := Store.set h k.1 (some <| Store.set (Store.get h k.1 |>.getD Heap.empty) k.2 v)
-  empty := Heap.empty
-  hmap f h := Heap.hmap (fun k1 t1 => some <| Heap.hmap (fun k2 v => f (k1, k2) v) t1) h
-  merge op x y := Heap.merge (Heap.merge op) x y
-  get_set_eq {t k k' v} H := by cases k' <;> cases k <;> simp_all [Store.get_set_eq]
-  get_set_ne {t k k' v} H := by
-    cases k' <;> cases k <;> simp [Store.get_set_ne, Option.bind]
-    rename_i i1 j1 i2 j2
-    if hi : i2 = i1
-      then if hj : j1 = j2 then exfalso; simp_all
-           else
-             simp [Store.get_set_eq hi]
-             cases _ : (Store.get t i2) <;>
-             simp_all [Option.getD, Store.get_set_ne, Heap.get_empty]
-      else rw [Store.get_set_ne hi]
-  get_empty {k} := by cases k <;> simp_all [Heap.get_empty]
-  get_hmap {f t k} := by
-    simp [Heap.get_hmap]
-    cases (Store.get t k.fst) <;> simp [Store.get, Heap.hmap, Heap.get_hmap]
-  get_merge {op x y} k := by
-    rename_i i j
-    simp [hmap, Heap.get_merge, Option.merge]
-    cases _ : Store.get x k.fst  <;>
-    cases _ : Store.get y k.fst <;>
-    simp_all [Heap.get_merge] <;>
-    grind
-
-
-/-
-instance {T1 T2 : Type _} : HasHHMap (ProdChipMemory T1) (ProdChipMemory T2) ProdIndex T1 T2 where
-  hhmap := sorry
-  hhmap_get := sorry
--/
--/
