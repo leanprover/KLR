@@ -58,13 +58,29 @@ static void kernel_dealloc(struct kernel *self) {
 
 // frontend.Kernel.specialize
 // Provide arguments for kernel specialization
-static PyObject* kernel_specialize(struct kernel *self, PyObject *args, PyObject *kws) {
-  if (!PyTuple_Check(args) || (kws && !PyDict_Check(kws))) {
-    PyErr_BadArgument();
-    return NULL;
+static PyObject* kernel_specialize(struct kernel *self, PyObject *args_tuple) {
+  PyObject* args = NULL;
+  PyObject* kwargs = NULL;
+  PyObject* internal_kwargs = NULL;
+  
+  if (!PyArg_ParseTuple(args_tuple, "|OOO", &args, &kwargs, &internal_kwargs)) {
+      return NULL;
   }
 
-  if (!specialize(self, args, kws))
+  if (args && args != Py_None && !PyTuple_Check(args)) {
+      PyErr_SetString(PyExc_TypeError, "Invalid Argument: args argument must be a tuple");
+      return NULL;
+  }
+  if (kwargs && kwargs != Py_None && !PyDict_Check(kwargs)) {
+      PyErr_SetString(PyExc_TypeError, "Invalid Argument: kwargs argument must be a dictionary");
+      return NULL;
+  }
+  if (internal_kwargs && internal_kwargs != Py_None && !PyDict_Check(internal_kwargs)) {
+      PyErr_SetString(PyExc_TypeError, "Invalid Argument: internal_kwargs argument must be a dictionary");
+      return NULL;
+  }
+
+  if (!specialize(self, args, kwargs, internal_kwargs))
     return NULL;
 
   /*
@@ -184,7 +200,7 @@ static PyMethodDef KernelMethods[] = {
     "Serialize the intermediate Python Kernel to a ByteArray" },
   { "serialize", (void*)kernel_serialize, METH_VARARGS,
     "Serialize a NKI Kernel to a ByteArray" },
-  { "specialize", (void*)kernel_specialize, METH_VARARGS|METH_KEYWORDS,
+  { "specialize", (void*)kernel_specialize, METH_VARARGS,
     "Provide arguments for specializing kernel" },
   { NULL, NULL, 0, NULL }
 };

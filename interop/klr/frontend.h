@@ -34,6 +34,7 @@ struct kernel {
   PyObject_HEAD
   PyObject *f;   // Kernel function
   bool specialized;
+  uint8_t grid;
   struct region *python_region;
   struct Python_Kernel *python_kernel;
   struct region *nki_region;
@@ -46,7 +47,7 @@ void free_python_ast(struct _mod *m);
 
 // gather.c
 bool gather(struct kernel *k);
-bool specialize(struct kernel *k, PyObject *args, PyObject *kws);
+bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *internal_kws);
 
 // simplify.c
 struct SimpResult {

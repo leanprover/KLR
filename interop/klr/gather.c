@@ -250,10 +250,10 @@ static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
     return e;
   }
   else {
-    // Handle Numpy tensors
+    // Handle Numpy & Torch tensors
     // Note: t is borrowed
     PyTypeObject *t = Py_TYPE(obj);
-    if (!t || strcmp(t->tp_name, "numpy.ndarray"))
+    if (!t || (strcmp(t->tp_name, "numpy.ndarray") != 0 && strcmp(t->tp_name, "Tensor") != 0))
       return NULL;
 
     PyObject *shape = PyObject_GetAttrString(obj, "shape");
@@ -265,10 +265,23 @@ static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
 
     PyObject *dtype = PyObject_GetAttrString(obj, "dtype");
     if (!dtype) return NULL;
+
     PyObject *dstr = PyObject_Str(dtype);
     Py_DECREF(dtype);
-    if (!dstr) return NULL;
-    char *dt = py_strdup(st, dstr);
+    if (!dstr) 
+      return NULL;
+
+    const char *dtype_str = PyUnicode_AsUTF8(dstr);
+    if (!dtype_str) {
+      Py_DECREF(dstr);
+      return NULL;
+    }
+
+    // use "uint32" instead of "torch.uint32" which is not a recognized type. 
+    if (strncmp(dtype_str, "torch.", 6) == 0) {
+      dtype_str += 6;
+    }
+    char *dt = region_strdup(st->region, dtype_str);
     Py_DECREF(dstr);
 
     e->expr->tag = Python_Expr_const;
@@ -1192,7 +1205,7 @@ bool gather(struct kernel *k) {
   return result;
 }
 
-bool specialize(struct kernel *k, PyObject *args, PyObject *kws) {
+bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *internal_kws) {
   if (!k || !k->python_region) {
     PyErr_SetString(PyExc_RuntimeError, "No valid kernel for specialize");
     return false;
@@ -1207,10 +1220,6 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws) {
   };
 
   if (args) {
-    if (!PyTuple_Check(args)) {
-      PyErr_SetString(PyExc_ValueError, "Invalid arguments: args is not a tuple");
-      return false;
-    }
     struct Python_Expr_List **es = &k->python_kernel->args;
     Py_ssize_t size = PyTuple_Size(args);
     for (Py_ssize_t i = 0; i < size; i++) {
@@ -1229,11 +1238,6 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws) {
   }
 
   if (kws) {
-    if (!PyDict_Check(kws)) {
-      PyErr_SetString(PyExc_ValueError, "Invalid arguments: kwargs is not a dictionary");
-      return false;
-    }
-
     struct Python_Keyword_List **kw = &k->python_kernel->kwargs;
     Py_ssize_t pos = 0;
     PyObject *key, *val;
@@ -1259,6 +1263,31 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws) {
       (*kw)->keyword->pos->columnEnd = 0;
       (*kw)->next = NULL;
       kw = &(*kw)->next;
+    }
+  }
+
+  if (internal_kws) {
+    Py_ssize_t pos = 0;
+    PyObject *key, *val; 
+    while(PyDict_Next(internal_kws, &pos, &key, &val)) {
+      char *s = py_strdup(&st, key);
+      if (!s)
+        return false;
+      if(strncmp(s, "grid", 4) == 0) {
+        if (!PyLong_Check(val)) {
+          PyErr_SetString(PyExc_TypeError, "grid must be an integer");
+          return false;
+        }
+        long grid_val = PyLong_AsLong(val);
+        if (grid_val < 0 || grid_val > 8) {
+          PyErr_SetString(PyExc_ValueError, "grid must be between 0-8");
+          return false;
+        }
+        k->grid = (uint8_t) grid_val;
+      } else {
+        PyErr_Format(PyExc_ValueError, "Unexpected internal keyword argument: %S", s);
+        return false;
+      }
     }
   }
   return true;
