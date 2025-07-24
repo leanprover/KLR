@@ -184,3 +184,37 @@ theorem laterN_intro [UCMRA M] {P : UPred M} : iprop(P ⊢ ▷^[n] P) := by
   · exact .trans BI.later_intro (BI.later_mono IH)
 
 end iris_lib
+
+/- TODO : Upstream
+/-- Composition of Heaps
+NB. Potentially dangerous instance. -/
+instance instHeapComp [Heap T K1 T'] [Heap T' K2 V] : Heap T (K1 × K2) V where
+  get h k := Store.get h k.1 |>.bind (Store.get · k.2)
+  set h k v := Store.set h k.1 (some <| Store.set (Store.get h k.1 |>.getD Heap.empty) k.2 v)
+  empty := Heap.empty
+  hmap f h := Heap.hmap (fun k1 t1 => some <| Heap.hmap (fun k2 v => f (k1, k2) v) t1) h
+  merge op x y := Heap.merge (Heap.merge op) x y
+  get_set_eq {t k k' v} H := by cases k' <;> cases k <;> simp_all [Store.get_set_eq]
+  get_set_ne {t k k' v} H := by
+    cases k' <;> cases k <;> simp [Store.get_set_ne, Option.bind]
+    rename_i i1 j1 i2 j2
+    if hi : i2 = i1
+      then if hj : j1 = j2 then exfalso; simp_all
+           else
+             simp [Store.get_set_eq hi]
+             cases _ : (Store.get t i2) <;>
+             simp_all [Option.getD, Store.get_set_ne, Heap.get_empty]
+      else rw [Store.get_set_ne hi]
+  get_empty {k} := by cases k <;> simp_all [Heap.get_empty]
+  get_hmap {f t k} := by
+    simp [Heap.get_hmap]
+    cases (Store.get t k.fst) <;> simp [Store.get, Heap.hmap, Heap.get_hmap]
+  get_merge {op x y} k := by
+    rename_i i j
+    simp [hmap, Heap.get_merge, Option.merge]
+    cases _ : Store.get x k.fst  <;>
+    cases _ : Store.get y k.fst <;>
+    simp_all [Heap.get_merge] <;>
+    grind
+
+-/
