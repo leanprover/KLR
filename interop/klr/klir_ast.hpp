@@ -600,6 +600,17 @@ struct TensorTensor final {
   AluOp op;
 };
 
+struct NcMatMul final {
+  Ptr<TensorRef> dst;
+  Ptr<TensorRef> stationary;
+  Ptr<TensorRef> moving;
+  Bool isStationaryOneZero;
+  Bool isMovingZero;
+  Bool isTranspose;
+  List<Nat> tilePosition;
+  List<Nat> tileSize;
+};
+
 struct Operator {
   enum class Tag {
     activate = 1,
@@ -630,6 +641,7 @@ struct Operator {
     tensorTensor,
     tensorTensorScan,
     transpose,
+    ncMatMul,
   };
   Tag tag;
   Operator(Tag tag) : tag(tag) {}
@@ -773,6 +785,11 @@ struct OperatorTensorTensorScanWrapper final : Operator {
 struct OperatorTransposeWrapper final : Operator {
   Ptr<Transpose> op;
   OperatorTransposeWrapper() : Operator(Tag::transpose) {}
+};
+
+struct OperatorNcMatMulWrapper final : Operator {
+  Ptr<NcMatMul> op;
+  OperatorNcMatMulWrapper() : Operator(Tag::ncMatMul) {}
 };
 
 struct Value {

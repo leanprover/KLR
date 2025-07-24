@@ -61,22 +61,24 @@ nki nc_matmul
  (stationary : Access)
  -- kwargs
  (moving : Access)
- (_is_stationary_onezero : Bool := false) -- FIXME good to have
- (_is_moving_zero : Bool := false) -- FiXME good to have
+ (is_stationary_onezero : Bool := false)
+ (is_moving_zero : Bool := false)
  (is_transpose : Bool := false)
- (_tile_position : Shape := <-  Shape.fromList []) -- FIXME
- (_tile_size : Shape := <- Shape.fromList []) -- FIXME
- (_mask : Option Immediate := none) := do
-    -- got to emit load statioary before
-    -- accumulated flag is not supported yet
-    let dstT : TensorRef := .abstract dst
-    let movingT : TensorRef := .abstract moving
-    let stationaryT : TensorRef := .abstract stationary
-    let accFlag : MatmulGroupElement := .whole -- TODO: need to figure out which one it is
-    let ls : LoadStationary := ⟨ stationaryT, is_transpose ⟩
-    let mm : MatMul := ⟨ dstT, movingT, accFlag ⟩
-    Trace.add_stmt $ .oper (.loadStationary ls)
-    Trace.add_stmt $ .oper (.matMul mm)
+ (tile_position : List Nat := [])
+ (tile_size : List Nat := [])
+ (mask : Option Immediate := none) := do
+    if mask.isSome then
+      throw "mask parameter is not supported"
+    Trace.add_stmt $ .oper $ .ncMatMul {
+      dst := .abstract dst
+      stationary := .abstract stationary
+      moving := .abstract moving
+      isStationaryOneZero := is_stationary_onezero
+      isMovingZero := is_moving_zero
+      isTranspose := is_transpose
+      tilePosition := tile_position
+      tileSize := tile_size
+      }
     return .none
 
 nki nc_transpose
