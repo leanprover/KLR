@@ -536,7 +536,7 @@ def toPureExpr : Term -> Trace Term
       -- without a subscript on the RHS of assignment...
       throw "unimplemented"
   | .oper op => do
-      op.forM fun o => add_stmt (.oper o)
+      op.forM fun o => add_stmt (.oper o "no name")
       return .none
 
 -- Unpack an RValue.

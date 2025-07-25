@@ -24,7 +24,7 @@ open Lean(AssocList)
 open StateT(lift)
 open TensorLib(Iterator Tensor toLEByteArray)
 open TensorLib.Iterator(IntIter BEList)
-open KLR.Core(AccessPattern Address AluOp APPair Operator Shape TensorName TensorScalar)
+open KLR.Core(AccessPattern Address AluOp APPair NKIOperator Shape TensorName TensorScalar)
 
 namespace KLR
 namespace Eval
@@ -362,19 +362,19 @@ private def evalStmt (stmt : Core.Stmt) : WithEnv Unit := match stmt with
 | .assign x e => do
   let v <- evalExpr e
   modify fun env => env.insert x v
-| .store dst (Operator.tensorScalar ts) [.access v] => do
+| .store dst (NKIOperator.tensorScalar ts) [.access v] => do
   let v <- read v
   let f := evalTensorScalar ts
   let v <- TensorLib.Tensor.Ufunc.unop v f
   write dst v
-| .store dst Operator.load [arg] => do
+| .store dst NKIOperator.load [arg] => do
   let v <- evalValue arg
   modify fun env => env.insert dst.tensor.name v
-| .store _ Operator.load args => throw s!"Load expected 1 argument, got {repr args}"
-| .store dst Operator.save [arg] => do
+| .store _ NKIOperator.load args => throw s!"Load expected 1 argument, got {repr args}"
+| .store dst NKIOperator.save [arg] => do
   let v <- evalValue arg
   modify fun env => env.insert dst.tensor.name v
-| .store dst (Operator.memset elemval) [] => do
+| .store dst (NKIOperator.memset elemval) [] => do
   if elemval ≥ 2^32 then
    throw  s!"store memset: the element must fit in 32 bits"
   else if elemval = 0 then
@@ -383,10 +383,10 @@ private def evalStmt (stmt : Core.Stmt) : WithEnv Unit := match stmt with
     write dst (TensorLib.Tensor.zeros dty shape)
   else
    throw s!"Unimplemented: store memset: nonzero"
-| .store _ (Operator.memset _) _ => throw  s!"Unimplemented: store memset with args"
-| .store _ (Operator.tensorScalar ts) _ => throw s!"Unimplemented: store tensorScalar {repr ts}"
-| .store _ (Operator.tensorScalarAddr ts) _ => throw s!"Unimplemented: store tensorScalarAddr {repr ts}"
-| .store _ Operator.save _ => do
+| .store _ (NKIOperator.memset _) _ => throw  s!"Unimplemented: store memset with args"
+| .store _ (NKIOperator.tensorScalar ts) _ => throw s!"Unimplemented: store tensorScalar {repr ts}"
+| .store _ (NKIOperator.tensorScalarAddr ts) _ => throw s!"Unimplemented: store tensorScalarAddr {repr ts}"
+| .store _ NKIOperator.save _ => do
   let env <- get
   dbg_trace s!"env: {repr env}"
   throw s!"Unimplemented: store"
