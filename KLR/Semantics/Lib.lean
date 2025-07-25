@@ -21,7 +21,7 @@ def List.forall {α : Type _} (L : List α) (P : α → Prop) : Prop :=
   | .nil => True
   | .cons ll L => P ll ∧ List.forall L P
 
-def List.dot [Mul α] [Add α] [Zero α] (L1 L2 : List α) : α :=
+def List.dot' [Mul α] [Add α] [Zero α] (L1 L2 : List α) : α :=
   (List.zipWith (· * ·) L1 L2).sum
 
 class Encodable (dsize : Nat) (α β : Type _) where
@@ -218,3 +218,23 @@ instance instHeapComp [Heap T K1 T'] [Heap T' K2 V] : Heap T (K1 × K2) V where
     grind
 
 -/
+
+/-- A multiaffine equation describing an access into a free coordinate of an Address -/
+structure AffineMap where
+  free_offset : Int
+  free_strides : List Int
+  par_offset : Int
+  par_stride : Int
+  deriving Repr, BEq
+
+def AffineMap.par (a : AffineMap) (i : Int) : Int :=
+  a.par_offset + a.par_stride * i
+
+def AffineMap.free (a : AffineMap) (i : List Int) : Int :=
+  a.free_offset + List.dot' a.free_strides i
+
+def AffineMap.is_trivial (a : AffineMap) : Prop :=
+  a.free_offset = 0 ∧
+  a.par_offset = 0 ∧
+  a.par_stride = 1 ∧
+  a.free_strides = a.free_strides.map (fun _ => 1)
