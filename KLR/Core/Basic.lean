@@ -136,7 +136,7 @@ instance : Tensors Operand where
   | .imm .. => []
   | .tile t => tensors t
 
-instance : Tensors (Option TensorRef) where
+instance [Tensors a] : Tensors (Option a) where
   tensors op := match op with
   | .some t => tensors t
   | .none => []
@@ -165,7 +165,7 @@ instance : Tensors Operator where
       | .copyPredicated c => [c.dst, c.src, c.predicate]
       | .batchNormAggregate b => [b.dst, b.src]
       | .batchNormStats b => [b.dst, b.src]
-      | .findIndex8 f => [f.dst, f.src]
+      | .findIndex8 f => [f.dst, f.src, f.vals]
       | .matchReplace8 m => [m.dst, m.src, m.vals]
       | .matchValueLoad m => [m.src]
       | .max8 m => [m.dst, m.src]
@@ -178,9 +178,12 @@ instance : Tensors Operator where
       | .tensorScalarReduce t => [t.dst, t.src, t.reduceRes]
     let additionalTensors := match op with
       | .activate d => tensors d.reduceRes
-      | .rangeSelect r => tensors r.reduceRes
+      | .affineSelect a => tensors a.onTrueTile
+      | .rangeSelect r => (tensors r.reduceRes) ++ (tensors r.bound0) ++ (tensors r.bound1) ++ (tensors r.onTrueTile)
       | .dropout d => tensors d.threshold
+      | .matchReplace8 m => tensors m.dstIdx
       | .tensorTensorScan t => tensors t.initial
+      | .tensorScalar t => (tensors t.operand0) ++ (tensors t.operand1)
       | .scalarTensorTensor s => (tensors s.src0) ++ (tensors s.src1)
       | .activationReduce t => tensors t.reduceRes
       | .tensorScalarReduce t => tensors t.operand0
