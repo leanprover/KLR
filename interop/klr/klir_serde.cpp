@@ -168,7 +168,7 @@ Memory Memory_des(FILE *in) {
   case 2: {
     if (l != 0)
       throw std::runtime_error("Wrong number of elements");
-    return Memory::pmem;
+    return Memory::psum;
     break;
   }
   case 3: {
@@ -695,11 +695,39 @@ Ptr<ActivationImm> ActivationImm_des(FILE *in) {
   }
 }
 
+Ptr<Operand> Operand_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not read tag");
+  if (t != 133)
+    throw std::runtime_error("Unexpected type tag");
+  switch (c) {
+  case 0: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperandImmWrapper> x = ptr<OperandImmWrapper>();
+    x->i = Immediate_des(in);
+    return x;
+    break;
+  }
+  case 1: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperandTileWrapper> x = ptr<OperandTileWrapper>();
+    x->t = TensorRef_des(in);
+    return x;
+    break;
+  }
+  default:
+    throw std::runtime_error("Invalid value tag");
+  }
+}
+
 Ptr<DataPattern> DataPattern_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 133 || c != 0 || l != 2)
+  if (t != 134 || c != 0 || l != 2)
     throw std::runtime_error("Invalid Tag");
   Ptr<DataPattern> x = ptr<DataPattern>();
   x->offset = Nat_des(in);
@@ -711,7 +739,7 @@ AluOp AluOp_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 134)
+  if (t != 135)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -897,7 +925,7 @@ DropoutThresholdType DropoutThresholdType_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 135)
+  if (t != 136)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -921,7 +949,7 @@ AccumCmd AccumCmd_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 136)
+  if (t != 137)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -963,7 +991,7 @@ ActivationFunc ActivationFunc_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 137)
+  if (t != 138)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -1113,7 +1141,7 @@ AffineSelectCmp AffineSelectCmp_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 138)
+  if (t != 139)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -1149,7 +1177,7 @@ DgeComputeOp DgeComputeOp_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 139)
+  if (t != 140)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -1173,7 +1201,7 @@ Ptr<DmaBounds> DmaBounds_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 140)
+  if (t != 141)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -1207,7 +1235,7 @@ MatmulGroupElement MatmulGroupElement_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 141)
+  if (t != 142)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -1243,7 +1271,7 @@ Ptr<IndexMissBehavior> IndexMissBehavior_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 142)
+  if (t != 143)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -1270,7 +1298,7 @@ TensorScalarReverseOps TensorScalarReverseOps_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 143)
+  if (t != 144)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -1306,7 +1334,7 @@ TensorSubDim TensorSubDim_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 144)
+  if (t != 145)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -1338,17 +1366,114 @@ TensorSubDim TensorSubDim_des(FILE *in) {
   }
 }
 
+TransposeOps TransposeOps_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not read tag");
+  if (t != 146)
+    throw std::runtime_error("Unexpected type tag");
+  switch (c) {
+  case 0: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return TransposeOps::None;
+    break;
+  }
+  case 1: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return TransposeOps::WZXY;
+    break;
+  }
+  case 2: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return TransposeOps::WXZY;
+    break;
+  }
+  case 3: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return TransposeOps::WYXZ;
+    break;
+  }
+  case 4: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return TransposeOps::ZWYX;
+    break;
+  }
+  case 5: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return TransposeOps::ZYWX;
+    break;
+  }
+  case 6: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return TransposeOps::ZYXW;
+    break;
+  }
+  case 7: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return TransposeOps::YXWZ;
+    break;
+  }
+  case 8: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return TransposeOps::YXZW;
+    break;
+  }
+  case 9: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return TransposeOps::YWZX;
+    break;
+  }
+  case 10: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return TransposeOps::XWZY;
+    break;
+  }
+  case 11: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return TransposeOps::XZYW;
+    break;
+  }
+  case 12: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return TransposeOps::XYZW;
+    break;
+  }
+  case 13: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return TransposeOps::XYWZ;
+    break;
+  }
+  default:
+    throw std::runtime_error("Invalid value tag");
+  }
+}
+
 Ptr<Dropout> Dropout_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 145 || c != 0 || l != 4)
+  if (t != 147 || c != 0 || l != 5)
     throw std::runtime_error("Invalid Tag");
   Ptr<Dropout> x = ptr<Dropout>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
   x->thresholdType = DropoutThresholdType_des(in);
-  x->threshold = Immediate_des(in);
+  x->threshold = Operand_des(in);
+  x->dtype = Option_Dtype_des(in);
   return x;
 }
 
@@ -1356,7 +1481,7 @@ Ptr<Activate> Activate_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 146 || c != 0 || l != 7)
+  if (t != 148 || c != 0 || l != 7)
     throw std::runtime_error("Invalid Tag");
   Ptr<Activate> x = ptr<Activate>();
   x->dst = TensorRef_des(in);
@@ -1373,7 +1498,7 @@ Ptr<AffineSelect> AffineSelect_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 147 || c != 0 || l != 5)
+  if (t != 150 || c != 0 || l != 5)
     throw std::runtime_error("Invalid Tag");
   Ptr<AffineSelect> x = ptr<AffineSelect>();
   x->dst = TensorRef_des(in);
@@ -1388,7 +1513,7 @@ Ptr<DmaCopy> DmaCopy_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 148 || c != 0 || l != 5)
+  if (t != 152 || c != 0 || l != 5)
     throw std::runtime_error("Invalid Tag");
   Ptr<DmaCopy> x = ptr<DmaCopy>();
   x->dst = TensorRef_des(in);
@@ -1403,11 +1528,13 @@ Ptr<DmaTranspose> DmaTranspose_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 149 || c != 0 || l != 2)
+  if (t != 154 || c != 0 || l != 4)
     throw std::runtime_error("Invalid Tag");
   Ptr<DmaTranspose> x = ptr<DmaTranspose>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
+  x->axes = TransposeOps_des(in);
+  x->dtype = Option_Dtype_des(in);
   return x;
 }
 
@@ -1415,11 +1542,13 @@ Ptr<Transpose> Transpose_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 150 || c != 0 || l != 2)
+  if (t != 155 || c != 0 || l != 4)
     throw std::runtime_error("Invalid Tag");
   Ptr<Transpose> x = ptr<Transpose>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
+  x->dtype = Option_Dtype_des(in);
+  x->engine = Engine_des(in);
   return x;
 }
 
@@ -1427,7 +1556,7 @@ Ptr<LoadMaskRegister> LoadMaskRegister_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 151 || c != 0 || l != 1)
+  if (t != 156 || c != 0 || l != 1)
     throw std::runtime_error("Invalid Tag");
   Ptr<LoadMaskRegister> x = ptr<LoadMaskRegister>();
   x->regNum = Nat_des(in);
@@ -1438,11 +1567,13 @@ Ptr<Shuffle> Shuffle_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 152 || c != 0 || l != 2)
+  if (t != 157 || c != 0 || l != 4)
     throw std::runtime_error("Invalid Tag");
   Ptr<Shuffle> x = ptr<Shuffle>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
+  x->shuffleMask = List_Immediate_des(in);
+  x->dtype = Option_Dtype_des(in);
   return x;
 }
 
@@ -1450,12 +1581,13 @@ Ptr<MemSet> MemSet_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 153 || c != 0 || l != 3)
+  if (t != 158 || c != 0 || l != 4)
     throw std::runtime_error("Invalid Tag");
   Ptr<MemSet> x = ptr<MemSet>();
   x->dst = TensorRef_des(in);
   x->value = Immediate_des(in);
-  x->count = Nat_des(in);
+  x->dtype = Dtype_des(in);
+  x->engine = Engine_des(in);
   return x;
 }
 
@@ -1463,11 +1595,12 @@ Ptr<Iota> Iota_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 154 || c != 0 || l != 2)
+  if (t != 159 || c != 0 || l != 3)
     throw std::runtime_error("Invalid Tag");
   Ptr<Iota> x = ptr<Iota>();
   x->dst = TensorRef_des(in);
   x->pattern = DataPattern_des(in);
+  x->dtype = Option_Dtype_des(in);
   return x;
 }
 
@@ -1475,7 +1608,7 @@ Ptr<LoadStationary> LoadStationary_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 155 || c != 0 || l != 2)
+  if (t != 160 || c != 0 || l != 2)
     throw std::runtime_error("Invalid Tag");
   Ptr<LoadStationary> x = ptr<LoadStationary>();
   x->src = TensorRef_des(in);
@@ -1487,7 +1620,7 @@ Ptr<MatMul> MatMul_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 156 || c != 0 || l != 3)
+  if (t != 161 || c != 0 || l != 3)
     throw std::runtime_error("Invalid Tag");
   Ptr<MatMul> x = ptr<MatMul>();
   x->dst = TensorRef_des(in);
@@ -1500,7 +1633,7 @@ Ptr<LocalGather> LocalGather_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 157 || c != 0 || l != 4)
+  if (t != 162 || c != 0 || l != 4)
     throw std::runtime_error("Invalid Tag");
   Ptr<LocalGather> x = ptr<LocalGather>();
   x->dst = TensorRef_des(in);
@@ -1514,7 +1647,7 @@ Ptr<RangeSelect> RangeSelect_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 158 || c != 0 || l != 10)
+  if (t != 164 || c != 0 || l != 10)
     throw std::runtime_error("Invalid Tag");
   Ptr<RangeSelect> x = ptr<RangeSelect>();
   x->dst = TensorRef_des(in);
@@ -1534,7 +1667,7 @@ Ptr<ScalarTensorTensor> ScalarTensorTensor_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 159 || c != 0 || l != 8)
+  if (t != 166 || c != 0 || l != 8)
     throw std::runtime_error("Invalid Tag");
   Ptr<ScalarTensorTensor> x = ptr<ScalarTensorTensor>();
   x->dst = TensorRef_des(in);
@@ -1552,12 +1685,14 @@ Ptr<CopyPredicated> CopyPredicated_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 160 || c != 0 || l != 3)
+  if (t != 168 || c != 0 || l != 5)
     throw std::runtime_error("Invalid Tag");
   Ptr<CopyPredicated> x = ptr<CopyPredicated>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
   x->predicate = TensorRef_des(in);
+  x->dtype = Option_Dtype_des(in);
+  x->reversePred = Bool_des(in);
   return x;
 }
 
@@ -1565,7 +1700,7 @@ Ptr<TensorTensorScan> TensorTensorScan_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 161 || c != 0 || l != 8)
+  if (t != 169 || c != 0 || l != 9)
     throw std::runtime_error("Invalid Tag");
   Ptr<TensorTensorScan> x = ptr<TensorTensorScan>();
   x->dst = TensorRef_des(in);
@@ -1574,8 +1709,9 @@ Ptr<TensorTensorScan> TensorTensorScan_des(FILE *in) {
   x->op0 = AluOp_des(in);
   x->op1 = AluOp_des(in);
   x->reverseOperands = TensorScalarReverseOps_des(in);
-  x->imm0 = Immediate_des(in);
+  x->imm0 = Operand_des(in);
   x->accumulatorCmd = AccumCmd_des(in);
+  x->dtype = Option_Dtype_des(in);
   return x;
 }
 
@@ -1583,7 +1719,7 @@ Ptr<MatchValueLoad> MatchValueLoad_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 162 || c != 0 || l != 1)
+  if (t != 170 || c != 0 || l != 1)
     throw std::runtime_error("Invalid Tag");
   Ptr<MatchValueLoad> x = ptr<MatchValueLoad>();
   x->src = TensorRef_des(in);
@@ -1594,11 +1730,13 @@ Ptr<FindIndex8> FindIndex8_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 163 || c != 0 || l != 2)
+  if (t != 171 || c != 0 || l != 4)
     throw std::runtime_error("Invalid Tag");
   Ptr<FindIndex8> x = ptr<FindIndex8>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
+  x->vals = TensorRef_des(in);
+  x->dtype = Option_Dtype_des(in);
   return x;
 }
 
@@ -1606,12 +1744,15 @@ Ptr<MatchReplace8> MatchReplace8_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 164 || c != 0 || l != 3)
+  if (t != 172 || c != 0 || l != 6)
     throw std::runtime_error("Invalid Tag");
   Ptr<MatchReplace8> x = ptr<MatchReplace8>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
+  x->vals = TensorRef_des(in);
   x->replaceValue = Immediate_des(in);
+  x->dstIdx = Option_TensorRef_des(in);
+  x->dtype = Option_Dtype_des(in);
   return x;
 }
 
@@ -1619,11 +1760,12 @@ Ptr<Max8> Max8_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 165 || c != 0 || l != 2)
+  if (t != 173 || c != 0 || l != 3)
     throw std::runtime_error("Invalid Tag");
   Ptr<Max8> x = ptr<Max8>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
+  x->dtype = Option_Dtype_des(in);
   return x;
 }
 
@@ -1631,11 +1773,12 @@ Ptr<BatchNormAggregate> BatchNormAggregate_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 166 || c != 0 || l != 2)
+  if (t != 174 || c != 0 || l != 3)
     throw std::runtime_error("Invalid Tag");
   Ptr<BatchNormAggregate> x = ptr<BatchNormAggregate>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
+  x->dtype = Option_Dtype_des(in);
   return x;
 }
 
@@ -1643,11 +1786,12 @@ Ptr<BatchNormStats> BatchNormStats_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 167 || c != 0 || l != 2)
+  if (t != 175 || c != 0 || l != 3)
     throw std::runtime_error("Invalid Tag");
   Ptr<BatchNormStats> x = ptr<BatchNormStats>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
+  x->dtype = Option_Dtype_des(in);
   return x;
 }
 
@@ -1655,11 +1799,12 @@ Ptr<Reciprocal> Reciprocal_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 168 || c != 0 || l != 2)
+  if (t != 176 || c != 0 || l != 3)
     throw std::runtime_error("Invalid Tag");
   Ptr<Reciprocal> x = ptr<Reciprocal>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
+  x->dtype = Option_Dtype_des(in);
   return x;
 }
 
@@ -1667,7 +1812,7 @@ Ptr<Copy> Copy_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 169 || c != 0 || l != 3)
+  if (t != 177 || c != 0 || l != 3)
     throw std::runtime_error("Invalid Tag");
   Ptr<Copy> x = ptr<Copy>();
   x->dst = TensorRef_des(in);
@@ -1680,7 +1825,7 @@ Ptr<TensorReduce> TensorReduce_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 170 || c != 0 || l != 5)
+  if (t != 179 || c != 0 || l != 7)
     throw std::runtime_error("Invalid Tag");
   Ptr<TensorReduce> x = ptr<TensorReduce>();
   x->dst = TensorRef_des(in);
@@ -1688,6 +1833,8 @@ Ptr<TensorReduce> TensorReduce_des(FILE *in) {
   x->op = AluOp_des(in);
   x->opDim = TensorSubDim_des(in);
   x->negated = Bool_des(in);
+  x->dtype = Option_Dtype_des(in);
+  x->keepdims = Bool_des(in);
   return x;
 }
 
@@ -1695,16 +1842,18 @@ Ptr<TensorScalar> TensorScalar_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 171 || c != 0 || l != 7)
+  if (t != 180 || c != 0 || l != 9)
     throw std::runtime_error("Invalid Tag");
   Ptr<TensorScalar> x = ptr<TensorScalar>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
-  x->imm0 = Immediate_des(in);
+  x->imm0 = Operand_des(in);
   x->op0 = AluOp_des(in);
-  x->imm1 = Immediate_des(in);
-  x->op1 = AluOp_des(in);
+  x->imm1 = Option_Operand_des(in);
+  x->op1 = Option_AluOp_des(in);
   x->reverse = TensorScalarReverseOps_des(in);
+  x->engine = Engine_des(in);
+  x->dtype = Option_Dtype_des(in);
   return x;
 }
 
@@ -1712,13 +1861,15 @@ Ptr<TensorTensor> TensorTensor_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 172 || c != 0 || l != 4)
+  if (t != 182 || c != 0 || l != 6)
     throw std::runtime_error("Invalid Tag");
   Ptr<TensorTensor> x = ptr<TensorTensor>();
   x->dst = TensorRef_des(in);
   x->src0 = TensorRef_des(in);
   x->src1 = TensorRef_des(in);
   x->op = AluOp_des(in);
+  x->dtype = Option_Dtype_des(in);
+  x->engine = Engine_des(in);
   return x;
 }
 
@@ -1726,7 +1877,7 @@ Ptr<NcMatMul> NcMatMul_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 173 || c != 0 || l != 8)
+  if (t != 183 || c != 0 || l != 8)
     throw std::runtime_error("Invalid Tag");
   Ptr<NcMatMul> x = ptr<NcMatMul>();
   x->dst = TensorRef_des(in);
@@ -1740,11 +1891,194 @@ Ptr<NcMatMul> NcMatMul_des(FILE *in) {
   return x;
 }
 
+Ptr<TensorScalarReduce> TensorScalarReduce_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 181 || c != 0 || l != 8)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<TensorScalarReduce> x = ptr<TensorScalarReduce>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  x->operand0 = Operand_des(in);
+  x->op0 = AluOp_des(in);
+  x->reverse0 = Bool_des(in);
+  x->dtype = Option_Dtype_des(in);
+  x->reduceOp = Option_AluOp_des(in);
+  x->reduceRes = TensorRef_des(in);
+  return x;
+}
+
+Ptr<TensorPartitionReduce> TensorPartitionReduce_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 184 || c != 0 || l != 4)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<TensorPartitionReduce> x = ptr<TensorPartitionReduce>();
+  x->dst = TensorRef_des(in);
+  x->op = AluOp_des(in);
+  x->data = TensorRef_des(in);
+  x->dtype = Option_Dtype_des(in);
+  return x;
+}
+
+Ptr<NcActivate> NcActivate_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 149 || c != 0 || l != 9)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<NcActivate> x = ptr<NcActivate>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  x->accumulatorCmd = AccumCmd_des(in);
+  x->activationFunc = ActivationFunc_des(in);
+  x->scale = Immediate_des(in);
+  x->bias = Immediate_des(in);
+  x->reduceOp = Option_AluOp_des(in);
+  x->reduceRes = Option_TensorRef_des(in);
+  x->dtype = Option_Dtype_des(in);
+  return x;
+}
+
+Ptr<NcAffineSelect> NcAffineSelect_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 151 || c != 0 || l != 6)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<NcAffineSelect> x = ptr<NcAffineSelect>();
+  x->dst = TensorRef_des(in);
+  x->pred = DataPattern_des(in);
+  x->onTrueTile = TensorRef_des(in);
+  x->onFalseValue = Immediate_des(in);
+  x->dtype = Option_Dtype_des(in);
+  x->cmpOp = AluOp_des(in);
+  return x;
+}
+
+Ptr<NcDmaCopy> NcDmaCopy_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 153 || c != 0 || l != 5)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<NcDmaCopy> x = ptr<NcDmaCopy>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  x->compute_op = DgeComputeOp_des(in);
+  x->oobMode = DmaBounds_des(in);
+  x->dgeMode = Nat_des(in);
+  return x;
+}
+
+Ptr<NcLocalGather> NcLocalGather_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 163 || c != 0 || l != 5)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<NcLocalGather> x = ptr<NcLocalGather>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  x->index = TensorRef_des(in);
+  x->numElemPerIdx = Immediate_des(in);
+  x->numValidIndicies = Option_Immediate_des(in);
+  return x;
+}
+
+Ptr<NcRangeSelect> NcRangeSelect_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 165 || c != 0 || l != 12)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<NcRangeSelect> x = ptr<NcRangeSelect>();
+  x->dst = TensorRef_des(in);
+  x->reduceCommand = AccumCmd_des(in);
+  x->reduceRes = Option_TensorRef_des(in);
+  x->reduceOp = Option_AluOp_des(in);
+  x->compOp0 = AluOp_des(in);
+  x->compOp1 = AluOp_des(in);
+  x->bound0 = TensorRef_des(in);
+  x->bound1 = TensorRef_des(in);
+  x->rangeStart = Immediate_des(in);
+  x->onTrueTile = TensorRef_des(in);
+  x->onFalseValue = Immediate_des(in);
+  x->dtype = Option_Dtype_des(in);
+  return x;
+}
+
+Ptr<NcScalarTensorTensor> NcScalarTensorTensor_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 167 || c != 0 || l != 8)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<NcScalarTensorTensor> x = ptr<NcScalarTensorTensor>();
+  x->dst = TensorRef_des(in);
+  x->data = TensorRef_des(in);
+  x->src0 = Operand_des(in);
+  x->src1 = Operand_des(in);
+  x->op0 = AluOp_des(in);
+  x->op1 = AluOp_des(in);
+  x->reverseOperands = TensorScalarReverseOps_des(in);
+  x->dtype = Option_Dtype_des(in);
+  return x;
+}
+
+Ptr<NcCopy> NcCopy_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 178 || c != 0 || l != 4)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<NcCopy> x = ptr<NcCopy>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  x->dtype = Option_Dtype_des(in);
+  x->engine = Engine_des(in);
+  return x;
+}
+
+Ptr<SelectReduce> SelectReduce_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 185 || c != 0 || l != 9)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<SelectReduce> x = ptr<SelectReduce>();
+  x->dst = TensorRef_des(in);
+  x->predicate = TensorRef_des(in);
+  x->onTrue = TensorRef_des(in);
+  x->onFalse = Operand_des(in);
+  x->reduceRes = Option_TensorRef_des(in);
+  x->reduceCmd = AccumCmd_des(in);
+  x->reduceOp = AluOp_des(in);
+  x->reversePred = Bool_des(in);
+  x->dtype = Option_Dtype_des(in);
+  return x;
+}
+
+Ptr<SequenceBounds> SequenceBounds_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 186 || c != 0 || l != 3)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<SequenceBounds> x = ptr<SequenceBounds>();
+  x->dst = TensorRef_des(in);
+  x->segmentIds = TensorRef_des(in);
+  x->dtype = Option_Dtype_des(in);
+  return x;
+}
+
 Ptr<Operator> Operator_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 174)
+  if (t != 187)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -1758,12 +2092,37 @@ Ptr<Operator> Operator_des(FILE *in) {
   case 1: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorNcActivateWrapper> x = ptr<OperatorNcActivateWrapper>();
+    x->op = NcActivate_des(in);
+    return x;
+    break;
+  }
+  case 2: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorActivationReduceWrapper> x =
+        ptr<OperatorActivationReduceWrapper>();
+    x->op = NcActivate_des(in);
+    return x;
+    break;
+  }
+  case 3: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorAffineSelectWrapper> x = ptr<OperatorAffineSelectWrapper>();
     x->op = AffineSelect_des(in);
     return x;
     break;
   }
-  case 2: {
+  case 4: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorNcAffineSelectWrapper> x = ptr<OperatorNcAffineSelectWrapper>();
+    x->op = NcAffineSelect_des(in);
+    return x;
+    break;
+  }
+  case 5: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorBatchNormAggregateWrapper> x =
@@ -1772,7 +2131,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 3: {
+  case 6: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorBatchNormStatsWrapper> x = ptr<OperatorBatchNormStatsWrapper>();
@@ -1780,7 +2139,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 4: {
+  case 7: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorCopyWrapper> x = ptr<OperatorCopyWrapper>();
@@ -1788,7 +2147,15 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 5: {
+  case 8: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorNcCopyWrapper> x = ptr<OperatorNcCopyWrapper>();
+    x->op = NcCopy_des(in);
+    return x;
+    break;
+  }
+  case 9: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorCopyPredicatedWrapper> x = ptr<OperatorCopyPredicatedWrapper>();
@@ -1796,7 +2163,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 6: {
+  case 10: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorDmaCopyWrapper> x = ptr<OperatorDmaCopyWrapper>();
@@ -1804,7 +2171,15 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 7: {
+  case 11: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorNcDmaCopyWrapper> x = ptr<OperatorNcDmaCopyWrapper>();
+    x->op = NcDmaCopy_des(in);
+    return x;
+    break;
+  }
+  case 12: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorDmaTransposeWrapper> x = ptr<OperatorDmaTransposeWrapper>();
@@ -1812,7 +2187,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 8: {
+  case 13: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorDropoutWrapper> x = ptr<OperatorDropoutWrapper>();
@@ -1820,7 +2195,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 9: {
+  case 14: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorFindIndex8Wrapper> x = ptr<OperatorFindIndex8Wrapper>();
@@ -1828,7 +2203,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 10: {
+  case 15: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorIotaWrapper> x = ptr<OperatorIotaWrapper>();
@@ -1836,7 +2211,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 11: {
+  case 16: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorLoadMaskRegisterWrapper> x =
@@ -1845,7 +2220,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 12: {
+  case 17: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorLoadStationaryWrapper> x = ptr<OperatorLoadStationaryWrapper>();
@@ -1853,7 +2228,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 13: {
+  case 18: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorLocalGatherWrapper> x = ptr<OperatorLocalGatherWrapper>();
@@ -1861,7 +2236,15 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 14: {
+  case 19: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorNcLocalGatherWrapper> x = ptr<OperatorNcLocalGatherWrapper>();
+    x->op = NcLocalGather_des(in);
+    return x;
+    break;
+  }
+  case 20: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorMatMulWrapper> x = ptr<OperatorMatMulWrapper>();
@@ -1869,7 +2252,15 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 15: {
+  case 21: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorNcMatMulWrapper> x = ptr<OperatorNcMatMulWrapper>();
+    x->op = NcMatMul_des(in);
+    return x;
+    break;
+  }
+  case 22: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorMatchReplace8Wrapper> x = ptr<OperatorMatchReplace8Wrapper>();
@@ -1877,7 +2268,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 16: {
+  case 23: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorMatchValueLoadWrapper> x = ptr<OperatorMatchValueLoadWrapper>();
@@ -1885,7 +2276,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 17: {
+  case 24: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorMax8Wrapper> x = ptr<OperatorMax8Wrapper>();
@@ -1893,7 +2284,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 18: {
+  case 25: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorMemSetWrapper> x = ptr<OperatorMemSetWrapper>();
@@ -1901,7 +2292,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 19: {
+  case 26: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorRangeSelectWrapper> x = ptr<OperatorRangeSelectWrapper>();
@@ -1909,7 +2300,15 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 20: {
+  case 27: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorNcRangeSelectWrapper> x = ptr<OperatorNcRangeSelectWrapper>();
+    x->op = NcRangeSelect_des(in);
+    return x;
+    break;
+  }
+  case 28: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorReciprocalWrapper> x = ptr<OperatorReciprocalWrapper>();
@@ -1917,7 +2316,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 21: {
+  case 29: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorScalarTensorTensorWrapper> x =
@@ -1926,7 +2325,16 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 22: {
+  case 30: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorNcScalarTensorTensorWrapper> x =
+        ptr<OperatorNcScalarTensorTensorWrapper>();
+    x->op = NcScalarTensorTensor_des(in);
+    return x;
+    break;
+  }
+  case 31: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorShuffleWrapper> x = ptr<OperatorShuffleWrapper>();
@@ -1934,7 +2342,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 23: {
+  case 32: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorTensorReduceWrapper> x = ptr<OperatorTensorReduceWrapper>();
@@ -1942,7 +2350,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 24: {
+  case 33: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorTensorScalarWrapper> x = ptr<OperatorTensorScalarWrapper>();
@@ -1950,7 +2358,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 25: {
+  case 34: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorTensorTensorWrapper> x = ptr<OperatorTensorTensorWrapper>();
@@ -1958,7 +2366,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 26: {
+  case 35: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorTensorTensorScanWrapper> x =
@@ -1967,7 +2375,25 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 27: {
+  case 36: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorTensorPartitionReduceWrapper> x =
+        ptr<OperatorTensorPartitionReduceWrapper>();
+    x->op = TensorPartitionReduce_des(in);
+    return x;
+    break;
+  }
+  case 37: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorTensorScalarReduceWrapper> x =
+        ptr<OperatorTensorScalarReduceWrapper>();
+    x->op = TensorScalarReduce_des(in);
+    return x;
+    break;
+  }
+  case 38: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorTransposeWrapper> x = ptr<OperatorTransposeWrapper>();
@@ -1975,11 +2401,19 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 28: {
+  case 39: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
-    Ptr<OperatorNcMatMulWrapper> x = ptr<OperatorNcMatMulWrapper>();
-    x->op = NcMatMul_des(in);
+    Ptr<OperatorSelectReduceWrapper> x = ptr<OperatorSelectReduceWrapper>();
+    x->op = SelectReduce_des(in);
+    return x;
+    break;
+  }
+  case 40: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorSequenceBoundsWrapper> x = ptr<OperatorSequenceBoundsWrapper>();
+    x->op = SequenceBounds_des(in);
     return x;
     break;
   }
@@ -2117,10 +2551,11 @@ Ptr<Stmt> Stmt_des(FILE *in) {
     break;
   }
   case 3: {
-    if (l != 1)
+    if (l != 2)
       throw std::runtime_error("Wrong number of elements");
     Ptr<StmtOperWrapper> x = ptr<StmtOperWrapper>();
     x->op = Operator_des(in);
+    x->name = Option_String_des(in);
     return x;
     break;
   }
@@ -2169,6 +2604,41 @@ List<Ptr<APPair>> List_APPair_des(FILE *in) {
   return l;
 }
 
+Option<Dtype> Option_Dtype_des(FILE *in) {
+  bool isSome;
+  if (!deserialize_option(in, &isSome))
+    throw std::runtime_error("expecting Bool");
+
+  Option<Dtype> x;
+  if (isSome)
+    x = Dtype_des(in);
+  return x;
+}
+
+List<Ptr<Immediate>> List_Immediate_des(FILE *in) {
+  u64 size = 0;
+  if (!deserialize_array_start(in, &size))
+    throw std::runtime_error("expecting List");
+
+  List<Ptr<Immediate>> l;
+  while (size-- > 0) {
+    Ptr<Immediate> b = Immediate_des(in);
+    l.push_back(b);
+  }
+  return l;
+}
+
+Option<Ptr<TensorRef>> Option_TensorRef_des(FILE *in) {
+  bool isSome;
+  if (!deserialize_option(in, &isSome))
+    throw std::runtime_error("expecting Bool");
+
+  Option<Ptr<TensorRef>> x;
+  if (isSome)
+    x = TensorRef_des(in);
+  return x;
+}
+
 Option<TensorSubDim> Option_TensorSubDim_des(FILE *in) {
   bool isSome;
   if (!deserialize_option(in, &isSome))
@@ -2177,6 +2647,39 @@ Option<TensorSubDim> Option_TensorSubDim_des(FILE *in) {
   Option<TensorSubDim> x;
   if (isSome)
     x = TensorSubDim_des(in);
+  return x;
+}
+
+Option<Ptr<Operand>> Option_Operand_des(FILE *in) {
+  bool isSome;
+  if (!deserialize_option(in, &isSome))
+    throw std::runtime_error("expecting Bool");
+
+  Option<Ptr<Operand>> x;
+  if (isSome)
+    x = Operand_des(in);
+  return x;
+}
+
+Option<AluOp> Option_AluOp_des(FILE *in) {
+  bool isSome;
+  if (!deserialize_option(in, &isSome))
+    throw std::runtime_error("expecting Bool");
+
+  Option<AluOp> x;
+  if (isSome)
+    x = AluOp_des(in);
+  return x;
+}
+
+Option<Ptr<Immediate>> Option_Immediate_des(FILE *in) {
+  bool isSome;
+  if (!deserialize_option(in, &isSome))
+    throw std::runtime_error("expecting Bool");
+
+  Option<Ptr<Immediate>> x;
+  if (isSome)
+    x = Immediate_des(in);
   return x;
 }
 
