@@ -48,6 +48,40 @@ def state_interp (left right : @state DataT) : @PROP DataT :=
 def state_frag (left right : @state DataT) : @PROP DataT :=
   heProp_frag _ _ _ _ (.mk left.memory right.memory)
 
+/-- PointsTo for a single element in the store -/
+def PointsTo (k : ProdNeuronIndex) (v : DataT) : @PROP DataT :=
+  heProp_elem _ _ _ _ k v
+notation k " ↦ " v => PointsTo k v
+notation k " ↦ₗ " v => PointsTo (ProdIndex.left k) v
+notation k " ↦ᵣ " v => PointsTo (ProdIndex.right k) v
+
+/-- PointsTo that asserts knowledge over an entire store.
+When using unbounded and HBM allocations, this is probably enough. -/
+def PointsToS (k : ProdIndex ChipIndex) (v : LocalStore DataT) : @PROP DataT :=
+  match k with
+  | .left  i => heProp_frag _ _ _ _ ⟨(ChipMemory.set_store ChipMemory.empty i (some v)), ChipMemory.empty⟩
+  | .right i => heProp_frag _ _ _ _ ⟨ChipMemory.empty, (ChipMemory.set_store ChipMemory.empty i (some v))⟩
+notation k " ⇉ " v  => PointsToS k v
+notation k " ⇉ₗ " v => PointsToS (ProdIndex.left  k) v
+notation k " ⇉ᵣ " v => PointsToS (ProdIndex.right k) v
+
+/- Chip-specific notations, (TODO: Refactor )-/
+notation k " [S]⇉ₗ " v  => PointsToS (ProdIndex.left  (ChipIndex.sbufUnboundedIndex k)) (some v)
+notation k " [P]⇉ₗ " v  => PointsToS (ProdIndex.left  (ChipIndex.psumUnboundedIndex k)) (some v)
+notation k " [H]⇉ₗ " v  => PointsToS (ProdIndex.left  (ChipIndex.hbmUnboundedIndex k))  (some v)
+
+notation k " [S]⇉ᵣ " v  => PointsToS (ProdIndex.right (ChipIndex.sbufUnboundedIndex k)) (some v)
+notation k " [P]⇉ᵣ " v  => PointsToS (ProdIndex.right (ChipIndex.psumUnboundedIndex k)) (some v)
+notation k " [H]⇉ᵣ " v  => PointsToS (ProdIndex.right (ChipIndex.hbmUnboundedIndex k))  (some v)
+
+notation k " [S]⇉ₗ∅ " => PointsToS (ProdIndex.left  (ChipIndex.sbufUnboundedIndex k)) none
+notation k " [P]⇉ₗ∅ " => PointsToS (ProdIndex.left  (ChipIndex.psumUnboundedIndex k)) none
+notation k " [H]⇉ₗ∅ " => PointsToS (ProdIndex.left  (ChipIndex.hbmUnboundedIndex k))  none
+
+notation k " [S]⇉ᵣ∅ " => PointsToS (ProdIndex.right (ChipIndex.sbufUnboundedIndex k)) none
+notation k " [P]⇉ᵣ∅ " => PointsToS (ProdIndex.right (ChipIndex.psumUnboundedIndex k)) none
+notation k " [H]⇉ᵣ∅ " => PointsToS (ProdIndex.right (ChipIndex.hbmUnboundedIndex k))  none
+
 def wp_F (wp : LeibnizO Nat → @prog DataT → @prog DataT → (@val DataT → @val DataT → @PROP DataT) → @PROP DataT)
          (K : LeibnizO Nat)
          (p1 p2 : @prog DataT)
