@@ -67,3 +67,30 @@ theorem example1_full (σ₁ σ₂ : @state DataT) :
   apply wp_adequacy_no_alloc (K := ⟨1⟩)
   istart; iintro H; iclear H; istop
   exact example1 σ₁ σ₂
+
+/-! Example 2: Allocation
+This is one of the simplest state-transforming ste
+Prove that allocation under any heap is safe using a relational proof.
+-/
+
+def nolocals : Locals DataT := fun _ => .none
+def ex2 : (NMLSemantics DataT).Prog :=
+  (.run [⟨.assign .none (.alloc Memory.sbuf), nolocals⟩, ⟨.ret <| .val .unit, nolocals⟩])
+
+theorem example2 (σ : @state DataT) : (NMLSemantics DataT).Safe (ex2, σ) := by
+  -- It suffices to show that `(ex2, σ) ∼ (ex2, σ) : fun _ _ => True`
+  apply SmallStep.Safe_of_PRel (Φf := fun _ _ => True)
+  -- Enter the Iris proof
+  apply wp_adequacy_no_alloc (K := ⟨1⟩)
+  unfold ex2
+
+
+  sorry
+
+
+
+
+
+-- Other things I need to test soon:
+-- Assignments to variables
+-- Starting with state in hbm

@@ -57,10 +57,10 @@ notation k " ↦ᵣ " v => PointsTo (ProdIndex.right k) v
 
 /-- PointsTo that asserts knowledge over an entire store.
 When using unbounded and HBM allocations, this is probably enough. -/
-def PointsToS (k : ProdIndex ChipIndex) (v : LocalStore DataT) : @PROP DataT :=
+def PointsToS (k : ProdIndex ChipIndex) (v : Option (LocalStore DataT)) : @PROP DataT :=
   match k with
-  | .left  i => heProp_frag _ _ _ _ ⟨(ChipMemory.set_store ChipMemory.empty i (some v)), ChipMemory.empty⟩
-  | .right i => heProp_frag _ _ _ _ ⟨ChipMemory.empty, (ChipMemory.set_store ChipMemory.empty i (some v))⟩
+  | .left  i => heProp_frag _ _ _ _ ⟨(ChipMemory.set_store ChipMemory.empty i v), ChipMemory.empty⟩
+  | .right i => heProp_frag _ _ _ _ ⟨ChipMemory.empty, (ChipMemory.set_store ChipMemory.empty i v)⟩
 notation k " ⇉ " v  => PointsToS k v
 notation k " ⇉ₗ " v => PointsToS (ProdIndex.left  k) v
 notation k " ⇉ᵣ " v => PointsToS (ProdIndex.right k) v

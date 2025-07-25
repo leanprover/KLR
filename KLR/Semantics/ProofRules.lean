@@ -81,3 +81,61 @@ theorem wpPureSync {p1 p2 p1' p2' : @prog DataT} {Φ : @val DataT → @val DataT
   isplit l [Hstate]
   · iexact Hstate
   · iexact Hwp
+
+-- TODO: Port updates for heaps
+theorem update_lemma (σₗ σᵣ : @state DataT) :
+  state_interp σₗ σᵣ ⊢
+    |==> ∃ ℓₗ ℓᵣ, ℓₗ [S]⇉ₗ∅ ∗ ℓᵣ [S]⇉ᵣ∅ ∗
+    state_interp ⟨(ChipMemory.freshSBUFStore σₗ.1).2⟩ ⟨(ChipMemory.freshSBUFStore σᵣ.1).2⟩ :=
+  sorry
+
+theorem wpAllocSync  {Φ : @val DataT → @val DataT → @PROP DataT} {K : LeibnizO Nat}
+    (Hk : 1 ≤ K.car) :
+     (∀ ℓₗ ℓᵣ, (ℓₗ [S]⇉ₗ∅) -∗ (ℓᵣ [S]⇉ᵣ∅) -∗ wp K (.run <| p1) (.run <| p2) Φ) ⊢
+     wp K
+       (.run <| ⟨.assign none (.alloc Memory.sbuf), locₗ⟩ :: p1)
+       (.run <| ⟨.assign none (.alloc Memory.sbuf), loc₂⟩ :: p2)
+       Φ := by
+  refine Entails.trans ?_ (Q := ?_) ?G1
+  case G1 =>
+    apply (Iris.BI.equiv_iff.mp ?G2).mp
+    case G2=> exact (@wp_unfold DataT K _ _ Φ).symm
+  iintro ⟨Hrec⟩
+  iright
+  iintro σₗ σᵣ
+  iintro Hσ
+  iexists (.run p1, ⟨ChipMemory.freshSBUFStore σₗ.memory |>.2⟩)
+  iexists (.run p2, ⟨ChipMemory.freshSBUFStore σᵣ.memory |>.2⟩)
+  iexists 1
+  iexists 1
+  isplit r
+  · ipure_intro
+    simp [Hk]
+    refine ⟨?_, ?_⟩
+    · apply (NMLSemantics DataT).stepN_1_iff_step.mpr
+      apply step.seq (v := Value.uptr <| ChipMemory.freshSBUFStore σₗ.memory |>.1)
+      apply ExprStep.sbuf_alloc rfl
+    · apply (NMLSemantics DataT).stepN_1_iff_step.mpr
+      apply step.seq (v := Value.uptr <| ChipMemory.freshSBUFStore σᵣ.memory |>.1)
+      apply ExprStep.sbuf_alloc rfl
+  istop
+  refine Entails.trans ?_ Iris.BI.later_intro
+  istart
+  iintro ⟨Hrec, Hσ⟩
+  simp only []
+
+  -- Apply update_lemma and eliminate the bupd
+  istop
+  have X := update_lemma σₗ σᵣ
+  have Y := @BI.sep_mono_r (PROP := @PROP DataT) _ _ _ (P := iprop(∀ ℓₗ ℓᵣ, ℓₗ [S]⇉ₗ∅ -∗ ℓᵣ [S]⇉ᵣ∅ -∗ wp K (ExecState.run p1) (ExecState.run p2) Φ)) X
+  apply Entails.trans Y
+  clear X Y
+  apply Entails.trans bupd_frame_l
+  refine BIUpdate.mono ?_
+  istart
+
+  iintro ⟨Hwp, ℓₗ, ℓᵣ, Hℓₗ, Hℓᵣ, Hσ⟩
+  ispecialize Hwp ℓₗ ℓᵣ Hℓₗ Hℓᵣ
+  isplit l [Hσ]
+  · iexact Hσ
+  · iexact Hwp
