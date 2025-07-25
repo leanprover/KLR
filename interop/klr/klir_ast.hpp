@@ -24,7 +24,7 @@ struct Pos final {
 enum class Memory {
   hbm = 1,
   sbuf,
-  pmem,
+  psum,
   reg,
 };
 
@@ -262,6 +262,25 @@ struct ActivationImmFloatWrapper final : ActivationImm {
   ActivationImmFloatWrapper() : ActivationImm(Tag::float32) {}
 };
 
+struct Operand {
+  enum class Tag {
+    imm = 1,
+    tile,
+  };
+  Tag tag;
+  Operand(Tag tag) : tag(tag) {}
+};
+
+struct OperandImmWrapper final : Operand {
+  Ptr<Immediate> i;
+  OperandImmWrapper() : Operand(Tag::imm) {}
+};
+
+struct OperandTileWrapper final : Operand {
+  Ptr<TensorRef> t;
+  OperandTileWrapper() : Operand(Tag::tile) {}
+};
+
 struct DataPattern final {
   Nat offset;
   List<Ptr<APPair>> pattern;
@@ -412,11 +431,29 @@ enum class TensorSubDim {
   XYZW,
 };
 
+enum class TransposeOps {
+  None = 1,
+  WZXY,
+  WXZY,
+  WYXZ,
+  ZWYX,
+  ZYWX,
+  ZYXW,
+  YXWZ,
+  YXZW,
+  YWZX,
+  XWZY,
+  XZYW,
+  XYZW,
+  XYWZ,
+};
+
 struct Dropout final {
   Ptr<TensorRef> dst;
   Ptr<TensorRef> src;
   DropoutThresholdType thresholdType;
-  Ptr<Immediate> threshold;
+  Ptr<Operand> threshold;
+  Option<Dtype> dtype;
 };
 
 struct Activate final {
@@ -448,11 +485,15 @@ struct DmaCopy final {
 struct DmaTranspose final {
   Ptr<TensorRef> dst;
   Ptr<TensorRef> src;
+  TransposeOps axes;
+  Option<Dtype> dtype;
 };
 
 struct Transpose final {
   Ptr<TensorRef> dst;
   Ptr<TensorRef> src;
+  Option<Dtype> dtype;
+  Engine engine;
 };
 
 struct LoadMaskRegister final {
@@ -462,17 +503,21 @@ struct LoadMaskRegister final {
 struct Shuffle final {
   Ptr<TensorRef> dst;
   Ptr<TensorRef> src;
+  List<Ptr<Immediate>> shuffleMask;
+  Option<Dtype> dtype;
 };
 
 struct MemSet final {
   Ptr<TensorRef> dst;
   Ptr<Immediate> value;
-  Nat count;
+  Dtype dtype;
+  Engine engine;
 };
 
 struct Iota final {
   Ptr<TensorRef> dst;
   Ptr<DataPattern> pattern;
+  Option<Dtype> dtype;
 };
 
 struct LoadStationary final {
@@ -521,6 +566,8 @@ struct CopyPredicated final {
   Ptr<TensorRef> dst;
   Ptr<TensorRef> src;
   Ptr<TensorRef> predicate;
+  Option<Dtype> dtype;
+  Bool reversePred;
 };
 
 struct TensorTensorScan final {
@@ -530,8 +577,9 @@ struct TensorTensorScan final {
   AluOp op0;
   AluOp op1;
   TensorScalarReverseOps reverseOperands;
-  Ptr<Immediate> imm0;
+  Ptr<Operand> imm0;
   AccumCmd accumulatorCmd;
+  Option<Dtype> dtype;
 };
 
 struct MatchValueLoad final {
@@ -541,32 +589,41 @@ struct MatchValueLoad final {
 struct FindIndex8 final {
   Ptr<TensorRef> dst;
   Ptr<TensorRef> src;
+  Ptr<TensorRef> vals;
+  Option<Dtype> dtype;
 };
 
 struct MatchReplace8 final {
   Ptr<TensorRef> dst;
   Ptr<TensorRef> src;
+  Ptr<TensorRef> vals;
   Ptr<Immediate> replaceValue;
+  Option<Ptr<TensorRef>> dstIdx;
+  Option<Dtype> dtype;
 };
 
 struct Max8 final {
   Ptr<TensorRef> dst;
   Ptr<TensorRef> src;
+  Option<Dtype> dtype;
 };
 
 struct BatchNormAggregate final {
   Ptr<TensorRef> dst;
   Ptr<TensorRef> src;
+  Option<Dtype> dtype;
 };
 
 struct BatchNormStats final {
   Ptr<TensorRef> dst;
   Ptr<TensorRef> src;
+  Option<Dtype> dtype;
 };
 
 struct Reciprocal final {
   Ptr<TensorRef> dst;
   Ptr<TensorRef> src;
+  Option<Dtype> dtype;
 };
 
 struct Copy final {
@@ -581,16 +638,20 @@ struct TensorReduce final {
   AluOp op;
   TensorSubDim opDim;
   Bool negated;
+  Option<Dtype> dtype;
+  Bool keepdims;
 };
 
 struct TensorScalar final {
   Ptr<TensorRef> dst;
   Ptr<TensorRef> src;
-  Ptr<Immediate> imm0;
+  Ptr<Operand> imm0;
   AluOp op0;
-  Ptr<Immediate> imm1;
-  AluOp op1;
+  Option<Ptr<Operand>> imm1;
+  Option<AluOp> op1;
   TensorScalarReverseOps reverse;
+  Engine engine;
+  Option<Dtype> dtype;
 };
 
 struct TensorTensor final {
@@ -598,6 +659,8 @@ struct TensorTensor final {
   Ptr<TensorRef> src0;
   Ptr<TensorRef> src1;
   AluOp op;
+  Option<Dtype> dtype;
+  Engine engine;
 };
 
 struct NcMatMul final {
@@ -611,15 +674,126 @@ struct NcMatMul final {
   List<Nat> tileSize;
 };
 
+struct TensorScalarReduce final {
+  Ptr<TensorRef> dst;
+  Ptr<TensorRef> src;
+  Ptr<Operand> operand0;
+  AluOp op0;
+  Bool reverse0;
+  Option<Dtype> dtype;
+  Option<AluOp> reduceOp;
+  Ptr<TensorRef> reduceRes;
+};
+
+struct TensorPartitionReduce final {
+  Ptr<TensorRef> dst;
+  AluOp op;
+  Ptr<TensorRef> data;
+  Option<Dtype> dtype;
+};
+
+struct NcActivate final {
+  Ptr<TensorRef> dst;
+  Ptr<TensorRef> src;
+  AccumCmd accumulatorCmd;
+  ActivationFunc activationFunc;
+  Ptr<Immediate> scale;
+  Ptr<Immediate> bias;
+  Option<AluOp> reduceOp;
+  Option<Ptr<TensorRef>> reduceRes;
+  Option<Dtype> dtype;
+};
+
+struct NcAffineSelect final {
+  Ptr<TensorRef> dst;
+  Ptr<DataPattern> pred;
+  Ptr<TensorRef> onTrueTile;
+  Ptr<Immediate> onFalseValue;
+  Option<Dtype> dtype;
+  AluOp cmpOp;
+};
+
+struct NcDmaCopy final {
+  Ptr<TensorRef> dst;
+  Ptr<TensorRef> src;
+  DgeComputeOp compute_op;
+  Ptr<DmaBounds> oobMode;
+  Nat dgeMode;
+};
+
+struct NcLocalGather final {
+  Ptr<TensorRef> dst;
+  Ptr<TensorRef> src;
+  Ptr<TensorRef> index;
+  Ptr<Immediate> numElemPerIdx;
+  Option<Ptr<Immediate>> numValidIndicies;
+};
+
+struct NcRangeSelect final {
+  Ptr<TensorRef> dst;
+  AccumCmd reduceCommand;
+  Option<Ptr<TensorRef>> reduceRes;
+  Option<AluOp> reduceOp;
+  AluOp compOp0;
+  AluOp compOp1;
+  Ptr<TensorRef> bound0;
+  Ptr<TensorRef> bound1;
+  Ptr<Immediate> rangeStart;
+  Ptr<TensorRef> onTrueTile;
+  Ptr<Immediate> onFalseValue;
+  Option<Dtype> dtype;
+};
+
+struct NcScalarTensorTensor final {
+  Ptr<TensorRef> dst;
+  Ptr<TensorRef> data;
+  Ptr<Operand> src0;
+  Ptr<Operand> src1;
+  AluOp op0;
+  AluOp op1;
+  TensorScalarReverseOps reverseOperands;
+  Option<Dtype> dtype;
+};
+
+struct NcCopy final {
+  Ptr<TensorRef> dst;
+  Ptr<TensorRef> src;
+  Option<Dtype> dtype;
+  Engine engine;
+};
+
+struct SelectReduce final {
+  Ptr<TensorRef> dst;
+  Ptr<TensorRef> predicate;
+  Ptr<TensorRef> onTrue;
+  Ptr<Operand> onFalse;
+  Option<Ptr<TensorRef>> reduceRes;
+  AccumCmd reduceCmd;
+  AluOp reduceOp;
+  Bool reversePred;
+  Option<Dtype> dtype;
+};
+
+struct SequenceBounds final {
+  Ptr<TensorRef> dst;
+  Ptr<TensorRef> segmentIds;
+  Option<Dtype> dtype;
+};
+
 struct Operator {
   enum class Tag {
     activate = 1,
+    ncActivate,
+    activationReduce,
     affineSelect,
+    ncAffineSelect,
     batchNormAggregate,
     batchNormStats,
     copy,
+    ncCopy,
     copyPredicated,
     dmaCopy,
+    ncDmaCopy,
     dmaTranspose,
     dropout,
     findIndex8,
@@ -627,21 +801,28 @@ struct Operator {
     loadMaskRegister,
     loadStationary,
     localGather,
+    ncLocalGather,
     matMul,
+    ncMatMul,
     matchReplace8,
     matchValueLoad,
     max8,
     memSet,
     rangeSelect,
+    ncRangeSelect,
     reciprocal,
     scalarTensorTensor,
+    ncScalarTensorTensor,
     shuffle,
     tensorReduce,
     tensorScalar,
     tensorTensor,
     tensorTensorScan,
+    tensorPartitionReduce,
+    tensorScalarReduce,
     transpose,
-    ncMatMul,
+    selectReduce,
+    sequenceBounds,
   };
   Tag tag;
   Operator(Tag tag) : tag(tag) {}
@@ -652,9 +833,24 @@ struct OperatorActivateWrapper final : Operator {
   OperatorActivateWrapper() : Operator(Tag::activate) {}
 };
 
+struct OperatorNcActivateWrapper final : Operator {
+  Ptr<NcActivate> op;
+  OperatorNcActivateWrapper() : Operator(Tag::ncActivate) {}
+};
+
+struct OperatorActivationReduceWrapper final : Operator {
+  Ptr<NcActivate> op;
+  OperatorActivationReduceWrapper() : Operator(Tag::activationReduce) {}
+};
+
 struct OperatorAffineSelectWrapper final : Operator {
   Ptr<AffineSelect> op;
   OperatorAffineSelectWrapper() : Operator(Tag::affineSelect) {}
+};
+
+struct OperatorNcAffineSelectWrapper final : Operator {
+  Ptr<NcAffineSelect> op;
+  OperatorNcAffineSelectWrapper() : Operator(Tag::ncAffineSelect) {}
 };
 
 struct OperatorBatchNormAggregateWrapper final : Operator {
@@ -672,6 +868,11 @@ struct OperatorCopyWrapper final : Operator {
   OperatorCopyWrapper() : Operator(Tag::copy) {}
 };
 
+struct OperatorNcCopyWrapper final : Operator {
+  Ptr<NcCopy> op;
+  OperatorNcCopyWrapper() : Operator(Tag::ncCopy) {}
+};
+
 struct OperatorCopyPredicatedWrapper final : Operator {
   Ptr<CopyPredicated> op;
   OperatorCopyPredicatedWrapper() : Operator(Tag::copyPredicated) {}
@@ -680,6 +881,11 @@ struct OperatorCopyPredicatedWrapper final : Operator {
 struct OperatorDmaCopyWrapper final : Operator {
   Ptr<DmaCopy> op;
   OperatorDmaCopyWrapper() : Operator(Tag::dmaCopy) {}
+};
+
+struct OperatorNcDmaCopyWrapper final : Operator {
+  Ptr<NcDmaCopy> op;
+  OperatorNcDmaCopyWrapper() : Operator(Tag::ncDmaCopy) {}
 };
 
 struct OperatorDmaTransposeWrapper final : Operator {
@@ -717,9 +923,19 @@ struct OperatorLocalGatherWrapper final : Operator {
   OperatorLocalGatherWrapper() : Operator(Tag::localGather) {}
 };
 
+struct OperatorNcLocalGatherWrapper final : Operator {
+  Ptr<NcLocalGather> op;
+  OperatorNcLocalGatherWrapper() : Operator(Tag::ncLocalGather) {}
+};
+
 struct OperatorMatMulWrapper final : Operator {
   Ptr<MatMul> op;
   OperatorMatMulWrapper() : Operator(Tag::matMul) {}
+};
+
+struct OperatorNcMatMulWrapper final : Operator {
+  Ptr<NcMatMul> op;
+  OperatorNcMatMulWrapper() : Operator(Tag::ncMatMul) {}
 };
 
 struct OperatorMatchReplace8Wrapper final : Operator {
@@ -747,6 +963,11 @@ struct OperatorRangeSelectWrapper final : Operator {
   OperatorRangeSelectWrapper() : Operator(Tag::rangeSelect) {}
 };
 
+struct OperatorNcRangeSelectWrapper final : Operator {
+  Ptr<NcRangeSelect> op;
+  OperatorNcRangeSelectWrapper() : Operator(Tag::ncRangeSelect) {}
+};
+
 struct OperatorReciprocalWrapper final : Operator {
   Ptr<Reciprocal> op;
   OperatorReciprocalWrapper() : Operator(Tag::reciprocal) {}
@@ -755,6 +976,11 @@ struct OperatorReciprocalWrapper final : Operator {
 struct OperatorScalarTensorTensorWrapper final : Operator {
   Ptr<ScalarTensorTensor> op;
   OperatorScalarTensorTensorWrapper() : Operator(Tag::scalarTensorTensor) {}
+};
+
+struct OperatorNcScalarTensorTensorWrapper final : Operator {
+  Ptr<NcScalarTensorTensor> op;
+  OperatorNcScalarTensorTensorWrapper() : Operator(Tag::ncScalarTensorTensor) {}
 };
 
 struct OperatorShuffleWrapper final : Operator {
@@ -782,14 +1008,30 @@ struct OperatorTensorTensorScanWrapper final : Operator {
   OperatorTensorTensorScanWrapper() : Operator(Tag::tensorTensorScan) {}
 };
 
+struct OperatorTensorPartitionReduceWrapper final : Operator {
+  Ptr<TensorPartitionReduce> op;
+  OperatorTensorPartitionReduceWrapper()
+      : Operator(Tag::tensorPartitionReduce) {}
+};
+
+struct OperatorTensorScalarReduceWrapper final : Operator {
+  Ptr<TensorScalarReduce> op;
+  OperatorTensorScalarReduceWrapper() : Operator(Tag::tensorScalarReduce) {}
+};
+
 struct OperatorTransposeWrapper final : Operator {
   Ptr<Transpose> op;
   OperatorTransposeWrapper() : Operator(Tag::transpose) {}
 };
 
-struct OperatorNcMatMulWrapper final : Operator {
-  Ptr<NcMatMul> op;
-  OperatorNcMatMulWrapper() : Operator(Tag::ncMatMul) {}
+struct OperatorSelectReduceWrapper final : Operator {
+  Ptr<SelectReduce> op;
+  OperatorSelectReduceWrapper() : Operator(Tag::selectReduce) {}
+};
+
+struct OperatorSequenceBoundsWrapper final : Operator {
+  Ptr<SequenceBounds> op;
+  OperatorSequenceBoundsWrapper() : Operator(Tag::sequenceBounds) {}
 };
 
 struct Value {
@@ -886,6 +1128,7 @@ struct StmtStoreWrapper final : Stmt {
 
 struct StmtOperWrapper final : Stmt {
   Ptr<Operator> op;
+  Option<String> name;
   StmtOperWrapper() : Stmt(Tag::oper) {}
 };
 

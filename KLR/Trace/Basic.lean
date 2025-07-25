@@ -134,6 +134,7 @@ private def valueOp : BinOp -> Value -> Value -> Trace Term
   | .sub, .int l, .int r => return int (l - r)
   | .mul, .int l, .int r => return int (l * r)
   | .div, .int l, .int r => return int (l / r)
+  | .mod, .int l, .int r => return int (l % r)
   | .floor, .int l, .int r =>
     if r = 0 then throw "division by zero" else
     let samesgn := (l < 0) ↔ (r < 0)

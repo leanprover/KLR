@@ -20,6 +20,8 @@ PyObject *NKI_Expr_topy(struct NKI_Expr *x);
 PyObject *NKI_Index_topy(struct NKI_Index *x);
 PyObject *NKI_Keyword_topy(struct NKI_Keyword *x);
 PyObject *NKI_Pattern_topy(struct NKI_Pattern *x);
+PyObject *NKI_RangeType_topy(enum NKI_RangeType x);
+PyObject *NKI_Iterator_topy(struct NKI_Iterator *x);
 PyObject *NKI_Stmt__topy(struct NKI_Stmt_ *x);
 PyObject *NKI_Stmt_topy(struct NKI_Stmt *x);
 PyObject *NKI_Param_topy(struct NKI_Param *x);

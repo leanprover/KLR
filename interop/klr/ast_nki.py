@@ -94,8 +94,8 @@ class Expr_binOp(NamedTuple):
 
 class Expr_ifExp(NamedTuple):
   test : "Expr"
-  body : "Expr"
-  orelse : "Expr"
+  tru : "Expr"
+  fls : "Expr"
 
 class Expr_call(NamedTuple):
   f : "Expr"
@@ -133,6 +133,26 @@ class Pattern_tuple(NamedTuple):
 
 Pattern = Pattern_tuple | Pattern_var
 
+class RangeType(Enum):
+  Static = auto()
+  Affine = auto()
+  Sequential = auto()
+
+def RangeType_static(): return RangeType.Static
+def RangeType_affine(): return RangeType.Affine
+def RangeType_sequential(): return RangeType.Sequential
+
+class Iterator_expr(NamedTuple):
+  e : "Expr"
+
+class Iterator_range(NamedTuple):
+  ty : "RangeType"
+  l : "Expr"
+  u : "Expr"
+  s : "Expr"
+
+Iterator = Iterator_range | Iterator_expr
+
 class Stmt_expr(NamedTuple):
   e : "Expr"
 
@@ -162,8 +182,8 @@ class Stmt_ifStm(NamedTuple):
   els : list["Stmt"]
 
 class Stmt_forLoop(NamedTuple):
-  x : "Expr"
-  iter : "Expr"
+  x : "Name"
+  iter : "Iterator"
   body : list["Stmt"]
 
 class Stmt_breakLoop(NamedTuple):

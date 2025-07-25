@@ -146,7 +146,7 @@ inductive Term where
   | expr     : Expr -> TermType -> Term
   | mgrid    : Term
   -- accepting a list of operators here might be lazy, but will suffice for now
-  | oper     : List Core.Operator -> Term
+  | oper     : List Operator -> Term
   deriving Repr, BEq
 
 instance : Inhabited Term where

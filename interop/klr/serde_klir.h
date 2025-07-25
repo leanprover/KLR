@@ -31,6 +31,7 @@ bool Core_TensorRef_ser(FILE *out, struct Core_TensorRef *x);
 bool Core_Engine_ser(FILE *out, enum Core_Engine x);
 bool Core_Immediate_ser(FILE *out, struct Core_Immediate *x);
 bool Core_ActivationImm_ser(FILE *out, struct Core_ActivationImm *x);
+bool Core_Operand_ser(FILE *out, struct Core_Operand *x);
 bool Core_DataPattern_ser(FILE *out, struct Core_DataPattern *x);
 bool Core_AluOp_ser(FILE *out, enum Core_AluOp x);
 bool Core_DropoutThresholdType_ser(FILE *out, enum Core_DropoutThresholdType x);
@@ -44,6 +45,7 @@ bool Core_IndexMissBehavior_ser(FILE *out, struct Core_IndexMissBehavior *x);
 bool Core_TensorScalarReverseOps_ser(FILE *out,
                                      enum Core_TensorScalarReverseOps x);
 bool Core_TensorSubDim_ser(FILE *out, enum Core_TensorSubDim x);
+bool Core_TransposeOps_ser(FILE *out, enum Core_TransposeOps x);
 bool Core_Dropout_ser(FILE *out, struct Core_Dropout *x);
 bool Core_Activate_ser(FILE *out, struct Core_Activate *x);
 bool Core_AffineSelect_ser(FILE *out, struct Core_AffineSelect *x);
@@ -73,6 +75,19 @@ bool Core_TensorReduce_ser(FILE *out, struct Core_TensorReduce *x);
 bool Core_TensorScalar_ser(FILE *out, struct Core_TensorScalar *x);
 bool Core_TensorTensor_ser(FILE *out, struct Core_TensorTensor *x);
 bool Core_NcMatMul_ser(FILE *out, struct Core_NcMatMul *x);
+bool Core_TensorScalarReduce_ser(FILE *out, struct Core_TensorScalarReduce *x);
+bool Core_TensorPartitionReduce_ser(FILE *out,
+                                    struct Core_TensorPartitionReduce *x);
+bool Core_NcActivate_ser(FILE *out, struct Core_NcActivate *x);
+bool Core_NcAffineSelect_ser(FILE *out, struct Core_NcAffineSelect *x);
+bool Core_NcDmaCopy_ser(FILE *out, struct Core_NcDmaCopy *x);
+bool Core_NcLocalGather_ser(FILE *out, struct Core_NcLocalGather *x);
+bool Core_NcRangeSelect_ser(FILE *out, struct Core_NcRangeSelect *x);
+bool Core_NcScalarTensorTensor_ser(FILE *out,
+                                   struct Core_NcScalarTensorTensor *x);
+bool Core_NcCopy_ser(FILE *out, struct Core_NcCopy *x);
+bool Core_SelectReduce_ser(FILE *out, struct Core_SelectReduce *x);
+bool Core_SequenceBounds_ser(FILE *out, struct Core_SequenceBounds *x);
 bool Core_Operator_ser(FILE *out, struct Core_Operator *x);
 bool Core_Value_ser(FILE *out, struct Core_Value *x);
 bool Core_Keyword_ser(FILE *out, struct Core_Keyword *x);
@@ -81,7 +96,13 @@ bool Core_Stmt_ser(FILE *out, struct Core_Stmt *x);
 bool Core_Kernel_ser(FILE *out, struct Core_Kernel *x);
 bool Core_Index_List_ser(FILE *out, struct Core_Index_List *x);
 bool Core_APPair_List_ser(FILE *out, struct Core_APPair_List *x);
+bool Core_Dtype_Option_ser(FILE *out, enum Core_Dtype x);
+bool Core_Immediate_List_ser(FILE *out, struct Core_Immediate_List *x);
+bool Core_TensorRef_Option_ser(FILE *out, struct Core_TensorRef *x);
 bool Core_TensorSubDim_Option_ser(FILE *out, enum Core_TensorSubDim x);
+bool Core_Operand_Option_ser(FILE *out, struct Core_Operand *x);
+bool Core_AluOp_Option_ser(FILE *out, enum Core_AluOp x);
+bool Core_Immediate_Option_ser(FILE *out, struct Core_Immediate *x);
 bool Core_Value_List_ser(FILE *out, struct Core_Value_List *x);
 bool Core_Keyword_List_ser(FILE *out, struct Core_Keyword_List *x);
 bool Core_TensorName_List_ser(FILE *out, struct Core_TensorName_List *x);
@@ -114,6 +135,7 @@ bool Core_Immediate_des(FILE *in, struct region *region,
                         struct Core_Immediate **x);
 bool Core_ActivationImm_des(FILE *in, struct region *region,
                             struct Core_ActivationImm **x);
+bool Core_Operand_des(FILE *in, struct region *region, struct Core_Operand **x);
 bool Core_DataPattern_des(FILE *in, struct region *region,
                           struct Core_DataPattern **x);
 bool Core_AluOp_des(FILE *in, struct region *region, enum Core_AluOp *x);
@@ -136,6 +158,8 @@ bool Core_TensorScalarReverseOps_des(FILE *in, struct region *region,
                                      enum Core_TensorScalarReverseOps *x);
 bool Core_TensorSubDim_des(FILE *in, struct region *region,
                            enum Core_TensorSubDim *x);
+bool Core_TransposeOps_des(FILE *in, struct region *region,
+                           enum Core_TransposeOps *x);
 bool Core_Dropout_des(FILE *in, struct region *region, struct Core_Dropout **x);
 bool Core_Activate_des(FILE *in, struct region *region,
                        struct Core_Activate **x);
@@ -186,6 +210,27 @@ bool Core_TensorTensor_des(FILE *in, struct region *region,
                            struct Core_TensorTensor **x);
 bool Core_NcMatMul_des(FILE *in, struct region *region,
                        struct Core_NcMatMul **x);
+bool Core_TensorScalarReduce_des(FILE *in, struct region *region,
+                                 struct Core_TensorScalarReduce **x);
+bool Core_TensorPartitionReduce_des(FILE *in, struct region *region,
+                                    struct Core_TensorPartitionReduce **x);
+bool Core_NcActivate_des(FILE *in, struct region *region,
+                         struct Core_NcActivate **x);
+bool Core_NcAffineSelect_des(FILE *in, struct region *region,
+                             struct Core_NcAffineSelect **x);
+bool Core_NcDmaCopy_des(FILE *in, struct region *region,
+                        struct Core_NcDmaCopy **x);
+bool Core_NcLocalGather_des(FILE *in, struct region *region,
+                            struct Core_NcLocalGather **x);
+bool Core_NcRangeSelect_des(FILE *in, struct region *region,
+                            struct Core_NcRangeSelect **x);
+bool Core_NcScalarTensorTensor_des(FILE *in, struct region *region,
+                                   struct Core_NcScalarTensorTensor **x);
+bool Core_NcCopy_des(FILE *in, struct region *region, struct Core_NcCopy **x);
+bool Core_SelectReduce_des(FILE *in, struct region *region,
+                           struct Core_SelectReduce **x);
+bool Core_SequenceBounds_des(FILE *in, struct region *region,
+                             struct Core_SequenceBounds **x);
 bool Core_Operator_des(FILE *in, struct region *region,
                        struct Core_Operator **x);
 bool Core_Value_des(FILE *in, struct region *region, struct Core_Value **x);
@@ -197,8 +242,18 @@ bool Core_Index_List_des(FILE *in, struct region *region,
                          struct Core_Index_List **x);
 bool Core_APPair_List_des(FILE *in, struct region *region,
                           struct Core_APPair_List **x);
+bool Core_Dtype_Option_des(FILE *in, struct region *region, enum Core_Dtype *x);
+bool Core_Immediate_List_des(FILE *in, struct region *region,
+                             struct Core_Immediate_List **x);
+bool Core_TensorRef_Option_des(FILE *in, struct region *region,
+                               struct Core_TensorRef **x);
 bool Core_TensorSubDim_Option_des(FILE *in, struct region *region,
                                   enum Core_TensorSubDim *x);
+bool Core_Operand_Option_des(FILE *in, struct region *region,
+                             struct Core_Operand **x);
+bool Core_AluOp_Option_des(FILE *in, struct region *region, enum Core_AluOp *x);
+bool Core_Immediate_Option_des(FILE *in, struct region *region,
+                               struct Core_Immediate **x);
 bool Core_Value_List_des(FILE *in, struct region *region,
                          struct Core_Value_List **x);
 bool Core_Keyword_List_des(FILE *in, struct region *region,

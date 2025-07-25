@@ -22,6 +22,8 @@ import KLR.Trace.Tensor
 namespace KLR.Trace.Isa
 open KLR.Core
 
+private def maskNotSupported := "mask parameter is not supported"
+
 def converRevOps (reverse0 : Bool) (reverse1 : Bool) : TensorScalarReverseOps :=
   match reverse0, reverse1 with
     | false, false => .none
@@ -54,6 +56,37 @@ def accumCmdToValue (ac : AccumCmd) : Value :=
   | .ZeroAccumulate => .int 3
   | .LoadAccumulate => .int 4 -- FIXME
 
+def dimsFromPythonDefs(d : Sum Int (List Int)) : Trace TensorSubDim :=
+  match d with
+  | .inl 1 => .ok .X
+  | .inl _ => throw  "not a valid dim"
+  | .inr r => match r with
+    | [1] => .ok .X
+    | [1, 2] => .ok .XY
+    | [1, 2, 3] => .ok .XYZ
+    | [1, 2, 3, 4] => .ok .XYZW
+    | _ => throw "not a valid dim"
+
+def getTransposeOps(op: Option (List Int)) : Trace TransposeOps :=
+  match op with
+  | none => .ok .None -- WZYX
+  | some [0, 1, 2, 3] => .ok .None -- WZYX (identity)
+  | some [0, 1, 3, 2] => .ok .WZXY
+  | some [0, 3, 1, 2] => .ok .WXZY
+  | some [0, 2, 3, 1] => .ok .WYXZ
+  | some [1, 0, 2, 3] => .ok .ZWYX
+  | some [1, 2, 0, 3] => .ok .ZYWX
+  | some [1, 2, 3, 0] => .ok .ZYXW
+  | some [2, 3, 0, 1] => .ok .YXWZ
+  | some [2, 3, 1, 0] => .ok .YXZW
+  | some [2, 0, 1, 3] => .ok .YWZX
+  | some [3, 0, 1, 2] => .ok .XWZY
+  | some [3, 1, 2, 0] => .ok .XZYW
+  | some [3, 2, 1, 0] => .ok .XYZW
+  | some [3, 2, 0, 1] => .ok .XYWZ
+  | some _ => throw "unsupported transpose operation"
+
+
 -- set_option linter.unusedVariables false
 
 nki nc_matmul
@@ -66,161 +99,161 @@ nki nc_matmul
  (is_transpose : Bool := false)
  (tile_position : List Nat := [])
  (tile_size : List Nat := [])
- (mask : Option Immediate := none) := do
+ (mask : Option Immediate := none)
+ (name : Option String := none) := do
     if mask.isSome then
-      throw "mask parameter is not supported"
-    Trace.add_stmt $ .oper $ .ncMatMul {
-      dst := .abstract dst
-      stationary := .abstract stationary
-      moving := .abstract moving
-      isStationaryOneZero := is_stationary_onezero
-      isMovingZero := is_moving_zero
-      isTranspose := is_transpose
-      tilePosition := tile_position
-      tileSize := tile_size
-      }
+      throw maskNotSupported
+    Trace.add_stmt $ .oper (.ncMatMul {
+      dst := .abstract dst,
+      stationary := .abstract stationary,
+      moving := .abstract moving,
+      isStationaryOneZero := is_stationary_onezero,
+      isMovingZero := is_moving_zero,
+      isTranspose := is_transpose,
+      tilePosition := tile_position,
+      tileSize := tile_size,
+      }) name
     return .none
 
 nki nc_transpose
  (dst : Access)
  (data : Access)
  -- kwargs
- (_mask : Option Immediate := none)
- (_dtype : Option Dtype := none)
- (_engine : Engine := Engine.unassigned) := do
-  let dstT : TensorRef := .abstract dst
-  let srcT : TensorRef := .abstract data
-  let trn : Transpose := ⟨ dstT, srcT ⟩
-  Trace.add_stmt $ .oper (.transpose trn)
+ (mask : Option Immediate := none)
+ (dtype : Option Dtype := none)
+ (engine : Engine := Engine.unassigned)
+ (name : Option String := none) := do
+  if mask.isSome then
+    throw maskNotSupported
+  Trace.add_stmt $ .oper (.transpose {
+    dst := .abstract dst,
+    src := .abstract data,
+    dtype := dtype,
+    engine := engine,
+  }) name
   return .none
 
 nki activation
  (dst : Access)
  (op : ActivationFunc)
  (data : Access)
- --
+ -- kwargs
  (bias : Immediate := .float 0) -- Also can be a tensor. Default is none
  (scale : Immediate := .float 1.0) -- This also can accept a tensor
- (_reduce_op : Option AluOp := none)
- (_reduce_res : Option Access := none)
+ (reduce_op : Option AluOp := none)
+ (reduce_res : Option Access := none)
  (reduce_cmd : AccumCmd := .Idle)
- (_mask : Option Immediate := none) := do
-  let dstT : TensorRef := .abstract dst
-  let dataT : TensorRef := .abstract data
-  let ac : Activate := ⟨ dstT, dataT, reduce_cmd, op, scale, bias, .float 0 ⟩ -- FIXME scale is probably wrong
-  Trace.add_stmt $ .oper (.activate ac)
+ (mask : Option Immediate := none)
+ (dtype : Option Dtype := none)
+ (name : Option String := none) := do
+  if mask.isSome then
+    throw maskNotSupported
+  Trace.add_stmt $ .oper (.ncActivate {
+    dst := .abstract dst,
+    src := .abstract data,
+    accumulatorCmd := reduce_cmd,
+    activationFunc := op,
+    scale := scale,
+    bias := bias,
+    reduceOp := reduce_op,
+    reduceRes := reduce_res.map .abstract,
+    dtype := dtype,
+  }) name
   return .none
 
---  nki activation_reduce
---   (dst: TensorName)
---   (op : ActivationFunc)
---   (data : TensorName)
---   --
---   (reduce_op : Option AluOp := none)
---   (reduce_res : Option TensorName := none)
---   (bias : Option TensorName := none)
---   (scale : Sum Immediate TensorName := .inl (.float 1.0))
---   (mask : Option Immediate := none)
---   (dtype : Option Dtype := none) := do
---      let args := [
---          .activationFunc op,
---          .access (.simple data)
---      ]
---
---      let mut kwargs : List Keyword := []
---
---      kwargs := kwargs ++ match reduce_op with
---      | none => []
---      | some op => [{ name := "reduce_op", value := .aluOp op }]
---
---      kwargs := kwargs ++ match reduce_res with
---      | none => []
---      | some res => [{ name := "reduce_res", value := .access (.simple res) }]
---
---      kwargs := kwargs ++ match bias with
---      | none => []
---      | some b => [{ name := "bias", value := .access (.simple b) }]
---
---      kwargs := kwargs ++ match scale with
---      | .inl imm => [{ name := "scale", value := immediateToValue imm }]
---      | .inr tensor => [{ name := "scale", value := .access (.simple tensor) }]
---
---      if let some m := mask then
---        kwargs := kwargs ++ [⟨ "mask", immediateToValue m ⟩]
---
---      -- TODO If dtype is specified, it should call to cast. Cast is currently not implemented
---
---      let ty := .tensor dst.dtype dst.shape
---      return .expr (.call "activation_reduce" args kwargs) ty
+nki activation_reduce
+ (dst: Access)
+ (op : ActivationFunc)
+ (data : Access)
+ -- kwargs
+ (reduce_op : Option AluOp := none)
+ (reduce_res : Option Access := none)
+ (reduce_cmd : AccumCmd := .Idle)
+ (bias : Immediate := .float 0)
+ (scale : Sum Immediate Access := .inl (.float 1.0))
+ (mask : Option Immediate := none)
+ (dtype : Option Dtype := none)
+ (name : Option String := none) := do
+    if mask.isSome then
+      throw maskNotSupported
+    if scale.isRight then
+      throw "scale can't be specified as tensor"
+    Trace.add_stmt $ .oper (.activationReduce {
+      dst := .abstract dst,
+      activationFunc := op,
+      src := .abstract data,
+      bias := bias,
+      reduceOp := reduce_op,
+      reduceRes := reduce_res.map .abstract,
+      accumulatorCmd := reduce_cmd,
+      scale := <- scale.getLeft?,
+      dtype := dtype,
+    }) name
+    return .none
 
 nki tensor_reduce
   (dst: Access)
   (op : AluOp)
   (data : Access)
-  (_axis : Sum Immediate Shape)
-  --
-  (_mask : Option Immediate := none)
-  (_dtype : Option Dtype := none)
+  (axis : Sum Int (List Int))
+  -- kwargs
+  (mask : Option Immediate := none)
+  (dtype : Option Dtype := none)
   (negate : Bool := false)
-  (_keepdims : Bool := false) := do
-    let dstT : TensorRef := .abstract dst
-    let dataT : TensorRef := .abstract data
-    let opDim := .X -- FIXME - get actual value
-    let reduce : TensorReduce := ⟨ dstT, dataT, op, opDim, negate ⟩
-    Trace.add_stmt $ .oper (.tensorReduce reduce)
+  (keepdims : Bool := false)
+  (name : Option String := none) := do
+    if mask.isSome then
+      throw maskNotSupported
+    Trace.add_stmt $ .oper (.tensorReduce {
+      dst  := .abstract dst,
+      src  := .abstract data,
+      op   := op,
+      opDim := <- dimsFromPythonDefs axis,
+      dtype := dtype,
+      negated := negate,
+      keepdims := keepdims
+    }) name
     return .none
 
--- nki tensor_partition_reduce
---   (dst: TensorName)
---   (op : AluOp)
---   (data : TensorName)
---   --
---   (mask : Option Immediate := none)
---   (dtype : Option Dtype := none) := do
---     let args := [
---         .aluOp op,
---         .access (.simple data)
---     ]
---
---     let mut kwargs : List Keyword := [
---         ⟨ "dst", .access (.simple dst) ⟩
---     ]
---
---     if let some m := mask then
---       kwargs := kwargs ++ [⟨ "mask", immediateToValue m ⟩]
---
---     -- TODO If dtype is specified, it should call to cast. Cast is currently not implemented
---
---     let ty := .tensor dst.dtype dst.shape
---     return .expr (.call "tensor_partition_reduce" args kwargs) ty
+nki tensor_partition_reduce
+  (dst: Access)
+  (op : AluOp)
+  (data : Access)
+  -- kwargs
+  (mask : Option Immediate := none)
+  (dtype : Option Dtype := none)
+  (name : Option String := none) := do
+    if mask.isSome then
+      throw maskNotSupported
+    Trace.add_stmt $ .oper (.tensorPartitionReduce {
+      dst := .abstract dst,
+      op := op,
+      data := .abstract data
+      dtype := dtype
+    }) name
+    return .none
 
--- nki tensor_tensor
---  (dst: TensorName)
---  (data1 : TensorName)
---  (data2 : TensorName)
---  (op : AluOp)
---  --
---  (dtype : Option Dtype := none)
---  (mask : Option Immediate := none)
---  (engine : Engine := Engine.unassigned) := do
---     let args := [
---         .access (.simple data1),
---         .access (.simple data2),
---         .aluOp op
---     ]
---
---     let mut kwargs : List Keyword := [
---         ⟨ "dst", .access (.simple dst) ⟩,
---         ⟨ "engine", engineToValue engine ⟩
---     ]
---
---     if let some m := mask then
---       kwargs := kwargs ++ [⟨ "mask", immediateToValue m ⟩]
---
---     -- TODO If dtype is specified, it should call to cast. Cast is currently not implemented
---
---     let ty := .tensor dst.dtype dst.shape
---     return .expr (.call "tensor_tensor" args kwargs) ty
+nki tensor_tensor
+ (dst: Access)
+ (data1 : Access)
+ (data2 : Access)
+ (op : AluOp)
+ -- kwargs
+ (dtype : Option Dtype := none)
+ (mask : Option Immediate := none)
+ (engine : Engine := Engine.unassigned)
+ (name : Option String := none) := do
+    if mask.isSome then
+      throw maskNotSupported
+    Trace.add_stmt $ .oper (.tensorTensor {
+      dst := .abstract dst,
+      src0 := .abstract data1,
+      src1 := .abstract data2,
+      op := op,
+      dtype := dtype,
+      engine := engine
+    }) name
+    return .none
 
 nki tensor_tensor_scan
  (dst: Access)
@@ -231,386 +264,515 @@ nki tensor_tensor_scan
  (op1 : AluOp)
  (reverse0 : Bool := false)
  (reverse1 : Bool := false)
- --
- (_dtype : Option Dtype := none)
- (_mask : Option Immediate := none) := do
-    let dstT : TensorRef := .abstract dst
-    let data0T : TensorRef := .abstract data0
-    let data1T : TensorRef := .abstract data1
+ -- kwargs
+ (dtype : Option Dtype := none)
+ (mask : Option Immediate := none)
+ (name : Option String := none) := do
+    if mask.isSome then
+      throw maskNotSupported
     let rev : TensorScalarReverseOps := converRevOps reverse0 reverse1
-
-    if initial.isRight then
-      throw "Tensor initializer is not supported"
-    let imm := <- initial.getLeft?
-
-    let tts : TensorTensorScan := ⟨ dstT, data0T, data1T, op0, op1, rev, imm, .Idle ⟩
-    Trace.add_stmt $ .oper (.tensorTensorScan tts)
+    Trace.add_stmt $ .oper (.tensorTensorScan {
+        dst := .abstract dst
+        src0 := .abstract data0
+        src1 := .abstract data1
+        op0 := op0
+        op1 := op1
+        reverseOperands := rev
+        imm0 := match initial with
+          | .inl l => .imm l
+          | .inr t => .tile $ .abstract t,
+        dtype := dtype
+        accumulatorCmd := .Idle
+    }) name
     return .none
 
--- nki scalar_tensor_tensor
---  (dst : TensorName)
---  --
---  (data : TensorName)
---  (op0 : AluOp)
---  (operand0 : Sum Immediate TensorName)
---  (op1 : AluOp)
---  (operand1 : Sum Immediate TensorName)
---  (reverse0 : Bool := false)
---  (reverse1 : Bool := false)
---  (dtype : Option Dtype := none)
---  (mask : Option Immediate := none) := do
---     let dstT : TensorRef := .abstract $ .simple dst []
---     let dataT : TensorRef := .abstract $ .simple data []
---     -- let src0T : TensorRef := .abstract $ .simple src0 []
---     -- let src1T : TensorRef := .abstract $ .simple src1 []
---     let rev := converRevOps reverse0 reverse1
---
---     if operand0.isRight then
---       throw "Tensor initializer is not supported"
---     let imm0 := <- operand0.getLeft?
---
---     let stt : ScalarTensorTensor := ⟨ dstT, dataT, src1T, op0, op1, rev, imm0, .Idle ⟩
---     return .oper (.ScalarTensorTensor stt)
+nki scalar_tensor_tensor
+ (dst : Access)
+ -- kwargs
+ (data : Access)
+ (op0 : AluOp)
+ (operand0 : Sum Immediate Access)
+ (op1 : AluOp)
+ (operand1 : Sum Immediate Access)
+ (reverse0 : Bool := false)
+ (reverse1 : Bool := false)
+ (dtype : Option Dtype := none)
+ (mask : Option Immediate := none)
+ (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    let rev : TensorScalarReverseOps := converRevOps reverse0 reverse1
+    Trace.add_stmt $ .oper (.ncScalarTensorTensor {
+        dst := .abstract dst
+        data := .abstract data
+        src0 := match operand0 with
+          | .inl i => .imm i
+          | .inr t => .tile $ .abstract t
+        src1 := match operand1 with
+          | .inl i => .imm i
+          | .inr t => .tile $ .abstract t
+        op0  := op0
+        op1  := op1
+        reverseOperands := rev
+        dtype := dtype
+    }) name
+    return .none
 
--- nki tensor_scalar
---  (dst: TensorName)
---  (data : TensorName)
---  (op0 : AluOp)
---  (operand0 : Sum Immediate TensorName)
---  (reverse0 : Bool := false)
---  (op1 : Option AluOp := none)
---  (operand1 : Option (Sum Immediate TensorName) := none)
---  (reverse1 : Bool := false)
---  --
---  (dtype : Option Dtype := none)
---  (mask : Option Immediate := none)
---  (engine : Engine := Engine.unassigned) := do
---     let args := [
---         .access (.simple data),
---         .aluOp op0,
---         match operand0 with
---           | .inl i => immediateToValue i
---           | .inr r => .access (.simple r),
---         .bool reverse0,
---         match op1 with
---           | some op => .aluOp op
---           | none => .none,
---         match operand1 with
---           | some operand => match operand with
---             | .inl imm => immediateToValue imm
---             | .inr tensor => .access (.simple tensor)
---           | none => .none,
---         .bool reverse1
---     ]
---
---     let mut kwargs : List Keyword := [
---         ⟨ "dst", .access (.simple dst) ⟩,
---         ⟨ "engine", engineToValue engine ⟩
---     ]
---
---     if let some m := mask then
---       kwargs := kwargs ++ [⟨ "mask", immediateToValue m ⟩]
---
---     -- TODO If dtype is specified, it should call to cast. Cast is currently not implemented
---
---     let ty := .tensor dst.dtype dst.shape
---     return .expr (.call "tensor_scalar" args kwargs) ty
+nki tensor_scalar
+ (dst: Access)
+ (data : Access)
+ (op0 : AluOp)
+ (operand0 : Sum Immediate Access)
+ (reverse0 : Bool := false)
+ (op1 : Option AluOp := none)
+ (operand1 : Option (Sum Immediate Access) := none)
+ (reverse1 : Bool := false)
+ -- kwargs
+ (dtype : Option Dtype := none)
+ (mask : Option Immediate := none)
+ (engine : Engine := Engine.unassigned)
+ (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    let rev : TensorScalarReverseOps := converRevOps reverse0 reverse1
+    Trace.add_stmt $ .oper (.tensorScalar {
+      dst := .abstract dst,
+      src := .abstract data
+      imm0 := match operand0 with
+        | .inl i => .imm i
+        | .inr t => .tile $ .abstract t
+      op0 := op0
+      imm1 := match operand1 with
+        | some (.inl i) => some $ .imm i
+        | some (.inr t) => some $ .tile $ .abstract t
+        | none => none
+      op1 := op1
+      reverse := rev
+      engine := engine
+      dtype := dtype
+    }) name
+    return .none
 
--- nki tensor_scalar_reduce
---  (dst : TensorName)
---  --
---  (data : TensorName)
---  (op0 : AluOp)
---  (operand0 : Sum Immediate TensorName)
---  (reduce_op : AluOp)
---  (reduce_res : TensorName)
---  (reverse0 : Bool := false)
---  (dtype : Option Dtype := none)
---  (mask : Option Immediate := none) := do
---     let args := []
---
---     let mut kwargs : List Keyword := [
---         ⟨ "data", .access (.simple data) ⟩,
---         ⟨ "op0", .aluOp op0 ⟩,
---         ⟨ "dst", .access (.simple dst) ⟩,
---         ⟨ "reduce_op", .aluOp reduce_op ⟩,
---         ⟨ "reduce_res", .access (.simple reduce_res) ⟩,
---         ⟨ "reverse0", .bool reverse0 ⟩
---     ]
---
---     kwargs := kwargs ++ match operand0 with
---     | .inl imm => [{ name := "operand0", value := immediateToValue imm }]
---     | .inr tensor => [{ name := "operand0", value := .access (.simple tensor) }]
---
---     if let some m := mask then
---       kwargs := kwargs ++ [⟨ "mask", immediateToValue m ⟩]
---
---     -- TODO If dtype is specified, it should call to cast. Cast is currently not implemented
---
---     let ty := .tensor dst.dtype dst.shape
---     return .expr (.call "tensor_scalar_reduce" args kwargs) ty
-
+nki tensor_scalar_reduce
+ (dst : Access)
+ -- kwargs
+ (data : Access)
+ (op0 : AluOp)
+ (operand0 : Sum Immediate Access)
+ (reduce_op : AluOp)
+ (reduce_res : Access)
+ (reverse0 : Bool := false)
+ (dtype : Option Dtype := none)
+ (mask : Option Immediate := none)
+ (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.tensorScalarReduce {
+        dst := .abstract dst
+        src := .abstract data
+        operand0 := match operand0 with
+          | .inl i => .imm i
+          | .inr t => .tile $ .abstract t
+        op0 := op0
+        reduceOp := reduce_op
+        reduceRes := .abstract reduce_res
+        reverse0 := reverse0
+        dtype := dtype
+    }) name
+    return .none
 
 nki tensor_copy
  (dst: Access)
  (src : Access)
- --
- (_mask : Option Immediate := none)
- (_dtype : Option Dtype := none)
- (_engine : Engine := Engine.unassigned) := do
-    let dstT := .abstract dst
-    let srcT := .abstract src
-    let copy := ⟨ dstT, srcT, .none ⟩
-    Trace.add_stmt $ .oper (.copy copy)
+ -- kwargs
+ (mask : Option Immediate := none)
+ (dtype : Option Dtype := none)
+ (engine : Engine := Engine.unassigned)
+ (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.ncCopy {
+      dst := .abstract dst
+      src := .abstract src
+      dtype := dtype
+      engine := engine
+    }) name
     return .none
 
--- nki tensor_copy_dynamic_src
---  (dst : TensorName)
---  (src : TensorName)
---  --
---  (mask : Option Immediate := none)
---  (dtype : Option Dtype := none)
---  (engine : Engine := Engine.unassigned) := do
---     let args := [
---         .access (.simple src)
---     ]
---
---     let mut kwargs : List Keyword := [
---         ⟨ "dst", .access (.simple dst) ⟩,
---         ⟨ "engine", engineToValue engine ⟩
---     ]
---
---     if let some m := mask then
---       kwargs := kwargs ++ [⟨ "mask", immediateToValue m ⟩]
---
---     -- TODO If dtype is specified, it should call to cast. Cast is currently not implemented
---
---     let ty := .tensor dst.dtype dst.shape
---     return .expr (.call "tensor_copy_dynamic_src" args kwargs) ty
+nki tensor_copy_dynamic_src
+ (dst : Access)
+ (src : Access)
+ -- kwargs
+ (mask : Option Immediate := none)
+ (dtype : Option Dtype := none)
+ (engine : Engine := Engine.unassigned)
+ (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.ncCopy {
+      dst := .abstract dst
+      src := .abstract src
+      dtype := dtype
+      engine := engine
+    }) name
+    return .none
 
-
--- nki tensor_copy_dynamic_dst
---  --
---  (dst : TensorName)
---  (src : TensorName)
---  (mask : Option Immediate := none)
---  (dtype : Option Dtype := none)
---  (engine : Engine := Engine.unassigned) := do
---     let args := []
---
---     let mut kwargs : List Keyword := [
---         ⟨ "src", .access (.simple src) ⟩,
---         ⟨ "dst", .access (.simple dst) ⟩,
---         ⟨ "engine", engineToValue engine ⟩
---     ]
---
---     if let some m := mask then
---       kwargs := kwargs ++ [⟨ "mask", immediateToValue m ⟩]
---
---     -- TODO If dtype is specified, it should call to cast. Cast is currently not implemented
---
---     let ty := .tensor dst.dtype dst.shape
---     return .expr (.call "tensor_copy_dynamic_dst" args kwargs) ty
-
+nki tensor_copy_dynamic_dst
+ (dst : Access)
+ (src : Access)
+ -- kwargs
+ (mask : Option Immediate := none)
+ (dtype : Option Dtype := none)
+ (engine : Engine := Engine.unassigned)
+ (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.ncCopy {
+      dst := .abstract dst
+      src := .abstract src
+      dtype := dtype
+      engine := engine
+    }) name
+    return .none
 
 nki tensor_copy_predicated
- --
- (src : Access)
  (dst : Access)
+ -- kwargs
+ (src : Access)
  (predicate : Access)
- (_mask : Option Immediate := none)
- (_dtype : Option Dtype := none)
- (_reverse_pred : Bool := false) := do
-    let dstT : TensorRef := .abstract  dst
-    let srcT : TensorRef := .abstract  src
-    let predicateT : TensorRef := .abstract  predicate
-    let cp : CopyPredicated := ⟨ dstT, srcT, predicateT ⟩
-    Trace.add_stmt $ .oper (.copyPredicated cp)
+ (mask : Option Immediate := none)
+ (dtype : Option Dtype := none)
+ (reverse_pred : Bool := false)
+ (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.copyPredicated  {
+      dst := .abstract dst,
+      src := .abstract src,
+      predicate := .abstract predicate,
+      dtype := dtype,
+      reversePred := reverse_pred,
+    }) name
     return .none
 
 nki reciprocal
  (dst: Access)
  (data : Access)
- --
- (_dtype : Option Dtype := none)
- (_mask : Option Immediate := none) := do
-    let dstT : TensorRef := .abstract dst
-    let srcT : TensorRef := .abstract data
-    Trace.add_stmt $ .oper (.reciprocal ⟨ dstT, srcT ⟩)
+ -- kwargs
+ (dtype : Option Dtype := none)
+ (mask : Option Immediate := none)
+ (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.reciprocal {
+      dst := .abstract dst,
+      src := .abstract data,
+      dtype := dtype
+    }) name
     return .none
 
 nki iota
  (dst: Access)
- (_expr : Int) -- TODO: Placeholder. Figure out this type
- --
- (_dtype : Option Dtype := none)
- (_mask : Option Immediate := none) := do
-    let dstT : TensorRef := .abstract dst
-    let pattern : DataPattern := ⟨ 0, [] ⟩  -- FIXME
-    Trace.add_stmt $ .oper (.iota ⟨ dstT, pattern ⟩)
+ (_expr : Int)
+ -- kwargs
+ (dtype : Option Dtype := none)
+ (mask : Option Immediate := none)
+ (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.iota {
+      dst := .abstract dst,
+      pattern := ⟨ 0, []⟩
+      dtype := dtype
+    }) name
     return .none
 
 nki dropout
  (dst: Access)
  (data : Access)
  (prob : Sum Immediate Access)
- --
- (_mask : Option Immediate := none)
- (_dtype : Option Dtype := none) := do
-    let dstT : TensorRef := .abstract dst
-    let dataT : TensorRef := .abstract data
-
-    if prob.isRight then
-      throw "Tensor probability is not supported"
-    let prob := <- prob.getLeft?
-
-    Trace.add_stmt $ .oper (.dropout ⟨ dstT, dataT, .KeepRate , prob  ⟩)
+ -- kwargs
+ (mask : Option Immediate := none)
+ (dtype : Option Dtype := none)
+ (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.dropout {
+        dst       := .abstract dst,
+        src       := .abstract data,
+        threshold := match prob with
+          | .inl i => .imm i
+          | .inr t => .tile $ .abstract t
+        thresholdType := .KeepRate
+        dtype         := dtype,
+    }) name
     return .none
 
--- nki affine_select
---  (dst: TensorName)
---  (pred : Int) -- TODO Placeholder. Figure out this type
---  (on_true_tile : Immediate)
---  (on_false_value : Immediate)
---  --
---  (mask : Option Immediate := none)
---  (dtype : Option Dtype := none) := do
---     let dstT : TensorRef := .abstract $ .simple dst []
---     return .oper $ .AffineSelect ⟨ dst,  ⟩
+nki affine_select
+ (dst: Access)
+ (_pred : Int)
+ (on_true_tile : Access)
+ (on_false_value : Immediate)
+ -- kwargs
+ (mask : Option Immediate := none)
+ (dtype : Option Dtype := none)
+ (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.ncAffineSelect {
+      dst := .abstract dst,
+      pred := ⟨ 0, [] ⟩,
+      onTrueTile := .abstract on_true_tile,
+      onFalseValue := on_false_value,
+      dtype := dtype,
+      cmpOp := .is_equal,
+    }) name
+    return .none
 
--- nki range_select
---  (dst: TensorName)
---  --
---  (on_true_tile : TensorName)
---  (comp_op0 : AluOp)
---  (comp_op1 : AluOp)
---  (bound0 : TensorName)
---  (bound1 : TensorName)
---  (reduce_cmd : AccumCmd := AccumCmd.Idle)
---  (reduce_res : Option TensorName := none)
---  (reduce_op : AluOp := .max)
---  (range_start : Immediate := .float 0)
---  (on_false_value : Immediate := .float 0)
---  (mask : Option Immediate := none)
---  (dtype : Option Dtype := none) := do
---     let dstT : TensorRef := .abstract $ .simple dst []
---     let succTileT : TensorRef := .absract $ .simple on_true_tile []
---     let rs := ⟨ dstT, succTileT,  ⟩
---     return .oper $ .RangeSelect
+nki range_select
+ (dst: Access)
+ (on_true_tile : Access)
+ (comp_op0 : AluOp)
+ (comp_op1 : AluOp)
+ (bound0 : Access)
+ (bound1 : Access)
+ -- kwargs
+ (reduce_cmd : AccumCmd := AccumCmd.Idle)
+ (reduce_res : Option Access := none)
+ (reduce_op : Option AluOp := some .max)
+ (range_start : Immediate := .float 0)
+ (on_false_value : Immediate := .float 0)
+ (mask : Option Immediate := none)
+ (dtype : Option Dtype := none)
+ (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.ncRangeSelect {
+      dst := .abstract dst,
+      reduceCommand := reduce_cmd,
+      reduceRes := reduce_res.map .abstract
+      reduceOp := reduce_op
+      compOp0 := comp_op0,
+      compOp1 := comp_op1,
+      bound0 := .abstract bound0,
+      bound1 := .abstract bound1,
+      rangeStart := range_start,
+      onTrueTile := .abstract on_true_tile,
+      onFalseValue := on_false_value,
+      dtype := dtype
+    }) name
+    return .none
 
 nki memset
  (dst: Access)
- (shape : Shape)
  (value : Immediate)
- (_dtype : Dtype)
- --
- (_mask : Option Immediate := none)
- (_engine : Engine := Engine.unassigned) := do
-    let dstT : TensorRef := .abstract dst
-    let ms : MemSet := ⟨ dstT, value, shape.freeElements ⟩ -- TODO: Check with someone
-    Trace.add_stmt $ .oper (.memSet ms)
+ (dtype : Dtype)
+ -- kwargs
+ (mask : Option Immediate := none)
+ (engine : Engine := Engine.unassigned)
+ (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.memSet {
+      dst    := .abstract dst,
+      value  := value,
+      dtype  := dtype,
+      engine := engine
+    }) name
     return .none
 
 nki bn_stats
  (dst: Access)
  (data : Access)
- --
- (_mask: Option Immediate := none)
- (_dtype: Option Dtype := none) := do
-    let dstT : TensorRef := .abstract dst
-    let dataT : TensorRef := .abstract data
-    Trace.add_stmt $ .oper (.batchNormStats ⟨ dstT, dataT ⟩)
+ -- kwargs
+ (mask: Option Immediate := none)
+ (dtype: Option Dtype := none)
+ (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.batchNormStats {
+      dst := .abstract dst,
+      src := .abstract data,
+      dtype := dtype
+    }) name
     return .none
 
 nki bn_aggr
  (dst: Access)
  (data : Access)
- --
- (_mask : Option Immediate := none)
- (_dtype : Option Dtype := none) := do
-    let dstT : TensorRef := .abstract dst
-    let dataT : TensorRef := .abstract data
-    Trace.add_stmt $ .oper (.batchNormAggregate ⟨ dstT, dataT ⟩)
+ -- kwargs
+ (mask : Option Immediate := none)
+ (dtype : Option Dtype := none)
+ (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.batchNormAggregate {
+      dst := .abstract dst,
+      src := .abstract data,
+      dtype := dtype
+    }) name
     return .none
 
 nki local_gather
  (dst: Access)
  (src_buffer : Access)
- (_index : Access)
- (_num_elem_per_idx : Immediate := .int 1)
- (_num_valid_indices : Option Immediate := none)
- --
- (_mask: Option Immediate := none) := do
-    let dstT : TensorRef := .abstract dst
-    let srcT : TensorRef := .abstract src_buffer
-    Trace.add_stmt $ .oper (.localGather ⟨ dstT, srcT, .skip, false ⟩) -- FIXME proper index miss behavior
+ (index : Access)
+ (num_elem_per_idx : Immediate := .int 1)
+ (num_valid_indices : Option Immediate := none)
+ -- kwargs
+ (mask: Option Immediate := none)
+ (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.ncLocalGather {
+      dst := .abstract dst,
+      src := .abstract src_buffer,
+      index := .abstract index,
+      numElemPerIdx := num_elem_per_idx,
+      numValidIndicies := num_valid_indices,
+    }) name
     return .none
 
 nki dma_copy
- --
  (dst : Access)
  (src : Access)
- (_mask: Option Immediate := none)
+ -- kwargs
+ (mask: Option Immediate := none)
  (dst_rmw_op : Option AluOp := none)
- (_oob_mode : Option Int := none)           -- FIXME: use actual type
- (_dge_mode : Option Int := none) := do     -- FIXME: use actual type
-  let dstT : TensorRef := .abstract dst
-  let srcT : TensorRef := .abstract src
+ (mode : Nat := 0)
+ (dge_mode : Nat := 0)
+ (name : Option String := none) := do
+  if mask.isSome then throw maskNotSupported
   let op : DgeComputeOp := <- match dst_rmw_op with
     | none => .ok .none
     | some rmw_op => match rmw_op with
       | .add => .ok .add
       | _ => throw "Unsupported operation"
-  let copy := ⟨ dstT, srcT, op, .disable , .disable ⟩ -- FIXME
-  Trace.add_stmt $ .oper (.dmaCopy copy)
+  if mode > 1 then throw "unsupported oob mode"
+  Trace.add_stmt $ .oper (.ncDmaCopy {
+      dst := .abstract dst,
+      src := .abstract src,
+      compute_op := op,
+      oobMode := match mode with
+        | 0 => .enable
+        | 1 => .disable
+        | _ => .disable,
+      dgeMode := dge_mode,
+  }) name
+  return .none
+
+nki dma_transpose
+  (dst : Access)
+  (src : Access)
+  -- kwargs
+  (axes : Option (List Int) := none)
+  (mask : Option Immediate := none)
+  (dtype : Option Dtype := none)
+  (name : Option String := none) := do
+  if mask.isSome then throw maskNotSupported
+  Trace.add_stmt $ .oper (.dmaTranspose {
+    dst := .abstract dst,
+    src := .abstract src,
+    axes := <- getTransposeOps axes,
+    dtype := dtype
+  }) name
   return .none
 
 nki max8
  (dst: Access)
- --
+ -- kwargs
  (src : Access)
- (_mask : Option Immediate := none)
- (_dtype : Option Dtype := none) := do
-    let dstT : TensorRef := .abstract dst
-    let srcT : TensorRef := .abstract src
-    Trace.add_stmt $ .oper (.max8 ⟨ dstT, srcT ⟩)
+ (mask : Option Immediate := none)
+ (dtype : Option Dtype := none)
+ (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.max8  {
+        dst := .abstract dst,
+        src := .abstract src,
+        dtype := dtype
+    }) name
     return .none
 
 nki nc_find_index8
  (dst: Access)
- --
+ -- kwargs
  (data : Access)
- (_vals : Int) -- TODO should be a list
- (_mask : Option Immediate := none)
- (_dtype : Option Dtype := none) := do
-    let dstT : TensorRef := .abstract dst
-    let srcT : TensorRef := .abstract data
-    Trace.add_stmt $ .oper (.findIndex8 ⟨ dstT, srcT ⟩)
+ (vals : Access)
+ (mask : Option Immediate := none)
+ (dtype : Option Dtype := none)
+ (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    -- TODO assert that vals is a tensor containing the 8 values per partition
+    Trace.add_stmt $ .oper (.findIndex8 {
+      dst := .abstract dst,
+      src := .abstract data,
+      vals := .abstract vals,
+      dtype := dtype
+    }) name
     return .none
 
 nki nc_match_replace8
  (dst: Access)
- --
+ -- kwargs
  (data : Access)
- (_vals : Access) -- A tensor of 8 values to replace
+ (vals : Access)
  (imm : Immediate)
- (_dst_idx : Option Int := none) -- Should be an Index
- (_mask: Option Immediate := none)
- (_dtype: Option Dtype := none) := do
-    let dstT : TensorRef := .abstract dst
-    let srcT : TensorRef := .abstract data
-    Trace.add_stmt $ .oper (.matchReplace8 ⟨ dstT, srcT, imm  ⟩)
+ (dst_idx : Option Access := none)
+ (mask: Option Immediate := none)
+ (dtype: Option Dtype := none)
+ (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    -- TODO assert that vals is a tensor containing the 8 values per partition
+    Trace.add_stmt $ .oper (.matchReplace8 {
+      dst           := .abstract dst,
+      src           := .abstract data,
+      vals          := .abstract vals,
+      replaceValue  := imm,
+      dstIdx        := dst_idx.map .abstract
+      dtype         := dtype
+    }) name
     return .none
 
 
 nki nc_stream_shuffle
  (src : Access)
  (dst : Access)
- (_shuffle_mask : Access)  -- TODO should be a list
- --
- (_dtype: Option Dtype := none)
- (_mask: Option Immediate := none) := do
-    let dstT : TensorRef := .abstract dst
-    let srcT : TensorRef := .abstract src
-    Trace.add_stmt $ .oper (.shuffle ⟨ dstT, srcT  ⟩)
+ (shuffle_mask : List Immediate)
+ -- kwargs
+ (dtype: Option Dtype := none)
+ (mask: Option Immediate := none)
+ (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.shuffle {
+      dst := .abstract dst,
+      src := .abstract src,
+      shuffleMask := shuffle_mask,
+      dtype := dtype,
+    }) name
+    return .none
+
+nki select_reduce
+  (dst : Access)
+  (predicate : Access)
+  (on_true : Access)
+  (on_false : Sum Immediate Access)
+  -- kwargs
+  (reduce_res : Option Access := none)
+  (reduce_cmd: AccumCmd := .Idle)
+  (reduce_op : AluOp := .max)
+  (reverse_pred : Bool := false)
+  (mask : Option Immediate := none)
+  (dtype : Option Dtype := none)
+  (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.selectReduce {
+      dst := .abstract dst,
+      predicate := .abstract predicate,
+      onTrue := .abstract on_true,
+      onFalse := match on_false with
+        | .inl imm => .imm imm
+        | .inr tensor => .tile $ .abstract tensor,
+      reduceRes := reduce_res.map .abstract,
+      reduceCmd := reduce_cmd,
+      reduceOp := reduce_op,
+      reversePred := reverse_pred,
+      dtype := dtype,
+    }) name
+    return .none
+
+nki sequence_bounds
+  (dst : Access)
+  (segment_ids : Access)
+  -- kwargs
+  (dtype : Option Dtype := none)
+  (name : Option String := none) := do
+    Trace.add_stmt $ .oper (.sequenceBounds {
+      dst := .abstract dst,
+      segmentIds := .abstract segment_ids,
+      dtype := dtype
+    }) name
     return .none

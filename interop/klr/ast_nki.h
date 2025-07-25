@@ -101,8 +101,8 @@ struct NKI_Expr_binOp {
 };
 struct NKI_Expr_ifExp {
   struct NKI_Expr *test;
-  struct NKI_Expr *body;
-  struct NKI_Expr *orelse;
+  struct NKI_Expr *tru;
+  struct NKI_Expr *fls;
 };
 struct NKI_Expr_call {
   struct NKI_Expr *f;
@@ -171,6 +171,33 @@ struct NKI_Pattern {
   };
 };
 
+enum NKI_RangeType {
+  NKI_RangeType_static = 1,
+  NKI_RangeType_affine,
+  NKI_RangeType_sequential,
+};
+
+enum NKI_Iterator_Tag {
+  NKI_Iterator_expr = 1,
+  NKI_Iterator_range,
+};
+struct NKI_Iterator_expr {
+  struct NKI_Expr *e;
+};
+struct NKI_Iterator_range {
+  enum NKI_RangeType ty;
+  struct NKI_Expr *l;
+  struct NKI_Expr *u;
+  struct NKI_Expr *s;
+};
+struct NKI_Iterator {
+  enum NKI_Iterator_Tag tag;
+  union {
+    struct NKI_Iterator_expr expr;
+    struct NKI_Iterator_range range;
+  };
+};
+
 enum NKI_Stmt_Tag {
   NKI_Stmt_expr = 1,
   NKI_Stmt_assert,
@@ -212,8 +239,8 @@ struct NKI_Stmt_ifStm {
   struct NKI_Stmt_List *els;
 };
 struct NKI_Stmt_forLoop {
-  struct NKI_Expr *x;
-  struct NKI_Expr *iter;
+  char *x;
+  struct NKI_Iterator *iter;
   struct NKI_Stmt_List *body;
 };
 struct NKI_Stmt_ {
