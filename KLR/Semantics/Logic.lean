@@ -38,9 +38,8 @@ abbrev step := (NML.NMLSemantics DataT).Step
 abbrev to_val := (NML.NMLSemantics DataT).toVal
 abbrev StepN := (NML.NMLSemantics DataT).StepN
 
-abbrev PROP : Type _ := heProp PNat ProdIndex (UCell UInt8 DataT) ProdChipMemory
-abbrev PROPR : Type := (HeapView PNat ProdIndex (Agree (LeibnizO (UCell UInt8 DataT))) ProdChipMemory)
-
+abbrev PROP : Type _ := heProp PNat ProdNeuronIndex DataT ProdNeuronMemory
+abbrev PROPR : Type := (HeapView PNat ProdNeuronIndex (Agree (LeibnizO DataT)) ProdNeuronMemory)
 
 -- The state interpretation, ie the global version of the program state.
 def state_interp (left right : @state DataT) : @PROP DataT :=
@@ -193,13 +192,12 @@ theorem wp_adequacy_pre {pl pr : @prog DataT} {sl sr : @state DataT} {Φf : @val
   -- UPred.ownM <|
   -- UPred.ownM <| ◯V HasHHMap.hhmap (fun (_ : K) (v : V) => some (DFrac.own 1, toAgree <| .mk v)) m
 
-
   apply UPred.soundness_pure_gen (A := @PROPR DataT) (n := n)
     (a :=
-      (●V HasHHMap.hhmap (fun (_ : KLR.Core.ProdIndex) (v : _) => some (Iris.toAgree <| Iris.LeibnizO.mk v))
-          (KLR.Core.ProdChipMemory.mk sl.memory sr.memory)) •
-      (◯V HasHHMap.hhmap (fun (_ : KLR.Core.ProdIndex) (v : _) => some (Iris.DFrac.own 1, Iris.toAgree <| .mk v))
-          (KLR.Core.ProdChipMemory.mk sl.memory sr.memory : KLR.Core.ProdChipMemory _)))
+      (●V HasHHMap.hhmap (fun (_ : KLR.Core.ProdNeuronIndex) (v : DataT) => some (Iris.toAgree <| Iris.LeibnizO.mk v))
+          (KLR.Core.ProdStore.mk sl.memory sr.memory)) •
+      (◯V HasHHMap.hhmap (fun (_ : KLR.Core.ProdNeuronIndex) (v : DataT) => some (Iris.DFrac.own 1, Iris.toAgree <| Iris.LeibnizO.mk v))
+          (KLR.Core.ProdStore.mk sl.memory sr.memory : KLR.Core.ProdNeuronMemory _)))
   · refine Iris.CMRA.Valid.validN ?_
     apply View.view_both_valid.mpr
     -- TODO: This is basically heap_view_both_valid, when I get around to finishing that

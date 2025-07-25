@@ -21,6 +21,12 @@ def Dtype.interp {DataT : Type _} : KLR.Core.Dtype → Type
 | .int8     => Int8
 | .float16 | .float32r | .float32 | .float8e5 | .float8e4 | .float8e3 | .bfloat16 => DataT
 
+/-- A physical ChipIndex cannot be free allocated. -/
+def ChipIndex.is_physical : KLR.Core.ChipIndex → Prop
+| .psumPhysIndex
+| .sbufPhysIndex => True
+| _ => False
+
 namespace NML
 
 open KLR.Core TensorLib
@@ -30,49 +36,28 @@ The language is parameterized by a type of floating point numbers, see `KLR/Sema
 
 variable (DataT : Type _)
 
-/-- A pointer to a tensor that carries additional metadata. -/
-structure TensorHandle extends KLR.Core.TensorName where
-  /-- The memory bank where the tensor is being stored in our memory model -/
-  index : KLR.Core.DualMemoryStoreIndex
-  /-- Is the tensor physical (UInt8) or nonphysical (DataT)? -/
-  is_physical : Bool
-  /-- Multiaffine equation mapping tensor indices to Address indices. -/
+/-- A pointer to a tensor that carries additional metadata.
+
+NB. No size contstraints on the tensor (like Address). Minimum size can be computed
+from shape and layout. -/
+structure TensorHandle where
+  /-- Memory bank in which the tensor is stored -/
+  index : ChipIndex
+  /-- Multiaffine equation mapping tensor indices to indices in the address space. -/
   layout : AffineMap
+  /-- Logical description of a tensor shape -/
+  shape : KLR.Core.Shape
+  /-- The affine map must have the same dimensions as -/
+  layout_wf : layout.free_strides.length = shape.freeDims.length
+  /- Datatype of the tensor's values. TODO: Add a wf predicate to the state interpretation that checks that all tensors are well-typed? -/
+  dtype : KLR.Core.Dtype
+  /-- (Optional) name of the tensor -/
+  name  : Option String
 
-/-- Get the LocalStore that a TensorHandle is pointing to. -/
-def TensorHandle.get_store? (r : TensorHandle) (m : NeuronMemory DataT) : Option (LocalStore (UCell UInt8 DataT)) :=
-  match r.address.memory, r.index with
-  | .hbm, .in_bounded => .none
-  | .hbm, .in_unbounded i => m.hbm[i]?
-  | .sbuf, .in_bounded => .some m.sbuf.bounded.toLocalStore
-  | .sbuf, .in_unbounded i => m.sbuf.unbounded[i]?
-  | .pmem, _ => .none
-  | .reg, _ => .none
+def TensorHandle.get_store? (r : TensorHandle) (m : NeuronMemory DataT) : Option (LocalStore DataT) :=
+  ChipMemory.get_store m r.index
 
-def TensorHandle.hbm_index? (r : TensorHandle) : Option Nat :=
-  match r.index with
-  | .in_bounded => .none
-  | .in_unbounded i => .some i
-
-/-- Update a given store in the NeuronMemory. Returns None if updating a store that is out of bounds. -/
-def TensorHandle.upd_store? (r : TensorHandle) (m : NeuronMemory DataT)
-      (L : LocalStore (UCell UInt8 DataT) → LocalStore (UCell UInt8 DataT)) :
-    Option (NeuronMemory DataT) :=
-  match r.address.memory, r.index with
-  | .hbm, .in_bounded => .none
-  | .hbm, .in_unbounded i => do
-      let _ ← m.hbm[i]?
-      return { m with hbm := m.hbm.set i L }
-  | .sbuf, .in_bounded =>
-      .some { m with sbuf.bounded.toLocalStore := L m.sbuf.bounded.toLocalStore }
-  | .sbuf, .in_unbounded i => do
-      let _ ← m.sbuf.unbounded[i]?
-      return { m with sbuf.unbounded := m.sbuf.unbounded.set i L }
-  -- pmem and reg are currently not supported by NML
-  | .pmem, _ => .none
-  | .reg, _ => .none
-
-/-- NML state. -/
+/-- NML program stat  -/
 structure State where
   memory : KLR.Core.NeuronMemory DataT
 
@@ -94,7 +79,7 @@ inductive Expr
 | store         (src : Expr) (_ : AffineMap) (dst : Expr)
 | unary_scalar  (_ : Expr) (_ : DataT → DataT)
 
-/-- NML statements. Control flow lives here. -/
+/-- NML statements.  -/
 inductive Stmt where
 | ret          (_ : @Expr DataT)
 | assign       (_ : Option String) (_ : @Expr DataT)
@@ -135,6 +120,7 @@ inductive ExecState where
 | run   (_ : List (Task DataT))
 | done  (_ : Value DataT)
 
+
 /-- Expressions semantics -/
 inductive ExprStep : @Expr DataT → @Locals DataT → @State DataT → @Value DataT → @State DataT → Type _ where
 /-- [value] -/
@@ -153,12 +139,18 @@ For now, only support trivial indexing.
 | load_full :
     AffineMap.is_trivial asn →
     ExprStep e loc st (.ptr tensor) st' →
-    tensor.address.memory = KLR.Core.Memory.hbm →
-    tensor.hbm_index? = .some raw_index →
-    (_ : i < st'.memory.hbm.size) →
+    -- The source tensor must have index in HBM (can be generalized), and be allocated
+    tensor.index = ChipIndex.hbmIndex src_index →
+    ChipMemory.get_store st'.memory tensor.index = some src_store →
+    -- The destination tensor is a fresh tensor in SBUF, with updated state.
+    ⟨dst_index, memory''⟩ = ChipMemory.freshSBUFStore st'.memory →
     ExprStep (.load asn e) loc st
-      (.ptr {tensor with address.memory := .sbuf, index := .in_unbounded st'.memory.sbuf.unbounded.size})
-      { st' with memory.sbuf.unbounded := st'.memory.sbuf.unbounded.push st'.memory.hbm[i] }
+      -- Return value: The input tensor, but with its chip index updated to be the fresh tensor.
+      -- All other metadata is the same.
+      (.ptr {tensor with index := dst_index })
+      -- Return state: Update the SBUF state at the fresh index to contain the source store.
+      (State.mk <| ChipMemory.set_store memory'' dst_index (some src_store))
+/-
 /-- [Non-sized, full, store] Store a SBUF tile to HBM. Similar to nki.store. -/
 | store_full :
     AffineMap.is_trivial asn →
@@ -181,9 +173,11 @@ For now, only support trivial indexing.
 --     ExprStep e l0 s0 (.ptr tensor) s1 →
 --     tensor.upd_store? DataT s1.memory (lift_encoding_to_store DataT f) = .some s2 →
 --     ExprStep (.unary_scalar e f) l0 s0 (.ptr tensor) { s1 with memory := s2 }
-
+-/
 
 theorem expr_step_det : ExprStep DataT e loc s vl sl → ExprStep DataT e loc s vr sr → vl = vr ∧ sl = sr := by
+  induction e <;> sorry
+/-
   induction e
   · rintro ⟨rfl⟩ ⟨rfl⟩; exact ⟨rfl, rfl⟩
   · rintro ⟨H1⟩ ⟨H2⟩
@@ -196,6 +190,7 @@ theorem expr_step_det : ExprStep DataT e loc s vl sl → ExprStep DataT e loc s 
     · sorry
   · sorry
   · sorry
+-/
 
 
 inductive step : ExecState DataT × State DataT → ExecState DataT × State DataT → Prop where
@@ -279,8 +274,3 @@ instance : Det (NMLSemantics DataT) where
   step_progress := sorry
 
 end NML
-
-/-
-def lift_encoding_to_store (f : DataT → DataT) : LocalStore UInt8 → LocalStore UInt8 :=
-  sorry
--/
