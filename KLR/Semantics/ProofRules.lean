@@ -139,3 +139,67 @@ theorem wpAllocSync  {Φ : @val DataT → @val DataT → @PROP DataT} {K : Leibn
   isplit l [Hσ]
   · iexact Hσ
   · iexact Hwp
+
+
+-- TODO: Stuttering block
+-- I want to be able to take different steps on each side altogether. To do this, I want to
+-- define unary rules, and a system for lifting them to a combined step.
+
+-- This would be a good example for multi-BI proof interfaces
+
+/-- Unary weakest precondition -/
+structure UWP where
+  pre  : @PROP DataT
+  post : @PROP DataT
+  prog : @prog DataT
+
+def UWP.LeftSpec (u : @UWP DataT) : @PROP DataT :=
+  iprop(∀ σₗ σᵣ, u.pre -∗ state_interp σₗ σᵣ -∗ ∀ prog' σₗ', ⌜step (u.prog, σₗ) (prog', σₗ')⌝ -∗ |==> (state_interp σₗ' σᵣ ∗ u.post))
+
+def UWP.RightSpec (u : @UWP DataT) : @PROP DataT :=
+  iprop(∀ σₗ σᵣ, u.pre -∗ state_interp σₗ σᵣ -∗ ∀ prog' σᵣ', ⌜step (u.prog, σᵣ) (prog', σᵣ')⌝ -∗ |==> (state_interp σₗ σᵣ' ∗ u.post))
+
+def UWP.Frame (u : @UWP DataT) (P : @PROP DataT) : @UWP DataT where
+  pre  := iprop(u.pre  ∗ P)
+  post := iprop(u.post ∗ P)
+  prog := u.prog
+
+theorem UWP.leftSpec_frame {u : @UWP DataT} :
+    u.LeftSpec ⊢ (u.Frame P).LeftSpec := by
+  simp only [Frame, LeftSpec]
+  istart
+  iintro Hspec σₗ σᵣ ⟨Hu, HP⟩ Hσ prog' σₗ' Hstep
+  ispecialize Hspec σₗ σᵣ Hu Hσ prog' σₗ' Hstep
+  istop
+  have L1 : P ∗ |==> (state_interp σₗ' σᵣ ∗ u.post) ⊢ |==> (state_interp σₗ' σᵣ ∗ u.post ∗ P) := by
+    apply Entails.trans BI.sep_comm.mp
+    apply Entails.trans BIUpdate.frame_r _
+    refine BIUpdate.mono BI.sep_assoc_l
+  apply Entails.trans _ L1; clear L1
+  istart
+  iintro ⟨HP, Hwp⟩
+  isplit l [HP]
+  · iexact HP
+  · iexact Hwp
+
+theorem UWP.rightSpec_frame {u : @UWP DataT} :
+    u.RightSpec ⊢ (u.Frame P).RightSpec := by
+  simp only [Frame, RightSpec]
+  istart
+  iintro Hspec σₗ σᵣ ⟨Hu, HP⟩ Hσ prog' σᵣ' Hstep
+  ispecialize Hspec σₗ σᵣ Hu Hσ prog' σᵣ' Hstep
+  istop
+  have L1 : P ∗ |==> (state_interp σₗ σᵣ' ∗ u.post) ⊢ |==> (state_interp σₗ σᵣ' ∗ u.post ∗ P) := by
+    apply Entails.trans BI.sep_comm.mp
+    apply Entails.trans BIUpdate.frame_r _
+    refine BIUpdate.mono BI.sep_assoc_l
+  apply Entails.trans _ L1; clear L1
+  istart
+  iintro ⟨HP, Hwp⟩
+  isplit l [HP]
+  · iexact HP
+  · iexact Hwp
+
+structure Stutter where
+  lwp : List (@UWP DataT)
+  rwp : List (@UWP DataT)
