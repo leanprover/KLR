@@ -236,12 +236,12 @@ def compile (p : Parsed) : IO UInt32 := do
   IO.println (reprStr kernel)
   return 0
 
+open Lean in
 def typecheck (p : Parsed) : IO UInt32 := do
   let file := p.positionalArg! "file" |>.as! String
-  let kernel : KLR.Python.Kernel <- KLR.File.readKLRFile file .cbor
-  let kernel : KLR.NKI.Kernel <- KLR.NKI.simplify kernel
-  -- TODO run the type checker
-  IO.println (reprStr kernel)
+  let type := p.positionalArg! "type" |>.as! String
+  let msg ← NKI.Typed.DSL.typeCheckFromString file type
+  IO.println msg
   return 0
 
 def trace (p : Parsed) : IO UInt32 := do
@@ -343,7 +343,8 @@ def typecheckCmd := `[Cli|
   "Run the type checker on a Python AST file"
 
   ARGS:
-    file : String; "File of Python AST printed as JSON"
+    file : String; "Python file"
+    type : String; "type of the last def"
 ]
 
 def traceCmd := `[Cli|

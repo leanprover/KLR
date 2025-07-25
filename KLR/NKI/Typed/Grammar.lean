@@ -635,6 +635,57 @@ scoped elab dfn:nkiDef : command => do
     )
   elabCommand def_
 
+def parseTypeFromString (type : String) : Term.TermElabM (Except String (TSyntax `term)) := do
+  let env ← getEnv
+  match runParserCategory env `nkiType type with
+  | .ok stx =>
+    let (stx, _) ← Term.liftNKIElabM <| expandNKIType ⟨stx⟩
+    return .ok stx
+  | .error ex =>
+    return .error s!"error parsing type: {ex}"
+
+def parseKernelFromString (dfn : String) : Term.TermElabM (Except String (TSyntax `term)) := do
+  let env ← getEnv
+  match runParserCategory env `nkiStmtSeq dfn with
+  | .ok stx =>
+    let (stx, _) ← Term.liftNKIElabM <| expandNKIStmtSeqNonEmpty ⟨stx⟩
+    return .ok stx
+  | .error ex =>
+    return .error s!"error parsing type: {ex}"
+
+def typeCheckFromString (file : String) (type : String) : IO String := do
+  let input ← IO.FS.readFile file
+  initSearchPath (← findSysroot)
+  let env ← importModules #[{module := `KLR.NKI.Typed.Grammar}] {}
+  let check : TermElabM String := do
+    let type ← parseTypeFromString type
+    match type with
+    | .error s => return s
+    | .ok type =>
+      let kernel ← parseKernelFromString input
+      match kernel with
+      | .error s => return s
+      | .ok kernel =>
+        let stx ← `(fun (T : Kind → Type) (V : (κ : Kind) → Typ T κ → Type) => ($kernel : Kernel T V $type))
+        let _ ← Term.elabTerm stx .none
+        return "type checking passed!"
+  let ctx := {fileName := file, fileMap := input.toFileMap, currNamespace := `KLR.NKI.Typed.DSL}
+  let (((msg, _), _), _) ←
+    (check.run.run.run ctx {env}).toIO
+      (fun _ => .userError "unexpected error during type checking")
+  pure msg
+
+elab "#nki_check_local " t:strLit : command => do
+  let (x, _) ← Command.liftNKIElabM <| parseTypeFromString t.getString
+  dbg_trace x
+
+elab "#nki_check " t:strLit : command => do
+  let x ← typeCheckFromString "test.py" t.getString
+  dbg_trace x
+
+#nki_check_local "None"
+#nki_check "None"
+
 /-!
 # ---------------------------End of Macro--------------------------------------
 -/
