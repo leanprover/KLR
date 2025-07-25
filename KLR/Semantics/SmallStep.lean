@@ -457,3 +457,29 @@ theorem PRelNS [Det S] {c1 c2 : S.Prog × S.State} {Φf : S.Val → S.Val → Pr
     refine ⟨⟨c1, StepN.done rfl, H1⟩, ?_⟩
     refine ⟨⟨c2, StepN.done rfl, H2⟩, ?_⟩
     exact HrelS
+
+theorem PRelS.mono_Φ {S : SmallStep} {c1 c2 : S.Prog × S.State} {Φf1 Φf2: S.Val → S.Val → Prop}
+  (Hmono : ∀ v1 v2, Φf1 v1 v2 → Φf2 v1 v2) : PRelS n K c1 c2 Φf1 → PRelS n K c1 c2 Φf2 := sorry
+
+theorem PRelS.mono_K {S : SmallStep} {c1 c2 : S.Prog × S.State} {Φf1 Φf2: S.Val → S.Val → Prop}
+  (Hmono : K' ≤ K) : PRelS n K' c1 c2 Φf1 → PRelS n K c1 c2 Φf2 := sorry
+
+/-- Unary safety property as a relational property.
+If PRelS holds between a program and itself, then the program is safe. -/
+theorem Safe_of_PRel [Det S] {c : S.Prog × S.State} {Φf : S.Val → S.Val → Prop} :
+    S.PRel c c Φf → S.Safe c := by
+  intro H
+  rcases H with (⟨n1,n2,v1,v2,Hs1,Hs2,HΦ⟩|H)
+  · intro n' p' s' Hn' Hp's'
+    rcases Hs1 with ⟨cv, Hstcv, Hcv⟩
+    suffices p' = cv.fst by
+      unfold IsValue
+      rw [this, Hcv]
+      constructor
+    have ⟨H1, H2⟩ := @S.stepN_det _ n1 n' cv (p', s') ?G Hp's' c Hstcv Hn'
+    case G =>
+      intro cK HK
+      exact (S.toVal_isSome_isStuck (Option.isSomeP_iff_isSome.mpr (by rw [Hcv]; constructor)) HK).elim
+    rw [H2]
+  · intro n' p' s' Hn' Hp's'
+    exact (H.1 Hn' Hp's').elim
