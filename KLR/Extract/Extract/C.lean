@@ -248,6 +248,9 @@ def klrAST: MetaM (List LeanType) := do
     `KLR.Core.TensorTensor,
     `KLR.Core.NcMatMul,
     `KLR.Core.Operator,
+    `KLR.Core.TensorScalarReduce,
+    `KLR.Core.ActivationReduce,
+    `KLR.Core.TensorPartitionReduce,
     -- Core.Basic
     `KLR.Core.Value,
     `KLR.Core.Keyword,
