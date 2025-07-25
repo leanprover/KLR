@@ -69,6 +69,8 @@ inductive Value
 | int      (_ : Int)
 | linfunc  (_ : AffineMap)
 | ptr      (_ : TensorHandle)
+-- uptr: like a TensorHandle but no metadata. Just a raw pointer to a store that can hold anything.
+| uptr     (_ : ChipIndex)
 
 /-- NML expressions. These are terms which reduce to a value and possibly update the state.
 There is no control flow inside expressions. -/
@@ -76,6 +78,7 @@ inductive Expr
 | val           (_ : @Value DataT)
 | var           (_ : String)
 | load          (_ : AffineMap) (_ : Expr)
+| alloc         (m : Memory)
 | store         (src : Expr) (_ : AffineMap) (dst : Expr)
 | unary_scalar  (_ : Expr) (_ : DataT → DataT)
 
@@ -150,6 +153,12 @@ For now, only support trivial indexing.
       (.ptr {tensor with index := dst_index })
       -- Return state: Update the SBUF state at the fresh index to contain the source store.
       (State.mk <| ChipMemory.set_store memory'' dst_index (some src_store))
+/-- [Allocation] Allocate fresh SBUF tensor -/
+| sbuf_alloc :
+    ⟨dst_index, memory'⟩ = ChipMemory.freshSBUFStore st.memory →
+    ExprStep (.alloc Memory.sbuf) loc st (.uptr dst_index) (State.mk memory')
+
+
 /-
 /-- [Non-sized, full, store] Store a SBUF tile to HBM. Similar to nki.store. -/
 | store_full :
@@ -204,7 +213,7 @@ inductive step : ExecState DataT × State DataT → ExecState DataT × State Dat
     step (.run <| .cons ⟨.assign (.some x) e, loc⟩ p, s) (.run <| p.map (.bind _ · x v), s')
 /-- [ Sequencing Effects ] -/
 | seq :
-    ExprStep DataT e loc s _ s' →
+    ExprStep DataT e loc s v s' →
     step (.run <| .cons ⟨.assign .none e, loc⟩ p, s) (.run p, s')
 /-- [ Loop termination ] -/
 | loop_exit {I : Type _} [Iterator I (@Value DataT)] :
