@@ -131,39 +131,60 @@ instance : Tensors TensorRef where
   | .hbm _ => []
   | .register _ => []
 
+instance : Tensors Operand where
+  tensors op := match op with
+  | .imm .. => []
+  | .tile t => tensors t
+
+instance : Tensors (Option TensorRef) where
+  tensors op := match op with
+  | .some t => tensors t
+  | .none => []
+
 instance : Tensors Operator where
   tensors op :=
-    let refs := match op with
+    let transformed := match op with
       | .activate d => [d.dst, d.src]
-      | .affineSelect a => [a.dst, a.src]
+      | .affineSelect a => [a.dst]
       | .dmaCopy d => [d.dst, d.src]
       | .dmaTranspose d => [d.dst, d.src]
       | .dropout d => [d.dst, d.src]
       | .iota i => [i.dst]
       | .loadMaskRegister _ => []
       | .loadStationary l => [l.src]
-      | .localGather l => [l.dst, l.src]
+      | .localGather l => [l.dst, l.src, l.index]
       | .matMul m => [m.dst, m.moving]
       | .memSet m => [m.dst]
       | .rangeSelect r => [r.dst, r.src]
       | .shuffle s => [s.dst, s.src]
       | .tensorReduce r => [r.dst, r.src]
       | .tensorTensorScan t => [t.dst, t.src0, t.src1]
-      | .scalarTensorTensor s => [s.dst, s.src0, s.src1]
+      | .scalarTensorTensor s => [s.dst, s.data]
       | .transpose t => [t.dst, t.src]
       | .copy c => [c.dst, c.src]
       | .copyPredicated c => [c.dst, c.src, c.predicate]
       | .batchNormAggregate b => [b.dst, b.src]
       | .batchNormStats b => [b.dst, b.src]
       | .findIndex8 f => [f.dst, f.src]
-      | .matchReplace8 m => [m.dst, m.src]
+      | .matchReplace8 m => [m.dst, m.src, m.vals]
       | .matchValueLoad m => [m.src]
       | .max8 m => [m.dst, m.src]
       | .reciprocal r => [r.dst, r.src]
       | .tensorScalar t => [t.dst, t.src]
       | .tensorTensor t => [t.dst, t.src0, t.src1]
       | .ncMatMul t => [t.dst, t.stationary, t.moving]
-    refs.flatMap tensors
+      | .activationReduce t => [t.dst, t.data]
+      | .tensorPartitionReduce t => [t.dst, t.data]
+      | .tensorScalarReduce t => [t.dst, t.src, t.reduceRes]
+    let additionalTensors := match op with
+      | .activate d => tensors d.reduceRes
+      | .dropout d => tensors d.threshold
+      | .tensorTensorScan t => tensors t.initial
+      | .scalarTensorTensor s => (tensors s.src0) ++ (tensors s.src1)
+      | .activationReduce t => tensors t.reduceRes
+      | .tensorScalarReduce t => tensors t.operand0
+      | _ => []
+    (transformed.flatMap tensors) ++ additionalTensors
 
 instance : Tensors Stmt where
   tensors

@@ -52,6 +52,24 @@ inductive ActivationImm where
   | float (f : Float32)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
+@[serde tag = 175]
+inductive Scale where
+  | imm (i : Immediate)
+  | tensor (t : TensorRef)
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 178]
+inductive Axis where
+  | ax (ax : Int)
+  | axs (axs : List Int)
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 179]
+inductive Operand where
+  | imm (i : Immediate)
+  | tile (t : TensorRef)
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
 /-
 Used for Iota and AffineSelect, represents something similar to an
 TensorSram but that is only used to generate data, not to index. Much like
@@ -254,7 +272,8 @@ structure Dropout where
   dst           : TensorRef
   src           : TensorRef
   thresholdType : DropoutThresholdType
-  threshold     : Immediate
+  threshold     : Operand
+  dtype         : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- Activate instruction
@@ -270,7 +289,8 @@ structure Activate where
   activationFunc  : ActivationFunc
   scale           : Immediate
   bias            : Immediate
-  imm             : Immediate
+  reduceOp        : Option AluOp
+  reduceRes       : Option TensorRef
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- AffineSelect instruction
@@ -281,11 +301,11 @@ out[k] = (mask[k] <op> 0) ? in[k]  : fill_value
 -/
 @[serde tag = 147]
 structure AffineSelect where
-  dst         : TensorRef
-  src         : TensorRef
-  fillMode    : AffineSelectCmp
-  fillReg     : Reg
-  maskPattern : DataPattern
+  dst          : TensorRef
+  fillMode     : AffineSelectCmp
+  onTrueTile   : TensorRef
+  onFalseValue : Immediate
+  dtype        : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- DmaCopy instruction
@@ -298,11 +318,11 @@ do we represent that at the KLR level?
 -/
 @[serde tag = 148]
 structure DmaCopy where
-  dst            : TensorRef
-  src            : TensorRef
-  compute_op     : DgeComputeOp
-  dstBoundsCheck : DmaBounds
-  srcBoundsCheck : DmaBounds
+  dst                : TensorRef
+  src                : TensorRef
+  compute_op         : DgeComputeOp
+  oobMode            : DmaBounds
+  dgeMode            : Nat
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- DmaTranspose instruction
@@ -324,6 +344,8 @@ must be the same size. The number of partitions must be a multiple of 32.
 structure Transpose where
   dst : TensorRef
   src : TensorRef
+  dtype : Option Dtype
+  engine : Engine
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- LoadMaskRegister instruction
@@ -342,6 +364,8 @@ Use the DVE to shuffle the data in src into dst based on MaskRegister
 structure Shuffle where
   dst : TensorRef
   src : TensorRef
+  shuffleMask : List Immediate
+  dtype : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- MemSet instruction
@@ -350,9 +374,11 @@ Sets `count` elements of `dst` to `value`
 -/
 @[serde tag = 153]
 structure MemSet where
-  dst   : TensorRef
-  value : Immediate
-  count : Nat
+  dst    : TensorRef
+  value  : Immediate
+  count  : Nat
+  dtype  : Dtype
+  engine : Engine
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- Iota Instruction
@@ -361,6 +387,7 @@ Generates values using `pattern` and writes them to `dst` -/
 structure Iota where
   dst : TensorRef
   pattern : DataPattern
+  dtype : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- LoadStationary Instruction
@@ -389,10 +416,9 @@ structure MatMul where
 structure LocalGather where
   dst               : TensorRef
   src               : TensorRef
-  indexMissBehavior : IndexMissBehavior
-  /- Set to true when this is the last local gather operation in a group
-  to free the pool buffer -/
-  freePoolBuffer    : Bool
+  index             : TensorRef
+  numElemPerIdx     : Immediate
+  numValidIndicies  : Option Immediate
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- RangeSelect instruction
@@ -400,7 +426,6 @@ structure LocalGather where
 @[serde tag = 158]
 structure RangeSelect where
   dst            : TensorRef
-  src            : TensorRef
   reduceCommand  : AccumCmd
   reduceOp       : AluOp
   base           : Float32
@@ -425,13 +450,13 @@ if (accumulator_cmd == ZeroAccumulator) or (accumulator_cmd == Accumulator):
 @[serde tag = 159]
 structure ScalarTensorTensor where
   dst             : TensorRef
-  src0            : TensorRef
-  src1            : TensorRef
+  data            : TensorRef
+  src0            : Operand
+  src1            : Operand
   op0             : AluOp
   op1             : AluOp
   reverseOperands : TensorScalarReverseOps
-  imm0            : Immediate
-  accumulatorCmd  : AccumCmd
+  dtype           : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- CopyPredicated instruction
@@ -439,9 +464,11 @@ structure ScalarTensorTensor where
 Copies each element from src to dst for which predicate is not 0 -/
 @[serde tag = 160]
 structure CopyPredicated where
-  dst       : TensorRef
-  src       : TensorRef
-  predicate : TensorRef
+  dst         : TensorRef
+  src         : TensorRef
+  predicate   : TensorRef
+  dtype       : Option Dtype
+  reversePred : Bool
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- TensorTensorScan instruction
@@ -461,8 +488,8 @@ structure TensorTensorScan where
   op0             : AluOp
   op1             : AluOp
   reverseOperands : TensorScalarReverseOps
-  imm0            : Immediate
-  accumulatorCmd  : AccumCmd
+  initial         : Operand
+  dtype           : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- MatchValueLoad instruction
@@ -482,6 +509,8 @@ matches and stores its index in dst. -/
 structure FindIndex8 where
   dst : TensorRef
   src : TensorRef
+  vals : TensorRef
+  dtype : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- MatchReplace8 instruction
@@ -491,7 +520,10 @@ Same as FindIndex8, but replaces the found values in src with `replaceValue`-/
 structure MatchReplace8 where
   dst          : TensorRef
   src          : TensorRef
+  vals         : TensorRef
   replaceValue : Immediate
+  dstIdx       : Option TensorRef
+  dtype        : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- Max8 instruction
@@ -501,6 +533,7 @@ Finds the 8 largest values in src and writes them to dst -/
 structure Max8 where
   dst : TensorRef
   src : TensorRef
+  dtype : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- BatchNormAggregate instruction
@@ -509,6 +542,7 @@ structure Max8 where
 structure BatchNormAggregate where
   dst : TensorRef
   src : TensorRef
+  dtype : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- BatchNormStats instruction
@@ -517,24 +551,26 @@ structure BatchNormAggregate where
 structure BatchNormStats where
   dst : TensorRef
   src : TensorRef
+  dtype : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- Reciprocal instruction
 -/
 @[serde tag = 168]
 structure Reciprocal where
-  dst  : TensorRef
-  src  : TensorRef
+  dst   : TensorRef
+  src   : TensorRef
+  dtype : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- Copy instruction
 Copy src to dst -/
 @[serde tag = 169]
 structure Copy where
-  dst   : TensorRef
-  src   : TensorRef
-  /- TODO: what is this for? -/
-  opDim : Option TensorSubDim
+  dst    : TensorRef
+  src    : TensorRef
+  dtype  : Option Dtype
+  engine : Engine
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- TensorReduce instruction
@@ -545,9 +581,11 @@ structure TensorReduce where
   dst          : TensorRef
   src          : TensorRef
   op           : AluOp
-  opDim        : TensorSubDim
+  axis         : Axis
   -- the negated field is only relevant for arithmetic operations
   negated      : Bool
+  dtype        : Option Dtype
+  keepdims     : Bool
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- TensorScalar instruction
@@ -558,11 +596,26 @@ output[k] = (input[k] <op0> imm0) <op1> imm1
 structure TensorScalar where
   dst : TensorRef
   src : TensorRef
-  imm0 : Immediate
+  operand0 : Operand
   op0 : AluOp
-  imm1 : Immediate
-  op1 : AluOp
+  operand1 : Option Operand
+  op1 : Option AluOp
   reverse : TensorScalarReverseOps
+  engine : Engine
+  dtype : Option Dtype
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+
+@[serde tag = 179]
+structure TensorScalarReduce where
+  dst : TensorRef
+  src : TensorRef
+  operand0 : Operand
+  op0 : AluOp
+  reverse0 : Bool
+  dtype : Option Dtype
+  reduceOp : Option AluOp
+  reduceRes : TensorRef
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- TensorTensor instruction
@@ -573,6 +626,8 @@ structure TensorTensor where
   src0 : TensorRef
   src1 : TensorRef
   op : AluOp
+  dtype : Option Dtype
+  engine : Engine
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /-
@@ -589,6 +644,26 @@ structure NcMatMul where
   isTranspose : Bool
   tilePosition : List Nat
   tileSize : List Nat
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 176]
+structure ActivationReduce where
+  dst : TensorRef
+  op : ActivationFunc
+  data : TensorRef
+  reduceOp : Option AluOp
+  reduceRes : Option TensorRef
+  bias : List Immediate
+  scale : Scale
+  dtype : Option Dtype
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 177]
+structure TensorPartitionReduce where
+  dst : TensorRef
+  op : AluOp
+  data : TensorRef
+  dtype : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 174]
@@ -618,8 +693,11 @@ inductive Operator where
   | shuffle (op : Shuffle)
   | tensorReduce (op : TensorReduce)
   | tensorScalar (op : TensorScalar)
+  | tensorScalarReduce (op : TensorScalarReduce)
   | tensorTensor (op : TensorTensor)
   | tensorTensorScan (op : TensorTensorScan)
   | transpose (op : Transpose)
   | ncMatMul (op : NcMatMul)
+  | activationReduce (op : ActivationReduce)
+  | tensorPartitionReduce (op : TensorPartitionReduce)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp

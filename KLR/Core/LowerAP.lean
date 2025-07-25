@@ -42,6 +42,13 @@ def Value.lowerAccessPatterns : Value → KLR.Err Value
 def Keyword.lowerAccessPatterns (k : Keyword) : KLR.Err Keyword := do
   return { k with value := (← k.value.lowerAccessPatterns) }
 
+def Operand.lowerAccessPatterns : Operand -> KLR.Err Operand
+  | .tile t => do return .tile t
+  | x => .ok x
+
+def Option.lowerAccessPatterns (op : Option Access) : KLR.Err (Option AccessPattern) :=
+  op.mapM Access.lowerAccessPattern
+
 def Expr.lowerAccessPatterns : Expr → KLR.Err Expr
 | .value v => do return .value (← v.lowerAccessPatterns)
 | .call f args kwargs => do
@@ -55,41 +62,58 @@ def TensorRef.lowerAccessPatterns : TensorRef → KLR.Err TensorRef
 -- TODO: Is there a way to make this less horrible with metaprogramming? All argumetns are of different types.
 def Operator.lowerAccessPatterns (k : Operator) : KLR.Err Operator :=
   match k with
-  | .activate           op => do return .activate           { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
-  | .affineSelect       op => do return .affineSelect       { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
+  | .activate           op => do return .activate           { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns), reduceRes := (<- op.reduceRes.mapM TensorRef.lowerAccessPatterns) }
+  | .affineSelect       op => do return .affineSelect       { op with dst := (← op.dst.lowerAccessPatterns) }
   | .batchNormAggregate op => do return .batchNormAggregate { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
   | .batchNormStats     op => do return .batchNormStats     { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
   | .copy               op => do return .copy               { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
   | .copyPredicated     op => do return .copyPredicated     { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns), predicate := (← op.predicate.lowerAccessPatterns) }
   | .dmaCopy            op => do return .dmaCopy            { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
   | .dmaTranspose       op => do return .dmaTranspose       { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
-  | .dropout            op => do return .dropout            { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
+  | .dropout            op => do return .dropout            { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns), threshold := (<- op.threshold.lowerAccessPatterns) }
   | .findIndex8         op => do return .findIndex8         { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
   | .iota               op => do return .iota               { op with dst := (← op.dst.lowerAccessPatterns)}
   | .loadMaskRegister   op => do return .loadMaskRegister   op
   | .loadStationary     op => do return .loadStationary     { op with src := (← op.src.lowerAccessPatterns) }
-  | .localGather        op => do return .localGather        { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
+  | .localGather        op => do return .localGather        { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns), index := (<- op.index.lowerAccessPatterns) }
   | .matMul             op => do return .matMul             { op with dst := (← op.dst.lowerAccessPatterns), moving := (← op.moving.lowerAccessPatterns) }
-  | .matchReplace8      op => do return .matchReplace8      { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
+  | .matchReplace8      op => do return .matchReplace8      { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns), vals := (<- op.vals.lowerAccessPatterns) }
   | .matchValueLoad     op => do return .matchValueLoad     { op with src := (← op.src.lowerAccessPatterns) }
   | .max8               op => do return .max8               { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
   | .memSet             op => do return .memSet             { op with dst := (← op.dst.lowerAccessPatterns) }
   | .rangeSelect        op => do return .rangeSelect        { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
   | .reciprocal         op => do return .reciprocal         { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
-  | .scalarTensorTensor op => do return .scalarTensorTensor { op with dst := (← op.dst.lowerAccessPatterns), src0 := (← op.src0.lowerAccessPatterns), src1 := (← op.src1.lowerAccessPatterns) }
+  | .scalarTensorTensor op => do return .scalarTensorTensor { op with dst := (← op.dst.lowerAccessPatterns), src0 := (← op.src0.lowerAccessPatterns), src1 := (← op.src1.lowerAccessPatterns), data := (<- op.data.lowerAccessPatterns) }
   | .shuffle            op => do return .shuffle            { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
   | .tensorReduce       op => do return .tensorReduce       { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
 
   | .tensorScalar       op => do return .tensorScalar       { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
   | .tensorTensor       op => do return .tensorTensor       { op with src0 := (← op.src0.lowerAccessPatterns), src1 := (← op.src1.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
 
-  | .tensorTensorScan   op => do return .tensorTensorScan   { op with dst := (← op.dst.lowerAccessPatterns), src0 := (← op.src0.lowerAccessPatterns), src1 := (← op.src1.lowerAccessPatterns) }
-  | .transpose          op => do return .transpose          { op with src := (← op.src.lowerAccessPatterns) }
+  | .tensorTensorScan   op => do return .tensorTensorScan   { op with dst := (← op.dst.lowerAccessPatterns), src0 := (← op.src0.lowerAccessPatterns), src1 := (← op.src1.lowerAccessPatterns), initial := (<- op.initial.lowerAccessPatterns) }
+  | .transpose          op => do return .transpose          { op with src := (← op.src.lowerAccessPatterns), dst := (<- op.dst.lowerAccessPatterns) }
   | .ncMatMul           op => do
     return .ncMatMul { op with
       dst        := (<- op.dst.lowerAccessPatterns)
       stationary := (<- op.stationary.lowerAccessPatterns)
       moving     := (<- op.moving.lowerAccessPatterns)
+    }
+  | .activationReduce   op => do
+    return .activationReduce { op with
+      dst := (<- op.dst.lowerAccessPatterns)
+      data := (<- op.data.lowerAccessPatterns)
+      reduceRes := (<- op.reduceRes.mapM TensorRef.lowerAccessPatterns)
+    }
+  | .tensorPartitionReduce op => do
+    return .tensorPartitionReduce {op with
+     dst := (<- op.dst.lowerAccessPatterns)
+     data := (<- op.data.lowerAccessPatterns)
+    }
+  | .tensorScalarReduce op => do
+    return .tensorScalarReduce { op with
+     dst := (<- op.dst.lowerAccessPatterns)
+     src := (<- op.src.lowerAccessPatterns)
+     operand0 := (<- op.operand0.lowerAccessPatterns)
     }
 
 
