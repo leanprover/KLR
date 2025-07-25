@@ -9,25 +9,6 @@ import KLR.Core.Basic
 import KLR.Util
 import Iris.Instances.heProp
 
-/-- A multiaffine equation describing an access into a free coordinate of an Address -/
-structure AffineMap where
-  free_offset : Int
-  free_strides : List Int
-  par_offset : Int
-  par_stride : Int
-  deriving Repr, BEq
-
-def AffineMap.par (a : AffineMap) (i : Int) : Int :=
-  a.par_offset + a.par_stride * i
-
-def AffineMap.free (a : AffineMap) (i : List Int) : Int :=
-  a.free_offset + List.dot a.free_strides i
-
-def AffineMap.is_trivial (a : AffineMap) : Prop :=
-  a.free_offset = 0 ∧
-  a.par_offset = 0 ∧
-  a.par_stride = 1 ∧
-  a.free_strides = a.free_strides.map (fun _ => 1)
 
 namespace KLR.Core
 
@@ -142,7 +123,13 @@ theorem TensorBank.merge_wf {x y : TensorBank α} (Hwfx : wf x) (Hwfy : wf y) : 
   simp_all [Heap.merge]
   intro n Hn
   rw [Hwfx _ (by omega), Hwfy _ (by omega)]
-  rfl
+  simp
+
+@[simp] def TensorBank.incFresh (x : TensorBank α) : TensorBank α :=
+  { x with next_fresh := x.next_fresh + 1 }
+
+theorem TensorBank.incFresh_wf {x : TensorBank α} (Hwf : wf x) : wf (x.incFresh) := by
+  simp_all; grind
 
 /-- Structure describing the physical characteristics of a chip's memory banks -/
 structure ChipMemorySpec where
@@ -155,6 +142,9 @@ structure ChipMemory (α : Type _) where
   sbufPhysical  : LocalStore α
   sbufUnbounded : TensorBank α
   hbmUnbounded  : TensorBank α
+  psum_wf       : TensorBank.wf psumUnbounded
+  sbuf_wf       : TensorBank.wf sbufUnbounded
+  hbm_wf        : TensorBank.wf hbmUnbounded
 
 inductive ChipIndex
 | psumPhysIndex
@@ -162,6 +152,21 @@ inductive ChipIndex
 | sbufPhysIndex
 | sbufUnboundedIndex (tensor : Nat)
 | hbmIndex (tensor : Nat)
+
+@[simp] def ChipMemory.freshPSUMStore (c : ChipMemory α) : ChipIndex × ChipMemory α :=
+  let i := c.psumUnbounded.next_fresh
+  let c' := { c with psumUnbounded := c.psumUnbounded.incFresh, psum_wf := TensorBank.incFresh_wf c.psum_wf }
+  ⟨.psumUnboundedIndex i, c'⟩
+
+@[simp] def ChipMemory.freshSBUFStore (c : ChipMemory α) : ChipIndex × ChipMemory α :=
+  let i := c.sbufUnbounded.next_fresh
+  let c' := { c with sbufUnbounded := c.sbufUnbounded.incFresh, sbuf_wf := TensorBank.incFresh_wf c.sbuf_wf }
+  ⟨.sbufUnboundedIndex i, c'⟩
+
+@[simp] def ChipMemory.freshHBMStore (c : ChipMemory α) : ChipIndex × ChipMemory α :=
+  let i := c.hbmUnbounded.next_fresh
+  let c' := { c with hbmUnbounded := c.hbmUnbounded.incFresh, hbm_wf := TensorBank.incFresh_wf c.hbm_wf }
+  ⟨.hbmIndex i, c'⟩
 
 @[simp] def ChipMemory.get_store (c : ChipMemory α) (i : ChipIndex) : Option (LocalStore α) :=
   match i with
@@ -174,12 +179,16 @@ inductive ChipIndex
 @[simp] def ChipMemory.set_store (c : ChipMemory α) (i : ChipIndex) (v : Option (LocalStore α)) : ChipMemory α :=
   match i with
   | .psumPhysIndex          => { c with psumPhysical  := v.getD Heap.empty }
-  | .psumUnboundedIndex t   => { c with psumUnbounded := Store.set c.psumUnbounded t v }
+  | .psumUnboundedIndex t   => { c with
+      psumUnbounded := Store.set c.psumUnbounded t v,
+      psum_wf := by intro n H; have X := c.psum_wf n; simp_all [Store.set]; grind }
   | .sbufPhysIndex          => { c with sbufPhysical  := v.getD Heap.empty }
-  | .sbufUnboundedIndex t   => { c with sbufUnbounded := Store.set c.sbufUnbounded t v }
-  | .hbmIndex t             => { c with hbmUnbounded := Store.set c.hbmUnbounded t v }
-
-@[simp] def ChipMemory.empty_store : ChipMemory α := ⟨Heap.empty, Heap.empty, Heap.empty, Heap.empty, Heap.empty⟩
+  | .sbufUnboundedIndex t   => { c with
+      sbufUnbounded := Store.set c.sbufUnbounded t v,
+      sbuf_wf := by intro n H; have X := c.sbuf_wf n; simp_all [Store.set]; grind }
+  | .hbmIndex t             => { c with
+      hbmUnbounded := Store.set c.hbmUnbounded t v,
+      hbm_wf := by intro n H; have X := c.hbm_wf n; simp_all [Store.set]; grind }
 
 @[simp] def ChipMemory.hmap_store (f : ChipIndex → LocalStore α → Option (LocalStore α)) (t : ChipMemory α) : ChipMemory α where
   psumPhysical  := f .psumPhysIndex t.psumPhysical |>.getD Heap.empty
@@ -187,6 +196,9 @@ inductive ChipIndex
   sbufPhysical  := f .sbufPhysIndex t.sbufPhysical |>.getD Heap.empty
   sbufUnbounded := Heap.hmap (fun i s => f (.sbufUnboundedIndex i) s) t.sbufUnbounded
   hbmUnbounded  := Heap.hmap (fun i s => f (.hbmIndex i) s) t.hbmUnbounded
+  psum_wf := TensorBank.hmap_wf t.psum_wf
+  sbuf_wf := TensorBank.hmap_wf t.sbuf_wf
+  hbm_wf  := TensorBank.hmap_wf t.hbm_wf
 
 @[simp] def ChipMemory.merge_store (op : LocalStore α → LocalStore α → LocalStore α) (x y : ChipMemory α) : ChipMemory α where
   psumPhysical  := op x.psumPhysical y.psumPhysical
@@ -194,13 +206,19 @@ inductive ChipIndex
   sbufPhysical  := op x.sbufPhysical y.sbufPhysical
   sbufUnbounded := Heap.merge op x.sbufUnbounded y.sbufUnbounded
   hbmUnbounded  := Heap.merge op x.hbmUnbounded y.hbmUnbounded
+  psum_wf := TensorBank.merge_wf x.psum_wf y.psum_wf
+  sbuf_wf := TensorBank.merge_wf x.sbuf_wf y.sbuf_wf
+  hbm_wf  := TensorBank.merge_wf x.hbm_wf y.hbm_wf
 
-def ChipMemory.hhmap_store (f : ChipIndex → LocalStore α → Option (LocalStore β)) (s : ChipMemory α) : ChipMemory β :=
-  ⟨ f .psumPhysIndex s.psumPhysical |>.getD Heap.empty,
-    hhmap (f <| .psumUnboundedIndex ·) s.psumUnbounded,
-    f .sbufPhysIndex s.sbufPhysical |>.getD Heap.empty,
-    hhmap (f <| .sbufUnboundedIndex ·) s.sbufUnbounded,
-    hhmap (f <| .hbmIndex ·) s.hbmUnbounded ⟩
+@[simp] def ChipMemory.hhmap_store (f : ChipIndex → LocalStore α → Option (LocalStore β)) (s : ChipMemory α) : ChipMemory β where
+  psumPhysical  := f .psumPhysIndex s.psumPhysical |>.getD Heap.empty
+  psumUnbounded := hhmap (f <| .psumUnboundedIndex ·) s.psumUnbounded
+  sbufPhysical  := f .sbufPhysIndex s.sbufPhysical |>.getD Heap.empty
+  sbufUnbounded := hhmap (f <| .sbufUnboundedIndex ·) s.sbufUnbounded
+  hbmUnbounded  := hhmap (f <| .hbmIndex ·) s.hbmUnbounded
+  psum_wf := by intro n H; simp [hhmap]; have X := s.psum_wf n H; simp [Store.get, X]
+  sbuf_wf := by intro n H; simp [hhmap]; have X := s.sbuf_wf n H; simp [Store.get, X]
+  hbm_wf  := by intro n H; simp [hhmap]; have X := s.hbm_wf n H; simp [Store.get, X]
 
 structure ChipCellIndex where
   chip : ChipIndex
@@ -214,7 +232,7 @@ structure ChipCellIndex where
   ChipMemory.set_store c i.chip (some <| Store.set tgt i.cell v)
 
 @[simp] def ChipMemory.empty : ChipMemory α :=
-  ⟨Heap.empty, Heap.empty, Heap.empty, Heap.empty, Heap.empty⟩
+  ⟨Heap.empty, Heap.empty, Heap.empty, Heap.empty, Heap.empty, sorry, sorry, sorry⟩
 
 @[simp] def ChipMemory.hmap (f : ChipCellIndex → α → Option α) (t : ChipMemory α) : ChipMemory α :=
   ChipMemory.hmap_store (fun i s => some <| Heap.hmap (f ⟨i, ·⟩ ·) s) t
@@ -334,8 +352,10 @@ instance {α β} : HasHHMap (ChipMemory α) (ChipMemory β) ChipCellIndex α β 
   hhmap_get {t k} f := by
     rcases k with ⟨chip, cell⟩
     cases chip <;>
-    simp_all [Store.get, hhmap, ChipMemory.hhmap_store, Option.bind] <;>
-    grind
+    simp_all [Store.get, hhmap, ChipMemory.hhmap_store, Option.bind]
+    · rename_i t'; cases t.psumUnbounded.bank t' <;> simp
+    · rename_i t'; cases t.sbufUnbounded.bank t' <;> simp
+    · rename_i t'; cases t.hbmUnbounded.bank t' <;> simp
 
 structure ProdStore (T : Type _) where
   left  : T
@@ -368,13 +388,16 @@ instance [Heap T1 K V1] [Heap T2 K V2] [HasHHMap T1 T2 K V1 V2] :
   hhmap f h := ⟨ hhmap (fun i v => f (.left i) v) h.1,  hhmap (fun i v => f (.right i) v) h.2⟩
   hhmap_get {t k} f := by cases k <;> simp [hhmap_get, Store.get]
 
-/-- The memory that can be stored in a UnboundedStore -/
+
+/-
+/- The memory that can be stored in a UnboundedStore -/
 inductive UCell (α DataT : Type _)
 | Real (_ : α)
 | Data (_ : DataT)
+-/
 
-abbrev NeuronMemory (DataT : Type _) := ChipMemory (UCell UInt8 DataT)
+abbrev NeuronMemory (DataT : Type _) := ChipMemory DataT
 abbrev NeuronIndex := ChipCellIndex
 
-abbrev ProdNeuronMemory (DataT : Type _) := ProdStore (ChipMemory (UCell UInt8 DataT))
+abbrev ProdNeuronMemory (DataT : Type _) := ProdStore (ChipMemory DataT)
 abbrev ProdNeuronIndex := ProdIndex ChipCellIndex
