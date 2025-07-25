@@ -155,7 +155,7 @@ instance : Tensors Operator where
       | .localGather l => [l.dst, l.src, l.index]
       | .matMul m => [m.dst, m.moving]
       | .memSet m => [m.dst]
-      | .rangeSelect r => [r.dst, r.src]
+      | .rangeSelect r => [r.dst, r.bound0, r.bound1, r.onTrueTile]
       | .shuffle s => [s.dst, s.src]
       | .tensorReduce r => [r.dst, r.src]
       | .tensorTensorScan t => [t.dst, t.src0, t.src1]
@@ -178,6 +178,7 @@ instance : Tensors Operator where
       | .tensorScalarReduce t => [t.dst, t.src, t.reduceRes]
     let additionalTensors := match op with
       | .activate d => tensors d.reduceRes
+      | .rangeSelect r => tensors r.reduceRes
       | .dropout d => tensors d.threshold
       | .tensorTensorScan t => tensors t.initial
       | .scalarTensorTensor s => (tensors s.src0) ++ (tensors s.src1)

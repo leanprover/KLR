@@ -427,13 +427,16 @@ structure LocalGather where
 structure RangeSelect where
   dst            : TensorRef
   reduceCommand  : AccumCmd
-  reduceOp       : AluOp
-  base           : Float32
-  fillValue      : Float32
+  reduceRes      : Option TensorRef
+  reduceOp       : Option AluOp
   compOp0        : AluOp
   compOp1        : AluOp
-  bound0         : Immediate
-  bound1         : Immediate
+  bound0         : TensorRef
+  bound1         : TensorRef
+  rangeStart     : Immediate
+  onTrueTile     : TensorRef
+  onFalseValue   : Immediate
+  dtype          : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- ScalarTensorTensor instruction

@@ -81,7 +81,7 @@ def Operator.lowerAccessPatterns (k : Operator) : KLR.Err Operator :=
   | .matchValueLoad     op => do return .matchValueLoad     { op with src := (← op.src.lowerAccessPatterns) }
   | .max8               op => do return .max8               { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
   | .memSet             op => do return .memSet             { op with dst := (← op.dst.lowerAccessPatterns) }
-  | .rangeSelect        op => do return .rangeSelect        { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
+  | .rangeSelect        op => do return .rangeSelect        { op with dst := (← op.dst.lowerAccessPatterns), reduceRes := (← op.reduceRes.mapM TensorRef.lowerAccessPatterns), bound0 := (← op.bound0.lowerAccessPatterns) , bound1 := (← op.bound1.lowerAccessPatterns), onTrueTile := (<- op.onTrueTile.lowerAccessPatterns)  }
   | .reciprocal         op => do return .reciprocal         { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
   | .scalarTensorTensor op => do return .scalarTensorTensor { op with dst := (← op.dst.lowerAccessPatterns), src0 := (← op.src0.lowerAccessPatterns), src1 := (← op.src1.lowerAccessPatterns), data := (<- op.data.lowerAccessPatterns) }
   | .shuffle            op => do return .shuffle            { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }

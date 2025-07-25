@@ -464,23 +464,37 @@ nki affine_select
     }
     return .none
 
--- nki range_select
---  (dst: Access)
---  --
---  (on_true_tile : Access)
---  (comp_op0 : AluOp)
---  (comp_op1 : AluOp)
---  (bound0 : Access)
---  (bound1 : Access)
---  (reduce_cmd : AccumCmd := AccumCmd.Idle)
---  (reduce_res : Option Access := none)
---  (reduce_op : AluOp := .max)
---  (range_start : Immediate := .float 0)
---  (on_false_value : Immediate := .float 0)
---  (mask : Option Immediate := none)
---  (dtype : Option Dtype := none) := do
---     if mask.isSome then throw maskNotSupported
---     return .none
+nki range_select
+ (dst: Access)
+ --
+ (on_true_tile : Access)
+ (comp_op0 : AluOp)
+ (comp_op1 : AluOp)
+ (bound0 : Access)
+ (bound1 : Access)
+ (reduce_cmd : AccumCmd := AccumCmd.Idle)
+ (reduce_res : Option Access := none)
+ (reduce_op : Option AluOp := some .max)
+ (range_start : Immediate := .float 0)
+ (on_false_value : Immediate := .float 0)
+ (mask : Option Immediate := none)
+ (dtype : Option Dtype := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper $ .rangeSelect {
+      dst := .abstract dst,
+      reduceCommand := reduce_cmd,
+      reduceRes := reduce_res.map .abstract
+      reduceOp := reduce_op
+      compOp0 := comp_op0,
+      compOp1 := comp_op1,
+      bound0 := .abstract bound0,
+      bound1 := .abstract bound1,
+      rangeStart := range_start,
+      onTrueTile := .abstract on_true_tile,
+      onFalseValue := on_false_value,
+      dtype := dtype
+    }
+    return .none
 
 nki memset
  (dst: Access)
