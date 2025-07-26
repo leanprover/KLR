@@ -26,48 +26,46 @@ Simplification pass: convert operators to the ones that don't use mutating assig
 namespace KLR.NKI
 open Compile.Pass
 
-structure SimplifyOpState where
-  statements : Array Stmt := #[]
+abbrev SimplifyOp := PassM
 
-abbrev SimplifyOp := Pass SimplifyOpState
-
-private def operatorNames : List String := [
-  "nc_matmul",
-  "nc_transpose",
-  "activation",
-  "activation_reduce",
-  "tensor_reduce",
-  "tensor_partition_reduce",
-  "tensor_tensor",
-  "tensor_tensor_scan",
-  "scalar_tensor_tensor",
-  "tensor_scalar",
-  "tensor_scalar_reduce",
-  "tensor_copy",
-  "tensor_copy_dynamic_src",
-  "tensor_copy_dynamic_dst",
-  "tensor_copy_predicated",
-  "reciprocal",
-  "iota",
-  "dropout",
-  "affine_select",
-  "range_select",
-  "memset",
-  "bn_stats",
-  "bn_aggr",
-  "local_gather",
-  "dma_copy",
-  "max8",
-  "nc_find_index8",
-  "nc_match_replace8",
-  "nc_stream_shuffle"
+-- TODO: maybe we can fetch these names from the NKI environment in Trace/NKI.lean?
+private def operatorNames : List Name := [
+  `neuronxcc.nki.isa.nc_matmul,
+  `neuronxcc.nki.isa.nc_transpose,
+  `neuronxcc.nki.isa.activation,
+  `neuronxcc.nki.isa.activation_reduce,
+  `neuronxcc.nki.isa.tensor_reduce,
+  `neuronxcc.nki.isa.tensor_partition_reduce,
+  `neuronxcc.nki.isa.tensor_tensor,
+  `neuronxcc.nki.isa.tensor_tensor_scan,
+  `neuronxcc.nki.isa.scalar_tensor_tensor,
+  `neuronxcc.nki.isa.tensor_scalar,
+  `neuronxcc.nki.isa.tensor_scalar_reduce,
+  `neuronxcc.nki.isa.tensor_copy,
+  `neuronxcc.nki.isa.tensor_copy_dynamic_src,
+  `neuronxcc.nki.isa.tensor_copy_dynamic_dst,
+  `neuronxcc.nki.isa.tensor_copy_predicated,
+  `neuronxcc.nki.isa.reciprocal,
+  `neuronxcc.nki.isa.iota,
+  `neuronxcc.nki.isa.dropout,
+  `neuronxcc.nki.isa.affine_select,
+  `neuronxcc.nki.isa.range_select,
+  `neuronxcc.nki.isa.memset,
+  `neuronxcc.nki.isa.bn_stats,
+  `neuronxcc.nki.isa.bn_aggr,
+  `neuronxcc.nki.isa.local_gather,
+  `neuronxcc.nki.isa.dma_copy,
+  `neuronxcc.nki.isa.max8,
+  `neuronxcc.nki.isa.nc_find_index8,
+  `neuronxcc.nki.isa.nc_match_replace8,
+  `neuronxcc.nki.isa.nc_stream_shuffle
 ]
 
 private def rewriteOp (rhs: Expr) (dst: Expr) : SimplifyOp (Option Stmt') := do
   match rhs.expr with
   | .call f args kws =>
     if let .var n := f.expr then
-      if operatorNames.any (fun x => x == n.toString) then
+      if operatorNames.contains n then
         if kws.any fun x => x.name == "dst" then
           throw  "Operation with destination specified should not use assignment form"
         let kws : List Keyword := ⟨ "dst",  dst⟩ :: kws
@@ -129,6 +127,6 @@ private def kernel (k : Kernel) : SimplifyOp Kernel := do
   }
 
 def simplifyOperators (k : Kernel) : Err (Kernel × List PosError) :=
-  match (kernel k).run {} {} with
-  | .ok x s => .ok (x.1, s.warnings.toList ++ s.newWarns.toList)
+  match (kernel k).run {} with
+  | .ok x s => .ok (x, s.warnings.toList ++ s.newWarns.toList)
   | .error e _ => .error (toString e)

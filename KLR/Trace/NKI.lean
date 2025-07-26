@@ -28,7 +28,7 @@ This module defines the builtin constants used by tracing for NKI kernels.
 namespace KLR.Trace
 open KLR.Core
 
-private def nki_ : Name := .str .anonymous "nki"
+private def nki_ : Name := .str (.str .anonymous "neuronxcc") "nki"
 private def nki_isa : Name := .str nki_ "isa"
 private def nki_lang : Name := .str nki_ "language"
 
