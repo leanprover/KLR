@@ -36,7 +36,7 @@ def keywords : List (Name × Term) :=
   [ int "arch" 2
   , ptr "hbm"  .hbm  (0xffffffff, 0xffffffff) -- TODO: size of HBM?
   , ptr "sbuf" .sbuf (128, 0x30000)
-  , ptr "pmem" .pmem (128, 0x4000)
+  , ptr "psum" .psum (128, 0x4000)
   , const "range"
   ]
 

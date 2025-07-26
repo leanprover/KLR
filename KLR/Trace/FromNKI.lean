@@ -204,7 +204,7 @@ instance : FromNKI Memory where
       | "nki.language.private_hbm" => .ok .hbm
       | "nki.language.hbm" => .ok .hbm
       | "nki.language.sbuf" => .ok .sbuf
-      | "nki.language.pmem" => .ok .pmem
+      | "nki.language.psum" => .ok .psum
       | _ => err
     | _ => err
 

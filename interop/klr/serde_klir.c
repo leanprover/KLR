@@ -1239,174 +1239,202 @@ bool Core_TensorTensor_ser(FILE *out, struct Core_TensorTensor *x) {
   return true;
 }
 
+bool Core_NcMatMul_ser(FILE *out, struct Core_NcMatMul *x) {
+  if (!cbor_encode_tag(out, 173, 0, 8))
+    return false;
+  if (!Core_TensorRef_ser(out, x->dst))
+    return false;
+  if (!Core_TensorRef_ser(out, x->stationary))
+    return false;
+  if (!Core_TensorRef_ser(out, x->moving))
+    return false;
+  if (!cbor_encode_bool(out, x->isStationaryOneZero))
+    return false;
+  if (!cbor_encode_bool(out, x->isMovingZero))
+    return false;
+  if (!cbor_encode_bool(out, x->isTranspose))
+    return false;
+  if (!Nat_List_ser(out, x->tilePosition))
+    return false;
+  if (!Nat_List_ser(out, x->tileSize))
+    return false;
+  return true;
+}
+
 bool Core_Operator_ser(FILE *out, struct Core_Operator *x) {
   switch (x->tag) {
   case Core_Operator_activate:
-    if (!cbor_encode_tag(out, 173, 0, 1))
+    if (!cbor_encode_tag(out, 174, 0, 1))
       return false;
     if (!Core_Activate_ser(out, x->activate.op))
       return false;
     break;
   case Core_Operator_affineSelect:
-    if (!cbor_encode_tag(out, 173, 1, 1))
+    if (!cbor_encode_tag(out, 174, 1, 1))
       return false;
     if (!Core_AffineSelect_ser(out, x->affineSelect.op))
       return false;
     break;
   case Core_Operator_batchNormAggregate:
-    if (!cbor_encode_tag(out, 173, 2, 1))
+    if (!cbor_encode_tag(out, 174, 2, 1))
       return false;
     if (!Core_BatchNormAggregate_ser(out, x->batchNormAggregate.op))
       return false;
     break;
   case Core_Operator_batchNormStats:
-    if (!cbor_encode_tag(out, 173, 3, 1))
+    if (!cbor_encode_tag(out, 174, 3, 1))
       return false;
     if (!Core_BatchNormStats_ser(out, x->batchNormStats.op))
       return false;
     break;
   case Core_Operator_copy:
-    if (!cbor_encode_tag(out, 173, 4, 1))
+    if (!cbor_encode_tag(out, 174, 4, 1))
       return false;
     if (!Core_Copy_ser(out, x->copy.op))
       return false;
     break;
   case Core_Operator_copyPredicated:
-    if (!cbor_encode_tag(out, 173, 5, 1))
+    if (!cbor_encode_tag(out, 174, 5, 1))
       return false;
     if (!Core_CopyPredicated_ser(out, x->copyPredicated.op))
       return false;
     break;
   case Core_Operator_dmaCopy:
-    if (!cbor_encode_tag(out, 173, 6, 1))
+    if (!cbor_encode_tag(out, 174, 6, 1))
       return false;
     if (!Core_DmaCopy_ser(out, x->dmaCopy.op))
       return false;
     break;
   case Core_Operator_dmaTranspose:
-    if (!cbor_encode_tag(out, 173, 7, 1))
+    if (!cbor_encode_tag(out, 174, 7, 1))
       return false;
     if (!Core_DmaTranspose_ser(out, x->dmaTranspose.op))
       return false;
     break;
   case Core_Operator_dropout:
-    if (!cbor_encode_tag(out, 173, 8, 1))
+    if (!cbor_encode_tag(out, 174, 8, 1))
       return false;
     if (!Core_Dropout_ser(out, x->dropout.op))
       return false;
     break;
   case Core_Operator_findIndex8:
-    if (!cbor_encode_tag(out, 173, 9, 1))
+    if (!cbor_encode_tag(out, 174, 9, 1))
       return false;
     if (!Core_FindIndex8_ser(out, x->findIndex8.op))
       return false;
     break;
   case Core_Operator_iota:
-    if (!cbor_encode_tag(out, 173, 10, 1))
+    if (!cbor_encode_tag(out, 174, 10, 1))
       return false;
     if (!Core_Iota_ser(out, x->iota.op))
       return false;
     break;
   case Core_Operator_loadMaskRegister:
-    if (!cbor_encode_tag(out, 173, 11, 1))
+    if (!cbor_encode_tag(out, 174, 11, 1))
       return false;
     if (!Core_LoadMaskRegister_ser(out, x->loadMaskRegister.op))
       return false;
     break;
   case Core_Operator_loadStationary:
-    if (!cbor_encode_tag(out, 173, 12, 1))
+    if (!cbor_encode_tag(out, 174, 12, 1))
       return false;
     if (!Core_LoadStationary_ser(out, x->loadStationary.op))
       return false;
     break;
   case Core_Operator_localGather:
-    if (!cbor_encode_tag(out, 173, 13, 1))
+    if (!cbor_encode_tag(out, 174, 13, 1))
       return false;
     if (!Core_LocalGather_ser(out, x->localGather.op))
       return false;
     break;
   case Core_Operator_matMul:
-    if (!cbor_encode_tag(out, 173, 14, 1))
+    if (!cbor_encode_tag(out, 174, 14, 1))
       return false;
     if (!Core_MatMul_ser(out, x->matMul.op))
       return false;
     break;
   case Core_Operator_matchReplace8:
-    if (!cbor_encode_tag(out, 173, 15, 1))
+    if (!cbor_encode_tag(out, 174, 15, 1))
       return false;
     if (!Core_MatchReplace8_ser(out, x->matchReplace8.op))
       return false;
     break;
   case Core_Operator_matchValueLoad:
-    if (!cbor_encode_tag(out, 173, 16, 1))
+    if (!cbor_encode_tag(out, 174, 16, 1))
       return false;
     if (!Core_MatchValueLoad_ser(out, x->matchValueLoad.op))
       return false;
     break;
   case Core_Operator_max8:
-    if (!cbor_encode_tag(out, 173, 17, 1))
+    if (!cbor_encode_tag(out, 174, 17, 1))
       return false;
     if (!Core_Max8_ser(out, x->max8.op))
       return false;
     break;
   case Core_Operator_memSet:
-    if (!cbor_encode_tag(out, 173, 18, 1))
+    if (!cbor_encode_tag(out, 174, 18, 1))
       return false;
     if (!Core_MemSet_ser(out, x->memSet.op))
       return false;
     break;
   case Core_Operator_rangeSelect:
-    if (!cbor_encode_tag(out, 173, 19, 1))
+    if (!cbor_encode_tag(out, 174, 19, 1))
       return false;
     if (!Core_RangeSelect_ser(out, x->rangeSelect.op))
       return false;
     break;
   case Core_Operator_reciprocal:
-    if (!cbor_encode_tag(out, 173, 20, 1))
+    if (!cbor_encode_tag(out, 174, 20, 1))
       return false;
     if (!Core_Reciprocal_ser(out, x->reciprocal.op))
       return false;
     break;
   case Core_Operator_scalarTensorTensor:
-    if (!cbor_encode_tag(out, 173, 21, 1))
+    if (!cbor_encode_tag(out, 174, 21, 1))
       return false;
     if (!Core_ScalarTensorTensor_ser(out, x->scalarTensorTensor.op))
       return false;
     break;
   case Core_Operator_shuffle:
-    if (!cbor_encode_tag(out, 173, 22, 1))
+    if (!cbor_encode_tag(out, 174, 22, 1))
       return false;
     if (!Core_Shuffle_ser(out, x->shuffle.op))
       return false;
     break;
   case Core_Operator_tensorReduce:
-    if (!cbor_encode_tag(out, 173, 23, 1))
+    if (!cbor_encode_tag(out, 174, 23, 1))
       return false;
     if (!Core_TensorReduce_ser(out, x->tensorReduce.op))
       return false;
     break;
   case Core_Operator_tensorScalar:
-    if (!cbor_encode_tag(out, 173, 24, 1))
+    if (!cbor_encode_tag(out, 174, 24, 1))
       return false;
     if (!Core_TensorScalar_ser(out, x->tensorScalar.op))
       return false;
     break;
   case Core_Operator_tensorTensor:
-    if (!cbor_encode_tag(out, 173, 25, 1))
+    if (!cbor_encode_tag(out, 174, 25, 1))
       return false;
     if (!Core_TensorTensor_ser(out, x->tensorTensor.op))
       return false;
     break;
   case Core_Operator_tensorTensorScan:
-    if (!cbor_encode_tag(out, 173, 26, 1))
+    if (!cbor_encode_tag(out, 174, 26, 1))
       return false;
     if (!Core_TensorTensorScan_ser(out, x->tensorTensorScan.op))
       return false;
     break;
   case Core_Operator_transpose:
-    if (!cbor_encode_tag(out, 173, 27, 1))
+    if (!cbor_encode_tag(out, 174, 27, 1))
       return false;
     if (!Core_Transpose_ser(out, x->transpose.op))
+      return false;
+    break;
+  case Core_Operator_ncMatMul:
+    if (!cbor_encode_tag(out, 174, 28, 1))
+      return false;
+    if (!Core_NcMatMul_ser(out, x->ncMatMul.op))
       return false;
     break;
   default:
@@ -3288,12 +3316,39 @@ bool Core_TensorTensor_des(FILE *in, struct region *region,
   return true;
 }
 
+bool Core_NcMatMul_des(FILE *in, struct region *region,
+                       struct Core_NcMatMul **x) {
+  u8 t, c, l;
+  if (!cbor_decode_tag(in, &t, &c, &l))
+    return false;
+  if (t != 173 || c != 0 || l != 8)
+    return false;
+  *x = region_alloc(region, sizeof(**x));
+  if (!Core_TensorRef_des(in, region, &(*x)->dst))
+    return false;
+  if (!Core_TensorRef_des(in, region, &(*x)->stationary))
+    return false;
+  if (!Core_TensorRef_des(in, region, &(*x)->moving))
+    return false;
+  if (!Bool_des(in, region, &(*x)->isStationaryOneZero))
+    return false;
+  if (!Bool_des(in, region, &(*x)->isMovingZero))
+    return false;
+  if (!Bool_des(in, region, &(*x)->isTranspose))
+    return false;
+  if (!Nat_List_des(in, region, &(*x)->tilePosition))
+    return false;
+  if (!Nat_List_des(in, region, &(*x)->tileSize))
+    return false;
+  return true;
+}
+
 bool Core_Operator_des(FILE *in, struct region *region,
                        struct Core_Operator **x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 173)
+  if (t != 174)
     return false;
   *x = region_alloc(region, sizeof(**x));
   switch (c) {
@@ -3492,6 +3547,13 @@ bool Core_Operator_des(FILE *in, struct region *region,
     if (!Core_Transpose_des(in, region, &(*x)->transpose.op))
       return false;
     (*x)->tag = Core_Operator_transpose;
+    break;
+  case 28:
+    if (l != 1)
+      return false;
+    if (!Core_NcMatMul_des(in, region, &(*x)->ncMatMul.op))
+      return false;
+    (*x)->tag = Core_Operator_ncMatMul;
     break;
   default:
     return false;

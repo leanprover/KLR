@@ -72,6 +72,7 @@ bool Core_Copy_ser(FILE *out, struct Core_Copy *x);
 bool Core_TensorReduce_ser(FILE *out, struct Core_TensorReduce *x);
 bool Core_TensorScalar_ser(FILE *out, struct Core_TensorScalar *x);
 bool Core_TensorTensor_ser(FILE *out, struct Core_TensorTensor *x);
+bool Core_NcMatMul_ser(FILE *out, struct Core_NcMatMul *x);
 bool Core_Operator_ser(FILE *out, struct Core_Operator *x);
 bool Core_Value_ser(FILE *out, struct Core_Value *x);
 bool Core_Keyword_ser(FILE *out, struct Core_Keyword *x);
@@ -183,6 +184,8 @@ bool Core_TensorScalar_des(FILE *in, struct region *region,
                            struct Core_TensorScalar **x);
 bool Core_TensorTensor_des(FILE *in, struct region *region,
                            struct Core_TensorTensor **x);
+bool Core_NcMatMul_des(FILE *in, struct region *region,
+                       struct Core_NcMatMul **x);
 bool Core_Operator_des(FILE *in, struct region *region,
                        struct Core_Operator **x);
 bool Core_Value_des(FILE *in, struct region *region, struct Core_Value **x);

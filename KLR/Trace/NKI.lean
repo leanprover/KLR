@@ -42,9 +42,32 @@ def NKIBuiltins : List (Name × BuiltinFn) :=
   , (nl "zeros", Tensor.zeros)
   --, (nl "ndarray", Tensor.ndarray) see comment in Tensor.lean
   --, (nisa "tensor_scalar", Tensor.tensor_scalar)
-  , (nisa "dma_copy", Isa.dma_copy)
-  , (nisa "tensor_copy", Isa.tensor_copy)
   , (nisa "activation", Isa.activation)
+  --, (nisa "affine_select", Isa.affine_select)
+  , (nisa "bn_stats", Isa.bn_stats)
+  , (nisa "bn_aggr", Isa.bn_aggr)
+  , (nisa "tensor_copy", Isa.tensor_copy)
+  , (nisa "tensor_copy_predicated", Isa.tensor_copy_predicated)
+  , (nisa "dma_copy", Isa.dma_copy)
+  -- TODO dmaTranspose
+  , (nisa "dropout", Isa.dropout)
+  , (nisa "nc_find_index8", Isa.nc_find_index8)
+  , (nisa "iota", Isa.iota)
+  -- TODO load mask register
+  -- TODO load stationary
+  -- TODO ISA Matmul
+  , (nisa "nc_match_replace8", Isa.nc_match_replace8)
+  -- TODO match value load
+  , (nisa "max8", Isa.max8)
+  , (nisa "memset", Isa.memset)
+  -- TODO range select
+  , (nisa "reciprocal", Isa.reciprocal)
+  -- TODO scalar tensor tensor
+  , (nisa "nc_stream_shuffle", Isa.nc_stream_shuffle)
+  , (nisa "tensor_reduce", Isa.tensor_reduce)
+  , (nisa "tensor_tensor_scan", Isa.tensor_tensor_scan)
+  , (nisa "nc_transpose", Isa.nc_transpose)
+  , (nisa "nc_matmul", Isa.nc_matmul)
   ]
 
 -- NKI environment, including constants and the names of builtin functions
