@@ -221,18 +221,17 @@ def info (p : Parsed) : IO UInt32 := do
     IO.println s!"AST summary for KLIR kernel {kernel.name}"
   return 0
 
+-- TODO: preserve warnings
 def compile (p : Parsed) : IO UInt32 := do
   let debug := p.hasFlag "debug"
   let file := p.positionalArg! "moduleFileName" |>.as! String
   let kernel := p.positionalArg! "kernelFunctionName" |>.as! String
   let dir := (p.flag? "klr-module-dir").map fun x => x.as! String
   let kernel : KLR.Python.Kernel <- gatherTmp file kernel dir debug
+  let (kernel, _) := kernel.inferArguments
   let kernel : KLR.NKI.Kernel <- KLR.NKI.simplify kernel
-  -- TODO run the type checker
-  let (kernel, warnings) := <- KLR.NKI.simplifyOperators kernel
-  if !warnings.isEmpty then
-      IO.eprintln "Warnings:"
-      warnings.forM (fun w => IO.eprintln s!" {w}")
+  let (kernel, _) <- KLR.NKI.simplifyOperators kernel
+  let kernel <- KLR.NKI.annotate kernel
   IO.println (reprStr kernel)
   return 0
 

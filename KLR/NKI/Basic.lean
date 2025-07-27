@@ -49,7 +49,7 @@ inductive Value where
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 2]
-inductive BinOp where
+enum BinOp where
   -- logical
   | land | lor
   -- comparison
@@ -58,7 +58,7 @@ inductive BinOp where
   | add | sub | mul | div | mod | pow | floor
   -- bitwise
   | lshift | rshift | or | xor | and
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+  deriving FromCBOR, ToCBOR
 
 mutual
 @[serde tag = 3]
@@ -74,7 +74,7 @@ inductive Expr' where
   | tuple (elements : List Expr)
   | access (expr : Expr) (indices : List Index)
   | binOp (op : BinOp) (left right : Expr)
-  | ifExp (test body orelse : Expr)
+  | ifExp (test tru fls : Expr)
   | call (f: Expr) (args: List Expr) (keywords : List Keyword)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
@@ -98,23 +98,40 @@ inductive Pattern where
   | tuple (xs : List Pattern)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-def Pattern.isVar : Pattern -> Bool
+namespace Pattern
+
+def isVar : Pattern -> Bool
   | .var .. => true | _ => false
 
-def Pattern.findVar (ps : List Pattern) : PassM (Name × List Pattern) :=
+def findVar (ps : List Pattern) : PassM (Name × List Pattern) :=
   match ps.partition Pattern.isVar with
   | ([], ps) => return (<- freshName, ps)
   | (.var n :: vs, ps) => return (n, vs ++ ps)
   | _ => throw "invalid pattern"
 
-mutual
+end Pattern
+
 @[serde tag = 8]
+enum RangeType where
+  | static
+  | affine
+  | sequential
+  deriving FromCBOR, ToCBOR
+
+@[serde tag = 9]
+inductive Iterator where
+  | expr (e : Expr)
+  | range (ty : RangeType) (l u s : Expr)
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+mutual
+@[serde tag = 10]
 structure Stmt where
   stmt : Stmt'
   pos : Pos
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 9]
+@[serde tag = 11]
 inductive Stmt' where
   | expr (e : Expr)
   | assert (e : Expr)
@@ -123,19 +140,19 @@ inductive Stmt' where
   | letM (p : Pattern) (ty : Option Expr) (e : Expr)
   | setM (x e : Expr) (accum : Bool)
   | ifStm (e : Expr) (thn els: List Stmt)
-  | forLoop (x : Expr) (iter: Expr) (body: List Stmt)
+  | forLoop (x : Name) (iter: Iterator) (body: List Stmt)
   | breakLoop
   | continueLoop
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 end
 
-@[serde tag = 10]
+@[serde tag = 12]
 structure Param where
   name : String
   dflt : Option Expr
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 11]
+@[serde tag = 13]
 structure Fun where
   name : String
   file : String
@@ -144,13 +161,13 @@ structure Fun where
   args : List Param
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 12]
+@[serde tag = 14]
 structure Arg where
   name : String
   value : Expr
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 13]
+@[serde tag = 15]
 structure Kernel where
   entry : String
   funs : List Fun

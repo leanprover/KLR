@@ -202,6 +202,14 @@ def isSimpleName : Name -> Bool
   | .num n _ => isSimpleName n
   | _ => false
 
+def simpleVar (e : Expr) : Simplify Name :=
+  withPos e.pos do match e with
+  | ⟨ .var n, _ ⟩ =>
+    if isSimpleName n
+    then return n
+    else throw "expecting simple variable"
+  | _ => throw "expecting simple variable"
+
 def isLetPattern (e : Expr) : Bool :=
   match e.expr with
   | .var n => isSimpleName n
@@ -280,7 +288,10 @@ private def stmt' (s : Python.Stmt') : Simplify (List Stmt') := do
   | .forLoop x iter body orelse => do
       if orelse.length > 0 then
         throw "for else is not supported in NKI"
-      return [.forLoop (<- expr x) (<- expr iter) (<- stmts body)]
+      let x <- simpleVar (<- expr x)
+      let iter := Iterator.expr (<- expr iter)
+      let body <- stmts body
+      return [.forLoop x iter body]
   | .breakLoop => return [.breakLoop]
   | .continueLoop => return [.continueLoop]
   termination_by sizeOf s
