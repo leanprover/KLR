@@ -232,6 +232,7 @@ def compile (p : Parsed) : IO UInt32 := do
   let kernel : KLR.NKI.Kernel <- KLR.NKI.simplify kernel
   let (kernel, _) <- KLR.NKI.simplifyOperators kernel
   let kernel <- KLR.NKI.annotate kernel
+  let kernel <- KLR.NKI.simplifyPatterns kernel
   IO.println (reprStr kernel)
   return 0
 
