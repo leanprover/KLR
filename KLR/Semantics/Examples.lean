@@ -24,14 +24,14 @@ def ΦIsIntLe (v1 v2 : @val DataT) : @PROP DataT := iprop(⌜ΦIsIntLePure v1 v2
 
 
 /-- Simplest possible example: Two programs in "done" states -/
-theorem example0 (σ : @state DataT): ⊢ (@wp DataT ⟨1⟩ (.done (.int 4)) (.done (.int 5)) ΦIsIntLe) := by
-  apply Entails.trans ?_ (@wpValVal _ (K := ⟨1⟩) (.done (.int 4), σ) (.done (.int 5), σ) (.int 4) (.int 5) ΦIsIntLe (by rfl) (by rfl))
+theorem example0 : ⊢ (@wp DataT ⟨1⟩ (.done (.int 4)) (.done (.int 5)) ΦIsIntLe) := by
+  apply Entails.trans ?_ (@wpValVal _ (K := ⟨1⟩) (.done (.int 4)) (.done (.int 5)) (.int 4) (.int 5) ΦIsIntLe (by rfl) (by rfl))
   istart
   simp only [ΦIsIntLe]
   ipure_intro; exists 4; exists 5
 
 /-- Two "return" programs are related if the values they return are -/
-theorem example1 (σ₁ σ₂ : @state DataT) :
+theorem example1 :
   ⊢ (@wp DataT ⟨1⟩
          (.run [⟨.ret (.val (.int 4)), fun _ => .none⟩])
          (.run [⟨.ret (.val (.int 5)), fun _ => .none⟩])
@@ -45,7 +45,7 @@ theorem example1 (σ₁ σ₂ : @state DataT) :
        (fun _ => step.ret <| ExprStep.value rfl)
        (fun _ => step.ret <| ExprStep.value rfl)
        (by trivial)
-  have RuleInst2 := @wpValVal DataT (p1', σ₁) (p2', σ₂) (.int 4) (.int 5) ΦIsIntLe ⟨1⟩
+  have RuleInst2 := @wpValVal DataT p1' p2' (.int 4) (.int 5) ΦIsIntLe ⟨1⟩
        (by rfl)
        (by rfl)
 
@@ -68,7 +68,7 @@ theorem example1_full (σ₁ σ₂ : @state DataT) :
     ΦIsIntLePure := by
   apply wp_adequacy_no_alloc (K := ⟨1⟩)
   istart; iintro H; iclear H; istop
-  exact example1 σ₁ σ₂
+  exact example1
 
 /-! Example 2: Allocation
 This is one of the simplest state-transforming ste
@@ -116,6 +116,8 @@ def e3R : (NMLSemantics DataT).Prog :=
     ⟨.ret (.val .unit), nolocals _⟩,
   ]
 
+-- #check Entails.trans
+
 --  TODO: use iapply
 theorem e3 : ⊢ @wp DataT ⟨2⟩ e3L e3R ΦUnitEq := by
   -- Enter desync mode
@@ -156,8 +158,7 @@ theorem e3 : ⊢ @wp DataT ⟨2⟩ e3L e3R ΦUnitEq := by
   have σ₁ : @state DataT := sorry
   have σ₂ : @state DataT := sorry
 
-  -- Fix this rule to not need states
-  have RuleInst2 := @wpValVal DataT ((ExecState.done Value.unit), σ₁) ((ExecState.done Value.unit), σ₂) .unit .unit
+  have RuleInst2 := @wpValVal DataT (ExecState.done Value.unit) (ExecState.done Value.unit) .unit .unit
        ΦUnitEq ⟨2⟩
        (by rfl)
        (by rfl)
