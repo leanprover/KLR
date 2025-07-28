@@ -49,7 +49,7 @@ theorem example1 (σ₁ σ₂ : @state DataT) :
        (by rfl)
        (by rfl)
 
-  -- The proof:
+  -- The proof
   apply Entails.trans _ RuleInst1
   apply Entails.trans _ RuleInst2
   istart
@@ -87,15 +87,95 @@ theorem example2 (σ : @state DataT) : (NMLSemantics DataT).Safe (ex2, σ) := by
   sorry
 
 
+-- Testing desynced stepping
+
+
+-- TODO: Generalize: Assignment of a _pure expression_ to a variable
+-- is a pure step which adds the pure variable to the local context
+/-- Assignment of a value to none is Pure -/
+theorem AssignValuePure (v : (NMLSemantics DataT).Val) :
+    PureStep (.run <| ⟨.assign .none (.val v), loc⟩ :: p') (.run p') :=
+  fun _ => step.seq <| .value rfl
+
+
+def ΦUnitEq (v1 v2 : @val DataT) : @PROP DataT := iprop(⌜v1 = .unit ∧ v2 = .unit⌝)
+
+def e3L : (NMLSemantics DataT).Prog :=
+  .run [
+    ⟨.assign .none (.val (.int 3)), nolocals _⟩,
+    ⟨.assign .none (.val (.bool false)), nolocals _⟩,
+    ⟨.assign .none (.val .unit), nolocals _⟩,
+    ⟨.assign .none (.val (.int 3)), nolocals _⟩,
+    ⟨.ret (.val .unit), nolocals _⟩,
+  ]
+
+def e3R : (NMLSemantics DataT).Prog :=
+  .run [
+    ⟨.assign .none (.val .unit), nolocals _⟩,
+    ⟨.assign .none (.val (.bool false)), nolocals _⟩,
+    ⟨.ret (.val .unit), nolocals _⟩,
+  ]
+
+--  TODO: use iapply
+theorem e3 : ⊢ @wp DataT ⟨2⟩ e3L e3R ΦUnitEq := by
+  -- Enter desync mode
+  apply Entails.trans ?_ (BI.wand_entails <| wpDesync ΦUnitEq)
+
+  -- Left pure step
+  apply Entails.trans ?_ (BI.wand_entails <| awpPureL (AssignValuePure _) (Hx := by simp))
+  -- Left pure step
+  apply Entails.trans ?_ (BI.wand_entails <| awpPureL (AssignValuePure _) (Hx := by simp))
+  -- Note how a third pure step doesn't work here becase we're proving a wp with ⟨2⟩ stuttering
+  -- apply Entails.trans ?_ (BI.wand_entails <| awpPureL (AssignValuePure _) (Hx := by simp))
+
+  -- Right pure step
+  apply Entails.trans ?_ (BI.wand_entails <| awpPureR (AssignValuePure _) (Hx := by simp))
+  simp only [Nat.sub_self, Nat.zero_le, Nat.sub_eq_zero_of_le, Nat.add_one_sub_one]
+
+  -- Resync
+  apply Entails.trans ?_ (BI.wand_entails <| wpResync _)
+
+  -- Now we can do another batch of desync steps
+  apply Entails.trans ?_ (BI.wand_entails <| wpDesync _)
+  apply Entails.trans ?_ (BI.wand_entails <| awpPureL (AssignValuePure _) (Hx := by simp))
+  apply Entails.trans ?_ (BI.wand_entails <| awpPureL (AssignValuePure _) (Hx := by simp))
+  apply Entails.trans ?_ (BI.wand_entails <| awpPureR (AssignValuePure _) (Hx := by simp))
+  apply Entails.trans ?_ (BI.wand_entails <| wpResync _)
+
+  -- Then it's the same as above (FIXME: Refactor)
+  have RuleInst1 :=
+    @wpPureSync DataT
+      (.run [⟨.ret (.val .unit), nolocals _⟩]) (.run [⟨.ret (.val .unit), nolocals _⟩])
+      (.done .unit) (.done .unit)
+      ΦUnitEq ⟨2⟩
+      (fun _ => step.ret <| ExprStep.value rfl)
+      (fun _ => step.ret <| ExprStep.value rfl)
+      (by trivial)
+  apply Entails.trans ?_ RuleInst1; clear RuleInst1
+
+  have σ₁ : @state DataT := sorry
+  have σ₂ : @state DataT := sorry
+
+  -- Fix this rule to not need states
+  have RuleInst2 := @wpValVal DataT ((ExecState.done Value.unit), σ₁) ((ExecState.done Value.unit), σ₂) .unit .unit
+       ΦUnitEq ⟨2⟩
+       (by rfl)
+       (by rfl)
+  simp only [] at RuleInst2
+  apply Entails.trans ?_ RuleInst2; clear RuleInst2
+  simp [ΦUnitEq]
+  exact BI.true_intro
+
+
 
 -- Other things I need to test soon:
 -- Assignments to variables
 -- Starting with state in hbm
 
-def e3L : (NMLSemantics DataT).Prog :=
+def e4L : (NMLSemantics DataT).Prog :=
   .run [⟨.assign (.some "x") (.val <| .int 3), nolocals _⟩, ⟨.ret (.var "x"), nolocals _⟩]
 
-def e3R : (NMLSemantics DataT).Prog :=
+def e4R : (NMLSemantics DataT).Prog :=
   .run [⟨.assign (.some "y") (.val <| .int 3), nolocals _⟩, ⟨.ret (.var "y"), nolocals _⟩]
 
 
@@ -104,8 +184,8 @@ def ΦInt (R : Int → Int → @PROP DataT) (v1 v2 : @val DataT) : @PROP DataT :
 def ΦIntPure (R : Int → Int → Prop) (v1 v2 : @val DataT) : @PROP DataT :=
   ΦInt (fun z1 z2 => (iprop(⌜R z1 z2⌝) : @PROP DataT)) v1 v2
 
-theorem e3 : ⊢ (@wp DataT ⟨1⟩ e3L e3R (ΦIntPure (· = ·))) := by
-  unfold e3L e3R
+theorem e4 : ⊢ (@wp DataT ⟨1⟩ e4L e4R (ΦIntPure (· = ·))) := by
+  unfold e4L e4R
   -- I really need this independent stepping thing
   sorry
 
