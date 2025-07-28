@@ -15,8 +15,8 @@ open Iris.BI.BIBase KLR.Core Iris NML
 variable {DataT : Type _}
 
 /-- Value-value rule: base case for the proof -/
-theorem wpValVal {p1 p2 : @prog DataT } {v1 v2 : val} {Φ : val → val → @PROP DataT} {K}
-    (H1 : to_val p1 = some v1) (H2 : to_val p2 = some v2) :
+theorem wpValVal {p1 p2 : ExecState DataT } {v1 v2 : NML.Value DataT} {Φ : NML.Value DataT → NML.Value DataT → PROP DataT} {K}
+    (H1 : toVal p1 = some v1) (H2 : toVal p2 = some v2) :
     Φ v1 v2 ⊢ wp K p1 p2 Φ := by
   -- Unfold the WP
   refine Entails.trans ?_ (Q := ?_) ?G1
@@ -41,11 +41,11 @@ theorem wpValVal {p1 p2 : @prog DataT } {v1 v2 : val} {Φ : val → val → @PRO
   iexact H
 
 -- TODO: Make a more general (pureN/pureM) tactic
-theorem wpPureSync {p1 p2 p1' p2' : @prog DataT} {Φ : @val DataT → @val DataT → @PROP DataT} {K : LeibnizO Nat}
+theorem wpPureSync {p1 p2 p1' p2' : ExecState DataT} {Φ : NML.Value DataT → NML.Value DataT → @PROP DataT} {K : LeibnizO Nat}
     -- The left hand side takes a pure step
-    (H1 : ∀ s : @State DataT, (NMLSemantics DataT).Step (p1, s) (p1', s))
+    (H1 : ∀ s : NML.State DataT, (NMLSemantics DataT).Step (p1, s) (p1', s))
     -- The right hand side takes a pure step
-    (H2 : ∀ s : @State DataT, (NMLSemantics DataT).Step (p2, s) (p2', s))
+    (H2 : ∀ s : NML.State DataT, (NMLSemantics DataT).Step (p2, s) (p2', s))
     (Hk : 1 ≤ K.car) :
     wp K p1' p2' Φ ⊢ wp K p1 p2 Φ := by
   -- Unfold the WP
@@ -85,13 +85,13 @@ theorem wpPureSync {p1 p2 p1' p2' : @prog DataT} {Φ : @val DataT → @val DataT
 
 
 -- TODO: Port updates for heaps
-theorem update_lemma (σₗ σᵣ : @state DataT) :
+theorem update_lemma (σₗ σᵣ : NML.State DataT) :
   state_interp σₗ σᵣ ⊢
     |==> ∃ ℓₗ ℓᵣ, ℓₗ [S]⇉ₗ∅ ∗ ℓᵣ [S]⇉ᵣ∅ ∗
     state_interp ⟨(ChipMemory.freshSBUFStore σₗ.1).2⟩ ⟨(ChipMemory.freshSBUFStore σᵣ.1).2⟩ :=
   sorry
 
-theorem wpAllocSync  {Φ : @val DataT → @val DataT → @PROP DataT} {K : LeibnizO Nat}
+theorem wpAllocSync  {Φ : NML.Value DataT → NML.Value DataT → @PROP DataT} {K : LeibnizO Nat}
     (Hk : 1 ≤ K.car) :
      (∀ ℓₗ ℓᵣ, (ℓₗ [S]⇉ₗ∅) -∗ (ℓᵣ [S]⇉ᵣ∅) -∗ wp K (.run <| p1) (.run <| p2) Φ) ⊢
      wp K
@@ -154,7 +154,7 @@ theorem wpAllocSync  {Φ : @val DataT → @val DataT → @PROP DataT} {K : Leibn
 structure UWP where
   pre  : @PROP DataT
   post : @PROP DataT
-  prog : @prog DataT
+  prog : ExecState DataT
 
 def UWP.LeftSpec (u : @UWP DataT) : @PROP DataT :=
   iprop(∀ σₗ σᵣ, u.pre -∗ state_interp σₗ σᵣ -∗ ∀ prog' σₗ', ⌜step (u.prog, σₗ) (prog', σₗ')⌝ -∗ |==> (state_interp σₗ' σᵣ ∗ u.post))
@@ -229,24 +229,24 @@ structure Stutter where
 -- (AWP{k;false;k;false} el er) should actually just equal the WP
 
 
--- theorem wp_unfold {K : LeibnizO Nat} {p1 p2 : @prog DataT} {Φf : @val DataT → @val DataT → @PROP DataT} :
+-- theorem wp_unfold {K : LeibnizO Nat} {p1 p2 : ExecState DataT} {Φf : @val DataT → @val DataT → @PROP DataT} :
 --     wp K p1 p2 Φf ≡
 --     iprop(
---       (|==> ∃ vl, ∃ vr, ⌜to_val p1 = some vl⌝ ∗ ⌜to_val p2 = some vr⌝ ∗ Φf vl vr) ∨
+--       (|==> ∃ vl, ∃ vr, ⌜toVal p1 = some vl⌝ ∗ ⌜toVal p2 = some vr⌝ ∗ Φf vl vr) ∨
 --       ( ∀ sl, ∀ sr, state_interp sl sr -∗
 --         ∃ cl', ∃ cr', ∃ nl, ∃ nr,
---           ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K.car ∧ nr ≤ K.car ∧ StepN nl (p1, sl) cl' ∧ StepN nr (p2, sr) cr'⌝ ∗
+--           ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K.car ∧ nr ≤ K.car ∧ SmallStep.StepN nl (p1, sl) cl' ∧ SmallStep.StepN nr (p2, sr) cr'⌝ ∗
 --             ▷ |==> (state_interp cl'.2 cr'.2 ∗ wp K cl'.1 cr'.1 Φf))) := by
 
-def awp (Lm Rm Lx Rx : Nat) (p1 p2 : @prog DataT) (Φ : @prog DataT → @prog DataT → @PROP DataT) :
+def awp (Lm Rm Lx Rx : Nat) (p1 p2 : ExecState DataT) (Φ : ExecState DataT → ExecState DataT → @PROP DataT) :
     @PROP DataT :=
   iprop(∀ sl, ∀ sr, state_interp sl sr -∗
           ∃ cl', ∃ cr', ∃ nl, ∃ nr,
-          ⌜Lm ≤ nl ∧ Rm ≤ nr ∧ nl ≤ Lx ∧ nr ≤ Rx ∧ StepN nl (p1, sl) cl' ∧ StepN nr (p2, sr) cr'⌝ ∗
+          ⌜Lm ≤ nl ∧ Rm ≤ nr ∧ nl ≤ Lx ∧ nr ≤ Rx ∧ SmallStep.StepN nl (p1, sl) cl' ∧ SmallStep.StepN nr (p2, sr) cr'⌝ ∗
           |==> (state_interp cl'.2 cr'.2 ∗ Φ cl'.1 cr'.1))
 
 
-theorem wpDesync {K : LeibnizO Nat} {p1 p2 : @prog DataT} (Φf : @val DataT → @val DataT → @PROP DataT) :
+theorem wpDesync {K : LeibnizO Nat} {p1 p2 : ExecState DataT} (Φf : NML.Value DataT → NML.Value DataT → @PROP DataT) :
     ⊢ awp 1 1 K.1 K.1 p1 p2 (wp K · · Φf) -∗ wp K p1 p2 Φf := by
   refine Entails.trans ?_ (Q := iprop((awp 1 1 K.car K.car p1 p2 fun x1 x2 => wp K x1 x2 Φf) -∗ ?_)) ?G1
   case G1 =>
@@ -275,7 +275,7 @@ theorem wpDesync {K : LeibnizO Nat} {p1 p2 : @prog DataT} (Φf : @val DataT → 
   istart
   apply BI.entails_wand .rfl
 
-theorem wpResync {m' n' : Nat} {p1 p2 : @prog DataT} (Φ : @prog DataT → @prog DataT → @PROP DataT) :
+theorem wpResync {m' n' : Nat} {p1 p2 : ExecState DataT} (Φ : ExecState DataT → ExecState DataT → @PROP DataT) :
     ⊢ Φ p1 p2 -∗ awp 0 0 m' n' p1 p2 Φ := by
   unfold awp
   iintro HΦ s1 s2 Hσ
@@ -300,7 +300,7 @@ theorem wpResync {m' n' : Nat} {p1 p2 : @prog DataT} (Φ : @prog DataT → @prog
   · iexact HΦ
 
 -- TODO: Move
-def PureStep (p p' : @prog DataT) : Prop := ∀ s : @State DataT, (NMLSemantics DataT).Step (p, s) (p', s)
+def PureStep (p p' : ExecState DataT) : Prop := ∀ s : NML.State DataT, (NMLSemantics DataT).Step (p, s) (p', s)
 
 theorem awpPureL (Hstep : PureStep p1 p1') (Hx : 0 < Lx := by omega) :
     ⊢ awp (Lm - 1) Rm (Lx - 1) Rx p1' p2 Φ -∗ awp Lm Rm Lx Rx p1 p2 Φ := by

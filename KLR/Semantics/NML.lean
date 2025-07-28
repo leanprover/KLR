@@ -242,10 +242,7 @@ This is erasable when f is a no-op. -/
 | .done v => .some v
 | _ => .none
 
-def NMLSemantics : SmallStep where
-  Prog := ExecState DataT
-  State := State DataT
-  Val := Value DataT
+instance NMLSemantics : SmallStep (ExecState DataT) (Value DataT) (State DataT) where
   Step := step DataT
   toVal := to_val DataT
   toVal_isSome_isStuck{c c'} := by
@@ -255,7 +252,7 @@ def NMLSemantics : SmallStep where
     cases H
     rintro H <;> cases H
 
-instance : Det (NMLSemantics DataT) where
+instance : Det (ExecState DataT) (Value DataT) (State DataT)  where
   step_det {c c'} := by sorry
     /-
     rintro ⟨⟩ ⟨⟩ ⟨⟩ <;> try rfl

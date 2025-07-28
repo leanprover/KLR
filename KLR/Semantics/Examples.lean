@@ -18,8 +18,8 @@ variable {DataT : Type _}
 /-- Example relation: Both programs reutrn integers, and the integer of the left program is less
 than the integer of the right program. -/
 
-def ΦIsIntLePure (v1 v2 : @val DataT) : Prop := ∃ (z1 z2 : Int), v1 = NML.Value.int z1 ∧ v2 = .int z2 ∧ z1 < z2
-def ΦIsIntLe (v1 v2 : @val DataT) : @PROP DataT := iprop(⌜ΦIsIntLePure v1 v2⌝)
+def ΦIsIntLePure (v1 v2 : NML.Value DataT) : Prop := ∃ (z1 z2 : Int), v1 = NML.Value.int z1 ∧ v2 = .int z2 ∧ z1 < z2
+def ΦIsIntLe (v1 v2 : NML.Value DataT) : @PROP DataT := iprop(⌜ΦIsIntLePure v1 v2⌝)
 
 
 
@@ -37,10 +37,10 @@ theorem example1 :
          (.run [⟨.ret (.val (.int 5)), fun _ => .none⟩])
          ΦIsIntLe) := by
   -- Junk needed because bad automation
-  let p1 : (NMLSemantics DataT).Prog  := .run [⟨.ret (.val (.int 4)), fun _ => .none⟩]
-  let p2 : (NMLSemantics DataT).Prog  := .run [⟨.ret (.val (.int 5)), fun _ => .none⟩]
-  let p1' : (NMLSemantics DataT).Prog := .done (.int 4)
-  let p2' : (NMLSemantics DataT).Prog := .done (.int 5)
+  let p1 : ExecState DataT := .run [⟨.ret (.val (.int 4)), fun _ => .none⟩]
+  let p2 : ExecState DataT := .run [⟨.ret (.val (.int 5)), fun _ => .none⟩]
+  let p1' : ExecState DataT := .done (.int 4)
+  let p2' : ExecState DataT := .done (.int 5)
   have RuleInst1 := @wpPureSync DataT p1 p2 p1' p2' ΦIsIntLe ⟨1⟩
        (fun _ => step.ret <| ExprStep.value rfl)
        (fun _ => step.ret <| ExprStep.value rfl)
@@ -61,7 +61,7 @@ theorem example1 :
     - Are equiterminating,
     - Step to values related by ΦIsIntLePure if they (both) terminate
 -/
-theorem example1_full (σ₁ σ₂ : @state DataT) :
+theorem example1_full (σ₁ σ₂ : State DataT) :
   (NMLSemantics DataT).PRel
     ((.run [⟨.ret (.val (.int 4)), fun _ => .none⟩]), σ₁)
     ((.run [⟨.ret (.val (.int 5)), fun _ => .none⟩]), σ₂)
@@ -75,10 +75,10 @@ This is one of the simplest state-transforming ste
 Prove that allocation under any heap is safe using a relational proof.
 -/
 
-def ex2 : (NMLSemantics DataT).Prog :=
+def ex2 : ExecState DataT :=
   (.run [⟨.assign .none (.alloc Memory.sbuf), nolocals _⟩, ⟨.ret <| .val .unit, nolocals _⟩])
 
-theorem example2 (σ : @state DataT) : (NMLSemantics DataT).Safe (ex2, σ) := by
+theorem example2 (σ : State DataT) : SmallStep.Safe (ex2, σ) := by
   -- It suffices to show that `(ex2, σ) ∼ (ex2, σ) : fun _ _ => True`
   apply SmallStep.Safe_of_PRel (Φf := fun _ _ => True)
   -- Enter the Iris proof
@@ -93,14 +93,14 @@ theorem example2 (σ : @state DataT) : (NMLSemantics DataT).Safe (ex2, σ) := by
 -- TODO: Generalize: Assignment of a _pure expression_ to a variable
 -- is a pure step which adds the pure variable to the local context
 /-- Assignment of a value to none is Pure -/
-theorem AssignValuePure (v : (NMLSemantics DataT).Val) :
+theorem AssignValuePure (v : NML.Value DataT) :
     PureStep (.run <| ⟨.assign .none (.val v), loc⟩ :: p') (.run p') :=
   fun _ => step.seq <| .value rfl
 
 
-def ΦUnitEq (v1 v2 : @val DataT) : @PROP DataT := iprop(⌜v1 = .unit ∧ v2 = .unit⌝)
+def ΦUnitEq (v1 v2 : NML.Value DataT) : @PROP DataT := iprop(⌜v1 = .unit ∧ v2 = .unit⌝)
 
-def e3L : (NMLSemantics DataT).Prog :=
+def e3L : ExecState DataT :=
   .run [
     ⟨.assign .none (.val (.int 3)), nolocals _⟩,
     ⟨.assign .none (.val (.bool false)), nolocals _⟩,
@@ -109,7 +109,7 @@ def e3L : (NMLSemantics DataT).Prog :=
     ⟨.ret (.val .unit), nolocals _⟩,
   ]
 
-def e3R : (NMLSemantics DataT).Prog :=
+def e3R : ExecState DataT :=
   .run [
     ⟨.assign .none (.val .unit), nolocals _⟩,
     ⟨.assign .none (.val (.bool false)), nolocals _⟩,
@@ -144,7 +144,6 @@ theorem e3 : ⊢ @wp DataT ⟨2⟩ e3L e3R ΦUnitEq := by
   apply Entails.trans ?_ (BI.wand_entails <| awpPureR (AssignValuePure _) (Hx := by simp))
   apply Entails.trans ?_ (BI.wand_entails <| wpResync _)
 
-  -- Then it's the same as above (FIXME: Refactor)
   have RuleInst1 :=
     @wpPureSync DataT
       (.run [⟨.ret (.val .unit), nolocals _⟩]) (.run [⟨.ret (.val .unit), nolocals _⟩])
@@ -154,9 +153,6 @@ theorem e3 : ⊢ @wp DataT ⟨2⟩ e3L e3R ΦUnitEq := by
       (fun _ => step.ret <| ExprStep.value rfl)
       (by trivial)
   apply Entails.trans ?_ RuleInst1; clear RuleInst1
-
-  have σ₁ : @state DataT := sorry
-  have σ₂ : @state DataT := sorry
 
   have RuleInst2 := @wpValVal DataT (ExecState.done Value.unit) (ExecState.done Value.unit) .unit .unit
        ΦUnitEq ⟨2⟩
@@ -173,16 +169,16 @@ theorem e3 : ⊢ @wp DataT ⟨2⟩ e3L e3R ΦUnitEq := by
 -- Assignments to variables
 -- Starting with state in hbm
 
-def e4L : (NMLSemantics DataT).Prog :=
+def e4L : ExecState DataT :=
   .run [⟨.assign (.some "x") (.val <| .int 3), nolocals _⟩, ⟨.ret (.var "x"), nolocals _⟩]
 
-def e4R : (NMLSemantics DataT).Prog :=
+def e4R : ExecState DataT :=
   .run [⟨.assign (.some "y") (.val <| .int 3), nolocals _⟩, ⟨.ret (.var "y"), nolocals _⟩]
 
 
-def ΦInt (R : Int → Int → @PROP DataT) (v1 v2 : @val DataT) : @PROP DataT :=
+def ΦInt (R : Int → Int → @PROP DataT) (v1 v2 : NML.Value DataT) : @PROP DataT :=
   iprop(∃ z1 z2, ⌜v1 = .int z1⌝ ∗ ⌜v2 = .int z2⌝ ∗ R z1 z2)
-def ΦIntPure (R : Int → Int → Prop) (v1 v2 : @val DataT) : @PROP DataT :=
+def ΦIntPure (R : Int → Int → Prop) (v1 v2 : NML.Value DataT) : @PROP DataT :=
   ΦInt (fun z1 z2 => (iprop(⌜R z1 z2⌝) : @PROP DataT)) v1 v2
 
 theorem e4 : ⊢ (@wp DataT ⟨1⟩ e4L e4R (ΦIntPure (· = ·))) := by
