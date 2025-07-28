@@ -40,12 +40,9 @@ theorem wpValVal {p1 p2 : ExecState DataT } {v1 v2 : NML.Value DataT} {Φ : NML.
   isplit r; ipure_intro; exact H2
   iexact H
 
--- TODO: Make a more general (pureN/pureM) tactic
 theorem wpPureSync {p1 p2 p1' p2' : ExecState DataT} {Φ : NML.Value DataT → NML.Value DataT → @PROP DataT} {K : LeibnizO Nat}
-    -- The left hand side takes a pure step
-    (H1 : ∀ s : NML.State DataT, (NMLSemantics DataT).Step (p1, s) (p1', s))
-    -- The right hand side takes a pure step
-    (H2 : ∀ s : NML.State DataT, (NMLSemantics DataT).Step (p2, s) (p2', s))
+    (H1 : SmallStep.PureStep p1 p1')
+    (H2 : SmallStep.PureStep p2 p2')
     (Hk : 1 ≤ K.car) :
     wp K p1' p2' Φ ⊢ wp K p1 p2 Φ := by
   -- Unfold the WP
@@ -299,10 +296,8 @@ theorem wpResync {m' n' : Nat} {p1 p2 : ExecState DataT} (Φ : ExecState DataT �
   · iexact Hσ
   · iexact HΦ
 
--- TODO: Move
-def PureStep (p p' : ExecState DataT) : Prop := ∀ s : NML.State DataT, (NMLSemantics DataT).Step (p, s) (p', s)
 
-theorem awpPureL (Hstep : PureStep p1 p1') (Hx : 0 < Lx := by omega) :
+theorem awpPureL (Hstep : SmallStep.PureStep p1 p1') (Hx : 0 < Lx := by omega) :
     ⊢ awp (Lm - 1) Rm (Lx - 1) Rx p1' p2 Φ -∗ awp Lm Rm Lx Rx p1 p2 Φ := by
   simp at Hx
   istart
@@ -324,7 +319,7 @@ theorem awpPureL (Hstep : PureStep p1 p1') (Hx : 0 < Lx := by omega) :
   istop
   refine BIUpdate.mono .rfl
 
-theorem awpPureR (Hstep : PureStep p2 p2') (Hx : 0 < Rx := by omega) :
+theorem awpPureR (Hstep : SmallStep.PureStep p2 p2') (Hx : 0 < Rx := by omega) :
     ⊢ awp Lm (Rm - 1) Lx (Rx - 1) p1 p2' Φ -∗ awp Lm Rm Lx Rx p1 p2 Φ := by
   simp at Hx
   istart

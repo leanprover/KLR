@@ -154,6 +154,7 @@ def StepsAtLeast  (n : Nat) (c : Prog × State) :=
 theorem StepsAtLeast_zero {c : Prog × State} : StepsAtLeast 0 c :=
   ⟨c, StepN.done rfl⟩
 
+def PureStep (p p' : Prog) : Prop := ∀ s : State, Step (p, s) (p', s)
 
 end basic
 

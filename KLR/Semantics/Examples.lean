@@ -11,7 +11,7 @@ import KLR.Semantics.ProofRules
 import Iris.ProofMode.Tactics
 
 section weakestpre
-open Iris.BI.BIBase KLR.Core Iris NML
+open Iris.BI.BIBase KLR.Core Iris NML Iris.BI
 
 variable {DataT : Type _}
 
@@ -36,23 +36,9 @@ theorem example1 :
          (.run [⟨.ret (.val (.int 4)), fun _ => .none⟩])
          (.run [⟨.ret (.val (.int 5)), fun _ => .none⟩])
          ΦIsIntLe) := by
-  -- Junk needed because bad automation
-  let p1 : ExecState DataT := .run [⟨.ret (.val (.int 4)), fun _ => .none⟩]
-  let p2 : ExecState DataT := .run [⟨.ret (.val (.int 5)), fun _ => .none⟩]
-  let p1' : ExecState DataT := .done (.int 4)
-  let p2' : ExecState DataT := .done (.int 5)
-  have RuleInst1 := @wpPureSync DataT p1 p2 p1' p2' ΦIsIntLe ⟨1⟩
-       (fun _ => step.ret <| ExprStep.value rfl)
-       (fun _ => step.ret <| ExprStep.value rfl)
-       (by trivial)
-  have RuleInst2 := @wpValVal DataT p1' p2' (.int 4) (.int 5) ΦIsIntLe ⟨1⟩
-       (by rfl)
-       (by rfl)
-
-  -- The proof
-  apply Entails.trans _ RuleInst1
-  apply Entails.trans _ RuleInst2
   istart
+  apply Entails.trans ?_ <| wpPureSync (RetPure _ _) (RetPure _ _) (by simp)
+  apply Entails.trans ?_ <| wpValVal (by rfl) (by rfl)
   simp only [ΦIsIntLe]
   ipure_intro; exists 4; exists 5
 
@@ -90,14 +76,6 @@ theorem example2 (σ : State DataT) : SmallStep.Safe (ex2, σ) := by
 -- Testing desynced stepping
 
 
--- TODO: Generalize: Assignment of a _pure expression_ to a variable
--- is a pure step which adds the pure variable to the local context
-/-- Assignment of a value to none is Pure -/
-theorem AssignValuePure (v : NML.Value DataT) :
-    PureStep (.run <| ⟨.assign .none (.val v), loc⟩ :: p') (.run p') :=
-  fun _ => step.seq <| .value rfl
-
-
 def ΦUnitEq (v1 v2 : NML.Value DataT) : @PROP DataT := iprop(⌜v1 = .unit ∧ v2 = .unit⌝)
 
 def e3L : ExecState DataT :=
@@ -120,46 +98,26 @@ def e3R : ExecState DataT :=
 
 --  TODO: use iapply
 theorem e3 : ⊢ @wp DataT ⟨2⟩ e3L e3R ΦUnitEq := by
-  -- Enter desync mode
-  apply Entails.trans ?_ (BI.wand_entails <| wpDesync ΦUnitEq)
+  istart
+  -- Enter desync mode, do two left pure steps, and one right pure step. Resync.
+  -- Note (commented) that a third pure step does not work becase of the ⟨2⟩ bound.
+  apply Entails.trans ?_ <| wand_entails <| wpDesync ΦUnitEq
+  apply Entails.trans ?_ <| wand_entails <| awpPureL (AssignValuePure _ _) (Hx := by simp)
+  apply Entails.trans ?_ <| wand_entails <| awpPureL (AssignValuePure _ _) (Hx := by simp)
+  apply Entails.trans ?_ <| wand_entails <| awpPureR (AssignValuePure _ _) (Hx := by simp)
+  -- apply Entails.trans ?_ <| wand_entails <| awpPureL (AssignValuePure _ _) (Hx := by simp)
+  apply Entails.trans ?_ <| wand_entails <| wpResync _
 
-  -- Left pure step
-  apply Entails.trans ?_ (BI.wand_entails <| awpPureL (AssignValuePure _) (Hx := by simp))
-  -- Left pure step
-  apply Entails.trans ?_ (BI.wand_entails <| awpPureL (AssignValuePure _) (Hx := by simp))
-  -- Note how a third pure step doesn't work here becase we're proving a wp with ⟨2⟩ stuttering
-  -- apply Entails.trans ?_ (BI.wand_entails <| awpPureL (AssignValuePure _) (Hx := by simp))
+  -- Do another batch of desync steps
+  apply Entails.trans ?_ <| wand_entails <| wpDesync ΦUnitEq
+  apply Entails.trans ?_ <| wand_entails <| awpPureL (AssignValuePure _ _) (Hx := by simp)
+  apply Entails.trans ?_ <| wand_entails <| awpPureL (AssignValuePure _ _) (Hx := by simp)
+  apply Entails.trans ?_ <| wand_entails <| awpPureR (AssignValuePure _ _) (Hx := by simp)
+  apply Entails.trans ?_ <| wand_entails <| wpResync _
 
-  -- Right pure step
-  apply Entails.trans ?_ (BI.wand_entails <| awpPureR (AssignValuePure _) (Hx := by simp))
-  simp only [Nat.sub_self, Nat.zero_le, Nat.sub_eq_zero_of_le, Nat.add_one_sub_one]
-
-  -- Resync
-  apply Entails.trans ?_ (BI.wand_entails <| wpResync _)
-
-  -- Now we can do another batch of desync steps
-  apply Entails.trans ?_ (BI.wand_entails <| wpDesync _)
-  apply Entails.trans ?_ (BI.wand_entails <| awpPureL (AssignValuePure _) (Hx := by simp))
-  apply Entails.trans ?_ (BI.wand_entails <| awpPureL (AssignValuePure _) (Hx := by simp))
-  apply Entails.trans ?_ (BI.wand_entails <| awpPureR (AssignValuePure _) (Hx := by simp))
-  apply Entails.trans ?_ (BI.wand_entails <| wpResync _)
-
-  have RuleInst1 :=
-    @wpPureSync DataT
-      (.run [⟨.ret (.val .unit), nolocals _⟩]) (.run [⟨.ret (.val .unit), nolocals _⟩])
-      (.done .unit) (.done .unit)
-      ΦUnitEq ⟨2⟩
-      (fun _ => step.ret <| ExprStep.value rfl)
-      (fun _ => step.ret <| ExprStep.value rfl)
-      (by trivial)
-  apply Entails.trans ?_ RuleInst1; clear RuleInst1
-
-  have RuleInst2 := @wpValVal DataT (ExecState.done Value.unit) (ExecState.done Value.unit) .unit .unit
-       ΦUnitEq ⟨2⟩
-       (by rfl)
-       (by rfl)
-  simp only [] at RuleInst2
-  apply Entails.trans ?_ RuleInst2; clear RuleInst2
+  -- And close the proof off like example 1
+  apply Entails.trans ?_ <| wpPureSync (RetPure _ _) (RetPure _ _) (by simp)
+  apply Entails.trans ?_ <| wpValVal (by rfl) (by rfl)
   simp [ΦUnitEq]
   exact BI.true_intro
 
