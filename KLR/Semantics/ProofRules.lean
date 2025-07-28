@@ -82,6 +82,8 @@ theorem wpPureSync {p1 p2 p1' p2' : @prog DataT} {Φ : @val DataT → @val DataT
   · iexact Hstate
   · iexact Hwp
 
+
+
 -- TODO: Port updates for heaps
 theorem update_lemma (σₗ σᵣ : @state DataT) :
   state_interp σₗ σᵣ ⊢
@@ -203,3 +205,95 @@ theorem UWP.rightSpec_frame {u : @UWP DataT} :
 structure Stutter where
   lwp : List (@UWP DataT)
   rwp : List (@UWP DataT)
+
+
+-- Two new modalities: L R
+-- Async stepping rule:
+--  (P -∗ L R wp el el) -∗ (P -∗ wp el er)
+
+
+-- I guess it's kind of like later credits
+
+-- Under the L/R modalities,
+
+-- Wait no. I want a new WP instead
+
+-- (AWP{k;false;k;false} el er) -∗ (wp el er)
+-- AWP
+
+-- So then what if I have (P -∗ (AWP ... ∗ Q))? Needs to include state interp to be provable.
+
+
+-- (AWP{k;false;k;false} el er) should actually just equal the WP
+
+
+-- theorem wp_unfold {K : LeibnizO Nat} {p1 p2 : @prog DataT} {Φf : @val DataT → @val DataT → @PROP DataT} :
+--     wp K p1 p2 Φf ≡
+--     iprop(
+--       (|==> ∃ vl, ∃ vr, ⌜to_val p1 = some vl⌝ ∗ ⌜to_val p2 = some vr⌝ ∗ Φf vl vr) ∨
+--       ( ∀ sl, ∀ sr, state_interp sl sr -∗
+--         ∃ cl', ∃ cr', ∃ nl, ∃ nr,
+--           ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K.car ∧ nr ≤ K.car ∧ StepN nl (p1, sl) cl' ∧ StepN nr (p2, sr) cr'⌝ ∗
+--             ▷ |==> (state_interp cl'.2 cr'.2 ∗ wp K cl'.1 cr'.1 Φf))) := by
+
+def awp (Lm Lx Rm Rx : Nat) (p1 p2 : @prog DataT) (Φ : @prog DataT → @prog DataT → @PROP DataT) :
+    @PROP DataT :=
+  iprop(∀ sl, ∀ sr, state_interp sl sr -∗
+          ∃ cl', ∃ cr', ∃ nl, ∃ nr,
+          ⌜Lm ≤ nl ∧ Lx ≤ nr ∧ nl ≤ Rm ∧ nr ≤ Rx ∧ StepN nl (p1, sl) cl' ∧ StepN nr (p2, sr) cr'⌝ ∗
+          |==> (state_interp cl'.2 cr'.2 ∗ Φ cl'.1 cr'.1))
+
+
+theorem wpDesync {K : LeibnizO Nat} {p1 p2 : @prog DataT} (Φf : @val DataT → @val DataT → @PROP DataT) :
+    ⊢ awp 1 1 K.1 K.1 p1 p2 (wp K · · Φf) -∗ wp K p1 p2 Φf := by
+  refine Entails.trans ?_ (Q := iprop((awp 1 1 K.car K.car p1 p2 fun x1 x2 => wp K x1 x2 Φf) -∗ ?_)) ?G1
+  case G1 =>
+    apply BI.wand_mono BI.entails_preorder.refl
+    apply (Iris.BI.equiv_iff.mp ?G2).mp
+    case G2=> exact (@wp_unfold DataT K p1 p2 _).symm
+  unfold awp
+  iintro Hawp
+  iright
+  iintro sl sr Hσ
+  ispecialize Hawp sl sr Hσ
+  icases Hawp with ⟨cl', cr', nl, nr, %Hstep, H⟩
+  iexists cl'
+  iexists cr'
+  iexists nl
+  iexists nr
+  isplit r
+  · ipure_intro
+    obtain ⟨_, _, _, _, _, _⟩ := Hstep
+    refine ⟨?_, ?_, ?_, ?_, by trivial⟩ <;> try omega
+  -- Eliminate the later and bupd
+  istop
+  refine Entails.trans ?_ Iris.BI.later_intro
+  refine BIUpdate.mono ?_
+  simp only []
+  istart
+  apply BI.entails_wand .rfl
+
+theorem wpResync {m' n' : Nat} {p1 p2 : @prog DataT} (Φ : @prog DataT → @prog DataT → @PROP DataT) :
+    ⊢ Φ p1 p2 -∗ awp 0 0 m' n' p1 p2 Φ := by
+  unfold awp
+  iintro HΦ s1 s2 Hσ
+  iexists ⟨p1, s1⟩
+  iexists ⟨p2, s2⟩
+  iexists 0
+  iexists 0
+  isplit r
+  · ipure_intro
+    simp only [Nat.le_refl, Nat.zero_le, true_and]
+    refine ⟨SmallStep.StepN.done rfl, SmallStep.StepN.done rfl⟩
+
+  -- Eliminate the later and bupd
+  istop
+  -- refine Entails.trans ?_ Iris.BI.later_intro
+  refine Entails.trans ?_ BIUpdate.intro
+  simp only []
+  istart
+  iintro ⟨HΦ, Hσ⟩
+
+  isplit l [Hσ]
+  · iexact Hσ
+  · iexact HΦ

@@ -21,6 +21,8 @@ than the integer of the right program. -/
 def ΦIsIntLePure (v1 v2 : @val DataT) : Prop := ∃ (z1 z2 : Int), v1 = NML.Value.int z1 ∧ v2 = .int z2 ∧ z1 < z2
 def ΦIsIntLe (v1 v2 : @val DataT) : @PROP DataT := iprop(⌜ΦIsIntLePure v1 v2⌝)
 
+
+
 /-- Simplest possible example: Two programs in "done" states -/
 theorem example0 (σ : @state DataT): ⊢ (@wp DataT ⟨1⟩ (.done (.int 4)) (.done (.int 5)) ΦIsIntLe) := by
   apply Entails.trans ?_ (@wpValVal _ (K := ⟨1⟩) (.done (.int 4), σ) (.done (.int 5), σ) (.int 4) (.int 5) ΦIsIntLe (by rfl) (by rfl))
@@ -73,9 +75,8 @@ This is one of the simplest state-transforming ste
 Prove that allocation under any heap is safe using a relational proof.
 -/
 
-def nolocals : Locals DataT := fun _ => .none
 def ex2 : (NMLSemantics DataT).Prog :=
-  (.run [⟨.assign .none (.alloc Memory.sbuf), nolocals⟩, ⟨.ret <| .val .unit, nolocals⟩])
+  (.run [⟨.assign .none (.alloc Memory.sbuf), nolocals _⟩, ⟨.ret <| .val .unit, nolocals _⟩])
 
 theorem example2 (σ : @state DataT) : (NMLSemantics DataT).Safe (ex2, σ) := by
   -- It suffices to show that `(ex2, σ) ∼ (ex2, σ) : fun _ _ => True`
@@ -83,14 +84,30 @@ theorem example2 (σ : @state DataT) : (NMLSemantics DataT).Safe (ex2, σ) := by
   -- Enter the Iris proof
   apply wp_adequacy_no_alloc (K := ⟨1⟩)
   unfold ex2
-
-
   sorry
-
-
 
 
 
 -- Other things I need to test soon:
 -- Assignments to variables
 -- Starting with state in hbm
+
+def e3L : (NMLSemantics DataT).Prog :=
+  .run [⟨.assign (.some "x") (.val <| .int 3), nolocals _⟩, ⟨.ret (.var "x"), nolocals _⟩]
+
+def e3R : (NMLSemantics DataT).Prog :=
+  .run [⟨.assign (.some "y") (.val <| .int 3), nolocals _⟩, ⟨.ret (.var "y"), nolocals _⟩]
+
+
+def ΦInt (R : Int → Int → @PROP DataT) (v1 v2 : @val DataT) : @PROP DataT :=
+  iprop(∃ z1 z2, ⌜v1 = .int z1⌝ ∗ ⌜v2 = .int z2⌝ ∗ R z1 z2)
+def ΦIntPure (R : Int → Int → Prop) (v1 v2 : @val DataT) : @PROP DataT :=
+  ΦInt (fun z1 z2 => (iprop(⌜R z1 z2⌝) : @PROP DataT)) v1 v2
+
+theorem e3 : ⊢ (@wp DataT ⟨1⟩ e3L e3R (ΦIntPure (· = ·))) := by
+  unfold e3L e3R
+  -- I really need this independent stepping thing
+  sorry
+
+
+-- Idea: Iterator as value (make the proof rule use Lob induction)
