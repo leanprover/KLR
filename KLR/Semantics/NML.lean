@@ -282,15 +282,18 @@ instance : Det (ExecState DataT) (Value DataT) (State DataT)  where
   step_progress := sorry
 
 
+end NML
+
 -- TODO: Generalize: Assignment of a _pure expression_ to a variable
 -- is a pure step which adds the pure variable to the local context
 /-- Assignment of a value to none is Pure -/
-theorem AssignValuePure (v : NML.Value DataT) :
-    SmallStep.PureStep (ExecState.run <| ⟨.assign .none (.val v), loc⟩ :: p') (.run p') :=
-  fun _ => step.seq <| .value rfl
+theorem AssignValuePure {v : NML.Value DataT}:
+      SmallStep.PureStep (NML.ExecState.run <| ⟨.assign .none (.val v), loc⟩ :: p') (.run p') :=
+    fun _ => NML.step.seq <| .value rfl
 
-theorem RetPure (v : NML.Value DataT) :
-    SmallStep.PureStep (ExecState.run <| ⟨.ret (.val v), loc⟩ :: p') (.done v) :=
-  fun _ => step.ret <| ExprStep.value rfl
+  theorem RetPure {v : NML.Value DataT} :
+      SmallStep.PureStep (NML.ExecState.run <| ⟨.ret (.val v), loc⟩ :: p') (.done v) :=
+    fun _ => NML.step.ret <| NML.ExprStep.value rfl
 
-end NML
+  abbrev withNoContext {DataT} (L : List (NML.Stmt DataT)) : NML.ExecState DataT :=
+    .run <| L.map (⟨·, NML.nolocals DataT⟩)

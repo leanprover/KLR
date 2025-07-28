@@ -33,7 +33,6 @@ abbrev Prog DataT := (ExecState DataT)
 
 variable {DataT : Type _}
 
-
 abbrev PROP (DataT : Type _)  : Type _ := heProp PNat ProdNeuronIndex DataT ProdNeuronMemory
 abbrev PROPR (DataT : Type _) : Type := (HeapView PNat ProdNeuronIndex (Agree (LeibnizO DataT)) ProdNeuronMemory)
 
