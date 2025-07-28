@@ -251,10 +251,39 @@ def trace (p : Parsed) : IO UInt32 := do
   if !warnings.isEmpty then IO.eprintln warnings
   if !warnings1.isEmpty then IO.eprintln warnings1
   let kernel <- Core.lowerAccessPatterns klr
+  -- let inputNames := kernel.inputs.map (·.name)
+  -- let outputNames := kernel.outputs.map (·.name)
+  -- let simpleJson := Lean.Json.mkObj [
+  --   ("name", Lean.toJson kernel.name),
+  --   ("input_names", Lean.toJson inputNames),
+  --   ("output_names", Lean.toJson outputNames)
+  -- ]
+  -- IO.println $ toString simpleJson
+  let inputsJson := kernel.inputs.map fun inp =>
+    Lean.Json.mkObj [
+      ("name", Lean.toJson inp.name),
+      ("dtype", Lean.toJson (reprStr inp.dtype)),
+      ("shape", Lean.toJson inp.shape)
+    ]
+
+  let outputsJson := kernel.outputs.map fun out =>
+    Lean.Json.mkObj [
+      ("name", Lean.toJson out.name),
+      ("dtype", Lean.toJson (reprStr out.dtype)),
+      ("shape", Lean.toJson out.shape)
+    ]
+
+  let finalJson := Lean.Json.mkObj [
+    ("name", Lean.toJson kernel.name),
+    ("inputs", Lean.Json.arr inputsJson.toArray),
+    ("outputs", Lean.Json.arr outputsJson.toArray)
+  ]
+
+  IO.println $ Lean.Json.pretty finalJson
   match p.flag? "outfile" with
   | some arg =>
     let f := FilePath.mk (arg.as! String)
-    IO.println (reprStr kernel)
+    IO.eprintln (reprStr kernel)
     File.writeKLRFile f .cbor kernel
   | none =>
     IO.println (reprStr klr)
