@@ -104,6 +104,8 @@ def Value.as_handle? : @Value DataT → Option TensorHandle | .ptr t => .some t 
 
 def Locals := String → Option (@Value DataT)
 
+def nolocals : Locals DataT := fun _ => .none
+
 def Locals.bind (s : @Locals DataT) (x : String) (v : @Value DataT) : @Locals DataT :=
   fun x' => if x = x' then .some v else s x'
 
