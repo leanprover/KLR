@@ -256,22 +256,7 @@ section DefNKIWalker
   def NKIWalker.addReturn (walker : NKIWalker) : NKIWalker := {walker with
     rets := walker.rets ++ [walker.last_node]
   }
-
-  /-mutual
-  def NKIWalker.processExpr (walker : NKIWalker) (expr : Expr) : Nat :=
-    match h : expr.expr with
-    | Expr'.tuple x => (walker.processExprList x).sum
-    | _ => 0
-    termination_by sizeOf expr
-    decreasing_by cases expr; simp at h; rw [h]; simp; omega
-  def NKIWalker.processExprList (walker : NKIWalker) (exprs : List Expr) : List Nat :=
-    exprs.map walker.processExpr
-    termination_by sizeOf exprs
-  end-/
-
-  mutual
-
-  def NKIWalker.processExpr (walker : NKIWalker) (expr : Expr) : NKIWalker :=
+  mutual def NKIWalker.processExpr (walker : NKIWalker) (expr : Expr) : NKIWalker :=
     let ⟨expr, pos⟩ := expr
     match _ : expr with
     | Expr'.value _ => walker
@@ -293,16 +278,12 @@ section DefNKIWalker
         try {rename_i expr' _<;> rcases h' : (expr, expr') with ⟨⟨⟨⟩, ⟨⟩⟩, ⟨⟨⟩, ⟨⟩⟩⟩ <;> simp_all <;> omega}
         try {rcases h' : expr with ⟨⟨⟩, ⟨⟩⟩ <;> simp_all <;> omega}
       }
-
-
   def NKIWalker.processExprList (walker : NKIWalker) (exprs : List Expr) : NKIWalker :=
     exprs.foldl NKIWalker.processExpr walker
     termination_by sizeOf exprs
   end
 
-  mutual
-
-  def NKIWalker.processStmt (walker : NKIWalker) (stmt : Stmt) : NKIWalker :=
+  mutual def NKIWalker.processStmt (walker : NKIWalker) (stmt : Stmt) : NKIWalker :=
     let ⟨stmt, pos⟩ := stmt
     match _ : stmt with
     | Stmt'.expr (e : Expr) => walker.processExpr e
@@ -348,8 +329,6 @@ section DefNKIWalker
       try rcases h : (thn, stmt) with ⟨⟨⟨⟩, ⟨⟩⟩, ⟨⟨⟩, ⟨⟩⟩⟩ <;> simp_all <;> omega
       try rcases h : (els, stmt) with ⟨⟨⟨⟩, ⟨⟩⟩, ⟨⟨⟩, ⟨⟩⟩⟩ <;> simp_all <;> omega
       try rcases h : (body, stmt) with ⟨⟨⟨⟩, ⟨⟩⟩, ⟨⟨⟩, ⟨⟩⟩⟩ <;> simp_all <;> omega
-
-
   def NKIWalker.processStmtList (walker : NKIWalker) (stmts : List Stmt) : NKIWalker :=
     stmts.foldl NKIWalker.processStmt walker
     termination_by sizeOf stmts
