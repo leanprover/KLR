@@ -15,14 +15,14 @@ open Iris.BI.BIBase KLR.Core Iris NML
 variable {DataT : Type _}
 
 /-- Value-value rule: base case for the proof -/
-theorem wpValVal {c1 c2 : @prog DataT × @state DataT} {v1 v2 : val} {Φ : val → val → @PROP DataT} {K}
-    (H1 : to_val c1.1 = some v1) (H2 : to_val c2.1 = some v2) :
-    Φ v1 v2 ⊢ wp K c1.1 c2.1 Φ := by
+theorem wpValVal {p1 p2 : @prog DataT } {v1 v2 : val} {Φ : val → val → @PROP DataT} {K}
+    (H1 : to_val p1 = some v1) (H2 : to_val p2 = some v2) :
+    Φ v1 v2 ⊢ wp K p1 p2 Φ := by
   -- Unfold the WP
   refine Entails.trans ?_ (Q := ?_) ?G1
   case G1 =>
     apply (Iris.BI.equiv_iff.mp ?G2).mp
-    case G2=> exact (@wp_unfold DataT K c1.fst c2.fst Φ).symm
+    case G2=> exact (@wp_unfold DataT K p1 p2 Φ).symm
     -- Weird unification bug?
 
   -- Enter the left case

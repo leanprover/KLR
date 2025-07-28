@@ -238,3 +238,6 @@ def AffineMap.is_trivial (a : AffineMap) : Prop :=
   a.par_offset = 0 ∧
   a.par_stride = 1 ∧
   a.free_strides = a.free_strides.map (fun _ => 1)
+
+theorem Iris.BI.BIBase.Entails.trans' {PROP : Type _} [BI PROP] {P Q R : PROP} (h2 : Q ⊢ R) (h1 : P ⊢ Q) : P ⊢ R :=
+  h1.trans h2
