@@ -9,11 +9,14 @@ import KLR.Semantics.NML
 import KLR.Semantics.Logic
 import KLR.Semantics.ProofRules
 import Iris.ProofMode.Tactics
+import KLR.Semantics.Tactics
 
 section weakestpre
 open Iris.BI.BIBase KLR.Core Iris NML Iris.BI
 
+
 variable {DataT : Type _}
+
 
 /-- Example relation: Both programs reutrn integers, and the integer of the left program is less
 than the integer of the right program. -/
@@ -22,25 +25,32 @@ def ΦIsIntLePure (v1 v2 : NML.Value DataT) : Prop := ∃ (z1 z2 : Int), v1 = NM
 def ΦIsIntLe (v1 v2 : NML.Value DataT) : @PROP DataT := iprop(⌜ΦIsIntLePure v1 v2⌝)
 
 
+--
+
 
 /-- Simplest possible example: Two programs in "done" states -/
 theorem example0 : ⊢ (@wp DataT ⟨1⟩ (.done (.int 4)) (.done (.int 5)) ΦIsIntLe) := by
   apply Entails.trans ?_ (@wpValVal _ (K := ⟨1⟩) (.done (.int 4)) (.done (.int 5)) (.int 4) (.int 5) ΦIsIntLe (by rfl) (by rfl))
+  -- wp_pure_sync 1 2
   istart
   simp only [ΦIsIntLe]
   ipure_intro; exists 4; exists 5
 
 /-- Two "return" programs are related if the values they return are -/
 theorem example1 :
-  ⊢ (@wp DataT ⟨1⟩
-         (.run [⟨.ret (.val (.int 4)), fun _ => .none⟩])
-         (.run [⟨.ret (.val (.int 5)), fun _ => .none⟩])
-         ΦIsIntLe) := by
+  ⊢ @wp DataT ⟨1⟩
+      (withNoContext [.ret (.val (.int 4))])
+      (withNoContext [.ret (.val (.int 5))])
+      ΦIsIntLe := by
   istart
-  apply Entails.trans ?_ <| wpPureSync (RetPure _ _) (RetPure _ _) (by simp)
-  apply Entails.trans ?_ <| wpValVal (by rfl) (by rfl)
+  wp_sync_pure RetPure, RetPure
+  wp_sync_val
   simp only [ΦIsIntLe]
-  ipure_intro; exists 4; exists 5
+  ipure_intro
+  exists 4
+  exists 5
+
+
 
 /-- A proof that both programs
     - Are safe,
@@ -73,53 +83,48 @@ theorem example2 (σ : State DataT) : SmallStep.Safe (ex2, σ) := by
   sorry
 
 
--- Testing desynced stepping
-
+/- ## Example: Desynced stepping of pure expressions -/
 
 def ΦUnitEq (v1 v2 : NML.Value DataT) : @PROP DataT := iprop(⌜v1 = .unit ∧ v2 = .unit⌝)
-
 def e3L : ExecState DataT :=
-  .run [
-    ⟨.assign .none (.val (.int 3)), nolocals _⟩,
-    ⟨.assign .none (.val (.bool false)), nolocals _⟩,
-    ⟨.assign .none (.val .unit), nolocals _⟩,
-    ⟨.assign .none (.val (.int 3)), nolocals _⟩,
-    ⟨.ret (.val .unit), nolocals _⟩,
+  withNoContext [
+    .assign .none (.val (.int 3)),
+    .assign .none (.val (.bool false)),
+    .assign .none (.val .unit),
+    .assign .none (.val (.int 3)),
+    .ret (.val .unit),
   ]
 
 def e3R : ExecState DataT :=
-  .run [
-    ⟨.assign .none (.val .unit), nolocals _⟩,
-    ⟨.assign .none (.val (.bool false)), nolocals _⟩,
-    ⟨.ret (.val .unit), nolocals _⟩,
+  withNoContext [
+    .assign .none (.val .unit),
+    .assign .none (.val (.bool false)),
+    .ret (.val .unit),
   ]
 
--- #check Entails.trans
-
---  TODO: use iapply
 theorem e3 : ⊢ @wp DataT ⟨2⟩ e3L e3R ΦUnitEq := by
   istart
   -- Enter desync mode, do two left pure steps, and one right pure step. Resync.
   -- Note (commented) that a third pure step does not work becase of the ⟨2⟩ bound.
-  apply Entails.trans ?_ <| wand_entails <| wpDesync ΦUnitEq
-  apply Entails.trans ?_ <| wand_entails <| awpPureL (AssignValuePure _ _) (Hx := by simp)
-  apply Entails.trans ?_ <| wand_entails <| awpPureL (AssignValuePure _ _) (Hx := by simp)
-  apply Entails.trans ?_ <| wand_entails <| awpPureR (AssignValuePure _ _) (Hx := by simp)
-  -- apply Entails.trans ?_ <| wand_entails <| awpPureL (AssignValuePure _ _) (Hx := by simp)
-  apply Entails.trans ?_ <| wand_entails <| wpResync _
+  wp_desync
+  dwp_left_pure AssignValuePure
+  dwp_left_pure AssignValuePure
+  -- dwp_left_pure AssignValuePure
+  dwp_right_pure AssignValuePure
+  wp_resync
 
-  -- Do another batch of desync steps
-  apply Entails.trans ?_ <| wand_entails <| wpDesync ΦUnitEq
-  apply Entails.trans ?_ <| wand_entails <| awpPureL (AssignValuePure _ _) (Hx := by simp)
-  apply Entails.trans ?_ <| wand_entails <| awpPureL (AssignValuePure _ _) (Hx := by simp)
-  apply Entails.trans ?_ <| wand_entails <| awpPureR (AssignValuePure _ _) (Hx := by simp)
-  apply Entails.trans ?_ <| wand_entails <| wpResync _
+  -- Do another batch of step
+  wp_desync
+  dwp_left_pure AssignValuePure
+  dwp_left_pure AssignValuePure
+  dwp_right_pure AssignValuePure
+  wp_resync
 
   -- And close the proof off like example 1
-  apply Entails.trans ?_ <| wpPureSync (RetPure _ _) (RetPure _ _) (by simp)
-  apply Entails.trans ?_ <| wpValVal (by rfl) (by rfl)
+  wp_sync_pure RetPure, RetPure
+  wp_sync_val
   simp [ΦUnitEq]
-  exact BI.true_intro
+  exact true_intro
 
 
 
