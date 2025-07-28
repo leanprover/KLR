@@ -149,6 +149,7 @@ theorem wpAllocSync  {Φ : @val DataT → @val DataT → @PROP DataT} {K : Leibn
 
 -- This would be a good example for multi-BI proof interfaces
 
+/-
 /-- Unary weakest precondition -/
 structure UWP where
   pre  : @PROP DataT
@@ -205,6 +206,7 @@ theorem UWP.rightSpec_frame {u : @UWP DataT} :
 structure Stutter where
   lwp : List (@UWP DataT)
   rwp : List (@UWP DataT)
+-/
 
 
 -- Two new modalities: L R
@@ -236,11 +238,11 @@ structure Stutter where
 --           ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K.car ∧ nr ≤ K.car ∧ StepN nl (p1, sl) cl' ∧ StepN nr (p2, sr) cr'⌝ ∗
 --             ▷ |==> (state_interp cl'.2 cr'.2 ∗ wp K cl'.1 cr'.1 Φf))) := by
 
-def awp (Lm Lx Rm Rx : Nat) (p1 p2 : @prog DataT) (Φ : @prog DataT → @prog DataT → @PROP DataT) :
+def awp (Lm Rm Lx Rx : Nat) (p1 p2 : @prog DataT) (Φ : @prog DataT → @prog DataT → @PROP DataT) :
     @PROP DataT :=
   iprop(∀ sl, ∀ sr, state_interp sl sr -∗
           ∃ cl', ∃ cr', ∃ nl, ∃ nr,
-          ⌜Lm ≤ nl ∧ Lx ≤ nr ∧ nl ≤ Rm ∧ nr ≤ Rx ∧ StepN nl (p1, sl) cl' ∧ StepN nr (p2, sr) cr'⌝ ∗
+          ⌜Lm ≤ nl ∧ Rm ≤ nr ∧ nl ≤ Lx ∧ nr ≤ Rx ∧ StepN nl (p1, sl) cl' ∧ StepN nr (p2, sr) cr'⌝ ∗
           |==> (state_interp cl'.2 cr'.2 ∗ Φ cl'.1 cr'.1))
 
 
@@ -288,7 +290,6 @@ theorem wpResync {m' n' : Nat} {p1 p2 : @prog DataT} (Φ : @prog DataT → @prog
 
   -- Eliminate the later and bupd
   istop
-  -- refine Entails.trans ?_ Iris.BI.later_intro
   refine Entails.trans ?_ BIUpdate.intro
   simp only []
   istart
@@ -297,3 +298,50 @@ theorem wpResync {m' n' : Nat} {p1 p2 : @prog DataT} (Φ : @prog DataT → @prog
   isplit l [Hσ]
   · iexact Hσ
   · iexact HΦ
+
+-- TODO: Move
+def PureStep (p p' : @prog DataT) : Prop := ∀ s : @State DataT, (NMLSemantics DataT).Step (p, s) (p', s)
+
+theorem awpPureL (Hstep : PureStep p1 p1') (Hx : 0 < Lx := by omega) :
+    ⊢ awp (Lm - 1) Rm (Lx - 1) Rx p1' p2 Φ -∗ awp Lm Rm Lx Rx p1 p2 Φ := by
+  simp at Hx
+  istart
+  unfold awp
+  iintro Hawp
+  iintro sl sr Hσ
+  ispecialize Hawp sl sr Hσ
+  icases Hawp with ⟨cl', cr', nl, nr, %Hstep', H⟩
+  iexists cl'
+  iexists cr'
+  iexists (nl + 1)
+  iexists nr
+  isplit r
+  · ipure_intro
+    obtain ⟨_, _, _, _, _, _⟩ := Hstep'
+    refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
+    refine SmallStep.StepN.step (Hstep sl) ?_
+    trivial
+  istop
+  refine BIUpdate.mono .rfl
+
+theorem awpPureR (Hstep : PureStep p2 p2') (Hx : 0 < Rx := by omega) :
+    ⊢ awp Lm (Rm - 1) Lx (Rx - 1) p1 p2' Φ -∗ awp Lm Rm Lx Rx p1 p2 Φ := by
+  simp at Hx
+  istart
+  unfold awp
+  iintro Hawp
+  iintro sl sr Hσ
+  ispecialize Hawp sl sr Hσ
+  icases Hawp with ⟨cl', cr', nl, nr, %Hstep', H⟩
+  iexists cl'
+  iexists cr'
+  iexists nl
+  iexists (nr + 1)
+  isplit r
+  · ipure_intro
+    obtain ⟨_, _, _, _, _, _⟩ := Hstep'
+    refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
+    refine SmallStep.StepN.step (Hstep sr) ?_
+    trivial
+  istop
+  refine BIUpdate.mono .rfl
