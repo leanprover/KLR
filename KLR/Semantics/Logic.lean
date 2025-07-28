@@ -29,27 +29,23 @@ import Iris.Algebra.HeapView
 section weakestpre
 open Iris.BI.BIBase KLR.Core Iris NML
 
+abbrev Prog DataT := (ExecState DataT)
+
 variable {DataT : Type _}
 
-abbrev prog := (NML.NMLSemantics DataT).Prog
-abbrev state := (NML.NMLSemantics DataT).State
-abbrev val := (NML.NMLSemantics DataT).Val
-abbrev step := (NML.NMLSemantics DataT).Step
-abbrev to_val := (NML.NMLSemantics DataT).toVal
-abbrev StepN := (NML.NMLSemantics DataT).StepN
 
-abbrev PROP : Type _ := heProp PNat ProdNeuronIndex DataT ProdNeuronMemory
-abbrev PROPR : Type := (HeapView PNat ProdNeuronIndex (Agree (LeibnizO DataT)) ProdNeuronMemory)
+abbrev PROP (DataT : Type _)  : Type _ := heProp PNat ProdNeuronIndex DataT ProdNeuronMemory
+abbrev PROPR (DataT : Type _) : Type := (HeapView PNat ProdNeuronIndex (Agree (LeibnizO DataT)) ProdNeuronMemory)
 
 -- The state interpretation, ie the global version of the program state.
-def state_interp (left right : @state DataT) : @PROP DataT :=
+def state_interp (left right : State DataT) : PROP DataT :=
   heProp_auth _ _ _ _ (.mk left.memory right.memory)
 
-def state_frag (left right : @state DataT) : @PROP DataT :=
+def state_frag (left right : State DataT) : PROP DataT :=
   heProp_frag _ _ _ _ (.mk left.memory right.memory)
 
 /-- PointsTo for a single element in the store -/
-def PointsTo (k : ProdNeuronIndex) (v : DataT) : @PROP DataT :=
+def PointsTo (k : ProdNeuronIndex) (v : DataT) : PROP DataT :=
   heProp_elem _ _ _ _ k v
 notation k " ↦ " v => PointsTo k v
 notation k " ↦ₗ " v => PointsTo (ProdIndex.left k) v
@@ -57,7 +53,7 @@ notation k " ↦ᵣ " v => PointsTo (ProdIndex.right k) v
 
 /-- PointsTo that asserts knowledge over an entire store.
 When using unbounded and HBM allocations, this is probably enough. -/
-def PointsToS (k : ProdIndex ChipIndex) (v : Option (LocalStore DataT)) : @PROP DataT :=
+def PointsToS (k : ProdIndex ChipIndex) (v : Option (LocalStore DataT)) : PROP DataT :=
   match k with
   | .left  i => heProp_frag _ _ _ _ ⟨(ChipMemory.set_store ChipMemory.empty i v), ChipMemory.empty⟩
   | .right i => heProp_frag _ _ _ _ ⟨ChipMemory.empty, (ChipMemory.set_store ChipMemory.empty i v)⟩
@@ -82,44 +78,44 @@ notation k " [S]⇉ᵣ∅ " => PointsToS (ProdIndex.right (ChipIndex.sbufUnbound
 notation k " [P]⇉ᵣ∅ " => PointsToS (ProdIndex.right (ChipIndex.psumUnboundedIndex k)) none
 notation k " [H]⇉ᵣ∅ " => PointsToS (ProdIndex.right (ChipIndex.hbmUnboundedIndex k))  none
 
-def wp_F (wp : LeibnizO Nat → @prog DataT → @prog DataT → (@val DataT → @val DataT → @PROP DataT) → @PROP DataT)
+def wp_F (wp : LeibnizO Nat → Prog DataT → Prog DataT → (Value DataT → Value DataT → PROP DataT) → PROP DataT)
          (K : LeibnizO Nat)
-         (p1 p2 : @prog DataT)
-         (Φf : @val DataT → @val DataT → @PROP DataT) : @PROP DataT :=
+         (p1 p2 : Prog DataT)
+         (Φf : Value DataT → Value DataT → PROP DataT) : PROP DataT :=
   -- For any pair of states that satisfy the state interpretation...
   iprop(
       -- Either, that configuration is a value, and the postcondition holds,
-      (|==> ∃ vl, ∃ vr, ⌜to_val p1 = some vl⌝ ∗ ⌜to_val p2 = some vr⌝ ∗ Φf vl vr) ∨
+      (|==> ∃ vl, ∃ vr, ⌜toVal p1 = some vl⌝ ∗ ⌜toVal p2 = some vr⌝ ∗ Φf vl vr) ∨
       -- Or, they're not values, and for any two configurations that we can step into, in some number of steps,
-      ( -- ⌜to_val p1 = none ∨ to_val p2 = none⌝ ∗
+      ( -- ⌜toVal p1 = none ∨ toVal p2 = none⌝ ∗
         ∀ sl, ∀ sr, state_interp sl sr -∗
         ∃ cl', ∃ cr', ∃ nl, ∃ nr,
-          ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K.car ∧ nr ≤ K.car ∧ StepN nl (p1, sl) cl' ∧ StepN nr (p2, sr) cr'⌝ ∗
+          ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K.car ∧ nr ≤ K.car ∧ SmallStep.StepN nl (p1, sl) cl' ∧ SmallStep.StepN nr (p2, sr) cr'⌝ ∗
             -- We can reobtain the state interp for the new state, and also
             -- prove the weakest precondition.
             ▷ |==> (state_interp cl'.2 cr'.2 ∗ wp K cl'.1 cr'.1 Φf)))
 
-instance wp_contractive : Iris.OFE.Contractive (α := LeibnizO Nat → @prog DataT → @prog DataT → (@val DataT → @val DataT → @PROP DataT) → @PROP DataT) wp_F := by
+instance wp_contractive : Iris.OFE.Contractive (α := LeibnizO Nat → Prog DataT → Prog DataT → (Value DataT → Value DataT → PROP DataT) → PROP DataT) wp_F := by
   sorry
 
 /-- Definition of the weakest precondition -/
-def wp (K : LeibnizO Nat) (p1 p2 : @prog DataT) (Φf : @val DataT → @val DataT → @PROP DataT) : @PROP DataT :=
+def wp (K : LeibnizO Nat) (p1 p2 : Prog DataT) (Φf : Value DataT → Value DataT → PROP DataT) : PROP DataT :=
   (Iris.fixpoint wp_F) K p1 p2 Φf
 
-theorem wp_unfold {K : LeibnizO Nat} {p1 p2 : @prog DataT} {Φf : @val DataT → @val DataT → @PROP DataT} :
+theorem wp_unfold {K : LeibnizO Nat} {p1 p2 : Prog DataT} {Φf : Value DataT → Value DataT → PROP DataT} :
     wp K p1 p2 Φf ≡
     iprop(
-      (|==> ∃ vl, ∃ vr, ⌜to_val p1 = some vl⌝ ∗ ⌜to_val p2 = some vr⌝ ∗ Φf vl vr) ∨
+      (|==> ∃ vl, ∃ vr, ⌜toVal p1 = some vl⌝ ∗ ⌜toVal p2 = some vr⌝ ∗ Φf vl vr) ∨
       ( ∀ sl, ∀ sr, state_interp sl sr -∗
         ∃ cl', ∃ cr', ∃ nl, ∃ nr,
-          ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K.car ∧ nr ≤ K.car ∧ StepN nl (p1, sl) cl' ∧ StepN nr (p2, sr) cr'⌝ ∗
+          ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K.car ∧ nr ≤ K.car ∧ SmallStep.StepN nl (p1, sl) cl' ∧ SmallStep.StepN nr (p2, sr) cr'⌝ ∗
             ▷ |==> (state_interp cl'.2 cr'.2 ∗ wp K cl'.1 cr'.1 Φf))) := by
   apply fixpoint_unfold (f := ⟨wp_F, OFE.ne_of_contractive wp_F⟩)
 
 end weakestpre
 
-theorem wp_to_fupd_PRelS {pl pr : @prog DataT} {sl sr : @state DataT}
-      {Φf : @val DataT → @val DataT → Prop} {n : Nat} :
+theorem wp_to_fupd_PRelS {pl pr : Prog DataT} {sl sr : NML.State DataT}
+      {Φf : NML.Value DataT → NML.Value DataT → Prop} {n : Nat} :
     wp K pl pr (fun vl vr => iprop(⌜(Φf vl vr : Prop)⌝)) ⊢
     state_interp sl sr -∗ |==> ▷^[n] ⌜(NML.NMLSemantics DataT).PRelS n K.car (pl, sl) (pr, sr) Φf ⌝ := by
   revert pl pr sl sr
@@ -196,7 +192,7 @@ theorem wp_to_fupd_PRelS {pl pr : @prog DataT} {sl sr : @state DataT}
       -- Apply the IH
 
       suffices
-        Iris.BI.later iprop(|==> |==> ▷^[n]⌜SmallStep.PRelS n K.car (cl'.1, cl'.2) (cr'.1, cr'.2) Φf⌝ : @PROP DataT) ⊢
+        Iris.BI.later iprop(|==> |==> ▷^[n]⌜SmallStep.PRelS n K.car (cl'.1, cl'.2) (cr'.1, cr'.2) Φf⌝ : PROP DataT) ⊢
         |==> Iris.BI.later iprop(▷^[n]⌜SmallStep.PRelS n K.car cl' cr' Φf⌝) by
         refine .trans ?_ this
         refine Iris.BI.later_mono ?_
@@ -217,7 +213,7 @@ theorem wp_to_fupd_PRelS {pl pr : @prog DataT} {sl sr : @state DataT}
       apply later_bupd_comm_plain
 
 
-theorem wp_adequacy_pre {pl pr : @prog DataT} {sl sr : @state DataT} {Φf : @val DataT → @val DataT → Prop}
+theorem wp_adequacy_pre {pl pr : Prog DataT} {sl sr : NML.State DataT} {Φf : NML.Value DataT → NML.Value DataT → Prop}
     (H : ∀ n, (state_interp sl sr ∗ state_frag sl sr ⊢ |==> ▷^[n] ⌜(NML.NMLSemantics DataT).PRelS n K (pl, sl) (pr, sr) Φf ⌝)) :
     ∀ n, (NML.NMLSemantics DataT).PRelS n K (pl, sl) (pr, sr) Φf := by
   intro n
@@ -226,7 +222,7 @@ theorem wp_adequacy_pre {pl pr : @prog DataT} {sl sr : @state DataT} {Φf : @val
   -- UPred.ownM <|
   -- UPred.ownM <| ◯V HasHHMap.hhmap (fun (_ : K) (v : V) => some (DFrac.own 1, toAgree <| .mk v)) m
 
-  apply UPred.soundness_pure_gen (A := @PROPR DataT) (n := n)
+  apply UPred.soundness_pure_gen (A := PROPR DataT) (n := n)
     (a :=
       (●V HasHHMap.hhmap (fun (_ : KLR.Core.ProdNeuronIndex) (v : DataT) => some (Iris.toAgree <| Iris.LeibnizO.mk v))
           (KLR.Core.ProdStore.mk sl.memory sr.memory)) •
@@ -258,7 +254,7 @@ theorem wp_adequacy_pre {pl pr : @prog DataT} {sl sr : @state DataT} {Φf : @val
   exact (UPred.ownM_op _ _).mp
 
 
-theorem wp_adequacy_no_alloc {pl pr : @prog DataT} {sl sr : @state DataT} {Φf : @val DataT → @val DataT → Prop}
+theorem wp_adequacy_no_alloc {pl pr : Prog DataT} {sl sr : NML.State DataT} {Φf : NML.Value DataT → NML.Value DataT → Prop}
     (H : state_frag sl sr ⊢ wp K pl pr (fun vl vr => iprop(⌜(Φf vl vr : Prop)⌝))) :
     (NML.NMLSemantics DataT).PRel (pl, sl) (pr, sr) Φf := by
   apply SmallStep.PrelNLimit (K := K.car)
@@ -279,7 +275,7 @@ theorem wp_adequacy_no_alloc {pl pr : @prog DataT} {sl sr : @state DataT} {Φf :
   exact Iris.BI.sep_mono (fun n x a a => a) Hwp
 
 /-- Definition for Hoare Triple -/
-def triple (pre : @PROP DataT) K (p1 p2 : @prog DataT) post :=
+def triple (pre : PROP DataT) K (p1 p2 : Prog DataT) post :=
   iprop(pre -∗ wp K p1 p2 post)
 
 macro "{{ " pre:term  " }} " p1:term " × " p2:term "{{ " x:ident  " => " post:term " }} " : term => do
