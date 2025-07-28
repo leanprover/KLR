@@ -234,29 +234,24 @@ theorem wp_adequacy_pre {pl pr : @prog DataT} {sl sr : @state DataT} {Φf : @val
           (KLR.Core.ProdStore.mk sl.memory sr.memory : KLR.Core.ProdNeuronMemory _)))
   · refine Iris.CMRA.Valid.validN ?_
     apply View.view_both_valid.mpr
-    -- TODO: This is basically heap_view_both_valid, when I get around to finishing that
-    -- Below is the proof for only the ●V fragment
-    sorry
-    -- refine View.view_auth_valid.mpr ?_
-    -- intro n
-    -- simp [heapR, StoreLike.all]
-    -- intro k
-    -- simp [lift_dom]
-    -- simp [Iris.UCMRA.unit]
-    -- rw [Heap.of_fun_get]
-    -- simp
+    intro n'
+    simp [heapR, Store.all]
+    intro k
+    simp [toHeapPred, hhmap_get]
+    rcases h : (Store.get ({ left := sl.memory, right := sr.memory } : KLR.Core.ProdNeuronMemory _) k) with (_|v)
+    · simp
+    simp
+    exists (Iris.DFrac.own 1)
   apply UPred_adequacy_laterN_gen (N := n)
-  · -- TODO: This is basically heap_view_both_valid, when I get around to finishing that
-    -- Below is the proof for only the ●V fragment
-    sorry
-    -- refine View.view_auth_valid.mpr ?_
-    -- intro n
-    -- simp [heapR, StoreLike.all]
-    -- intro k
-    -- simp [lift_dom]
-    -- simp [Iris.UCMRA.unit]
-    -- rw [Heap.of_fun_get]
-    -- simp
+  · apply View.view_both_valid.mpr
+    intro n'
+    simp [heapR, Store.all]
+    intro k
+    simp [toHeapPred, hhmap_get]
+    rcases h : (Store.get ({ left := sl.memory, right := sr.memory } : KLR.Core.ProdNeuronMemory _) k) with (_|v)
+    · simp
+    simp
+    exists (Iris.DFrac.own 1)
   apply bupd_gen_soundness
   apply Iris.BI.BIBase.Entails.trans _ (H n)
   -- Combine the ghost state
