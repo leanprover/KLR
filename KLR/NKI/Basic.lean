@@ -155,6 +155,7 @@ structure Fun where
   name : String
   file : String
   line : Nat
+  source : String
   body : List Stmt
   args : List Param
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp

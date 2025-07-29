@@ -349,6 +349,7 @@ private def func (f : Python.Fun) : Simplify Fun :=
     name := f.name
     file := "unknown"  -- TODO: fix me
     line := f.line
+    source := f.source
     args := <- params f.args
     body := <- stmts f.body
   }

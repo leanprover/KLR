@@ -142,32 +142,14 @@ def gatherRun (moduleFileName kernelFunctionName outputFileName: String)
       return ()
   IO.throwServerError "could not execute gather program"
 
-def gatherTmp [KLR.File.FromContents a]
-    (moduleFileName kernelFunctionName : String)
-    (klrPythonModuleDir : Option String) (debug : Bool) : IO a :=
+def gatherTmp [KLR.File.FromContents a] (p : Parsed) : IO a := do
+  let debug := p.hasFlag "debug"
+  let file := p.positionalArg! "moduleFileName" |>.as! String
+  let kernel := p.positionalArg! "kernelFunctionName" |>.as! String
+  let dir := (p.flag? "klr-module-dir").map fun x => x.as! String
   IO.FS.withTempFile fun _ tmpName => do
-    gatherRun moduleFileName kernelFunctionName tmpName.toString klrPythonModuleDir debug
+    gatherRun file kernel tmpName.toString dir debug
     KLR.File.readKLRFile tmpName .cbor
-
-private def evalKlrTensors
-  (moduleFileName kernelFunctionName : String)
-  (klrPythonModuleDir : Option String)
-  (debug : Bool)
-  (npyInputFiles : List String)
-   : IO (List (String × TensorLib.Tensor)) := do
-  let kernel : KLR.Python.Kernel <- gatherTmp moduleFileName kernelFunctionName klrPythonModuleDir debug
-  let (k, warnings1) := kernel.inferArguments
-  let (warnings, klr) <- KLR.Trace.runNKIKernel k
-  dbg_trace s!"klr-inputs: {repr klr.inputs}"
-  if !warnings1.isEmpty then IO.eprintln warnings1
-  if !warnings.isEmpty then IO.eprintln warnings
-  let inputs := npyInputFiles.map FilePath.mk
-  let npys <- inputs.mapM TensorLib.Npy.parseFile
-  let inputs <- npys.mapM fun npy => TensorLib.Tensor.ofNpy npy
-  dbg_trace s!"npy-inputs: {repr inputs}"
-  --let _ <- KLR.Eval.eval klr inputs
-  IO.println "TODO: UNIMPLEMENTED"
-  return []
 
 def gather (p : Parsed) : IO UInt32 := do
   let debug := p.hasFlag "debug"
@@ -178,10 +160,6 @@ def gather (p : Parsed) : IO UInt32 := do
   let outFile := outFile.getD (kernel ++ ".klr")
   gatherRun file kernel outFile dir debug
   return 0
-
-private def parse (p : Parsed) : IO KLR.Python.Kernel := do
-  let file := p.positionalArg! "file" |>.as! String
-  KLR.File.readKLRFile file
 
 def info (p : Parsed) : IO UInt32 := do
   let file := p.positionalArg! "file" |>.as! String
@@ -221,67 +199,66 @@ def info (p : Parsed) : IO UInt32 := do
     IO.println s!"AST summary for KLIR kernel {kernel.name}"
   return 0
 
--- TODO: preserve warnings
-def compile (p : Parsed) : IO UInt32 := do
-  let debug := p.hasFlag "debug"
-  let file := p.positionalArg! "moduleFileName" |>.as! String
-  let kernel := p.positionalArg! "kernelFunctionName" |>.as! String
-  let dir := (p.flag? "klr-module-dir").map fun x => x.as! String
-  let kernel : KLR.Python.Kernel <- gatherTmp file kernel dir debug
-  let (kernel, _) := kernel.inferArguments
+-- TODO: preserve warnings and errors
+def compilePython (kernel : Python.Kernel) : IO Core.Kernel := do
+  let (kernel, warnings) := kernel.inferArguments
+  warnings.forM IO.eprintln
   let kernel : KLR.NKI.Kernel <- KLR.NKI.simplify kernel
-  let (kernel, _) <- KLR.NKI.simplifyOperators kernel
+  let (kernel, w) <- KLR.NKI.simplifyOperators kernel
+  w.forM IO.println
   let kernel <- KLR.NKI.annotate kernel
   let kernel <- KLR.NKI.simplifyPatterns kernel
-  IO.println (Std.Format.pretty (Std.format kernel))
-  return 0
+  -- Leave in for debugging
+  -- TODO use debug flags?
+  --IO.println (Std.Format.pretty (Std.format kernel))
+  --IO.println (reprStr kernel)
+  let (warnings, kernel) <- KLR.Trace.runNKIKernel kernel
+  if !warnings.isEmpty then
+    IO.eprintln warnings
+  let kernel <- Core.lowerAccessPatterns kernel
+  return kernel
 
-def typecheck (p : Parsed) : IO UInt32 := do
-  let file := p.positionalArg! "file" |>.as! String
-  let kernel : KLR.Python.Kernel <- KLR.File.readKLRFile file .cbor
-  let kernel : KLR.NKI.Kernel <- KLR.NKI.simplify kernel
-  -- TODO run the type checker
-  IO.println (reprStr kernel)
+def compile (p : Parsed) : IO UInt32 := do
+  let kernel : KLR.Python.Kernel <- gatherTmp p
+  let _kernel <- compilePython kernel
   return 0
 
 def trace (p : Parsed) : IO UInt32 := do
-  let kernel <- parse p
-  let (k, warnings1) := kernel.inferArguments
-  let (warnings, klr) <- KLR.Trace.runNKIKernel k
-  if !warnings.isEmpty then IO.eprintln warnings
-  if !warnings1.isEmpty then IO.eprintln warnings1
-  let kernel <- Core.lowerAccessPatterns klr
+  let file := p.positionalArg! "file" |>.as! String
+  let kernel <- KLR.File.readKLRFile file
+  let kernel <- compilePython kernel
   match p.flag? "outfile" with
   | some arg =>
     let f := FilePath.mk (arg.as! String)
     IO.println (reprStr kernel)
     File.writeKLRFile f .cbor kernel
   | none =>
-    IO.println (reprStr klr)
+    IO.println (reprStr kernel)
   return 0
 
-def nkiToKLR (p : Parsed) : IO UInt32 := do
-  let debug := p.hasFlag "debug"
-  let file := p.positionalArg! "moduleFileName" |>.as! String
-  let kernel := p.positionalArg! "kernelFunctionName" |>.as! String
-  let dir := (p.flag? "klr-module-dir").map fun x => x.as! String
-  let kernel : KLR.Python.Kernel <- gatherTmp file kernel dir debug
-  let (k, warnings1) := kernel.inferArguments
-  let (warnings, klr) <- KLR.Trace.runNKIKernel k
-  writeContent "klr" p (asString p klr)
+private def evalKlrTensors
+  (p : Parsed)
+  (npyInputFiles : List String)
+  : IO (List (String × TensorLib.Tensor)) := do
+  let kernel : KLR.NKI.Kernel <- gatherTmp p
+  --let (k, warnings1) := kernel.inferArguments
+  let (warnings, klr) <- KLR.Trace.runNKIKernel kernel
+  dbg_trace s!"klr-inputs: {repr klr.inputs}"
+  --if !warnings1.isEmpty then IO.eprintln warnings1
   if !warnings.isEmpty then IO.eprintln warnings
-  if !warnings1.isEmpty then IO.eprintln warnings1
-  return 0
+  let inputs := npyInputFiles.map FilePath.mk
+  let npys <- inputs.mapM TensorLib.Npy.parseFile
+  let inputs <- npys.mapM fun npy => TensorLib.Tensor.ofNpy npy
+  dbg_trace s!"npy-inputs: {repr inputs}"
+  --let _ <- KLR.Eval.eval klr inputs
+  IO.println "TODO: UNIMPLEMENTED"
+  return []
 
 def evalKLR (p : Parsed) : IO UInt32 := do
-  let debug := p.hasFlag "debug"
-  let file := p.positionalArg! "moduleFileName" |>.as! String
-  let kernel := p.positionalArg! "kernelFunctionName" |>.as! String
-  let kernelDir := (p.flag? "klr-module-dir").map fun x => x.as! String
   let outputDir := (p.flag? "output-dir").map fun x => x.as! String
   let inputs := (p.variableArgsAs! String).toList
   let outputs := (p.flag? "output-names").map fun f => (f.as! (Array String)).toList
-  let resultMap <- evalKlrTensors file kernel kernelDir debug inputs
+  let resultMap <- evalKlrTensors p inputs
   let n := resultMap.length
   let outputs :=
     let outputs := outputs.getD []
@@ -338,14 +315,6 @@ def infoCmd := `[Cli|
     file : String; "KLR format input file"
 ]
 
-def typecheckCmd := `[Cli|
-  "typecheck" VIA typecheck;
-  "Run the type checker on a Python AST file"
-
-  ARGS:
-    file : String; "File of Python AST printed as JSON"
-]
-
 def traceCmd := `[Cli|
   "trace" VIA trace;
   "Trace Python to KLR"
@@ -355,22 +324,6 @@ def traceCmd := `[Cli|
     p, pretty; "Output human-readable format (do not generate output file)"
   ARGS:
     file : String; "File of Python AST printed as JSON"
-]
-
-def nkiToKLRCmd := `[Cli|
-  "nki-to-klr" VIA nkiToKLR;
-  "Compile NKI kernel to KLR"
-
-  FLAGS:
-    d, "klr-module-dir" : String; "Directory of Python klr module. Added to PYTHONPATH."
-    debug : Unit; "Print debugging info"
-    o, outfile : String; "Name of output file"
-    j, json; "Output JSON format"
-    p, pretty; "Output human-readable format (default)"
-
-  ARGS:
-    moduleFileName : String; "File of the Python module with the kernel function"
-    kernelFunctionName : String; "Name of the kernel function"
 ]
 
 def evalKLRCmd := `[Cli|
@@ -398,9 +351,7 @@ def klrCmd : Cmd := `[Cli|
     evalKLRCmd;
     gatherCmd;
     infoCmd;
-    nkiToKLRCmd;
-    traceCmd;
-    typecheckCmd
+    traceCmd
 ]
 
 def main (args : List String) : IO UInt32 := do

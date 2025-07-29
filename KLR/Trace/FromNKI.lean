@@ -65,10 +65,8 @@ instance : FromNKI Expr where
     | .module _    => err "module"
     | .builtin n .. => return .value (.var n.toString)
     | .source _    => err "function"
-    -- tensor and mgrid must not survive after tracing, thus there is no
-    -- corresponding expression in KLR.Core.Expr.
-    | .tensor _    => err "tensor"
     | .mgrid       => err "mgrid"
+    | .mgItem ..   => err "mgItem"
     | .none        => err "none"
     | .string _    => err "string"
     | .tuple _     => err "tuple"
@@ -78,7 +76,6 @@ instance : FromNKI Expr where
     | .store ..    => err "store"
     | .pointer ..  => err "pointer"
     | .expr e _    => return e
-    | .oper ..     => err "oper"
 
 instance : FromNKI Address where
   fromNKI?

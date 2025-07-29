@@ -38,9 +38,9 @@ abbrev Ann := PassM
 -- Expressions
 
 private def checkName : Name -> Ann Name
-  | `neuronxcc.nki.language.static_range
-  | `neuronxcc.nki.language.affine_range
-  | `neuronxcc.nki.language.sequential_range => do
+  | .str _ "static_range"
+  | .str _ "affine_range"
+  | .str _ "sequential_range" => do
     warn "annotation has no effect"
     return `range
   | n => return n
@@ -91,9 +91,9 @@ end
 
 private def rangeType : Name -> Ann RangeType
   | `range => return .static
-  | `neuronxcc.nki.language.static_range => return .static
-  | `neuronxcc.nki.language.affine_range => return .affine
-  | `neuronxcc.nki.language.sequential_range => return .sequential
+  | .str _ "static_range" => return .static
+  | .str _ "affine_range" => return .affine
+  | .str _ "sequential_range" => return .sequential
   | n => throw s!"{n} is not a supported iterator"
 
 private def iterator : Iterator -> Ann Iterator

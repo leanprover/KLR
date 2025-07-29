@@ -27,7 +27,7 @@ struct region {
 };
 
 static struct block *alloc_block(size_t size) {
-  struct block *b = aligned_alloc(64, size + sizeof(*b));
+  struct block *b = calloc(1, size + sizeof(*b));
   if (b) {
     b->size = size;
     b->offset = 0;

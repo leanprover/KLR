@@ -164,7 +164,7 @@ end PassM
 Generate a fresh name, based on a previous name. Users can not create names
 with numeric components, so these will not conflict with user names.
 -/
-def freshName (name : Name := .anonymous) : PassM Name :=
+def freshName (name : Name := `tmp) : PassM Name :=
   modifyGet fun s =>
     let n := s.freshVarNum + 1
     (.num name n, { s with freshVarNum := n })

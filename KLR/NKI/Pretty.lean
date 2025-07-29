@@ -64,7 +64,7 @@ private def expr' (e : Expr') (nested : Bool := false) : Format :=
   | .conj l r => parens (expr l true ++ " and " ++ expr r true)
   | .disj l r => parens (expr l true ++ " or " ++ expr r true)
   | .ifExp c t f => parens (expr t ++ " if " ++ expr c ++ " else " ++ expr f)
-  | .call f xs kws => expr f ++ args (xs.map expr ++ kws.map keyword)
+  | .call f xs kws => expr f ++ args (xs.map (expr (nested := true)) ++ kws.map keyword)
   termination_by sizeOf e
 
 private def exprOpt (oe : Option Expr) : Format :=
@@ -81,7 +81,7 @@ private def index (i : Index) : Format :=
   termination_by sizeOf i
 
 private def keyword (kw : Keyword) : Format :=
-  .joinSep [.text kw.name, expr kw.expr] "="
+  .joinSep [.text kw.name, expr kw.expr (nested := true)] "="
   termination_by sizeOf kw
   decreasing_by cases kw; simp; omega
 end

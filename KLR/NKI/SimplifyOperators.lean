@@ -77,24 +77,12 @@ private def stmt' (s : Stmt') : SimplifyOp Stmt' := do
 end
 
 private def func (f : Fun) : SimplifyOp Fun :=
-  return {
-    name := f.name
-    file := f.file
-    line := f.line
-    args := f.args
-    body := <- stmts f.body
-  }
+  return { f with body := <- stmts f.body }
 
 private def kernel (k : Kernel) : SimplifyOp Kernel := do
-  let funs <- k.funs.mapM func
-  return {
-    entry   := k.entry
-    funs    := funs
-    args    := k.args
-    globals := k.globals
-  }
+  return { k with funs := <- k.funs.mapM func }
 
 def simplifyOperators (k : Kernel) : Err (Kernel × List PosError) :=
   match (kernel k).run {} with
   | .ok x s => .ok (x, s.warnings.toList ++ s.newWarns.toList)
-  | .error e _ => .error ("something :" ++ toString e)
+  | .error e _ => .error (toString e)

@@ -15,13 +15,11 @@ limitations under the License.
 -/
 
 import KLR.Core
-import KLR.Python
-import KLR.Trace.Types
-import KLR.Trace.Basic
 import KLR.Trace.Builtin
-import KLR.Trace.Python
 import KLR.Trace.NKI
 import KLR.Trace.Numpy
+import KLR.Trace.Term
+import KLR.Trace.Types
 
 namespace KLR.Trace
 
@@ -42,5 +40,5 @@ def keywords : List (Name × Term) :=
 
 def globalEnv := keywords ++ NKIEnv ++ NumpyEnv
 
-def runNKIKernel (k : KLR.Python.Kernel) : Err (String × KLR.Core.Kernel) :=
+def runNKIKernel (k : KLR.NKI.Kernel) : Err (String × KLR.Core.Kernel) :=
   tracer globalEnv (traceKernel k)

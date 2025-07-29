@@ -17,9 +17,7 @@ limitations under the License.
 import Lean
 import KLR.Util
 import KLR.Core
-import KLR.Python
-
-import TensorLib
+import KLR.NKI.Basic
 
 /-
 # Basic types for tracing
@@ -70,11 +68,12 @@ namespace KLR.Trace
 open KLR.Core
 export Core (Name)
 
--- Bring in some Python types for convenience
-export Python (Pos BoolOp CmpOp UnaryOp BinOp)
+-- Bring in some NKI types for convenience
+export NKI (Pos BinOp)
 
-instance : BEq Python.Fun where
-  beq f₁ f₂ := f₁.source == f₂.source
+-- TODO: maybe change main instance?
+scoped instance : BEq NKI.Fun where
+  beq f1 f2 := f1.name == f2.name
 
 /-
 Terms are an extension of KLR.Expr, and they have types, which are an
@@ -133,10 +132,9 @@ form (with its indices) is represented using KLR.Python.Expr'.subscript .
 inductive Term where
   | module   : Name -> Term
   | builtin  : Name -> TermType -> Option Term -> Term
-  | source   : Python.Fun -> Term
+  | source   : NKI.Fun -> Term
   | none     : Term
   | string   : String -> Term
-  | tensor   : TensorLib.Tensor -> Term
   | tuple    : List Term -> Term
   | list     : List Term -> Term
   | ellipsis : Term
@@ -145,8 +143,7 @@ inductive Term where
   | pointer  : Core.Address -> Term
   | expr     : Expr -> TermType -> Term
   | mgrid    : Term
-  -- accepting a list of operators here might be lazy, but will suffice for now
-  | oper     : List Operator -> Term
+  | mgItem   : Int -> Int -> Term
   deriving Repr, BEq
 
 instance : Inhabited Term where
@@ -158,17 +155,13 @@ namespace Term
 -- TODO: this is partial because of the use of flatMap
 -- the ▷ syntax in Util could be updated to handle this case.
 partial def tensor_list : Term -> List Core.TensorName
-  | .module _ | .builtin .. | .source _ | .mgrid
+  | .module _ | .builtin .. | .source _ | .mgrid | .mgItem ..
   | .none | .string _
   | .ellipsis | .slice ..
   | .pointer .. => []
-  -- Constant tensors do not have its name. They will not reside in hardware
-  -- and must be fully removed after tracing. Therefore, do not call tensors.
-  | .tensor .. => []
   | .tuple l | .list l => (l.flatMap tensor_list).eraseDups
   | .store a _ v => (tensors a ++ tensors v).eraseDups
   | .expr e _ => tensors e
-  | .oper _ =>  [] -- TODO fix me
 
 instance : Tensors Term := ⟨ Term.tensor_list ⟩
 
@@ -248,14 +241,14 @@ where
     let lines := source.splitOn "\n"
     let lineno := pos.line - 1
     let colno := pos.column
-    let line := if lines.length < lineno
-                then "<source not available>"
-                else lines[lineno]!
+    let line := if h:lineno < lines.length
+                then lines[lineno]'h
+                else "<source not available>"
     let indent := (Nat.repeat (List.cons ' ') colno List.nil).asString
     s!"\nline {lineno + offset}:\n{line}\n{indent}^-- {err}"
 
 -- generate a fresh name using an existing name as a prefix
-def genName (name : Name := .anonymous) : Trace Name :=
+def genName (name : Name := `tmp) : Trace Name :=
   modifyGet fun s =>
     let n := s.fvn + 1
     (.num name n, { s with fvn := n })
