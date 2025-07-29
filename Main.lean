@@ -21,6 +21,7 @@ import TensorLib.Tensor
 import SHerLOC
 import KLR.TGR
 import SHerLOC.Analysis.Graph
+import KLR.TGRKLR
 
 open Cli
 open KLR
