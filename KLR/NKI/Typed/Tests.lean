@@ -14,121 +14,120 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -/
 
-import KLR.NKI.Typed.Grammar
+import KLR.NKI.Typed.Parser
+import Qq
 
-open KLR.NKI.Typed
-open DSL
+namespace KLR.NKI.Typed.Tests
+open KLR NKI Typed DSL
 
-def ret_none() -> None:
+/-!
+# Snapshot Testing for the Python Parser
+
+TODO:
+  Some of these outputs are very long so I haven't examined them closely.
+  We should pretty-print `PIR.Prog` instead of showing the raw Lean data structures
+  so that auditing the output is manageable.
+-/
+
+open Qq in
+elab "nki[" prog:str "]" : term => do
+  let prog ← expandPythonFromString "<input>" prog.getString
+  Lean.Elab.Term.elabTerm prog q(PIR.Prog)
+
+#check nki["
+
+def ret_none(_):
   return None
 
-def ret_none_assign() -> None:
-  return ret_none()
+"]
 
-def ret_none_two_assign() -> None:
-  x = 0
-  y = x
+#check nki["
 
-def ret_none_three_assigns() -> None:
-  x = 0
-  y : int = x
-  z = y
+# asdf
+def str(): #comment
+#comment
+  return \"#as#df\" #com
+#comment
+"]
 
-def nested[A]() -> A -> A:
-  def id(a):
-    return a
-  return id
+#check nki["
 
-def nestedRec1[A]() -> A -> A:
-  def id(a):
-    return id(a)
-  return id
+def ret_none(t : tuple[int, float, bool]):
+  return None
 
-def nestedRec2[A]() -> A -> A:
-  def id(a):
-    return nested[A](a)
-  return id
+"]
 
-def explode() -> int:
-  return explode()
+#check nki["
 
-def foo(a : int) -> int:
+def bar(a, b:int=0, c=10):
+  print[A, b](\"bar called\", a=0)
+
+"
+]
+
+#check nki["
+
+def foo():
+  return 0 + 1
+
+"]
+
+#check nki["
+
+def access():
+  b = a[0]
+  b = a[...]
+  b = a[:]
+  b = a[0:]
+  b = a[:1]
+  b = a[0:1]
+  b = a[::]
+  b = a[: :]
+  b = a[0::]
+  b = a[0: :]
+  b = a[:1:]
+  b = a[::2]
+  b = a[: :2]
+  b = a[0:1:]
+  b = a[0::2]
+  b = a[0: :2]
+  b = a[:1:2]
+  b = a[0:1:2]
+  b = a[:, ..., ::, ..., 0]
+
+"]
+
+#check nki["
+
+def tuples(t : tuple[int]) -> int:
+  _ = t
+  a, = t
   return a
 
-def baz(a : int) -> int:
-  def foo(a, _):
+def comprehensive_tuple_tests():
+  (a, b), (c, d) = ((0, 1), (True, False))
+  x, y = 1, 2
+  (p, q) = 3, 4
+  foo()
+  (m, n), o = (5, 6), 7
+  foo()
+  single, = (42,)
+  first, second, third = 10, 20, 30
+  ((nested1, nested2), flat) = ((100, 200), 300)
+  simple = 999
+  result = (a + b, c + d)
+
+  w, (x, y), z = 1, (2, 3), 4
+  ((a, b), c), (d, (e, f)) = ((10, 20), 30), (40, (50, 60))
+
+  _ = (1, 2, 3)
+  _, middle, _ = 7, 8, 9
+
+  if c:
     return a
-  return foo(a, a)
-
-def call_foo() -> int:
-  x = 0
-  y = x
-  z = y
-  return foo(z)
-
-def S[A, B, C](x : A -> B -> C, y : A -> B, z : A) -> C:
-  return x(z, y(z))
-
-def K[A, B](a : A, _ : B) -> A:
-  return a
-
-def I[A]() -> A -> A:
-  return S[A, A -> A, A](K[A, A -> A](), K[A, A]())
-
-def forty_two() -> int:
-  return I[int](42)
-
-def ite1(b : bool) -> int:
-  b = False if b else True
-  if b:
-    return 0
-  return 1
-
-def ite_ret(a : int, b : bool) -> int:
-  if b:
-    return a
+  elif c:
+    return b
   else:
-    return ite1(True)
+    return a + b
 
-def ite_cont(a : int, b : bool) -> int:
-  if b:
-    return a
-  else:
-    x = 0
-  return 0
-
-def whl() -> bool:
-  while whl():
-    x = 0
-  return whl()
-
-def for_() -> bool:
-  for i in range(10):
-    I[int](i)
-  return whl()
-
-def arith() -> None:
-  x = 0 + 1
-  y = x + 0 * x
-  y = x + 0 - y
-  z : float = y / 0.0 * 1
-  z = z // 0.0 * 1.1
-  z = y ** 0 * z
-  z = z % 10 * 1
-
-def booleans() -> None:
-  x = True and False
-  y = x or False and True
-  0 < 1.1 and False
-  x and 100 > 1
-  y and 100 >= 1
-  100.42 <= 1.1
-
-def compares(a : int, b : int) -> bool:
-  x = 0 == 0
-  y = 1.2 != 0.1
-  z = x == y
-  return a == b and z
-
-def poly_eq[A](x : A, y : A) -> bool:
-  return x == y
+"]

@@ -14,7 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -/
 
-import KLR.NKI.Typed.Grammar
-import KLR.NKI.Typed.Syntax
+import KLR.NKI.Typed.Common
+import KLR.NKI.Typed.Parser
+import KLR.NKI.Typed.PIR
 import KLR.NKI.Typed.Tests
-import KLR.NKI.Typed.Types
+import KLR.NKI.Typed.TIR

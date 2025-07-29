@@ -58,6 +58,9 @@ require plausible from git
 require TensorLib from git
   "https://github.com/leanprover/TensorLib.git" @ "v0.0.13"
 
+require Qq from git
+  "https://github.com/leanprover-community/quote4.git" @ "v4.21.0"
+
 -- Comment the above and uncomment this for local development
 -- require TensorLib from "../TensorLib"
 
