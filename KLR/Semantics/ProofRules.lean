@@ -418,12 +418,12 @@ theorem awpPureR (Hstep : SmallStep.PureStep p2 p2') (Hx : 0 < Rx := by omega) :
 
 theorem update_lemma_left (σₗ σᵣ : NML.State DataT)
       (HL : ChipMemory.get_store σₗ.memory (.sbufUnboundedIndex ℓ₁) = none):
-  -- This existential is the issue
   state_interp σₗ σᵣ ⊢ |==> ((ChipMemory.freshSBUFStore σₗ.1).1 ⇉ₗ∅ ∗ state_interp ⟨(ChipMemory.freshSBUFStore σₗ.1).2⟩ σᵣ) :=
   sorry
 
 theorem awpAllocL (Hx : 0 < Lx := by omega) :
-    ⊢ (∀ ℓₗ, (ℓₗ [S]⇉ₗ∅) -∗ awp (Lm - 1) Rm (Lx - 1) Rx (.run <| p1'.map (.bind DataT · x (.uptr <| ChipIndex.sbufUnboundedIndex ℓₗ))) p2 Φ) -∗
+    ⊢ (∀ ℓₗ, (ℓₗ [S]⇉ₗ∅) -∗
+             awp (Lm - 1) Rm (Lx - 1) Rx (.run <| p1'.map (.bind DataT · x (.uptr <| ChipIndex.sbufUnboundedIndex ℓₗ))) p2 Φ) -∗
       awp Lm Rm Lx Rx (.run <| ⟨.assign (.some x) (.alloc Memory.sbuf), locₗ⟩ :: p1') p2 Φ := by
   simp at Hx
   istart
