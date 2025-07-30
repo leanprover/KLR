@@ -57,6 +57,10 @@ theorem wpPureSync {p1 p2 p1' p2' : ExecState DataT} {Φ : NML.Value DataT → N
   iintro H
   iright
   iintro sl sr Hs
+  istop
+  apply Entails.trans _ BIUpdate.intro
+  istart
+  iintro ⟨Hwp, Hs⟩
   iexists (p1', sl)
   iexists (p2', sr)
   iexists 1
@@ -70,7 +74,6 @@ theorem wpPureSync {p1 p2 p1' p2' : ExecState DataT} {Φ : NML.Value DataT → N
 
   -- Eliminate the later
   refine Entails.trans ?_ Iris.BI.later_intro
-  refine Entails.trans ?_ Iris.BIUpdate.intro
 
   -- Close using the remaining resources
   istart
@@ -84,8 +87,8 @@ theorem wpPureSync {p1 p2 p1' p2' : ExecState DataT} {Φ : NML.Value DataT → N
 -- TODO: Port updates for heaps
 theorem update_lemma (σₗ σᵣ : NML.State DataT) :
   state_interp σₗ σᵣ ⊢
-    |==> ∃ ℓₗ ℓᵣ, ℓₗ [S]⇉ₗ∅ ∗ ℓᵣ [S]⇉ᵣ∅ ∗
-    state_interp ⟨(ChipMemory.freshSBUFStore σₗ.1).2⟩ ⟨(ChipMemory.freshSBUFStore σᵣ.1).2⟩ :=
+    |==> (∃ ℓₗ ℓᵣ, ℓₗ [S]⇉ₗ∅ ∗ ℓᵣ [S]⇉ᵣ∅ ∗
+    state_interp ⟨(ChipMemory.freshSBUFStore σₗ.1).2⟩ ⟨(ChipMemory.freshSBUFStore σᵣ.1).2⟩) :=
   sorry
 
 theorem wpAllocSync  {Φ : NML.Value DataT → NML.Value DataT → @PROP DataT} {K : LeibnizO Nat}
@@ -103,6 +106,19 @@ theorem wpAllocSync  {Φ : NML.Value DataT → NML.Value DataT → @PROP DataT} 
   iright
   iintro σₗ σᵣ
   iintro Hσ
+
+  -- Apply update_lemma and eliminate the bupd
+  istop
+  have X := update_lemma σₗ σᵣ
+  have Y := @BI.sep_mono_r (PROP := @PROP DataT) _ _ _ (P := iprop(∀ ℓₗ ℓᵣ, ℓₗ [S]⇉ₗ∅ -∗ ℓᵣ [S]⇉ᵣ∅ -∗ wp K (ExecState.run p1) (ExecState.run p2) Φ)) X
+  apply Entails.trans Y
+  clear X Y
+  apply Entails.trans bupd_frame_l
+  refine BIUpdate.mono ?_
+  istart
+
+
+  iintro ⟨Hrec⟩
   iexists (.run p1, ⟨ChipMemory.freshSBUFStore σₗ.memory |>.2⟩)
   iexists (.run p2, ⟨ChipMemory.freshSBUFStore σᵣ.memory |>.2⟩)
   iexists 1
@@ -120,49 +136,35 @@ theorem wpAllocSync  {Φ : NML.Value DataT → NML.Value DataT → @PROP DataT} 
   istop
   refine Entails.trans ?_ Iris.BI.later_intro
   istart
-  iintro ⟨Hrec, Hσ⟩
-  simp only []
-
-  -- Apply update_lemma and eliminate the bupd
-  istop
-  have X := update_lemma σₗ σᵣ
-  have Y := @BI.sep_mono_r (PROP := @PROP DataT) _ _ _ (P := iprop(∀ ℓₗ ℓᵣ, ℓₗ [S]⇉ₗ∅ -∗ ℓᵣ [S]⇉ᵣ∅ -∗ wp K (ExecState.run p1) (ExecState.run p2) Φ)) X
-  apply Entails.trans Y
-  clear X Y
-  apply Entails.trans bupd_frame_l
-  refine BIUpdate.mono ?_
-  istart
-
   iintro ⟨Hwp, ℓₗ, ℓᵣ, Hℓₗ, Hℓᵣ, Hσ⟩
+  simp only []
   ispecialize Hwp ℓₗ ℓᵣ Hℓₗ Hℓᵣ
   isplit l [Hσ]
   · iexact Hσ
   · iexact Hwp
 
+/-- Unary weakest precondition
 
--- TODO: Stuttering block
--- I want to be able to take different steps on each side altogether. To do this, I want to
--- define unary rules, and a system for lifting them to a combined step.
+-/
+structure UWP (DataT : Type _) where
+  pre   : PROP DataT
+  post  : PROP DataT
+  prog  : ExecState DataT
+  steps : Nat
 
--- This would be a good example for multi-BI proof interfaces
+def UWP.LeftSpec (u : UWP DataT) : PROP DataT :=
+  iprop(∀ σₗ σᵣ, u.pre -∗ state_interp σₗ σᵣ -∗
+    ∀ prog' σₗ', ⌜SmallStep.StepN u.steps (u.prog, σₗ) (prog', σₗ')⌝ -∗ |==> (state_interp σₗ' σᵣ ∗ u.post))
 
-/-
-/-- Unary weakest precondition -/
-structure UWP where
-  pre  : @PROP DataT
-  post : @PROP DataT
-  prog : ExecState DataT
+def UWP.RightSpec (u : UWP DataT) : PROP DataT :=
+  iprop(∀ σₗ σᵣ, u.pre -∗ state_interp σₗ σᵣ -∗
+    ∀ prog' σᵣ', ⌜SmallStep.StepN u.steps (u.prog, σᵣ) (prog', σᵣ')⌝ -∗ |==> (state_interp σₗ σᵣ' ∗ u.post))
 
-def UWP.LeftSpec (u : @UWP DataT) : @PROP DataT :=
-  iprop(∀ σₗ σᵣ, u.pre -∗ state_interp σₗ σᵣ -∗ ∀ prog' σₗ', ⌜step (u.prog, σₗ) (prog', σₗ')⌝ -∗ |==> (state_interp σₗ' σᵣ ∗ u.post))
-
-def UWP.RightSpec (u : @UWP DataT) : @PROP DataT :=
-  iprop(∀ σₗ σᵣ, u.pre -∗ state_interp σₗ σᵣ -∗ ∀ prog' σᵣ', ⌜step (u.prog, σᵣ) (prog', σᵣ')⌝ -∗ |==> (state_interp σₗ σᵣ' ∗ u.post))
-
-def UWP.Frame (u : @UWP DataT) (P : @PROP DataT) : @UWP DataT where
-  pre  := iprop(u.pre  ∗ P)
-  post := iprop(u.post ∗ P)
-  prog := u.prog
+def UWP.Frame (u : UWP DataT) (P : PROP DataT) : UWP DataT where
+  pre   := iprop(u.pre  ∗ P)
+  post  := iprop(u.post ∗ P)
+  prog  := u.prog
+  steps := u.steps
 
 theorem UWP.leftSpec_frame {u : @UWP DataT} :
     u.LeftSpec ⊢ (u.Frame P).LeftSpec := by
@@ -200,47 +202,22 @@ theorem UWP.rightSpec_frame {u : @UWP DataT} :
   · iexact HP
   · iexact Hwp
 
-structure Stutter where
-  lwp : List (@UWP DataT)
-  rwp : List (@UWP DataT)
--/
 
-
--- Two new modalities: L R
--- Async stepping rule:
---  (P -∗ L R wp el el) -∗ (P -∗ wp el er)
-
-
--- I guess it's kind of like later credits
-
--- Under the L/R modalities,
-
--- Wait no. I want a new WP instead
-
--- (AWP{k;false;k;false} el er) -∗ (wp el er)
--- AWP
-
--- So then what if I have (P -∗ (AWP ... ∗ Q))? Needs to include state interp to be provable.
-
-
--- (AWP{k;false;k;false} el er) should actually just equal the WP
-
-
--- theorem wp_unfold {K : LeibnizO Nat} {p1 p2 : ExecState DataT} {Φf : @val DataT → @val DataT → @PROP DataT} :
---     wp K p1 p2 Φf ≡
---     iprop(
---       (|==> ∃ vl, ∃ vr, ⌜toVal p1 = some vl⌝ ∗ ⌜toVal p2 = some vr⌝ ∗ Φf vl vr) ∨
---       ( ∀ sl, ∀ sr, state_interp sl sr -∗
---         ∃ cl', ∃ cr', ∃ nl, ∃ nr,
---           ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K.car ∧ nr ≤ K.car ∧ SmallStep.StepN nl (p1, sl) cl' ∧ SmallStep.StepN nr (p2, sr) cr'⌝ ∗
---             ▷ |==> (state_interp cl'.2 cr'.2 ∗ wp K cl'.1 cr'.1 Φf))) := by
+-- def awp (Lm Rm Lx Rx : Nat) (p1 p2 : ExecState DataT) (Φ : ExecState DataT → ExecState DataT → @PROP DataT) :
+--     @PROP DataT :=
+--   iprop(∀ sl, ∀ sr, state_interp sl sr -∗
+--           ∃ cl', ∃ cr', ∃ nl, ∃ nr,
+--           ⌜Lm ≤ nl ∧ Rm ≤ nr ∧ nl ≤ Lx ∧ nr ≤ Rx ∧ SmallStep.StepN nl (p1, sl) cl' ∧ SmallStep.StepN nr (p2, sr) cr'⌝ ∗
+--           |==> (state_interp cl'.2 cr'.2 ∗ Φ cl'.1 cr'.1))
 
 def awp (Lm Rm Lx Rx : Nat) (p1 p2 : ExecState DataT) (Φ : ExecState DataT → ExecState DataT → @PROP DataT) :
     @PROP DataT :=
-  iprop(∀ sl, ∀ sr, state_interp sl sr -∗
-          ∃ cl', ∃ cr', ∃ nl, ∃ nr,
-          ⌜Lm ≤ nl ∧ Rm ≤ nr ∧ nl ≤ Lx ∧ nr ≤ Rx ∧ SmallStep.StepN nl (p1, sl) cl' ∧ SmallStep.StepN nr (p2, sr) cr'⌝ ∗
-          |==> (state_interp cl'.2 cr'.2 ∗ Φ cl'.1 cr'.1))
+  iprop(∀ s1, ∀ s2, state_interp s1 s2 -∗ |==>
+          ∃ p1' p2',
+            Φ p1' p2' ∗
+            ∃ s1' s2',
+              (∃ nl nr, ⌜Lm ≤ nl ∧ Rm ≤ nr ∧ nl ≤ Lx ∧ nr ≤ Rx ∧ SmallStep.StepN nl (p1, s1) (p1', s1') ∧ SmallStep.StepN nr (p2, s2) (p2', s2')⌝ ) ∗
+              state_interp s1' s2')
 
 
 theorem wpDesync {K : LeibnizO Nat} {p1 p2 : ExecState DataT} (Φf : NML.Value DataT → NML.Value DataT → @PROP DataT) :
@@ -255,46 +232,91 @@ theorem wpDesync {K : LeibnizO Nat} {p1 p2 : ExecState DataT} (Φf : NML.Value D
   iright
   iintro sl sr Hσ
   ispecialize Hawp sl sr Hσ
-  icases Hawp with ⟨cl', cr', nl, nr, %Hstep, H⟩
-  iexists cl'
-  iexists cr'
-  iexists nl
-  iexists nr
+
+  istop
+  apply Iris.BI.BIBase.Entails.trans Iris.BI.emp_sep.mp
+  refine BIUpdate.mono ?_
+  istart
+  iintro ⟨Hawp⟩
+
+
+  icases Hawp with ⟨p1', p2', Hwp, s1', s2', ⟨n1, n2, %Hstep⟩, Hupd⟩
+  simp only []
+  -- Eliminate all bupds
+  iexists (p1', s1')
+  iexists (p2', s2')
+  iexists n1
+  iexists n2
   isplit r
   · ipure_intro
     obtain ⟨_, _, _, _, _, _⟩ := Hstep
     refine ⟨?_, ?_, ?_, ?_, by trivial⟩ <;> try omega
-  -- Eliminate the later and bupd
   istop
   refine Entails.trans ?_ Iris.BI.later_intro
-  refine BIUpdate.mono ?_
   simp only []
   istart
-  apply BI.entails_wand .rfl
+  iintro ⟨Hwp, Hs⟩
+  isplit l [Hs]
+  · iexact Hs
+  · iexact Hwp
+  -- icases Hawp with ⟨cl', cr', nl, nr, %Hstep, H⟩
+  -- iexists cl'
+  -- iexists cr'
+  -- iexists nl
+  -- iexists nr
+  -- isplit r
+  -- · ipure_intro
+  --   obtain ⟨_, _, _, _, _, _⟩ := Hstep
+  --   refine ⟨?_, ?_, ?_, ?_, by trivial⟩ <;> try omega
+  -- -- Eliminate the later and bupd
+  -- istop
+  -- refine Entails.trans ?_ Iris.BI.later_intro
+  -- refine BIUpdate.mono ?_
+  -- simp only []
+  -- istart
+  -- apply BI.entails_wand .rfl
 
 theorem wpResync {m' n' : Nat} {p1 p2 : ExecState DataT} (Φ : ExecState DataT → ExecState DataT → @PROP DataT) :
     ⊢ Φ p1 p2 -∗ awp 0 0 m' n' p1 p2 Φ := by
   unfold awp
   iintro HΦ s1 s2 Hσ
-  iexists ⟨p1, s1⟩
-  iexists ⟨p2, s2⟩
-  iexists 0
-  iexists 0
-  isplit r
-  · ipure_intro
-    simp only [Nat.le_refl, Nat.zero_le, true_and]
-    refine ⟨SmallStep.StepN.done rfl, SmallStep.StepN.done rfl⟩
-
-  -- Eliminate the later and bupd
   istop
-  refine Entails.trans ?_ BIUpdate.intro
-  simp only []
+  apply Entails.trans _ BIUpdate.intro
   istart
   iintro ⟨HΦ, Hσ⟩
-
-  isplit l [Hσ]
-  · iexact Hσ
+  iexists p1
+  iexists p2
+  isplit l [HΦ]
   · iexact HΦ
+  iexists s1
+  iexists s2
+  isplit r
+  · iexists 0
+    iexists 0
+    ipure_intro
+    simp only [Nat.le_refl, Nat.zero_le, true_and]
+    refine ⟨SmallStep.StepN.done rfl, SmallStep.StepN.done rfl⟩
+  iexact Hσ
+
+  -- iexists ⟨p1, s1⟩
+  -- iexists ⟨p2, s2⟩
+  -- iexists 0
+  -- iexists 0
+  -- isplit r
+  -- · ipure_intro
+  --   simp only [Nat.le_refl, Nat.zero_le, true_and]
+  --   refine ⟨SmallStep.StepN.done rfl, SmallStep.StepN.done rfl⟩
+
+  -- -- Eliminate the later and bupd
+  -- istop
+  -- refine Entails.trans ?_ BIUpdate.intro
+  -- simp only []
+  -- istart
+  -- iintro ⟨HΦ, Hσ⟩
+
+  -- isplit l [Hσ]
+  -- · iexact Hσ
+  -- · iexact HΦ
 
 
 theorem awpPureL (Hstep : SmallStep.PureStep p1 p1') (Hx : 0 < Lx := by omega) :
@@ -305,19 +327,40 @@ theorem awpPureL (Hstep : SmallStep.PureStep p1 p1') (Hx : 0 < Lx := by omega) :
   iintro Hawp
   iintro sl sr Hσ
   ispecialize Hawp sl sr Hσ
-  icases Hawp with ⟨cl', cr', nl, nr, %Hstep', H⟩
-  iexists cl'
-  iexists cr'
-  iexists (nl + 1)
-  iexists nr
+  istop
+  apply Iris.BI.BIBase.Entails.trans Iris.BI.emp_sep.mp
+  apply BIUpdate.mono _
+  istart
+  iintro ⟨Hawp⟩
+  icases Hawp with ⟨p1', p2', HΦ, s1', s2', ⟨nl, nr, %Hstep⟩, Hstate⟩
+  iexists p1'
+  iexists p2'
+  isplit l [HΦ]
+  · iexact HΦ
+  iexists s1'
+  iexists s2'
   isplit r
-  · ipure_intro
-    obtain ⟨_, _, _, _, _, _⟩ := Hstep'
+  · iexists (nl + 1)
+    iexists nr
+    ipure_intro
+    obtain ⟨_, _, _, _, _, _⟩ := Hstep
     refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
     refine SmallStep.StepN.step (Hstep sl) ?_
     trivial
-  istop
-  refine BIUpdate.mono .rfl
+  · iexact Hstate
+  -- icases Hawp with ⟨cl', cr', nl, nr, %Hstep', H⟩
+  -- iexists cl'
+  -- iexists cr'
+  -- iexists (nl + 1)
+  -- iexists nr
+  -- isplit r
+  -- · ipure_intro
+  --   obtain ⟨_, _, _, _, _, _⟩ := Hstep'
+  --   refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
+  --   refine SmallStep.StepN.step (Hstep sl) ?_
+  --   trivial
+  -- istop
+  -- refine BIUpdate.mono .rfl
 
 theorem awpPureR (Hstep : SmallStep.PureStep p2 p2') (Hx : 0 < Rx := by omega) :
     ⊢ awp Lm (Rm - 1) Lx (Rx - 1) p1 p2' Φ -∗ awp Lm Rm Lx Rx p1 p2 Φ := by
@@ -327,16 +370,125 @@ theorem awpPureR (Hstep : SmallStep.PureStep p2 p2') (Hx : 0 < Rx := by omega) :
   iintro Hawp
   iintro sl sr Hσ
   ispecialize Hawp sl sr Hσ
-  icases Hawp with ⟨cl', cr', nl, nr, %Hstep', H⟩
-  iexists cl'
-  iexists cr'
-  iexists nl
-  iexists (nr + 1)
-  isplit r
-  · ipure_intro
-    obtain ⟨_, _, _, _, _, _⟩ := Hstep'
+  istop
+  apply Iris.BI.BIBase.Entails.trans Iris.BI.emp_sep.mp
+  apply BIUpdate.mono _
+  istart
+  iintro ⟨Hawp⟩
+  icases Hawp with ⟨p1', p2', HΦ, s1', s2', ⟨nl, nr, %Hstep⟩, H⟩
+  iexists p1'
+  iexists p2'
+  isplit l [HΦ]
+  · iexact HΦ
+  iexists s1'
+  iexists s2'
+  isplit r [H]
+  · iexists nl
+    iexists (nr + 1)
+    ipure_intro
+    obtain ⟨_, _, _, _, _, _⟩ := Hstep
     refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
     refine SmallStep.StepN.step (Hstep sr) ?_
     trivial
+  · iexact H
+  -- icases Hawp with ⟨cl', cr', nl, nr, %Hstep', H⟩
+  -- iexists cl'
+  -- iexists cr'
+  -- iexists nl
+  -- iexists (nr + 1)
+  -- isplit r
+  -- · ipure_intro
+  --   obtain ⟨_, _, _, _, _, _⟩ := Hstep'
+  --   refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
+  --   refine SmallStep.StepN.step (Hstep sr) ?_
+  --   trivial
+  -- istop
+  -- refine BIUpdate.mono .rfl
+
+-- -- TODO: Port updates for heaps
+-- theorem update_lemma (σₗ σᵣ : NML.State DataT) :
+--   state_interp σₗ σᵣ ⊢
+--     |==> ∃ ℓₗ ℓᵣ, ℓₗ [S]⇉ₗ∅ ∗ ℓᵣ [S]⇉ᵣ∅ ∗
+--     state_interp ⟨(ChipMemory.freshSBUFStore σₗ.1).2⟩ ⟨(ChipMemory.freshSBUFStore σᵣ.1).2⟩ :=
+--   sorry
+
+
+-- TODO: Unify the left and right pure/stateful desync steps with UWP?
+
+
+theorem update_lemma_left (σₗ σᵣ : NML.State DataT)
+      (HL : ChipMemory.get_store σₗ.memory (.sbufUnboundedIndex ℓ₁) = none):
+  -- This existential is the issue
+  state_interp σₗ σᵣ ⊢ |==> ((ChipMemory.freshSBUFStore σₗ.1).1 ⇉ₗ∅ ∗ state_interp ⟨(ChipMemory.freshSBUFStore σₗ.1).2⟩ σᵣ) :=
+  sorry
+
+theorem awpAllocL (Hx : 0 < Lx := by omega) :
+    ⊢ (∀ ℓₗ, (ℓₗ [S]⇉ₗ∅) -∗ awp (Lm - 1) Rm (Lx - 1) Rx (.run <| p1'.map (.bind DataT · x (.uptr <| ChipIndex.sbufUnboundedIndex ℓₗ))) p2 Φ) -∗
+      awp Lm Rm Lx Rx (.run <| ⟨.assign (.some x) (.alloc Memory.sbuf), locₗ⟩ :: p1') p2 Φ := by
+  simp at Hx
+  istart
+  iintro Hawp
+  conv =>
+    rhs
+    unfold awp
+  iintro sl sr Hs
+
+  -- Apply update_lemma
   istop
-  refine BIUpdate.mono .rfl
+  have X := update_lemma_left sl sr (ℓ₁ := sl.memory.sbufUnbounded.next_fresh) ?G
+  case G =>
+    -- Store get fresh is none
+    simp [ChipMemory.get_store]
+    rw [← AllocHeap.get_fresh (t := sl.memory.sbufUnbounded) (H := sl.memory.sbuf_wf)]
+    rfl
+  have Y := @BI.sep_mono_r (PROP := @PROP DataT) _ _
+              (P := iprop((∀ ℓₗ, (ℓₗ [S]⇉ₗ∅) -∗ awp (Lm - 1) Rm (Lx - 1) Rx (.run <| p1'.map (.bind DataT · x (.uptr <| ChipIndex.sbufUnboundedIndex ℓₗ))) p2 Φ)))
+              _ X
+  apply Entails.trans Y
+  clear X Y
+  simp only []
+  istart
+  iintro ⟨Hawp, Hupd⟩
+
+  istop
+  apply Entails.trans bupd_frame_l
+  apply Entails.trans ?_ bupd_idem.mp
+  apply BIUpdate.mono
+  istart
+  iintro ⟨Hawp, ⟨Hfrac, Hauth⟩⟩
+
+  obtain ⟨ℓ₁, Hℓ₁⟩ : ∃ ℓ₁ : Nat, (ChipMemory.freshSBUFStore sl.memory).fst = .sbufUnboundedIndex ℓ₁ := by
+    simp
+
+  -- Need to be very careful with the unfolding ehre
+  ispecialize Hawp ℓ₁
+  rw [Hℓ₁]
+  ispecialize Hawp Hfrac
+
+  unfold awp
+  ispecialize Hawp { memory := (ChipMemory.freshSBUFStore sl.memory).snd } sr Hauth
+  istop
+  apply Iris.BI.BIBase.Entails.trans Iris.BI.emp_sep.mp
+  apply BIUpdate.mono
+  istart
+  iintro ⟨p1', p2', HΦ, s1, s2, ⟨n1, n2, %Hstep⟩, H⟩
+  iexists p1'
+  iexists p2'
+  isplit l [HΦ]
+  · iexact HΦ
+  iexists s1
+  iexists s2
+  isplit r
+  · iexists (n1 + 1)
+    iexists n2
+    ipure_intro
+    obtain ⟨_, _, _, _, _, _⟩ := Hstep
+    refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
+    rename_i SL  _
+    apply SmallStep.StepN.step _ SL
+    apply NML.step.asn
+    apply ExprStep.sbuf_alloc
+    simp
+    simp at Hℓ₁
+    exact Hℓ₁.symm
+  · iexact H
