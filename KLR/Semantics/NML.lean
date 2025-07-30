@@ -109,6 +109,8 @@ def nolocals : Locals DataT := fun _ => .none
 def Locals.bind (s : @Locals DataT) (x : String) (v : @Value DataT) : @Locals DataT :=
   fun x' => if x = x' then .some v else s x'
 
+notation "[" x " ↣ " v "]ₗ" l => @Locals.bind _ l x v
+
 /-- Task: a Stmt that needs to be executed in particular local context. -/
 structure Task where
   stmt : Stmt DataT
@@ -117,6 +119,10 @@ structure Task where
 /-- Bind a new variable in a Task-/
 def Task.bind (T : Task DataT) (x : String) (v : Value DataT) : Task DataT :=
   { T with env := T.env.bind DataT x v }
+
+notation "[" x " ↣ " v "] " t => Task.bind t x v
+
+-- #check ["x" ↣ .unit]ₗ ["x" ↣ .unit]ₗ (nolocals DataT)
 
 /-- A NML Program during execution. Namely, one of
 - A list of tasks to complete,
