@@ -69,6 +69,10 @@ notation k " [S]⇉ᵣ " v  => PointsToS (ProdIndex.right (ChipIndex.sbufUnbound
 notation k " [P]⇉ᵣ " v  => PointsToS (ProdIndex.right (ChipIndex.psumUnboundedIndex k)) (some v)
 notation k " [H]⇉ᵣ " v  => PointsToS (ProdIndex.right (ChipIndex.hbmUnboundedIndex k))  (some v)
 
+notation k " ⇉∅ " => PointsToS k none
+notation k " ⇉ₗ∅  " => PointsToS (ProdIndex.left  k) none
+notation k " ⇉ᵣ∅  " => PointsToS (ProdIndex.right k) none
+
 notation k " [S]⇉ₗ∅ " => PointsToS (ProdIndex.left  (ChipIndex.sbufUnboundedIndex k)) none
 notation k " [P]⇉ₗ∅ " => PointsToS (ProdIndex.left  (ChipIndex.psumUnboundedIndex k)) none
 notation k " [H]⇉ₗ∅ " => PointsToS (ProdIndex.left  (ChipIndex.hbmUnboundedIndex k))  none
@@ -88,11 +92,12 @@ def wp_F (wp : LeibnizO Nat → Prog DataT → Prog DataT → (Value DataT → V
       -- Or, they're not values, and for any two configurations that we can step into, in some number of steps,
       ( -- ⌜toVal p1 = none ∨ toVal p2 = none⌝ ∗
         ∀ sl, ∀ sr, state_interp sl sr -∗
+        |==>
         ∃ cl', ∃ cr', ∃ nl, ∃ nr,
           ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K.car ∧ nr ≤ K.car ∧ SmallStep.StepN nl (p1, sl) cl' ∧ SmallStep.StepN nr (p2, sr) cr'⌝ ∗
             -- We can reobtain the state interp for the new state, and also
             -- prove the weakest precondition.
-            ▷ |==> (state_interp cl'.2 cr'.2 ∗ wp K cl'.1 cr'.1 Φf)))
+            ▷ (state_interp cl'.2 cr'.2 ∗ wp K cl'.1 cr'.1 Φf)))
 
 instance wp_contractive : Iris.OFE.Contractive (α := LeibnizO Nat → Prog DataT → Prog DataT → (Value DataT → Value DataT → PROP DataT) → PROP DataT) wp_F := by
   sorry
@@ -105,10 +110,10 @@ theorem wp_unfold {K : LeibnizO Nat} {p1 p2 : Prog DataT} {Φf : Value DataT →
     wp K p1 p2 Φf ≡
     iprop(
       (|==> ∃ vl, ∃ vr, ⌜toVal p1 = some vl⌝ ∗ ⌜toVal p2 = some vr⌝ ∗ Φf vl vr) ∨
-      ( ∀ sl, ∀ sr, state_interp sl sr -∗
+      ( ∀ sl, ∀ sr, state_interp sl sr -∗ |==>
         ∃ cl', ∃ cr', ∃ nl, ∃ nr,
           ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K.car ∧ nr ≤ K.car ∧ SmallStep.StepN nl (p1, sl) cl' ∧ SmallStep.StepN nr (p2, sr) cr'⌝ ∗
-            ▷ |==> (state_interp cl'.2 cr'.2 ∗ wp K cl'.1 cr'.1 Φf))) := by
+            ▷ (state_interp cl'.2 cr'.2 ∗ wp K cl'.1 cr'.1 Φf))) := by
   apply fixpoint_unfold (f := ⟨wp_F, OFE.ne_of_contractive wp_F⟩)
 
 end weakestpre
@@ -151,9 +156,19 @@ theorem wp_to_fupd_PRelS {pl pr : Prog DataT} {sl sr : NML.State DataT}
 
     · -- Both programs can step
       ispecialize H Hσ
+
+      have X : (|==> |==> Iris.BI.later iprop(▷^[n]⌜SmallStep.PRelS (n + 1) K.car (pl, sl) (pr, sr) Φf⌝) : @PROP DataT) ⊢
+               |==> Iris.BI.later iprop(▷^[n]⌜SmallStep.PRelS (n + 1) K.car (pl, sl) (pr, sr) Φf⌝) := by
+        exact Iris.BIUpdate.trans
+      apply Iris.BI.BIBase.Entails.trans ?_ X
+      apply Iris.BI.BIBase.Entails.trans Iris.BI.emp_sep.mp
+      refine Iris.BIUpdate.mono ?_
+      clear X
+      istart
+      iintro H
       icases H with ⟨cl', cr', nl, nr, ⟨%Hnl0, %Hnr0, %HnlK, %HnrK, %HSl, %HSr⟩, H⟩
       simp only [Iris.BI.BIBase.laterN]
-      istop
+
 
       -- Since they both can step, neither of them is a value
       have p1_not_value : (NML.NMLSemantics DataT).toVal pl = none := by
@@ -180,7 +195,7 @@ theorem wp_to_fupd_PRelS {pl pr : Prog DataT} {sl sr : NML.State DataT}
         exists nl; exists nr; exists cl'; exists cr'
 
       suffices
-          Iris.BI.later iprop(|==> (state_interp cl'.snd cr'.snd ∗ wp K cl'.fst cr'.fst fun vl vr => iprop(⌜Φf vl vr⌝))) ⊢
+          Iris.BI.later iprop((state_interp cl'.snd cr'.snd ∗ wp K cl'.fst cr'.fst fun vl vr => iprop(⌜Φf vl vr⌝))) ⊢
           |==> Iris.BI.later iprop(▷^[n]⌜SmallStep.PRelS n K.car cl' cr' Φf⌝) by
         apply this.trans
         apply Iris.BIUpdate.mono
@@ -190,23 +205,24 @@ theorem wp_to_fupd_PRelS {pl pr : Prog DataT} {sl sr : NML.State DataT}
 
       -- Apply the IH
 
+
       suffices
-        Iris.BI.later iprop(|==> |==> ▷^[n]⌜SmallStep.PRelS n K.car (cl'.1, cl'.2) (cr'.1, cr'.2) Φf⌝ : PROP DataT) ⊢
+        Iris.BI.later iprop(|==> ▷^[n]⌜SmallStep.PRelS n K.car (cl'.1, cl'.2) (cr'.1, cr'.2) Φf⌝ : PROP DataT) ⊢
         |==> Iris.BI.later iprop(▷^[n]⌜SmallStep.PRelS n K.car cl' cr' Φf⌝) by
         refine .trans ?_ this
         refine Iris.BI.later_mono ?_
-        refine Iris.BIUpdate.mono ?_
+        -- refine Iris.BIUpdate.mono ?_
         exact Iris.BI.wand_elim' IH
       clear IH
       simp
 
       -- Collapse the two bupds
-      suffices
-          Iris.BI.later iprop(|==> ▷^[n]⌜SmallStep.PRelS n K.car (cl'.fst, cl'.snd) (cr'.fst, cr'.snd) Φf⌝) ⊢
-          |==> Iris.BI.later iprop(▷^[n]⌜SmallStep.PRelS n K.car cl' cr' Φf⌝) by
-        refine .trans ?_ this
-        apply Iris.BI.later_mono
-        exact Iris.BIUpdate.trans
+      -- suffices
+      --     Iris.BI.later iprop(|==> ▷^[n]⌜SmallStep.PRelS n K.car (cl'.fst, cl'.snd) (cr'.fst, cr'.snd) Φf⌝) ⊢
+      --     |==> Iris.BI.later iprop(▷^[n]⌜SmallStep.PRelS n K.car cl' cr' Φf⌝) by
+      --   refine .trans ?_ this
+      --   apply Iris.BI.later_mono
+      --   exact Iris.BIUpdate.trans
 
       -- Exchange bupd and later
       apply later_bupd_comm_plain

@@ -25,9 +25,6 @@ def ΦIsIntLePure (v1 v2 : NML.Value DataT) : Prop := ∃ (z1 z2 : Int), v1 = NM
 def ΦIsIntLe (v1 v2 : NML.Value DataT) : @PROP DataT := iprop(⌜ΦIsIntLePure v1 v2⌝)
 
 
---
-
-
 /-- Simplest possible example: Two programs in "done" states -/
 theorem example0 : ⊢ (@wp DataT ⟨1⟩ (.done (.int 4)) (.done (.int 5)) ΦIsIntLe) := by
   apply Entails.trans ?_ (@wpValVal _ (K := ⟨1⟩) (.done (.int 4)) (.done (.int 5)) (.int 4) (.int 5) ΦIsIntLe (by rfl) (by rfl))
@@ -49,7 +46,6 @@ theorem example1 :
   ipure_intro
   exists 4
   exists 5
-
 
 
 /-- A proof that both programs
