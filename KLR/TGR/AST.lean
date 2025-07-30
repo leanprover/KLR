@@ -26,7 +26,7 @@ namespace KLR.TGR
 structure TensorTy where
   shape : Shape
   dtype : Dtype
-deriving Inhabited, Repr, Nonempty
+deriving Inhabited, Repr, Nonempty, BEq
 
 abbrev Var := String
 

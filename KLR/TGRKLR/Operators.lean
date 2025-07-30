@@ -35,29 +35,33 @@ open Util (FromSexp ToSexp)
 inductive Engine where
   | unassigned
   | act | dma | dve | pe | pool | sp
-  deriving BEq
-
-def VectorVar := String
-deriving BEq, Inhabited, Repr, Nonempty, FromCBOR, ToCBOR, FromJson, ToJson, FromSexp, ToSexp
+  deriving BEq, Repr
 
 def Reg := Nat
 deriving BEq, Inhabited, Repr, Nonempty, FromCBOR, ToCBOR, FromJson, ToJson, FromSexp, ToSexp
+instance : ToString Reg where
+  toString reg := s!"reg({repr reg})"
 
-@[serde tag = 131]
-inductive Immediate where
-  | register (reg : Reg)
-  | vector (vec : VectorVar)
-  | pointer -- TODO
-  | int (i : Int32)
-  | float (f : Float32)
-  deriving BEq
+--@[serde tag = 131]
+--inductive Scalar where
+--  | register (reg : Reg)
+--  | vector (vec : VectorVar)
+--  | pointer -- TODO
+--  | int (i : Int32)
+--  | float (f : Float32)
+--  deriving BEq, Repr, Inhabited, Repr, Nonempty, FromCBOR, ToCBOR, FromJson, ToJson, FromSexp, ToSexp
 
 @[serde tag = 132]
 inductive ActivationImm where
   | register (reg : Reg)
   | pointer -- : TODO
   | float (f : Float32)
-  deriving BEq
+  deriving BEq, Repr
+instance : ToString ActivationImm where
+  toString
+    | .register reg => s!"reg{repr reg}"
+    | .pointer => "ptr"
+    | .float f => s!"{f}"
 
 /-
 Used for Iota and AffineSelect, represents something similar to an
@@ -68,7 +72,10 @@ LEA in x86.
 structure DataPattern where
   offset  : Nat
   pattern  : List KLR.Core.APPair
-  deriving BEq
+  deriving BEq, Repr
+instance : ToString DataPattern where
+  toString op :=
+    s!"DataPattern(offset={op.offset}, pattern={repr op.pattern})"
 
 /-
 ALU operations supported by the HW
@@ -105,7 +112,7 @@ inductive AluOp where
   | pow
   | rsqrt
   | subtract
-  deriving BEq, Inhabited, Repr, Nonempty, FromCBOR, ToCBOR, FromJson, ToJson, FromSexp, ToSexp
+  deriving BEq, Repr, Inhabited, Repr, Nonempty, FromCBOR, ToCBOR, FromJson, ToJson, FromSexp, ToSexp
 
 namespace AluOp
 
@@ -152,7 +159,7 @@ values should be kept -/
 inductive DropoutThresholdType
   | DropRate
   | KeepRate
-  deriving BEq
+  deriving BEq, Repr
 
 /- Control how data is accumulated at destination locations -/
 @[serde tag = 136]
@@ -162,7 +169,7 @@ inductive AccumCmd where
   | Accumulate
   | ZeroAccumulate
   | LoadAccumulate
-  deriving BEq
+  deriving BEq, Repr
 
 @[serde tag = 137]
 inductive ActivationFunc where
@@ -189,7 +196,7 @@ inductive ActivationFunc where
   | sqrt
   | square
   | tanh
-  deriving BEq
+  deriving BEq, Repr, Inhabited, Repr, Nonempty, FromCBOR, ToCBOR, FromJson, ToJson, FromSexp, ToSexp
 
 /- The comparator for an affine select -/
 @[serde tag = 138]
@@ -198,14 +205,14 @@ inductive AffineSelectCmp where
   | GreaterThanEq
   | Eq
   | NotEq
-  deriving BEq
+  deriving BEq, Repr
 
 /- RMW ops for DMA -/
 @[serde tag = 139]
 inductive DgeComputeOp where
   | none
   | add
-  deriving BEq
+  deriving BEq, Repr
 
 /- The DMA bounds check flag can either be an immediate or in a register -/
 @[serde tag = 140]
@@ -213,7 +220,7 @@ inductive DmaBounds where
   | disable
   | enable
   | reg (reg : Reg)
-  deriving BEq
+  deriving BEq, Repr
 
 /- Indicates whether this is the first, middle, or last matmul
 instruction in a series of instructions that are accumulating into a region
@@ -224,14 +231,14 @@ inductive MatmulGroupElement where
   | middle
   | last
   | whole
-  deriving BEq
+  deriving BEq, Repr
 
 /- Whether an immediate should be written, or nothing should be written, when an index misses -/
 @[serde tag = 142]
-inductive IndexMissBehavior where
-  | imm (value : Immediate)
+inductive IndexMissBehavior (Scalar : Type) where
+  | imm (value : Scalar)
   | skip
-  deriving BEq
+  deriving BEq, Repr
 
 /- Which of the ops to TensorScalar should be reversed (only matters for
 non-commutative operators)-/
@@ -241,7 +248,7 @@ inductive TensorScalarReverseOps where
   | first
   | second
   | both
-  deriving BEq
+  deriving BEq, Repr
 
 /- A representation of a contiguous set of axes of a tensor -/
 @[serde tag = 144]
@@ -250,7 +257,7 @@ inductive TensorSubDim where
   | XY
   | XYZ
   | XYZW
-  deriving BEq
+  deriving BEq, Repr
 
 def TensorSubDim.IsCopySubDim : TensorSubDim → Prop
 | X => True | _ => False
@@ -261,8 +268,8 @@ structure Dropout (Tensor : Type) (Scalar : Type) where
   dst           : Tensor
   src           : Tensor
   thresholdType : DropoutThresholdType
-  threshold     : Immediate
-  deriving BEq
+  threshold     : Scalar
+  deriving BEq, Repr
 
 /- Activate instruction
 
@@ -275,10 +282,10 @@ structure Activate (Tensor : Type) (Scalar : Type) where
   src             : Tensor
   accumulatorCmd  : AccumCmd
   activationFunc  : ActivationFunc
-  scale           : Immediate
-  bias            : Immediate
-  imm             : Immediate
-  deriving BEq
+  scale           : Scalar
+  bias            : Scalar
+  imm             : Scalar
+  deriving BEq, Repr
 
 /- AffineSelect instruction
 
@@ -293,7 +300,7 @@ structure AffineSelect (Tensor : Type) (Scalar : Type) where
   fillMode    : AffineSelectCmp
   fillReg     : Reg
   maskPattern : DataPattern
-  deriving BEq
+  deriving BEq, Repr
 
 /- DmaCopy instruction
 
@@ -310,7 +317,7 @@ structure DmaCopy (Tensor : Type) (Scalar : Type) where
   compute_op     : DgeComputeOp
   dstBoundsCheck : DmaBounds
   srcBoundsCheck : DmaBounds
-  deriving BEq
+  deriving BEq, Repr
 
 /- DmaTranspose instruction
 Use the DMA to reverse the dimensions of a tensor.
@@ -319,7 +326,7 @@ Use the DMA to reverse the dimensions of a tensor.
 structure DmaTranspose (Tensor : Type) (Scalar : Type) where
   dst : Tensor
   src : Tensor
-  deriving BEq
+  deriving BEq, Repr
 
 /- Transpose Instruction
 
@@ -331,7 +338,7 @@ must be the same size. The number of partitions must be a multiple of 32.
 structure Transpose (Tensor : Type) (Scalar : Type) where
   dst : Tensor
   src : Tensor
-  deriving BEq
+  deriving BEq, Repr
 
 /- LoadMaskRegister instruction
 
@@ -340,7 +347,7 @@ Sets a register to be the MaskRegister in the DVE
 @[serde tag = 151]
 structure LoadMaskRegister (Tensor : Type) (Scalar : Type) where
   regNum : Reg
-  deriving BEq
+  deriving BEq, Repr
 
 /-
 Use the DVE to shuffle the data in src into dst based on MaskRegister
@@ -349,7 +356,7 @@ Use the DVE to shuffle the data in src into dst based on MaskRegister
 structure Shuffle (Tensor : Type) (Scalar : Type) where
   dst : Tensor
   src : Tensor
-  deriving BEq
+  deriving BEq, Repr
 
 /- MemSet instruction
 
@@ -358,9 +365,9 @@ Sets `count` elements of `dst` to `value`
 @[serde tag = 153]
 structure MemSet (Tensor : Type) (Scalar : Type) where
   dst   : Tensor
-  value : Immediate
+  value : Scalar
   count : Nat
-  deriving BEq
+  deriving BEq, Repr
 
 /- Iota Instruction
 Generates values using `pattern` and writes them to `dst` -/
@@ -368,7 +375,7 @@ Generates values using `pattern` and writes them to `dst` -/
 structure Iota (Tensor : Type) (Scalar : Type) where
   dst : Tensor
   pattern : DataPattern
-  deriving BEq
+  deriving BEq, Repr
 
 /- LoadStationary Instruction
 
@@ -378,7 +385,7 @@ Loads a matrix into the PE.
 structure LoadStationary (Tensor : Type) (Scalar : Type) where
   src         : Tensor
   isTranspose : Bool
-  deriving BEq
+  deriving BEq, Repr
 
 /- MatMul instruction
 
@@ -388,7 +395,7 @@ structure MatMul (Tensor : Type) (Scalar : Type) where
   dst                : Tensor
   moving             : Tensor
   psumAccumulateFlag : MatmulGroupElement
-  deriving BEq
+  deriving BEq, Repr
 
 /- LocalGather instruction
 -/
@@ -396,11 +403,11 @@ structure MatMul (Tensor : Type) (Scalar : Type) where
 structure LocalGather (Tensor : Type) (Scalar : Type) where
   dst               : Tensor
   src               : Tensor
-  indexMissBehavior : IndexMissBehavior
+  indexMissBehavior : IndexMissBehavior Scalar
   /- Set to true when this is the last local gather operation in a group
   to free the pool buffer -/
   freePoolBuffer    : Bool
-  deriving BEq
+  deriving BEq, Repr
 
 /- RangeSelect instruction
 -/
@@ -414,9 +421,9 @@ structure RangeSelect (Tensor : Type) (Scalar : Type) where
   fillValue      : Float32
   compOp0        : AluOp
   compOp1        : AluOp
-  bound0         : Immediate
-  bound1         : Immediate
-  deriving BEq
+  bound0         : Scalar
+  bound1         : Scalar
+  deriving BEq, Repr
 
 /- ScalarTensorTensor instruction
 
@@ -437,9 +444,9 @@ structure ScalarTensorTensor (Tensor : Type) (Scalar : Type) where
   op0             : AluOp
   op1             : AluOp
   reverseOperands : TensorScalarReverseOps
-  imm0            : Immediate
+  imm0            : Scalar
   accumulatorCmd  : AccumCmd
-  deriving BEq
+  deriving BEq, Repr
 
 /- CopyPredicated instruction
 
@@ -449,7 +456,7 @@ structure CopyPredicated (Tensor : Type) (Scalar : Type) where
   dst       : Tensor
   src       : Tensor
   predicate : Tensor
-  deriving BEq
+  deriving BEq, Repr
 
 /- TensorTensorScan instruction
 
@@ -468,9 +475,9 @@ structure TensorTensorScan (Tensor : Type) (Scalar : Type) where
   op0             : AluOp
   op1             : AluOp
   reverseOperands : TensorScalarReverseOps
-  imm0            : Immediate
+  imm0            : Scalar
   accumulatorCmd  : AccumCmd
-  deriving BEq
+  deriving BEq, Repr
 
 /- MatchValueLoad instruction
 
@@ -478,7 +485,7 @@ Loads values into the DVE's MatchValue registers -/
 @[serde tag = 162]
 structure MatchValueLoad (Tensor : Type) (Scalar : Type) where
   src : Tensor
-  deriving BEq
+  deriving BEq, Repr
 
 
 /- FindIndex8 instruction
@@ -489,7 +496,7 @@ matches and stores its index in dst. -/
 structure FindIndex8 (Tensor : Type) (Scalar : Type) where
   dst : Tensor
   src : Tensor
-  deriving BEq
+  deriving BEq, Repr
 
 /- MatchReplace8 instruction
 
@@ -498,8 +505,8 @@ Same as FindIndex8, but replaces the found values in src with `replaceValue`-/
 structure MatchReplace8 (Tensor : Type) (Scalar : Type) where
   dst          : Tensor
   src          : Tensor
-  replaceValue : Immediate
-  deriving BEq
+  replaceValue : Scalar
+  deriving BEq, Repr
 
 /- Max8 instruction
 
@@ -508,7 +515,7 @@ Finds the 8 largest values in src and writes them to dst -/
 structure Max8 (Tensor : Type) (Scalar : Type) where
   dst : Tensor
   src : Tensor
-  deriving BEq
+  deriving BEq, Repr
 
 /- BatchNormAggregate instruction
 -/
@@ -516,7 +523,7 @@ structure Max8 (Tensor : Type) (Scalar : Type) where
 structure BatchNormAggregate (Tensor : Type) (Scalar : Type) where
   dst : Tensor
   src : Tensor
-  deriving BEq
+  deriving BEq, Repr
 
 /- BatchNormStats instruction
 -/
@@ -524,7 +531,7 @@ structure BatchNormAggregate (Tensor : Type) (Scalar : Type) where
 structure BatchNormStats (Tensor : Type) (Scalar : Type) where
   dst : Tensor
   src : Tensor
-  deriving BEq
+  deriving BEq, Repr
 
 /- Reciprocal instruction
 -/
@@ -532,7 +539,7 @@ structure BatchNormStats (Tensor : Type) (Scalar : Type) where
 structure Reciprocal (Tensor : Type) (Scalar : Type) where
   dst  : Tensor
   src  : Tensor
-  deriving BEq
+  deriving BEq, Repr
 
 /- Copy instruction
 Copy src to dst -/
@@ -542,7 +549,7 @@ structure Copy (Tensor : Type) (Scalar : Type) where
   src   : Tensor
   /- TODO: what is this for? -/
   opDim : Option TensorSubDim
-  deriving BEq
+  deriving BEq, Repr
 
 /- TensorReduce instruction
 
@@ -555,7 +562,7 @@ structure TensorReduce (Tensor : Type) (Scalar : Type) where
   opDim        : TensorSubDim
   -- the negated field is only relevant for arithmetic operations
   negated      : Bool
-  deriving BEq
+  deriving BEq, Repr
 
 /- TensorScalar instruction
 
@@ -565,12 +572,12 @@ output[k] = (input[k] <op0> imm0) <op1> imm1
 structure TensorScalar (Tensor : Type) (Scalar : Type) where
   dst : Tensor
   src : Tensor
-  imm0 : Immediate
+  imm0 : Scalar
   op0 : AluOp
-  imm1 : Immediate
+  imm1 : Scalar
   op1 : AluOp
   reverse : TensorScalarReverseOps
-  deriving BEq
+  deriving BEq, Repr
 
 /- TensorTensor instruction
 -/
@@ -580,19 +587,25 @@ structure TensorTensor (Tensor : Type) (Scalar : Type) where
   src0 : Tensor
   src1 : Tensor
   op : AluOp
-  deriving BEq
+  deriving BEq, Repr
 
 @[serde tag = 1000]
 structure Identity (Tensor : Type) (Scalar : Type) where
   dst : Tensor
   src : Tensor
-  deriving BEq
+  deriving BEq, Repr
 
 @[serde tag = 1001]
-structure MakeVector (Tensor : Type) (Scalar : Type) where
-  dst : VectorVar
+structure Reshape (Tensor : Type) (Scalar : Type) where
+  dst : Tensor
   src : Tensor
-deriving BEq
+  deriving BEq, Repr
+
+@[serde tag = 1002]
+structure MakeVector (Tensor : Type) (Scalar : Type) where
+  dst : Scalar
+  src : Tensor
+  deriving BEq, Repr
 
 @[serde tag = 173]
 inductive Operator (Tensor : Type) (Scalar : Type) where
@@ -624,7 +637,197 @@ inductive Operator (Tensor : Type) (Scalar : Type) where
   | tensorTensor (op : TensorTensor Tensor Scalar)
   | tensorTensorScan (op : TensorTensorScan Tensor Scalar)
   | transpose (op : Transpose Tensor Scalar)
+
   | matmul (dst a b : Tensor)
+  | reshape (op : Reshape Tensor Scalar)
   | identity (op : Identity Tensor Scalar)
   | makeVector (op : MakeVector Tensor Scalar)
-  deriving BEq
+  deriving BEq, Repr, Inhabited, Nonempty, Repr
+
+instance {Tensor Scalar : Type} [ToString Tensor] [ToString Scalar] : ToString (Operator Tensor Scalar) where
+  toString op := match op with
+    | .activate ⟨dst, src, accumulatorCmd, activationFunc, scale, bias, imm⟩ =>
+        s!"{dst} = activate({src}, {repr accumulatorCmd}, {repr activationFunc}, {scale}, {bias}, {imm})"
+    | .affineSelect ⟨dst, src, fillMode, fillReg, maskPattern⟩ =>
+        s!"{dst} = affineSelect({src}, {repr fillMode}, {fillReg}, {maskPattern})"
+    | .batchNormAggregate ⟨dst, src⟩ =>
+        s!"{dst} = batchNormAggregate({src})"
+    | .batchNormStats ⟨dst, src⟩ =>
+        s!"{dst} = batchNormStats({src})"
+    | .copy ⟨dst, src, opDim⟩ =>
+        s!"{dst} = copy({src}, {repr opDim})"
+    | .copyPredicated ⟨dst, src, predicate⟩ =>
+        s!"{dst} = copyPredicated({src}, {predicate})"
+    | .dmaCopy ⟨dst, src, compute_op, dstBoundsCheck, srcBoundsCheck⟩ =>
+        s!"{dst} = dmaCopy({src}, {repr compute_op}, {repr dstBoundsCheck}, {repr srcBoundsCheck})"
+    | .dmaTranspose ⟨dst, src⟩ =>
+        s!"{dst} = dmaTranspose({src})"
+    | .dropout ⟨dst, src, thresholdType, threshold⟩ =>
+        s!"{dst} = dropout({src}, {repr thresholdType}, {threshold})"
+    | .findIndex8 ⟨dst, src⟩ =>
+        s!"{dst} = findIndex8({src})"
+    | .iota ⟨dst, pattern⟩ =>
+        s!"{dst} = iota({pattern})"
+    | .loadMaskRegister ⟨regNum⟩ =>
+        s!"{regNum} = loadMaskRegister()"
+    | .loadStationary ⟨src, isTranspose⟩ =>
+        s!"= loadStationary({src}, {isTranspose})"
+    | .localGather ⟨dst, src, _, freePoolBuffer⟩ =>
+        s!"{dst} = localGather({src}, ..., {freePoolBuffer})"
+    | .matMul ⟨dst, moving, psumAccumulateFlag⟩ =>
+        s!"{dst} = matMul({moving}, {repr psumAccumulateFlag})"
+    | .matchReplace8 ⟨dst, src, replaceValue⟩ =>
+        s!"{dst} = matchReplace8({src}, {replaceValue})"
+    | .matchValueLoad ⟨src⟩ =>
+        s!"= matchValueLoad({src})"
+    | .max8 ⟨dst, src⟩ =>
+        s!"{dst} = max8({src})"
+    | .memSet ⟨dst, value, count⟩ =>
+        s!"{dst} = memSet({value}, {count})"
+    | .rangeSelect ⟨dst, src, reduceCommand, reduceOp, base, fillValue, compOp0, compOp1, bound0, bound1⟩ =>
+        s!"{dst} = rangeSelect({src}, {repr reduceCommand}, {reduceOp}, {base}, {fillValue}, {compOp0}, {compOp1}, {bound0}, {bound1})"
+    | .reciprocal ⟨dst, src⟩ =>
+        s!"{dst} = reciprocal({src})"
+    | .scalarTensorTensor ⟨dst, src0, src1, op0, op1, reverse, imm0, accumulatorCmd⟩ =>
+        s!"{dst} = scalarTensorTensor({src0}, {src1}, {op0}, {op1}, {repr reverse}, {imm0}, {repr accumulatorCmd})"
+    | .shuffle ⟨dst, src⟩ =>
+        s!"{dst} = shuffle({src})"
+    | .tensorReduce ⟨dst, src, op, opDim, negated⟩ =>
+        s!"{dst} = tensorReduce({src}, {op}, {repr opDim}, {negated})"
+    | .tensorScalar ⟨dst, src, imm0, op0, imm1, op1, reverse⟩ =>
+        s!"{dst} = tensorScalar({src}, {imm0}, {op0}, {imm1}, {op1}, {repr reverse})"
+    | .tensorTensor ⟨dst, src0, src1, op⟩ =>
+        s!"{dst} = tensorTensor({src0}, {src1}, {op})"
+    | .tensorTensorScan ⟨dst, src0, src1, op0, op1, reverseOperands, imm0, accumulatorCmd⟩ =>
+        s!"{dst} = tensorTensorScan({src0}, {src1}, {op0}, {op1}, {repr reverseOperands}, {imm0}, {repr accumulatorCmd})"
+    | .transpose ⟨dst, src⟩ =>
+        s!"{dst} = transpose({src})"
+    | .matmul dst a b =>
+        s!"{dst} = matmul({a}, {b})"
+    | .reshape ⟨dst, src⟩ =>
+        s!"{dst} = reshape({src})"
+    | .identity ⟨dst, src⟩ =>
+        s!"{dst} = identity({src})"
+    | .makeVector ⟨dst, src⟩ =>
+        s!"{dst} = makeVector({src})"
+
+def dependencies : Operator Tensor Scalar -> List Tensor
+| .activate ⟨dst, src, _, _, _, _, _⟩ => [src, dst]
+| .affineSelect ⟨dst, src, _, _, _⟩ => [src, dst]
+| .batchNormAggregate ⟨dst, src⟩ => [src, dst]
+| .batchNormStats ⟨dst, src⟩ => [src, dst]
+| .copy ⟨dst, src, _⟩ => [src, dst]
+| .copyPredicated ⟨dst, src, _⟩ => [src, dst]
+| .dmaCopy ⟨dst, src, _, _, _⟩ => [src, dst]
+| .dmaTranspose ⟨dst, src⟩ => [src, dst]
+| .dropout ⟨dst, src, _, _⟩ => [src, dst]
+| .findIndex8 ⟨dst, src⟩ => [src, dst]
+| .iota ⟨dst, _⟩ => [dst]
+| .loadMaskRegister ⟨_⟩ => []
+| .loadStationary ⟨src, _⟩ => [src]
+| .localGather ⟨dst, src, _, _⟩ => [src, dst]
+| .matMul ⟨dst, moving, _⟩ => [moving, dst]
+| .matchReplace8 ⟨dst, src, _⟩ => [src, dst]
+| .matchValueLoad ⟨src⟩ => [src]
+| .max8 ⟨dst, src⟩ => [src, dst]
+| .memSet ⟨dst, _, _⟩ => [dst]
+| .rangeSelect ⟨dst, src, _, _, _, _, _, _, _, _⟩ => [src, dst]
+| .reciprocal ⟨dst, src⟩ => [src, dst]
+| .scalarTensorTensor ⟨dst, src0, src1, _, _, _, _, _⟩ =>
+    [src0, src1, dst]
+| .shuffle ⟨dst, src⟩ => [src, dst]
+| .tensorReduce ⟨dst, src, _, _, _⟩ => [src, dst]
+| .tensorScalar ⟨dst, src, _, _, _, _, _⟩ =>
+    [src, dst]
+| .tensorTensor ⟨dst, src0, src1, _⟩ =>
+    [src0, src1, dst]
+| .tensorTensorScan ⟨dst, src0, src1, _, _, _, _, _⟩ =>
+    [src0, src1, dst]
+| .transpose ⟨dst, src⟩ => [src, dst]
+| .matmul dst a b => [a, b, dst]
+| .reshape ⟨dst, src⟩ => [src, dst]
+| .identity ⟨dst, src⟩ => [src, dst]
+| .makeVector ⟨_, src⟩ => [src]
+
+def targets : Operator Tensor Scalar -> List Tensor
+| .activate ⟨dst, _, _, _, _, _, _⟩ => [dst]
+| .affineSelect ⟨dst, _, _, _, _⟩ => [dst]
+| .batchNormAggregate ⟨dst, _⟩ => [dst]
+| .batchNormStats ⟨dst, _⟩ => [dst]
+| .copy ⟨dst, _, _⟩ => [dst]
+| .copyPredicated ⟨dst, _, _⟩ => [dst]
+| .dmaCopy ⟨dst, _, _, _, _⟩ => [dst]
+| .dmaTranspose ⟨dst, _⟩ => [dst]
+| .dropout ⟨dst, _, _, _⟩ => [dst]
+| .findIndex8 ⟨dst, _⟩ => [dst]
+| .iota ⟨dst, _⟩ => [dst]
+| .loadMaskRegister ⟨_⟩ => []
+| .loadStationary ⟨_, _⟩ => []
+| .localGather ⟨dst, _, _, _⟩ => [dst]
+| .matMul ⟨dst, _, _⟩ => [dst]
+| .matchReplace8 ⟨dst, _, _⟩ => [dst]
+| .matchValueLoad ⟨_⟩ => []
+| .max8 ⟨dst, _⟩ => [dst]
+| .memSet ⟨dst, _, _⟩ => [dst]
+| .rangeSelect ⟨dst, _, _, _, _, _, _, _, _, _⟩ => [dst]
+| .reciprocal ⟨dst, _⟩ => [dst]
+| .scalarTensorTensor ⟨dst, _, _, _, _, _, _, _⟩ => [dst]
+| .shuffle ⟨dst, _⟩ => [dst]
+| .tensorReduce ⟨dst, _, _, _, _⟩ => [dst]
+| .tensorScalar ⟨dst, _, _, _, _, _, _⟩ => [dst]
+| .tensorTensor ⟨dst, _, _, _⟩ => [dst]
+| .tensorTensorScan ⟨dst, _, _, _, _, _, _, _⟩ => [dst]
+| .transpose ⟨dst, _⟩ => [dst]
+| .matmul dst _ _ => [dst]
+| .reshape ⟨dst, _⟩ => [dst]
+| .identity ⟨dst, _⟩ => [dst]
+| .makeVector ⟨_, _⟩ => []
+
+def name : Operator Tensor Scalar -> String
+| .activate _ => "activate"
+| .affineSelect _ => "affineSelect"
+| .batchNormAggregate _ => "batchNormAggregate"
+| .batchNormStats _ => "batchNormStats"
+| .copy _ => "copy"
+| .copyPredicated _ => "copyPredicated"
+| .dmaCopy _ => "dmaCopy"
+| .dmaTranspose _ => "dmaTranspose"
+| .dropout _ => "dropout"
+| .findIndex8 _ => "findIndex8"
+| .iota _ => "iota"
+| .loadMaskRegister _ => "loadMaskRegister"
+| .loadStationary _ => "loadStationary"
+| .localGather _ => "localGather"
+| .matMul _ => "matMul"
+| .matchReplace8 _ => "matchReplace8"
+| .matchValueLoad _ => "matchValueLoad"
+| .max8 _ => "max8"
+| .memSet _ => "memSet"
+| .rangeSelect _ => "rangeSelect"
+| .reciprocal _ => "reciprocal"
+| .scalarTensorTensor _ => "scalarTensorTensor"
+| .shuffle _ => "shuffle"
+| .tensorReduce _ => "tensorReduce"
+| .tensorScalar _ => "tensorScalar"
+| .tensorTensor _ => "tensorTensor"
+| .tensorTensorScan _ => "tensorTensorScan"
+| .transpose _ => "transpose"
+| .matmul _ _ _ => "matmul"
+| .reshape _ => "reshape"
+| .identity _ => "identity"
+| .makeVector _ => "makeVector"
+
+def scalarTargets : Operator Tensor Scalar -> List Scalar
+| .makeVector ⟨dst, _⟩ => [dst]
+| _ => []
+
+def scalarDependencies : Operator Tensor Scalar -> List Scalar
+| .dropout ⟨_, _, _, threshold⟩ => [threshold]
+| .activate ⟨_, _, _, _, scale, bias, imm⟩ => [scale, bias, imm]
+| .scalarTensorTensor ⟨_, _, _, _, _, _, imm0, _⟩ => [imm0]
+| .tensorScalar ⟨_, _, imm0, _, imm1, _, _⟩ => [imm0, imm1]
+| .tensorTensorScan ⟨_, _, _, _, _, _, imm0, _⟩ => [imm0]
+| .rangeSelect ⟨_, _, _, _, _, _, _, _, bound0, bound1⟩ => [bound0, bound1]
+| .matchReplace8 ⟨_, _, replaceValue⟩ => [replaceValue]
+| .memSet ⟨_, value, _⟩ => [value]
+| _ => []
