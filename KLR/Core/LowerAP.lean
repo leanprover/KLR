@@ -42,9 +42,6 @@ def Value.lowerAccessPatterns : Value → KLR.Err Value
 def Keyword.lowerAccessPatterns (k : Keyword) : KLR.Err Keyword := do
   return { k with value := (← k.value.lowerAccessPatterns) }
 
-def Operand.lowerAccessPatterns : Operand -> KLR.Err Operand
-  | .tile t => do return .tile t
-  | x => .ok x
 
 def Option.lowerAccessPatterns (op : Option Access) : KLR.Err (Option AccessPattern) :=
   op.mapM Access.lowerAccessPattern
@@ -58,6 +55,10 @@ def Expr.lowerAccessPatterns : Expr → KLR.Err Expr
 def TensorRef.lowerAccessPatterns : TensorRef → KLR.Err TensorRef
 | .abstract a => do return .abstract <| .pattern (← a.lowerAccessPattern)
 | x => do return x
+
+def Operand.lowerAccessPatterns : Operand -> KLR.Err Operand
+  | .tile t => do return .tile (<- t.lowerAccessPatterns)
+  | x => .ok x
 
 -- TODO: Is there a way to make this less horrible with metaprogramming? All argumetns are of different types.
 def Operator.lowerAccessPatterns (k : Operator) : KLR.Err Operator :=
