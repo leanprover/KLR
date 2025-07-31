@@ -103,6 +103,7 @@ theorem stepN_1_iff_step {c1 c2 : Prog × State} : StepN 1 c1 c2 ↔ Step c1 c2 
 theorem step_not_isStuck {p1 p1' : Prog} {s1 s1' : State} : Step (p1, s1) (p1', s1') → ¬(IsStuck (p1, s1)) :=
   (· |> ·)
 
+
 /-- For all programs, they either map teminate, or they don't. -/
 theorem weak_termination_em {c : Prog × State} : MayTerminate c ∨ Nonterminating c := by
   if Hem : Nonterminating c then exact .inr Hem else
@@ -142,6 +143,14 @@ theorem StepN_add_iff {n1 n2 : Nat} {c1 c2 : Prog × State} :
       apply StepN.step b
       apply IH.mpr
       exists c3
+
+theorem stepN_toVal_none {p : Prog} (Hn : 0 < n) (H : StepN n (p, s) c') :
+    SmallStep.toVal p = none := by
+  cases h : SmallStep.toVal p; trivial
+  rcases n with (_|n); omega
+  obtain ⟨_, H, _⟩ := StepN_add_iff.mp (Nat.add_comm _ _ ▸ H)
+  refine (toVal_isSome_isStuck ?_ (step_of_stepN_one H)).elim
+  exact Option.isSome_of_mem h
 
 /-- A program steps to a value in exactly n steps -/
 def StepsToValue  (n : Nat) (c : Prog × State) (v : Val) :=
