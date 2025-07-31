@@ -54,30 +54,28 @@ def PointsToS (k : ProdIndex ChipIndex) (v : Option (LocalStore DataT)) : PROP D
   match k with
   | .left  i => heProp_frag _ _ _ _ ⟨(ChipMemory.set_store ChipMemory.empty i v), ChipMemory.empty⟩
   | .right i => heProp_frag _ _ _ _ ⟨ChipMemory.empty, (ChipMemory.set_store ChipMemory.empty i v)⟩
-notation k " ⇉ " v  => PointsToS k v
-notation k " ⇉ₗ " v => PointsToS (ProdIndex.left  k) v
-notation k " ⇉ᵣ " v => PointsToS (ProdIndex.right k) v
 
-/- Chip-specific notations, (TODO: Refactor )-/
+-- TODO: Refactor to deduplicate
+notation k " ⇉ " v      => PointsToS k v
+notation k " ⇉∅ "       => PointsToS k none
+
+notation k " ⇉ₗ " v     => PointsToS (ProdIndex.left  k) v
+notation k " ⇉ₗ∅  "     => PointsToS (ProdIndex.left  k) none
 notation k " [S]⇉ₗ " v  => PointsToS (ProdIndex.left  (ChipIndex.sbufUnboundedIndex k)) (some v)
 notation k " [P]⇉ₗ " v  => PointsToS (ProdIndex.left  (ChipIndex.psumUnboundedIndex k)) (some v)
 notation k " [H]⇉ₗ " v  => PointsToS (ProdIndex.left  (ChipIndex.hbmUnboundedIndex k))  (some v)
+notation k " [S]⇉ₗ∅ "   => PointsToS (ProdIndex.left  (ChipIndex.sbufUnboundedIndex k)) none
+notation k " [P]⇉ₗ∅ "   => PointsToS (ProdIndex.left  (ChipIndex.psumUnboundedIndex k)) none
+notation k " [H]⇉ₗ∅ "   => PointsToS (ProdIndex.left  (ChipIndex.hbmUnboundedIndex k))  none
 
+notation k " ⇉ᵣ " v     => PointsToS (ProdIndex.right k) v
+notation k " ⇉ᵣ∅  "     => PointsToS (ProdIndex.right k) none
 notation k " [S]⇉ᵣ " v  => PointsToS (ProdIndex.right (ChipIndex.sbufUnboundedIndex k)) (some v)
 notation k " [P]⇉ᵣ " v  => PointsToS (ProdIndex.right (ChipIndex.psumUnboundedIndex k)) (some v)
 notation k " [H]⇉ᵣ " v  => PointsToS (ProdIndex.right (ChipIndex.hbmUnboundedIndex k))  (some v)
-
-notation k " ⇉∅ " => PointsToS k none
-notation k " ⇉ₗ∅  " => PointsToS (ProdIndex.left  k) none
-notation k " ⇉ᵣ∅  " => PointsToS (ProdIndex.right k) none
-
-notation k " [S]⇉ₗ∅ " => PointsToS (ProdIndex.left  (ChipIndex.sbufUnboundedIndex k)) none
-notation k " [P]⇉ₗ∅ " => PointsToS (ProdIndex.left  (ChipIndex.psumUnboundedIndex k)) none
-notation k " [H]⇉ₗ∅ " => PointsToS (ProdIndex.left  (ChipIndex.hbmUnboundedIndex k))  none
-
-notation k " [S]⇉ᵣ∅ " => PointsToS (ProdIndex.right (ChipIndex.sbufUnboundedIndex k)) none
-notation k " [P]⇉ᵣ∅ " => PointsToS (ProdIndex.right (ChipIndex.psumUnboundedIndex k)) none
-notation k " [H]⇉ᵣ∅ " => PointsToS (ProdIndex.right (ChipIndex.hbmUnboundedIndex k))  none
+notation k " [S]⇉ᵣ∅ "   => PointsToS (ProdIndex.right (ChipIndex.sbufUnboundedIndex k)) none
+notation k " [P]⇉ᵣ∅ "   => PointsToS (ProdIndex.right (ChipIndex.psumUnboundedIndex k)) none
+notation k " [H]⇉ᵣ∅ "   => PointsToS (ProdIndex.right (ChipIndex.hbmUnboundedIndex k))  none
 
 
 /--
@@ -86,8 +84,7 @@ Definition of the weakest precondition.
 For any pair of configurations, either both programs are values satisfying the postcondition,
 or for all states satisfying the current interp,
 the state can be updated to obtain the state after executing between 1 and k steps on both sides,
-and ending up in a pair of configurations that satisfy the weakest precondition.
--/
+and ending up in a pair of configurations that satisfy the weakest precondition. -/
 def wp_F (wp : LeibnizO Nat → Prog DataT → Prog DataT → (Value DataT → Value DataT → PROP DataT) → PROP DataT)
   (K : LeibnizO Nat) (p1 p2 : Prog DataT) (Φf : Value DataT → Value DataT → PROP DataT) : PROP DataT := iprop(
       (|==> ∃ vl, ∃ vr, ⌜toVal p1 = some vl⌝ ∗ ⌜toVal p2 = some vr⌝ ∗ Φf vl vr) ∨
@@ -117,15 +114,6 @@ end weakestpre
 section adequacy
 
 open Iris BI NML BIBase SmallStep
-
--- TODO: Move me
-theorem stepN_toVal_none {p : Prog DataT} (Hn : 0 < n) (H : StepN n (p, s) c') :
-    SmallStep.toVal p = none := by
-  cases h : SmallStep.toVal p; trivial
-  rcases n with (_|n); omega
-  obtain ⟨_, H, _⟩ := StepN_add_iff.mp (Nat.add_comm _ _ ▸ H)
-  refine (toVal_isSome_isStuck ?_ (step_of_stepN_one H)).elim
-  exact Option.isSome_of_mem h
 
 /-- Step 1 of the adequacy argument:
 Turn a proof of the wp in the logic into a relationship between the two programs, under some modalities and
@@ -178,8 +166,7 @@ theorem wp_to_fupd_PRelS :
 open KLR.Core HasHHMap in
 /-- Step 2 of the adequacy argument:
 If we can prove the postcondition of `wp_to_fupd_PRelS` using any starting state, then
-we get that relationship for all step indices `n`.
--/
+we get that relationship for all step indices `n`. -/
 theorem wp_adequacy_pre
     (H : ∀ n, (state_interp (DataT := DataT) sl sr ∗ state_frag sl sr ⊢ |==> ▷^[n] ⌜PRelS n K (pl, sl) (pr, sr) Φf⌝)) :
     ∀ n, PRelS (Prog := Prog DataT) n K (pl, sl) (pr, sr) Φf := by
