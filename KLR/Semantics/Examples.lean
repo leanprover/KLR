@@ -122,6 +122,41 @@ theorem e3 : ⊢ @wp DataT ⟨2⟩ e3L e3R ΦUnitEq := by
   simp [ΦUnitEq]
   exact true_intro
 
+def e5L : ExecState DataT :=
+  withNoContext [
+    .assign .none (.val .unit),
+    .ret (.val .unit),
+  ]
+
+def e5R : ExecState DataT :=
+  withNoContext [
+    .assign .none (.val (.bool false)),
+    .ret (.val .unit),
+  ]
+theorem e3' : ⊢ @wp DataT ⟨2⟩ e5L e5R ΦUnitEq := by
+  istart
+  wp_desync
+  unfold e5L e5R
+  simp [withNoContext]
+  -- apply Entails.trans (PROP := PROP DataT) ?_ (wand_entails <| dwpL ?_ (Hx := ?_))
+  sorry
+  -- simp only []
+  -- let X := @dwpL DataT 1 1 2 2 e3R (u := (@uwpPureL DataT _ _ (@AssignValuePure DataT (nolocals DataT) [
+  --           { stmt := NML.Stmt.assign none (Expr.val (NML.Value.bool false)), env := nolocals DataT },
+  --           { stmt := NML.Stmt.assign none (Expr.val Value.unit), env := nolocals DataT },
+  --           { stmt := NML.Stmt.assign none (Expr.val (NML.Value.int 3)), env := nolocals DataT },
+  --           { stmt := NML.Stmt.ret (Expr.val Value.unit), env := nolocals DataT }] (NML.Value.int 3)))) (fun x1 x2 => wp { car := 2 } x1 x2 ΦUnitEq) (Nat.le_refl 1)
+  -- dsimp [uwpPureL] at X
+  -- refine Entails.trans (PROP := PROP DataT) ?G1 (Q := iprop((True -∗ dwp 0 2 0 2 (ExecState.run ?p') e3R fun x1 x2 => wp { car := 2 } x1 x2 ΦUnitEq) ∗ True))
+  --   (wand_entails <| ?G3)
+  -- case G3 =>
+  --   sorry
+
+  -- refine Entails.trans ?_ <| wand_elim (P := ?G1) (?Q := ?G2) <| ?G3 -- @dwpL DataT 1 1 2 2 e3R _  ?G2 -- 2 (u := @uwpPureL DataT _ _ <| AssignValuePure (DataT := DataT) (loc := nolocals _) (p' := _) (v := NML.Value.unit) ) _ _
+  -- apply Entails.trans ?_ <| wand_entails (dwpL (uwpPureL ?_) (Hx := ?_))
+  -- (uwpPureL AssignValuePure)
+
+  all_goals sorry
 
 
 -- Other things I need to test soon:
