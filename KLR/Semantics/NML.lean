@@ -120,7 +120,6 @@ structure Task where
 def Task.bind (T : Task DataT) (x : String) (v : Value DataT) : Task DataT :=
   { T with env := T.env.bind DataT x v }
 
-notation "[" x " ↣ " v "] " t => Task.bind t x v
 
 -- #check ["x" ↣ .unit]ₗ ["x" ↣ .unit]ₗ (nolocals DataT)
 
