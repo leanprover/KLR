@@ -24,7 +24,7 @@ struct Pos final {
 enum class Memory {
   hbm = 1,
   sbuf,
-  pmem,
+  psum,
   reg,
 };
 

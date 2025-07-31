@@ -17,7 +17,7 @@ Authors: Paul Govereau, Sean McLaughlin
 enum Core_Memory {
   Core_Memory_hbm = 1,
   Core_Memory_sbuf,
-  Core_Memory_pmem,
+  Core_Memory_psum,
   Core_Memory_reg,
 };
 

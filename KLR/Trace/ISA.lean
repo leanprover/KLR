@@ -168,6 +168,7 @@ nki activation_reduce
  -- kwargs
  (reduce_op : Option AluOp := none)
  (reduce_res : Option Access := none)
+ (reduce_cmd : AccumCmd := .Idle)
  (bias : Immediate := .float 0)
  (scale : Sum Immediate Access := .inl (.float 1.0))
  (mask : Option Immediate := none)
@@ -184,7 +185,7 @@ nki activation_reduce
       bias := bias,
       reduceOp := reduce_op,
       reduceRes := reduce_res.map .abstract,
-      accumulatorCmd := .Zero,
+      accumulatorCmd := reduce_cmd,
       scale := <- scale.getLeft?,
       dtype := dtype,
     }) name

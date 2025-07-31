@@ -23,7 +23,7 @@ bool Core_Memory_ser(FILE *out, enum Core_Memory x) {
     if (!cbor_encode_tag(out, 110, 1, 0))
       return false;
     break;
-  case Core_Memory_pmem:
+  case Core_Memory_psum:
     if (!cbor_encode_tag(out, 110, 2, 0))
       return false;
     break;
@@ -2152,7 +2152,7 @@ bool Core_Memory_des(FILE *in, struct region *region, enum Core_Memory *x) {
   case 2:
     if (l != 0)
       return false;
-    *x = Core_Memory_pmem;
+    *x = Core_Memory_psum;
     break;
   case 3:
     if (l != 0)

@@ -168,7 +168,7 @@ Memory Memory_des(FILE *in) {
   case 2: {
     if (l != 0)
       throw std::runtime_error("Wrong number of elements");
-    return Memory::pmem;
+    return Memory::psum;
     break;
   }
   case 3: {
