@@ -105,11 +105,22 @@ theorem wpAllocSync  {Φ : NML.Value DataT → NML.Value DataT → @PROP DataT} 
   isplit r
   · -- Side condition
     ipure_intro
-    simp [Hk]
+    simp only [Nat.zero_lt_succ, Hk, _root_.true_and]
+    have Htwo : 1 + 1 = 2 := by rfl
+    rw [← Htwo, StepN_add_iff, StepN_add_iff]
     refine ⟨?_, ?_⟩
-    ·
-      sorry -- exact stepN_1_iff_step.mpr (.seqV sorry )
-    · sorry -- exact stepN_1_iff_step.mpr (.seq <| .sbuf_alloc )
+    · exists (ExecState.run ({ stmt := NML.Stmt.assign none (.val (.uptr (ChipMemory.freshSBUFStore σₗ.memory).1)), env := locₗ } :: p1), State.mk (ChipMemory.freshSBUFStore σₗ.memory).2)
+      refine ⟨?_, ?_⟩
+      · refine stepN_1_iff_step.mpr ?_
+        apply asnE_ExprLift
+        exact ExprStep.sbuf_alloc rfl
+      · exact stepN_1_iff_step.mpr step.seqV
+    · exists (ExecState.run ({ stmt := NML.Stmt.assign none (.val (.uptr (ChipMemory.freshSBUFStore σᵣ.memory).1)), env := loc₂ } :: p2), State.mk (ChipMemory.freshSBUFStore σᵣ.memory).2)
+      refine ⟨?_, ?_⟩
+      · refine stepN_1_iff_step.mpr ?_
+        apply asnE_ExprLift
+        exact ExprStep.sbuf_alloc rfl
+      · exact stepN_1_iff_step.mpr step.seqV
   -- Eliminate the later
   refine .trans ?_ Iris.BI.later_intro
   -- Conclude using the updated resources and Hwp
@@ -306,10 +317,18 @@ theorem dwpAllocL (Hx : 1 < Lx := by omega) :
     ipure_intro
     obtain ⟨_, _, _, _, SL, _⟩ := Hstep
     refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
-    sorry
-    -- refine StepN.step (step.asn <| .sbuf_alloc ?_) SL
-    -- simp at ⊢ Hℓ₁
-    -- exact Hℓ₁.symm
+    have Htwo : 1 + 1 = 2 := by rfl
+    rw [Nat.add_comm _ _, ← Htwo, Nat.add_assoc, StepN_add_iff]
+    rename_i pi _ _ _ _ _
+    exists (ExecState.run ({ stmt := NML.Stmt.assign (some x) (.val (.uptr (ChipMemory.freshSBUFStore sl.memory).1)), env := locₗ } :: pi), State.mk (ChipMemory.freshSBUFStore sl.memory).2)
+    refine ⟨?_, ?_⟩
+    · exact stepN_1_iff_step.mpr <| .asnE <| .sbuf_alloc rfl
+    rw [StepN_add_iff]
+    exists (ExecState.run (List.map (fun x_1 => NML.Task.bind DataT x_1 x (Value.uptr (sbufUnboundedIndex ℓ₁))) pi), { memory := (ChipMemory.freshSBUFStore sl.memory).snd })
+    refine ⟨?_, SL⟩
+    apply stepN_1_iff_step.mpr
+    rw [Hℓ₁]
+    exact step.asnV
   · iexact H
 
 end weakestpre
@@ -499,66 +518,99 @@ structure ewp (DataT : Type _) where
   pre   : PROP DataT
   post  : PROP DataT
   expr  : NML.Expr DataT
-  loc   : NML.Locals DataT
+  -- Using a predicate on locations instead of a single location becase
+  -- we do not have separating conjunction over them.
+  locP  : NML.Locals DataT → Prop
   expr' : NML.Expr DataT
 
 /-- An `ewp` that uses its resources to take steps on the left. -/
 structure ewpL (DataT : Type _) extends ewp DataT where
   spec : ⊢ iprop(∀ σₗ σᵣ, pre -∗ state_interp σₗ σᵣ -∗
-    (∃ σₗ', ⌜ExprStep DataT expr loc σₗ expr' σₗ'⌝ ∗ |==> (state_interp σₗ' σᵣ ∗ post)))
+    (∀ loc, ∃ σₗ', ⌜locP loc → ExprStep DataT expr loc σₗ expr' σₗ'⌝ ∗ |==> (state_interp σₗ' σᵣ ∗ post)))
 
 /-- An `ewp` that uses its resources to take steps on the left. -/
 structure ewpR (DataT : Type _) extends ewp DataT where
   spec : ⊢ iprop(∀ σₗ σᵣ, pre -∗ state_interp σₗ σᵣ -∗
-    (∃ σᵣ', ⌜ExprStep DataT expr loc σᵣ expr' σᵣ'⌝ ∗ |==> (state_interp σₗ σᵣ' ∗ post)))
+    (∀ loc, ∃ σᵣ', ⌜locP loc → ExprStep DataT expr loc σᵣ expr' σᵣ'⌝ ∗ |==> (state_interp σₗ σᵣ' ∗ post)))
 
-def liftE (e : ewp DataT) (p : Expr DataT → Stmt DataT) (ps : List (NML.Task DataT)) : uwp DataT where
+def liftE (e : ewp DataT) (p : Expr DataT → Stmt DataT) (ps : List (NML.Task DataT)) (loc : NML.Locals DataT) : uwp DataT where
   pre   := e.pre
   post  := e.post
-  prog  := .run <| ⟨p e.expr,  e.loc⟩ :: ps
-  prog' := .run <| ⟨p e.expr', e.loc⟩ :: ps
+  prog  := .run <| ⟨p e.expr,  loc⟩ :: ps
+  prog' := .run <| ⟨p e.expr', loc⟩ :: ps
   steps := 1
 
 /-- Lift an `ewpL` to a `uwpL` provided the context is `ExprLift` -/
-def liftEL (e : ewpL DataT) {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) (ps : List (NML.Task DataT)) :
-    uwpL DataT where
-  touwp := liftE e.toewp p ps
+def liftEL (e : ewpL DataT) {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) (ps : List (NML.Task DataT))
+     (loc : NML.Locals DataT) (Hloc : e.locP loc) : uwpL DataT where
+  touwp := liftE e.toewp p ps loc
   spec  := by
     apply Entails.trans e.spec ?_
     simp only [liftE]
     iintro Hspec σₗ σᵣ Hpre Hσ
-    ispecialize Hspec σₗ σᵣ Hpre Hσ
+    ispecialize Hspec σₗ σᵣ Hpre Hσ loc
     icases Hspec with ⟨Hσₗ', %Hstep, Hupd⟩
     iexists Hσₗ'
     isplit r
     · ipure_intro
-      exact stepN_1_iff_step.mpr (Hp e.expr e.expr' σₗ Hσₗ' e.loc ps Hstep)
+      exact stepN_1_iff_step.mpr (Hp e.expr e.expr' σₗ Hσₗ' loc ps (Hstep Hloc))
     · iexact Hupd
 
 /-- Lift an `ewpR` to a `uwpR` provided the context is `ExprLift` -/
-def liftER (e : ewpR DataT) {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) (ps : List (NML.Task DataT)) :
-    uwpR DataT where
-  touwp := liftE e.toewp p ps
+def liftER (e : ewpR DataT) {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) (ps : List (NML.Task DataT))
+    (loc : NML.Locals DataT) (Hloc : e.locP loc) : uwpR DataT where
+  touwp := liftE e.toewp p ps loc
   spec  := by
     apply Entails.trans e.spec ?_
     simp only [liftE]
     iintro Hspec σₗ σᵣ Hpre Hσ
-    ispecialize Hspec σₗ σᵣ Hpre Hσ
+    ispecialize Hspec σₗ σᵣ Hpre Hσ loc
     icases Hspec with ⟨Hσᵣ', %Hstep, Hupd⟩
     iexists Hσᵣ'
     isplit r
     · ipure_intro
-      exact stepN_1_iff_step.mpr (Hp e.expr e.expr' σᵣ Hσᵣ' e.loc ps Hstep)
+      exact stepN_1_iff_step.mpr (Hp e.expr e.expr' σᵣ Hσᵣ' loc ps (Hstep Hloc))
     · iexact Hupd
 
+def ewpVarL (s : String) (v : Value DataT) : ewpL DataT where
+  pre   := iprop(True)
+  post  := iprop(True)
+  expr  := .var s
+  locP  := (· s = some v)
+  expr' := .val v
+  spec  := by
+    iintro σₗ σᵣ %_ Hσ loc
+    iexists σₗ
+    isplit r
+    · ipure_intro
+      exact ExprStep.var
+    · refine .trans ?_ BIUpdate.intro
+      refine .trans ?_ sep_true.mpr
+      iintro Hσ
+      iexact Hσ
 
+def ewpVarR (s : String) (v : Value DataT) : ewpR DataT where
+  pre   := iprop(True)
+  post  := iprop(True)
+  expr  := .var s
+  locP  := (· s = some v)
+  expr' := .val v
+  spec  := by
+    iintro σₗ σᵣ %_ Hσ loc
+    iexists σᵣ
+    isplit r
+    · ipure_intro
+      exact ExprStep.var
+    · refine .trans ?_ BIUpdate.intro
+      refine .trans ?_ sep_true.mpr
+      iintro Hσ
+      iexact Hσ
+
+-- NTS: Not sure I want to do sbuf_alloc in this format because the expression returned it depends on state
+-- But you should add set or something to make sure it works
 
 
 end ewp
-
-
-
-
 
 
 
