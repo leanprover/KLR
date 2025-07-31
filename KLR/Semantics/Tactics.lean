@@ -20,13 +20,13 @@ macro "wp_sync_val" : tactic =>
   `(tactic| refine Entails.trans ?_ <| wpValVal (by rfl) (by rfl))
 
 macro "wp_desync" : tactic =>
-  `(tactic| refine Entails.trans ?_ <| wand_entails <| wpDesync _)
+  `(tactic| refine Entails.trans ?_ <| wand_entails <| wpDesync)
 
 macro "wp_resync" : tactic =>
-  `(tactic| refine Entails.trans ?_ <| wand_entails <| wpResync _)
+  `(tactic| refine Entails.trans ?_ <| wand_entails <| wpResync)
 
 macro "dwp_left_pure " t:term : tactic =>
-  `(tactic| apply Entails.trans ?_ <| wand_entails <| awpPureL $t (Hx := by simp))
+  `(tactic| apply Entails.trans ?_ <| wand_entails <| dwpPureL $t (Hx := by simp))
 
 macro "dwp_right_pure " t:term : tactic =>
-  `(tactic| apply Entails.trans ?_ <| wand_entails <| awpPureR $t (Hx := by simp))
+  `(tactic| apply Entails.trans ?_ <| wand_entails <| dwpPureR $t (Hx := by simp))
