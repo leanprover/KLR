@@ -368,13 +368,13 @@ variable {DataT : Type _}
 
 /-- Step the left-hand side of a dwp using a `uwpL`. -/
 theorem dwpL (u : uwpL DataT) (Hx : u.steps ≤ Lx) :
-    ⊢ (u.post -∗ dwp (Lm - u.steps) Rm (Lx - u.steps) Rx u.prog' pr Φ) -∗
-      u.pre -∗ dwp Lm Rm Lx Rx u.prog pr Φ := by
+    ⊢ (u.post -∗ dwp (Lm - u.steps) Rm (Lx - u.steps) Rx u.prog' pr Φ) ∗ u.pre -∗
+      dwp Lm Rm Lx Rx u.prog pr Φ := by
   -- Include the spec inside the separating context
   apply Entails.trans u.spec ?_
   -- Unfold the dwp in the conclusion
   conv => rhs; rhs; unfold dwp
-  iintro Hspec Hdwp Hpre sl sr Hs
+  iintro Hspec ⟨Hdwp, Hpre⟩ sl sr Hs
   -- Apply the spec to obtain a new post state and an update
   ispecialize Hspec sl sr Hpre Hs
   icases Hspec with ⟨sl', %Hstep, Hupd⟩
@@ -409,13 +409,13 @@ theorem dwpL (u : uwpL DataT) (Hx : u.steps ≤ Lx) :
 
 /-- Step the right-hand side of a dwp using a `uwpR`. -/
 theorem dwpR (u : uwpR DataT) (Hx : u.steps ≤ Rx) :
-    ⊢ (u.post -∗ dwp Lm (Rm - u.steps) Lx (Rx - u.steps) pl u.prog' Φ) -∗
-      u.pre -∗ dwp Lm Rm Lx Rx pl u.prog Φ := by
+    ⊢ (u.post -∗ dwp Lm (Rm - u.steps) Lx (Rx - u.steps) pl u.prog' Φ) ∗ u.pre -∗
+      dwp Lm Rm Lx Rx pl u.prog Φ := by
   -- Include the spec inside the separating context
   apply Entails.trans u.spec ?_
   -- Unfold the dwp in the conclusion
   conv => rhs; rhs; unfold dwp
-  iintro Hspec Hdwp Hpre sl sr Hs
+  iintro Hspec ⟨Hdwp, Hpre⟩ sl sr Hs
   -- Apply the spec to obtain a new post state and an update
   ispecialize Hspec sl sr Hpre Hs
   icases Hspec with ⟨sr', %Hstep, Hupd⟩
