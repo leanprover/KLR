@@ -27,12 +27,13 @@ def ΦIsIntLe (v1 v2 : NML.Value DataT) : @PROP DataT := iprop(⌜ΦIsIntLePure 
 
 /-- Simplest possible example: Two programs in "done" states -/
 theorem example0 : ⊢ (@wp DataT ⟨1⟩ (.done (.int 4)) (.done (.int 5)) ΦIsIntLe) := by
-  apply Entails.trans ?_ (@wpValVal _ (K := ⟨1⟩) (.done (.int 4)) (.done (.int 5)) (.int 4) (.int 5) ΦIsIntLe (by rfl) (by rfl))
-  -- wp_pure_sync 1 2
+  apply Entails.trans ?_ (wpValVal (v1 := .int 4) (v2 := .int 5) (by rfl) (by rfl))
   istart
   simp only [ΦIsIntLe]
   ipure_intro; exists 4; exists 5
 
+
+set_option linter.deprecated false in
 /-- Two "return" programs are related if the values they return are -/
 theorem example1 :
   ⊢ @wp DataT ⟨1⟩
@@ -47,12 +48,10 @@ theorem example1 :
   exists 4
   exists 5
 
-
 /-- A proof that both programs
     - Are safe,
     - Are equiterminating,
-    - Step to values related by ΦIsIntLePure if they (both) terminate
--/
+    - Step to values related by ΦIsIntLePure if they (both) terminate -/
 theorem example1_full (σ₁ σ₂ : State DataT) :
   (NMLSemantics DataT).PRel
     ((.run [⟨.ret (.val (.int 4)), fun _ => .none⟩]), σ₁)
@@ -98,6 +97,7 @@ def e3R : ExecState DataT :=
     .ret (.val .unit),
   ]
 
+set_option linter.deprecated false in
 theorem e3 : ⊢ @wp DataT ⟨2⟩ e3L e3R ΦUnitEq := by
   istart
   -- Enter desync mode, do two left pure steps, and one right pure step. Resync.
