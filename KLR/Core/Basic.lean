@@ -185,6 +185,7 @@ instance : Tensors Operator where
       | .tensorScalarReduce t => [t.dst, t.src, t.reduceRes]
       | .selectReduce s => [s.dst, s.predicate, s.onTrue]
       | .sequenceBounds s => [s.dst, s.segmentIds]
+      | .sharedIdentityMatrix s => [s.dst]
     let additionalTensors := match op with
       | .ncActivate d => tensors d.reduceRes
       | .ncAffineSelect a => tensors a.onTrueTile
