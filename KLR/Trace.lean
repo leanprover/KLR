@@ -40,7 +40,7 @@ def globalEnv := keywords ++ builtinEnv ++ NKIEnv ++ NumpyEnv
 def runNkiKernel
      (k : KLR.NKI.Kernel)
      (pid : Option (Nat × Nat) := none)
-     : Err (String × KLR.Core.Kernel) := do
+     : Err (String × KLR.Core.Kernel × SharedConstants) := do
   let int i := Term.int i
   let env := match pid with
     | none => (nl "_program_id", int 0) ::
@@ -49,25 +49,27 @@ def runNkiKernel
     | some (p,n) => (nl "_program_id", int p) ::
                     (nl "_num_programs", int n) ::
                     (nl "_program_ndim", int 1) :: globalEnv
-  tracer env (traceKernel k)
+  let (msg, kernel, sharedConstants) <- tracer env (traceKernel k)
+  return (msg, kernel, sharedConstants)
 
 -- TODO: probably the messages are identical, but they might not be
 -- TODO: check that inputs and outputs are the same
-def runLncKernels (k : KLR.NKI.Kernel) : Err (String × KLR.Core.LncKernel) := do
+def runLncKernels (k : KLR.NKI.Kernel) : Err (String × KLR.Core.LncKernel × SharedConstants) := do
   let num := k.grid.max 1
-  let (m0, k0) <- runNkiKernel k (0, num)
+  let (m0, k0, sharedConstants0) <- runNkiKernel k (0, num)
   let kernel : Core.LncKernel := {
     name := k0.name
     inputs := k0.inputs
     outputs := k0.outputs
     bodies := []
+    sharedConstants := []
   }
   let mut msgs := [m0]
   let mut bodies := [k0.body]
   for i in [1:num] do
-    let (msg, k) <- runNkiKernel k (i,num)
+    let (msg, k, _) <- runNkiKernel k (i,num)
     msgs := msg :: msgs
     bodies := k.body :: bodies
   let msg := "\n".intercalate msgs.reverse
   let kernel := { kernel with bodies := bodies.reverse }
-  return (msg, kernel)
+  return (msg, kernel, sharedConstants0)

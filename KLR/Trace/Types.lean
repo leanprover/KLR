@@ -70,6 +70,9 @@ export Core (Name)
 -- Bring in some NKI types for convenience
 export NKI (Pos BinOp)
 
+abbrev SharedConstant := String × TensorLib.Tensor
+abbrev SharedConstants := Array SharedConstant
+
 -- TODO: maybe change main instance?
 scoped instance : BEq NKI.Fun where
   beq f1 f2 := f1.name == f2.name
@@ -173,6 +176,7 @@ structure State where
   body : Array Stmt := #[]
   warnings : Array (Pos × String) := #[]
   tensorNames : Std.HashSet String := ∅
+  sharedConstants : SharedConstants := #[]
 deriving Repr
 
 instance : Inhabited State where
@@ -284,6 +288,47 @@ def enterFun (m : Trace a) : Trace a := fun s =>
 def add_stmt (stmt : Pos -> Stmt) : Trace Unit :=
   modify fun s => { s with body := s.body.push (stmt s.pos) }
 
+private def identity (n : Nat) : TensorLib.Tensor := Id.run do
+  let dtype := TensorLib.Dtype.int8
+  let shape := TensorLib.Shape.mk [n, n]
+  let mut data := ByteArray.emptyWithCapacity (n * n)
+  for i in [0:n] do
+      for j in [0:n] do
+        let value : UInt8 := if i == j then 1 else 0
+        data := data.push value
+  return { dtype := dtype, shape := shape, data := data }
+
+def idName : Name := .num `identity 0
+
+def addId : Trace Unit := do
+  if let some _ <- lookup_global? idName then
+    throw "identity already initialized"
+  let dtype := .int8
+  let shape := Core.Shape.mk 128 [128]
+  let tensorName <- Core.TensorName.make idName.toString dtype shape none
+  let id : KLR.Core.TensorRef := .abstract (.simple tensorName)
+  let pos : Pos := { line := 0, column := 0 }
+  let hbmInitName := <-genName
+  let idHbm : TensorRef := .hbm {
+    name := hbmInitName.toString,
+    dtype := dtype,
+    address := 0,
+    dims := [⟨1, 128⟩, ⟨1, 128⟩]
+  }
+  let initStmt := Core.Stmt.oper (.ncDmaCopy {
+    dst := id,
+    src := idHbm,
+    compute_op := .none,
+    oobMode := .disable,
+    dgeMode := 0,
+  }) none pos
+  let idTensor :=  identity 128
+  modify fun s => { s with
+    body := #[initStmt] ++ s.body,
+    sharedConstants := s.sharedConstants.push (hbmInitName.toString, idTensor)
+  }
+  extend_global idName (.expr (.value (.access (.simple tensorName))))
+
 -- emit a warning
 def warn (msg : String) : Trace Unit :=
   modify fun s => { s with warnings := s.warnings.push (s.pos, msg) }
@@ -313,9 +358,9 @@ def tensorName : Option String -> Trace String
   | some n => do checkTensorName n; return n
 
 -- Run a `Trace` monad computation, and handle any generated warnings or errors.
-def tracer (g : List (Name × Term)) (m : Trace a) (showWarnings := true) : Err (String × a) :=
+def tracer (g : List (Name × Term)) (m : Trace a) (showWarnings := true) : Err (String × a × SharedConstants) :=
   match m { globals := .ofList g } with
-  | .ok x s => .ok (addWarnings s "", x)
+  | .ok x s => .ok (addWarnings s "", x, s.sharedConstants)
   | .error (.formatted str) s => .error (addWarnings s ("error:" ++ str))
   | .error (.located _ str) s => .error (addWarnings s ("error:" ++ str))
 where

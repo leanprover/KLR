@@ -271,6 +271,7 @@ def klrAST: MetaM (List LeanType) := do
     `KLR.Core.Expr,
     `KLR.Core.Stmt,
     `KLR.Core.Kernel,
+    `KLR.Core.SharedConstantFile,
     `KLR.Core.LncKernel,
    ]
 

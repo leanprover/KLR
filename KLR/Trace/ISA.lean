@@ -124,12 +124,39 @@ nki builtin.isa.nc_transpose
  (name : Option String := none) := do
   if mask.isSome then
     throw maskNotSupported
-  Trace.add_stmt $ .oper (.transpose {
-    dst := .abstract dst,
-    src := .abstract data,
-    dtype := dtype,
-    engine := engine,
-  }) name
+  match engine with
+  | .pe =>
+    let N := data.shapePure.freeDims.getLast!
+    let id : TensorRef := <- match <- lookup_global? (.num `identity 0) with
+    | some (.expr (.value (.access acc))) => return .abstract acc
+    | some _ => throw "identity has wrong type"
+    | none => throw "identity not defined"
+    let idName <- match id with
+    | .abstract $ .simple t => .ok t
+    | .abstract $ .basic t => .ok t.tensor
+    | .abstract $ .pattern t => .ok t.tensor
+    | _ => throw "Expected identity matrix to be a ref"
+    let idSlice : TensorRef := .abstract $ .basic $ <- AccessBasic.make idName [
+        .slice $ Slice.make! 0 N 1,
+        .slice $ Slice.make! 0 N 1
+      ]
+    Trace.add_stmt $ .oper (.ncMatMul {
+      dst := .abstract dst,
+      stationary := idSlice,
+      moving := .abstract data,
+      isStationaryOneZero := false,
+      isMovingZero := false,
+      isTranspose := true,
+      tilePosition := [],
+      tileSize := [],
+    }) name
+  | _ =>
+    Trace.add_stmt $ .oper (.transpose {
+      dst := .abstract dst,
+      src := .abstract data,
+      dtype := dtype,
+      engine := engine,
+    }) name
   return .none
 
 nki builtin.isa.activation

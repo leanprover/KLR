@@ -24,6 +24,14 @@ open Lean (FromJson ToJson)
 def eprintln [ToString a] (debug : Bool) (x : a) : IO Unit := do
   if debug then IO.eprintln x
 
+private def sharedConstant (c : String × TensorLib.Tensor) : IO (String × String) := do
+  let (name, tensor) := c
+  let fName := s!"shared_constants/{name}.npy"
+  let data := tensor.toNpy
+  IO.FS.createDirAll "shared_constants"
+  data.save! (System.FilePath.mk fName)
+  return (name, fName)
+
 -- TODO: preserve warnings and errors
 def compilePython (kernel : Python.Kernel) : IO Core.LncKernel := do
   let (kernel, warnings) := kernel.inferArguments
@@ -37,11 +45,12 @@ def compilePython (kernel : Python.Kernel) : IO Core.LncKernel := do
   -- TODO use debug flags?
   --IO.println (Std.Format.pretty (Std.format kernel))
   --IO.println (reprStr kernel)
-  let (warnings, kernels) <- KLR.Trace.runLncKernels kernel
+  let (warnings, kernels, sharedConstants) <- KLR.Trace.runLncKernels kernel
   if !warnings.isEmpty then
     IO.eprintln warnings
+  let cs <- sharedConstants.mapM sharedConstant
   let kernels <- Core.lowerAccessPatterns kernels
-  return kernels
+  return {kernels with sharedConstants := (cs.map fun (name, fileName) => {name := name, fileName := fileName}).toList}
 
 structure TensorInfo where
   name : String

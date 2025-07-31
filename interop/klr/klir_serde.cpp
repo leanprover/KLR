@@ -2604,17 +2604,30 @@ Ptr<Kernel> Kernel_des(FILE *in) {
   return x;
 }
 
+Ptr<SharedConstantFile> SharedConstantFile_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 106 || c != 0 || l != 2)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<SharedConstantFile> x = ptr<SharedConstantFile>();
+  x->name = String_des(in);
+  x->fileName = String_des(in);
+  return x;
+}
+
 Ptr<LncKernel> LncKernel_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 106 || c != 0 || l != 4)
+  if (t != 107 || c != 0 || l != 5)
     throw std::runtime_error("Invalid Tag");
   Ptr<LncKernel> x = ptr<LncKernel>();
   x->name = String_des(in);
   x->inputs = List_TensorName_des(in);
   x->outputs = List_TensorName_des(in);
   x->bodies = List_List_des(in);
+  x->sharedConstants = List_SharedConstantFile_des(in);
   return x;
 }
 
@@ -2796,6 +2809,19 @@ List<List<Ptr<Stmt>>> List_List_des(FILE *in) {
   List<List<Ptr<Stmt>>> l;
   while (size-- > 0) {
     List<Ptr<Stmt>> b = List_Stmt_des(in);
+    l.push_back(b);
+  }
+  return l;
+}
+
+List<Ptr<SharedConstantFile>> List_SharedConstantFile_des(FILE *in) {
+  u64 size = 0;
+  if (!deserialize_array_start(in, &size))
+    throw std::runtime_error("expecting List");
+
+  List<Ptr<SharedConstantFile>> l;
+  while (size-- > 0) {
+    Ptr<SharedConstantFile> b = SharedConstantFile_des(in);
     l.push_back(b);
   }
   return l;

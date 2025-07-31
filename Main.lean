@@ -233,7 +233,8 @@ private def evalKlrTensors
   : IO (List (String × TensorLib.Tensor)) := do
   let kernel : KLR.NKI.Kernel <- gatherTmp p
   --let (k, warnings1) := kernel.inferArguments
-  let (warnings, klr) <- KLR.Trace.runNkiKernel kernel
+  let (warnings, klr, sharedConstants) <- KLR.Trace.runNkiKernel kernel
+  dbg_trace s!"shared-constants: {repr sharedConstants}"
   dbg_trace s!"klr-inputs: {repr klr.inputs}"
   --if !warnings1.isEmpty then IO.eprintln warnings1
   if !warnings.isEmpty then IO.eprintln warnings
