@@ -132,42 +132,41 @@ inductive ExecState where
 
 
 /-- Expressions semantics -/
-inductive ExprStep : @Expr DataT → @Locals DataT → @State DataT → @Value DataT → @State DataT → Type _ where
-/-- [value] -/
-| value :
-    v' = v →
-    ExprStep (.val v') loc st v st
+inductive ExprStep : @Expr DataT → @Locals DataT → @State DataT → @Expr DataT → @State DataT → Prop where
+-- /- [value] -/
+-- | value :
+--     v' = v →
+--     ExprStep (.val v') loc st v st
 /-- [variable] -/
 | var :
     loc x = .some v →
-    ExprStep (.var x) loc st v st
-/-- [Non-sized, full, load] Load a HBM tile to a SBUF tile. Return a pointer to the new tile. Similar to nki.load.
+    ExprStep (.var x) loc st (.val v) st
+| sbuf_alloc :
+    ⟨dst_index, memory'⟩ = ChipMemory.freshSBUFStore st.memory →
+    ExprStep (.alloc Memory.sbuf) loc st (.val (.uptr dst_index)) (State.mk memory')
+/- [Non-sized, full, load] Load a HBM tile to a SBUF tile. Return a pointer to the new tile. Similar to nki.load.
 For now, only support trivial indexing.
   - Evaluate the location expression to a tensor pointer in hbm
   - Copy the hbm tensor data to a new unbounded tile in sbuf
   - Return the tensor pointer, modified to point at the new sbuf tile -/
-| load_full :
-    AffineMap.is_trivial asn →
-    ExprStep e loc st (.ptr tensor) st' →
-    -- The source tensor must have index in HBM (can be generalized), and be allocated
-    tensor.index = ChipIndex.hbmIndex src_index →
-    ChipMemory.get_store st'.memory tensor.index = some src_store →
-    -- The destination tensor is a fresh tensor in SBUF, with updated state.
-    ⟨dst_index, memory''⟩ = ChipMemory.freshSBUFStore st'.memory →
-    ExprStep (.load asn e) loc st
-      -- Return value: The input tensor, but with its chip index updated to be the fresh tensor.
-      -- All other metadata is the same.
-      (.ptr {tensor with index := dst_index })
-      -- Return state: Update the SBUF state at the fresh index to contain the source store.
-      (State.mk <| ChipMemory.set_store memory'' dst_index (some src_store))
-/-- [Allocation] Allocate fresh SBUF tensor -/
-| sbuf_alloc :
-    ⟨dst_index, memory'⟩ = ChipMemory.freshSBUFStore st.memory →
-    ExprStep (.alloc Memory.sbuf) loc st (.uptr dst_index) (State.mk memory')
-
+-- | load_full :
+--     AffineMap.is_trivial asn →
+--     ExprStep e loc st (.ptr tensor) st' →
+--     -- The source tensor must have index in HBM (can be generalized), and be allocated
+--     tensor.index = ChipIndex.hbmIndex src_index →
+--     ChipMemory.get_store st'.memory tensor.index = some src_store →
+--     -- The destination tensor is a fresh tensor in SBUF, with updated state.
+--     ⟨dst_index, memory''⟩ = ChipMemory.freshSBUFStore st'.memory →
+--     ExprStep (.load asn e) loc st
+--       -- Return value: The input tensor, but with its chip index updated to be the fresh tensor.
+--       -- All other metadata is the same.
+--       (.ptr {tensor with index := dst_index })
+--       -- Return state: Update the SBUF state at the fresh index to contain the source store.
+--       (State.mk <| ChipMemory.set_store memory'' dst_index (some src_store))
+/- [Allocation] Allocate fresh SBUF tensor -/
 
 /-
-/-- [Non-sized, full, store] Store a SBUF tile to HBM. Similar to nki.store. -/
+/- [Non-sized, full, store] Store a SBUF tile to HBM. Similar to nki.store. -/
 | store_full :
     AffineMap.is_trivial asn →
     ExprStep e1 loc s0 (.ptr sbuf_tensor) s1 →
@@ -210,18 +209,28 @@ theorem expr_step_det : ExprStep DataT e loc s vl sl → ExprStep DataT e loc s 
 
 
 inductive step : ExecState DataT × State DataT → ExecState DataT × State DataT → Prop where
-/-- [ Return ] -/
-| ret :
-    ExprStep DataT e loc s v s' →
+/-- [ Return Value ] -/
+| retV :
+    -- ExprStep DataT e loc s (.val v) s' →
     step (.run <| .cons ⟨.ret e, loc⟩ ps, s) (.done v, s')
-/-- [ Assignment ] Expression evaluates first, with effects. -/
-| asn :
-    ExprStep DataT e loc s v s' →
-    step (.run <| .cons ⟨.assign (.some x) e, loc⟩ p, s) (.run <| p.map (.bind _ · x v), s')
-/-- [ Sequencing Effects ] -/
-| seq :
-    ExprStep DataT e loc s v s' →
-    step (.run <| .cons ⟨.assign .none e, loc⟩ p, s) (.run p, s')
+/-- [ Return Expression ] -/
+| retE :
+    ExprStep DataT e loc s e'  s' →
+    step (.run <| .cons ⟨.ret e, loc⟩ ps, s)  (.run <| .cons ⟨.ret e', loc⟩ ps, s')
+/-- [ Assignment Value ] Expression evaluates first, with effects. -/
+| asnV :
+    step (.run <| .cons ⟨.assign (.some x) (.val v), loc⟩ p, s) (.run <| p.map (.bind _ · x v), s')
+/-- [ Assignment Expression] Expression evaluates first, with effects. -/
+| asnE :
+    ExprStep DataT e loc s e'  s' →
+    step (.run <| .cons ⟨.assign (.some x) e, loc⟩ p, s)  (.run <| .cons ⟨.assign (.some x) e', loc⟩ p, s')
+/-- [ Sequencing Value ] -/
+| seqV :
+    step (.run <| .cons ⟨.assign .none (.val v), loc⟩ p, s) (.run p, s')
+/-- [ Sequencing Expression ] -/
+| seqE :
+    ExprStep DataT e loc s e' s' →
+    step (.run <| .cons ⟨.assign .none e, loc⟩ p, s)  (.run <| .cons ⟨.assign .none e', loc⟩ p, s')
 /-- [ Loop termination ] -/
 | loop_exit {I : Type _} [Iterator I (@Value DataT)] :
     step (.run <| .cons ⟨.loop I _ .none _ _, _⟩ p, s) (.run p, s)
@@ -289,16 +298,42 @@ instance : Det (ExecState DataT) (Value DataT) (State DataT)  where
 
 end NML
 
+def PureExprStep {DataT : Type _} (p p' : NML.Expr DataT) (PL : NML.Locals DataT → Prop) : Prop :=
+  ∀ s : NML.State DataT, ∀ l, PL l → NML.ExprStep DataT p l s p' s
+
+
 -- TODO: Generalize: Assignment of a _pure expression_ to a variable
 -- is a pure step which adds the pure variable to the local context
 /-- Assignment of a value to none is Pure -/
 theorem AssignValuePure {v : NML.Value DataT}:
       SmallStep.PureStep (NML.ExecState.run <| ⟨.assign .none (.val v), loc⟩ :: p') (.run p') :=
-    fun _ => NML.step.seq <| .value rfl
+    fun _ => NML.step.seqV
 
-  theorem RetPure {v : NML.Value DataT} :
-      SmallStep.PureStep (NML.ExecState.run <| ⟨.ret (.val v), loc⟩ :: p') (.done v) :=
-    fun _ => NML.step.ret <| NML.ExprStep.value rfl
+theorem RetPure {v : NML.Value DataT} :
+    SmallStep.PureStep (NML.ExecState.run <| ⟨.ret (.val v), loc⟩ :: p') (.done v) :=
+  fun _ => NML.step.retV
 
-  abbrev withNoContext {DataT} (L : List (NML.Stmt DataT)) : NML.ExecState DataT :=
-    .run <| L.map (⟨·, NML.nolocals DataT⟩)
+abbrev withNoContext {DataT} (L : List (NML.Stmt DataT)) : NML.ExecState DataT :=
+  .run <| L.map (⟨·, NML.nolocals DataT⟩)
+
+
+-- Lots of the aync steps do reductions at the head expression.
+-- This prop defines
+
+-- Lifting: Expr step to Step
+
+/-- A given Expr + Hole lifts Expr steps to program steps -/
+def ExprLift {DataT : Type _} (p : NML.Expr DataT → NML.Stmt DataT) : Prop :=
+  ∀ e e' s s' l ps ,
+    NML.ExprStep DataT e l s e' s' →
+    NML.step DataT ⟨.run <| ⟨p e, l⟩ :: ps, s⟩ ⟨.run <| ⟨p e', l⟩ :: ps, s'⟩
+
+theorem retE_ExprLift : ExprLift (DataT := DataT) NML.Stmt.ret := by
+  intro e e' s s' l ps He
+  exact NML.step.retE He
+
+theorem asnE_ExprLift : ExprLift (DataT := DataT) (NML.Stmt.assign x) := by
+  intro e e' s s' l ps He
+  cases x
+  · exact NML.step.seqE He
+  · exact NML.step.asnE He

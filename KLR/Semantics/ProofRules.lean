@@ -76,7 +76,7 @@ theorem update_lemma (σₗ σᵣ : NML.State DataT) :
 open ChipMemory in
 @[deprecated "Use dwpDesync/dwpResync instead. " (since:="2025/07/31") ]
 theorem wpAllocSync  {Φ : NML.Value DataT → NML.Value DataT → @PROP DataT} {K : LeibnizO Nat}
-    (Hk : 1 ≤ K.car) :
+    (Hk : 2 ≤ K.car) :
      (∀ ℓₗ ℓᵣ, (ℓₗ [S]⇉ₗ∅) -∗ (ℓᵣ [S]⇉ᵣ∅) -∗ wp K (.run <| p1) (.run <| p2) Φ) ⊢
      wp K
        (.run <| ⟨.assign none (.alloc Memory.sbuf), locₗ⟩ :: p1)
@@ -100,15 +100,16 @@ theorem wpAllocSync  {Φ : NML.Value DataT → NML.Value DataT → @PROP DataT} 
   -- and right states.
   iexists (.run p1, ⟨freshSBUFStore σₗ.1 |>.2⟩)
   iexists (.run p2, ⟨freshSBUFStore σᵣ.1 |>.2⟩)
-  iexists 1
-  iexists 1
+  iexists 2
+  iexists 2
   isplit r
   · -- Side condition
     ipure_intro
     simp [Hk]
     refine ⟨?_, ?_⟩
-    · exact stepN_1_iff_step.mpr (.seq <| .sbuf_alloc rfl)
-    · exact stepN_1_iff_step.mpr (.seq <| .sbuf_alloc rfl)
+    ·
+      sorry -- exact stepN_1_iff_step.mpr (.seqV sorry )
+    · sorry -- exact stepN_1_iff_step.mpr (.seq <| .sbuf_alloc )
   -- Eliminate the later
   refine .trans ?_ Iris.BI.later_intro
   -- Conclude using the updated resources and Hwp
@@ -259,9 +260,9 @@ theorem update_lemma_left (σₗ σᵣ : NML.State DataT)
 open ChipIndex in
 /-- `dwp` for a single allocation step on the left. This is a little bit simpler
 than the `uwp` version since it quantifies over the generated location. -/
-theorem dwpAllocL (Hx : 0 < Lx := by omega) :
+theorem dwpAllocL (Hx : 1 < Lx := by omega) :
     ⊢ (∀ ℓₗ, (ℓₗ [S]⇉ₗ∅) -∗
-        dwp (Lm - 1) Rm (Lx - 1) Rx (.run <| p1'.map (.bind DataT · x (.uptr <| sbufUnboundedIndex ℓₗ))) p2 Φ) -∗
+        dwp (Lm - 2) Rm (Lx - 2) Rx (.run <| p1'.map (.bind DataT · x (.uptr <| sbufUnboundedIndex ℓₗ))) p2 Φ) -∗
       dwp Lm Rm Lx Rx (.run <| ⟨.assign (.some x) (.alloc Memory.sbuf), locₗ⟩ :: p1') p2 Φ := by
   -- Unfold the dwp in the conclusion
   iintro Hdwp
@@ -300,14 +301,15 @@ theorem dwpAllocL (Hx : 0 < Lx := by omega) :
   iexists s1
   iexists s2
   isplit r
-  · iexists (n1 + 1)
+  · iexists (n1 + 2)
     iexists n2
     ipure_intro
     obtain ⟨_, _, _, _, SL, _⟩ := Hstep
     refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
-    refine StepN.step (step.asn <| .sbuf_alloc ?_) SL
-    simp at ⊢ Hℓ₁
-    exact Hℓ₁.symm
+    sorry
+    -- refine StepN.step (step.asn <| .sbuf_alloc ?_) SL
+    -- simp at ⊢ Hℓ₁
+    -- exact Hℓ₁.symm
   · iexact H
 
 end weakestpre
@@ -316,7 +318,12 @@ end weakestpre
 
 We can define generic `dwp` proof rules that work whenever one side takes a step independently
 of each other.
-These independent steps are defined semantically, and specified using a `uwpL/uwpR` structures. -/
+These independent steps are defined semantically, and specified using a `uwpL/uwpR` structures.
+
+TODO: At the moment, allocL/R cannot be implemented as a UWP because the prog' and post cannot
+depend on state. Should this be fixed? I think it pretty much only matters in that case because
+the output has a state that is not mentioned by the input.
+-/
 structure uwp (DataT : Type _) where
   pre   : PROP DataT
   post  : PROP DataT
@@ -456,9 +463,98 @@ def uwpPureR {p p' : Prog DataT} (H : PureStep p p') : uwpR DataT where
       iintro Hσ
       iexact Hσ
 
+-- | load_full :
+--     AffineMap.is_trivial asn →
+--     ExprStep e loc st (.ptr tensor) st' →
+--     -- The source tensor must have index in HBM (can be generalized), and be allocated
+--     tensor.index = ChipIndex.hbmIndex src_index →
+--     ChipMemory.get_store st'.memory tensor.index = some src_store →
+--     -- The destination tensor is a fresh tensor in SBUF, with updated state.
+--     ⟨dst_index, memory''⟩ = ChipMemory.freshSBUFStore st'.memory →
+--     ExprStep (.load asn e) loc st
+--       -- Return value: The input tensor, but with its chip index updated to be the fresh tensor.
+--       -- All other metadata is the same.
+--       (.ptr {tensor with index := dst_index })
+--       -- Return state: Update the SBUF state at the fresh index to contain the source store.
+--       (State.mk <| ChipMemory.set_store memory'' dst_index (some src_store))
+
+
+-- Next up:
+-- Desync'd Moving tensors (load_full)
+-- Sync'd Control flow (iterators as values)
+-- Desync'd tensorscalar
+-- Sync'd ret_assert
+-- This should be enought to verify loop fusion
+
+
+
 end uwp
 
+section ewp
 
+open Iris Iris.BI Iris.BI.BIBase KLR.Core Iris NML SmallStep
+
+-- Like UWP but for ExprStep
+structure ewp (DataT : Type _) where
+  pre   : PROP DataT
+  post  : PROP DataT
+  expr  : NML.Expr DataT
+  loc   : NML.Locals DataT
+  expr' : NML.Expr DataT
+
+/-- An `ewp` that uses its resources to take steps on the left. -/
+structure ewpL (DataT : Type _) extends ewp DataT where
+  spec : ⊢ iprop(∀ σₗ σᵣ, pre -∗ state_interp σₗ σᵣ -∗
+    (∃ σₗ', ⌜ExprStep DataT expr loc σₗ expr' σₗ'⌝ ∗ |==> (state_interp σₗ' σᵣ ∗ post)))
+
+/-- An `ewp` that uses its resources to take steps on the left. -/
+structure ewpR (DataT : Type _) extends ewp DataT where
+  spec : ⊢ iprop(∀ σₗ σᵣ, pre -∗ state_interp σₗ σᵣ -∗
+    (∃ σᵣ', ⌜ExprStep DataT expr loc σᵣ expr' σᵣ'⌝ ∗ |==> (state_interp σₗ σᵣ' ∗ post)))
+
+def liftE (e : ewp DataT) (p : Expr DataT → Stmt DataT) (ps : List (NML.Task DataT)) : uwp DataT where
+  pre   := e.pre
+  post  := e.post
+  prog  := .run <| ⟨p e.expr,  e.loc⟩ :: ps
+  prog' := .run <| ⟨p e.expr', e.loc⟩ :: ps
+  steps := 1
+
+/-- Lift an `ewpL` to a `uwpL` provided the context is `ExprLift` -/
+def liftEL (e : ewpL DataT) {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) (ps : List (NML.Task DataT)) :
+    uwpL DataT where
+  touwp := liftE e.toewp p ps
+  spec  := by
+    apply Entails.trans e.spec ?_
+    simp only [liftE]
+    iintro Hspec σₗ σᵣ Hpre Hσ
+    ispecialize Hspec σₗ σᵣ Hpre Hσ
+    icases Hspec with ⟨Hσₗ', %Hstep, Hupd⟩
+    iexists Hσₗ'
+    isplit r
+    · ipure_intro
+      exact stepN_1_iff_step.mpr (Hp e.expr e.expr' σₗ Hσₗ' e.loc ps Hstep)
+    · iexact Hupd
+
+/-- Lift an `ewpR` to a `uwpR` provided the context is `ExprLift` -/
+def liftER (e : ewpR DataT) {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) (ps : List (NML.Task DataT)) :
+    uwpR DataT where
+  touwp := liftE e.toewp p ps
+  spec  := by
+    apply Entails.trans e.spec ?_
+    simp only [liftE]
+    iintro Hspec σₗ σᵣ Hpre Hσ
+    ispecialize Hspec σₗ σᵣ Hpre Hσ
+    icases Hspec with ⟨Hσᵣ', %Hstep, Hupd⟩
+    iexists Hσᵣ'
+    isplit r
+    · ipure_intro
+      exact stepN_1_iff_step.mpr (Hp e.expr e.expr' σᵣ Hσᵣ' e.loc ps Hstep)
+    · iexact Hupd
+
+
+
+
+end ewp
 
 
 
