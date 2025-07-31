@@ -58,7 +58,7 @@ theorem example1_full (σ₁ σ₂ : State DataT) :
     ((.run [⟨.ret (.val (.int 4)), fun _ => .none⟩]), σ₁)
     ((.run [⟨.ret (.val (.int 5)), fun _ => .none⟩]), σ₂)
     ΦIsIntLePure := by
-  apply wp_adequacy_no_alloc (K := ⟨1⟩)
+  apply wp_adequacy (K := ⟨1⟩)
   istart; iintro H; iclear H; istop
   exact example1
 
@@ -74,7 +74,7 @@ theorem example2 (σ : State DataT) : SmallStep.Safe (ex2, σ) := by
   -- It suffices to show that `(ex2, σ) ∼ (ex2, σ) : fun _ _ => True`
   apply SmallStep.Safe_of_PRel (Φf := fun _ _ => True)
   -- Enter the Iris proof
-  apply wp_adequacy_no_alloc (K := ⟨1⟩)
+  apply wp_adequacy (K := ⟨1⟩)
   unfold ex2
   sorry
 
