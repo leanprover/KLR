@@ -1169,11 +1169,17 @@ struct Kernel final {
   List<Ptr<Stmt>> body;
 };
 
+struct SharedConstantFile final {
+  String name;
+  String fileName;
+};
+
 struct LncKernel final {
   String name;
   List<Ptr<TensorName>> inputs;
   List<Ptr<TensorName>> outputs;
   List<List<Ptr<Stmt>>> bodies;
+  List<Ptr<SharedConstantFile>> sharedConstants;
 };
 
 struct KLRFile final {

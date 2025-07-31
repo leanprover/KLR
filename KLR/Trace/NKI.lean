@@ -48,6 +48,7 @@ def NKIEnv : List (Name × Term) :=
   , const_var (nl "shared_hbm")
   , const_var (nl "less")
   , const_var (nl "int8")
+  , const_var (nisa "tensor_engine")
   ]
 
 -- The result of a statement evaluation
@@ -319,6 +320,7 @@ private def processArgs (args : List Arg) : List Value × List Keyword := Id.run
   return (inputs.reverse, kws.reverse)
 
 def traceKernel (k : Kernel) : Trace Core.Kernel := do
+  addId
   globals k
   match k.funs.find? fun f => f.name == k.entry with
   | none => throw s!"function {k.entry} not found"
