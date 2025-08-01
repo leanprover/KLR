@@ -48,6 +48,7 @@ inductive Value where
   | tensor (shape : List Nat) (dtype : String)  -- TODO use Core Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
+-- Note: land, lor do not short-circuit (see conj, disj below)
 @[serde tag = 2]
 enum BinOp where
   -- logical
@@ -67,6 +68,7 @@ structure Expr where
   pos : Pos
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
+-- Note: conj and disj are short-circuit operators
 @[serde tag = 4]
 inductive Expr' where
   | value (value : Value)
@@ -74,6 +76,8 @@ inductive Expr' where
   | tuple (elements : List Expr)
   | access (expr : Expr) (indices : List Index)
   | binOp (op : BinOp) (left right : Expr)
+  | conj (left right : Expr)
+  | disj (left right : Expr)
   | ifExp (test tru fls : Expr)
   | call (f: Expr) (args: List Expr) (keywords : List Keyword)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp

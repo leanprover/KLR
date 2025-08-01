@@ -62,6 +62,8 @@ private def expr' (e' : Expr') : Ann Expr' :=
   | .tuple es => return .tuple (<- exprs es)
   | .access e l => return .access (<- expr e) (<- l.mapM index)
   | .binOp op l r => return .binOp op (<- expr l) (<- expr r)
+  | .conj l r => return .conj (<- expr l) (<- expr r)
+  | .disj l r => return .disj (<- expr l) (<- expr r)
   | .ifExp c t f => return .ifExp (<- expr c) (<- expr t) (<- expr f)
   | .call f args kws => return .call (<- expr f) (<- exprs args) (<- kws.mapM keyword)
   termination_by sizeOf e'
