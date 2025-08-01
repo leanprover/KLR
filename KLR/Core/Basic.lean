@@ -41,7 +41,7 @@ A source position records the location of a statement in the original program.
 
 @[serde tag = 100]
 structure Pos where
-  line : Nat
+  line : Nat := 0
   column : Nat := 0
   lineEnd : Option Nat := none
   columnEnd : Option Nat := none

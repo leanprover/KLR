@@ -38,19 +38,12 @@ def TensorLib.Dtype.toString : TensorLib.Dtype → String
   | .float32 =>  "float32"
   | .float64 =>  "float64"
 
-def String.escape (s : String) (char : Char) : String :=
-  ⟨go s.toList⟩
-where
-  go
-  | [] => []
-  | '\\' :: c :: tl => '\\' :: c :: go tl
-  | c :: tl =>
-    if c == char then
-      '\\' :: c :: go tl
-    else
-      c :: go tl
-
 namespace KLR.NKI.Typed
+
+-- structure Pos where
+--   startPos : String.Pos := {}
+--   endPos : String.Pos := {}
+-- deriving Repr, ToExpr, ToJson
 
 inductive Kind
   | size
@@ -65,6 +58,14 @@ scoped infixr:55 " ⟶⋆ " => Kind.arrow
 inductive Numeric
   | int
   | float
+deriving ToJson
+
+inductive Prim
+  | none
+  | bool
+  | numeric (numeric : Numeric)
+  | string
+  | dtype (dt : TensorLib.Dtype)
 deriving ToJson
 
 def Numeric.toString : Numeric → String
@@ -82,13 +83,8 @@ abbrev Numeric.max : Numeric → Numeric → Numeric
   | _, .float => .float
   | _, _ => .int
 
-inductive Prim
-  | none
-  | bool
-  | numeric (numeric : Numeric)
-  | string
-  | dtype (dt : TensorLib.Dtype)
-deriving ToJson
+instance instMaxNumeric : Max Numeric where
+  max := Numeric.max
 
 def Prim.toString : Prim → String
   | none => "None"
@@ -102,8 +98,3 @@ instance instToStringPrim : ToString Prim where
 
 instance instReprPrim : Repr Prim where
   reprPrec p _ := p.toString
-
-structure Pos where
-  startPos : String.Pos := {}
-  endPos : String.Pos := {}
-deriving Repr, ToExpr, ToJson

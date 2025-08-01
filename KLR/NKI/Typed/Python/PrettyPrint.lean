@@ -14,148 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -/
 
-import KLR.NKI.Typed.Common
+import KLR.NKI.Typed.Python.Basic
+import KLR.NKI.Typed.Python.Util
 
-namespace KLR.NKI.Typed.PIR
-open Lean (ToJson)
-
-/-!
-# Python IR
-
-High-level IR for NKI that closely resembles the python concrete syntax
--/
-
-abbrev Ident := Lean.Name
-
-mutual
-
-structure Typ where
-  pos : Pos := {}
-  typ : Typ'
-deriving ToJson
-
-inductive Typ'
-  | var (name : Ident)
-  | prim (p : Prim)
-  | arrow (α β : Typ)
-  | all (argName : Ident) (body : Typ)
-  | iter (e : Typ)
-  | tuple (ts : List Typ)
-  | list (t : Typ)
-deriving Repr, ToJson
-
-end
-
-inductive Value
-  | none
-  | bool (value : Bool)
-  | int (value : Int)
-  | float (value : Float)
-  | string (value : String)
-  | tensor (value : TensorLib.Tensor)
-deriving ToJson
-
-inductive UnaryOp
-  | neg
-deriving ToJson
-
-inductive BinOp
-  -- logical
-  | land | lor
-  -- comparison
-  | eq | ne | lt | le | gt | ge
-  -- arithmetic
-  | add | sub
-  | mul | div
-  | mod | pow
-  | floor
-deriving BEq, ToJson
-
-mutual
-
-structure Arg where
-  keyword : Option Ident
-  val : Exp
-deriving ToJson
-
-inductive Index
-  | coord (i : Exp)
-  | slice (l u step : Option Exp)
-  | ellipsis
-
-structure Exp where
-  pos : Pos := {}
-  exp : Exp'
-deriving ToJson
-
-inductive Exp'
-  | var (name : Ident)
-  | value (value : Value)
-  | unaryOp (op : UnaryOp) (x : Exp)
-  | binOp (op : BinOp) (x y : Exp)
-  | tuple (es : List Exp)
-  | list (es : List Exp)
-  | ifExp (test body orelse : Exp)
-  | app (f : Exp) (typArgs : List Typ) (args : List Arg)
-  | access (e : Exp) (indices : List Index)
-deriving ToJson
-
-end
-
-inductive Pattern
-  | var (name : Ident)
-  | tuple (pats : List Pattern)
-deriving ToJson
-
-structure Param where
-  name : Ident
-  typ : Option Typ
-  dflt : Option Exp
-deriving ToJson
-
-mutual
-
-structure Def where
-  pos : Pos
-  name : Ident
-  typParams : List Ident
-  params : List Param
-  returns : Option Typ
-  body : Stmt
-  decorator : Option Ident
-deriving ToJson
-
-structure Stmt where
-  pos : Pos := {}
-  stmt : Stmt'
-deriving ToJson
-
-inductive Stmt'
-  | seq (e1 e2 : Stmt)
-  | exp (exp : Exp)
-  | ret (e : Exp)
-  | assign (pat : Pattern) (typ : Option Typ) (rhs : Exp)
-  | dfn (dfn : Def)
-  | ifStm (cond : Exp) (thn : Stmt) (elifs : List (Exp × Stmt)) (els : Option Stmt)
-  | forLoop (name : Ident) (iter : Exp) (body : Stmt)
-  | whileLoop (cond : Exp) (body : Stmt)
-  | breakLoop
-  | continueLoop
-deriving ToJson
-
-end
+namespace KLR.NKI.Typed.Python
 
 open Std (Format)
-open Std.Format (joinSep)
+open Std.Format (group align joinSep)
 
-def maxPrec := 1000
+def ppMaxPrec := 1000
 
-structure Prog where
-  file : String
-  defs : List Def
-deriving ToJson
+def tabWidth := 2
 
-def TabWidth := 2
+def nest (f : Format) :=
+  Std.Format.nest tabWidth f
 
 def br : Format := "\n"
 
@@ -195,7 +67,7 @@ def Typ.reprPrec : Typ → Nat → Format
   | { typ, .. }, p => typ.reprPrec p
 
 def Typ'.reprPrec : Typ' → Nat → Format
-  | .var name, _ => s!"{name}"
+  | .var name, _ => name
   | .prim p, _ => s!"{p}"
   | .arrow α β, _ =>
     let α := α.reprPrec 0
@@ -203,7 +75,7 @@ def Typ'.reprPrec : Typ' → Nat → Format
     let ts := joinSep (α :: βs) ", "
     s!"FuntionType[{ts}]"
   | .all argName body, _ =>
-    let arg : Format := s!"{argName}"
+    let arg : Format := argName
     let (args, body) := body.collectAllRhs 0
     let args := joinSep (arg :: args) " "
     s!"forall {args}. {body}"
@@ -280,7 +152,7 @@ def Exp.reprPrec : Exp → Nat → Format
   | { exp, .. }, p => exp.reprPrec p
 
 def Exp'.reprPrec : Exp' → Nat → Format
-  | .var name, _ => s!"{name}"
+  | .var name, _ => name
   | .value value, _ => value.reprPrec 0
   | .unaryOp op x, p =>
     let (op, opP) := op.reprPrec
@@ -318,7 +190,7 @@ def Exp'.reprPrec : Exp' → Nat → Format
     let fmt := s!"{body} if {test} else {orelse}"
     if opP < p then paren fmt else fmt
   | .app f typArgs args, _ =>
-    let f := f.reprPrec maxPrec
+    let f := f.reprPrec ppMaxPrec
     let typArgs := typArgs.map (fun t => t.reprPrec 0)
     let typArgs := joinSep typArgs ", "
     let args := args.map (·.reprPrec 0)
@@ -328,21 +200,132 @@ def Exp'.reprPrec : Exp' → Nat → Format
     else
       s!"{f}[{typArgs}]({args})"
   | .access e indices, _ =>
-    let e := e.reprPrec maxPrec
+    let e := e.reprPrec ppMaxPrec
     let indices := indices.map (·.reprPrec 0)
     let indices := joinSep indices ", "
     s!"{e}[{indices}]"
+  | .attr e field, _ =>
+    let e := e.reprPrec ppMaxPrec
+    s!"{e}.{field}"
 
 end
 
 instance instReprExp : Repr Exp where
   reprPrec e n := e.reprPrec n
 
-def Stmt.reprPrec (s : Stmt) (prec : Nat) : Format :=
-  sorry
+def Pattern.reprPrec : Pattern → Nat → Format
+  | .var name, _ => name
+  | .tuple names, p =>
+    let names := names.map (·.reprPrec 1)
+    let len := names.length
+    let pat := joinSep names ", "
+    let pat := if len == 1 then pat ++ "," else pat
+    if p > 0 then paren pat else pat
 
-def Def.reprPrec (d : Def) (prec : Nat) : Format :=
-  sorry
+instance instReprPattern : Repr Pattern where
+  reprPrec := Pattern.reprPrec
 
-def Prog.reprPrec (p : Prog) (prec : Nat) : Format :=
-  sorry
+def Param.reprPrec (p : Param) (prec : Nat) : Format :=
+  let typ := (p.typ.map ((":" : Format) ++ ·.reprPrec prec)).getD Format.nil
+  let dflt := (p.dflt.map (("=" : Format) ++ ·.reprPrec prec)).getD Format.nil
+  p.name ++ typ ++ dflt
+
+mutual
+
+def Stmt.optionListReprPrec : Option (List Stmt) → Nat → Option Format
+  | some stmts, p => some <| Stmt.listReprPrec stmts p
+  | none, _ => none
+
+def Stmt.listExpStmtsReprPrec : List (Exp × List Stmt) → Nat → List (Format × Format)
+  | [], _ => []
+  | (e, s) :: tl, p => (e.reprPrec p, Stmt.listReprPrec s p) :: Stmt.listExpStmtsReprPrec tl p
+
+def Stmt.reprPrec : Stmt → Nat → Format
+  | { stmt, .. }, p => stmt.reprPrec p
+
+def FuncDef.reprPrec : FuncDef → Nat → Format
+  | { name, typParams, params, returns, body, decorators, .. }, _ =>
+    let typParams :=
+      if typParams.isEmpty then
+        Format.nil
+      else
+        braket <| joinSep typParams ", "
+    let params := paren <| group <| align false ++ joinSep (params.map (·.reprPrec 0)) ", "
+    let returns := (returns.map ((" -> " : Format) ++ ·.reprPrec 0)).getD Format.nil
+    let body := Stmt.listReprPrec body 0
+    let decorators :=
+      if decorators.isEmpty then
+        Format.nil
+      else
+        (joinSep (decorators.map (("@" : Format) ++ ·.reprPrec 0)) br) ++ br
+    decorators ++ s!"def {name}{typParams}{params}" ++ returns ++ ":" ++ br ++ nest body
+
+def Stmt.listReprPrec (stmts : List Stmt) (prec : Nat) : Format :=
+  let stmts := stmts.map (·.reprPrec prec)
+  joinSep stmts br
+
+def Stmt'.reprPrec : Stmt' → Nat → Format
+  | .exp exp, _ => exp.reprPrec 0
+  | .imprt mod as, _ =>
+    let imp := s!"import {mod}"
+    match as with
+    | some as => s!"{imp} as {as}"
+    | none => imp
+  | .imprtFrom mod imp as, _ =>
+    let imp := s!"from {mod} import {imp}"
+    match as with
+    | some as => s!"{imp} as {as}"
+    | none => imp
+  | .ret e, _ =>
+    let e := e.reprPrec 0
+    s!"return {e}"
+  | .assign pat typ rhs, _ =>
+    let pat := pat.reprPrec 0
+    let typ := typ.map (·.reprPrec 0)
+    let rhs :=
+      match rhs.exp with
+      | .tuple es =>
+        let es := es.map (Exp.reprPrec · 0)
+        let len := es.length
+        let es := joinSep es ", "
+        if len == 1 then es ++ "," else es
+      | _ => rhs.reprPrec 0
+    s!"{pat} : {typ} = {rhs}"
+  | .funcDef dfn, _ => dfn.reprPrec 0
+  | .ifStm cond thn elifs els, _ =>
+    let cond := cond.reprPrec 0
+    let thn := Stmt.listReprPrec thn 0
+    let if_ := s!"if {cond}:" ++ br ++ nest thn
+
+    let elifs := Stmt.listExpStmtsReprPrec elifs 0
+    let elifs := elifs.map (fun (cond, body) => s!"elif {cond}:" ++ br ++ nest body)
+    let elifs := joinSep elifs br
+
+    let els := Stmt.optionListReprPrec els 0
+    let els := els.map (fun els => s!"else:" ++ br ++ nest els)
+    let els := els.getD Format.nil
+
+    if_ ++ elifs ++ els
+  | .forLoop name iter body, _ =>
+    let iter := iter.reprPrec 0
+    let body := Stmt.listReprPrec body 0
+    s!"for {name} in {iter}:" ++ br ++ nest body
+  | .whileLoop cond body, _ =>
+    let cond := cond.reprPrec 0
+    let body := Stmt.listReprPrec body 0
+    s!"while {cond}:" ++ br ++ nest body
+  | .pass, _ => "pass"
+  | .breakLoop, _ => "break"
+  | .continueLoop, _ => "continue"
+
+end
+
+def Prog.reprPrec (p : Prog) (_ : Nat) : Format :=
+  let stmts := p.stmts.map (·.reprPrec 0)
+  joinSep stmts (br ++ br)
+
+instance instReprProg : Repr Prog where
+  reprPrec := Prog.reprPrec
+
+def Prog.prettyPrint (p : Prog) : String :=
+  (p.reprPrec 0).pretty
