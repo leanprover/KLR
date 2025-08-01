@@ -125,12 +125,40 @@ nki nc_transpose
  (name : Option String := none) := do
   if mask.isSome then
     throw maskNotSupported
-  Trace.add_stmt $ .oper (.transpose {
-    dst := .abstract dst,
-    src := .abstract data,
-    dtype := dtype,
-    engine := engine,
-  }) name
+  match engine with
+  | .pe =>
+    let N := data.shapePure.freeDims.getLast!
+    let idName := <- Trace.genName
+    let id : TensorRef := .sbuf {
+      name := idName.toString,
+      dtype := data.tensor.dtype,
+      parQuadrant := .par0,
+      parDim := N,
+      freeOffset := 0,
+      freePattern := [{step := 1, num := N}]
+    }
+    Trace.add_stmt $ .oper (.sharedIdentityMatrix {
+      dst := id,
+      N := N,
+      dtype := data.tensor.dtype
+    }) name
+    Trace.add_stmt $ .oper (.ncMatMul {
+      dst := .abstract dst
+      stationary := id
+      moving := .abstract data
+      isStationaryOneZero := false,
+      isMovingZero := false,
+      isTranspose := true,
+      tilePosition := [],
+      tileSize := [],
+    }) name
+  | _ =>
+    Trace.add_stmt $ .oper (.transpose {
+      dst := .abstract dst,
+      src := .abstract data,
+      dtype := dtype,
+      engine := engine,
+    }) name
   return .none
 
 nki activation

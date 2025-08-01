@@ -754,6 +754,13 @@ structure SequenceBounds where
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 187]
+structure SharedIdentityMatrix where
+  dst : TensorRef
+  N : Nat
+  dtype : Dtype
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 188]
 inductive Operator where
   | activate (op : Activate)
   | ncActivate (op : NcActivate)
@@ -796,9 +803,10 @@ inductive Operator where
   | transpose (op : Transpose)
   | selectReduce (op : SelectReduce)
   | sequenceBounds (op : SequenceBounds)
+  | sharedIdentityMatrix (op : SharedIdentityMatrix)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 188]
+@[serde tag = 189]
 inductive TGROperator where
   | activate (op : Activate)
   | affineSelect (op : AffineSelect)
