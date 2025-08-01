@@ -255,7 +255,6 @@ static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
     PyTypeObject *t = Py_TYPE(obj);
     if (!t || !(strcmp(t->tp_name, "numpy.ndarray") == 0 || strcmp(t->tp_name, "Tensor") == 0))
       return NULL;
-
     PyObject *shape = PyObject_GetAttrString(obj, "shape");
     if (!shape) return NULL;
 
@@ -1192,7 +1191,7 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws) {
     PyErr_SetString(PyExc_RuntimeError, "No valid kernel for specialize");
     return false;
   }
-
+ 
   struct state st = {
     .region = k->python_region,
     .work = NULL,
@@ -1222,7 +1221,7 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws) {
       es = &(*es)->next;
     }
   }
-
+ 
   if (kws) {
     if (!PyDict_Check(kws)) {
       PyErr_SetString(PyExc_ValueError, "Invalid arguments: kwargs is not a dictionary");
@@ -1236,6 +1235,28 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws) {
       char *s = py_strdup(&st, key);
       if (!s)
         return false;
+
+      // Process special argument $grid
+      if(strncmp(s, "$grid", 5) == 0) {
+        if (!PyLong_Check(val)) {
+          PyErr_SetString(PyExc_ValueError, "grid must be an integer");
+          return false;
+        }
+        long grid_val = PyLong_AsLong(val);
+        if (grid_val < 0 || grid_val > 8) {
+          PyErr_SetString(PyExc_ValueError, "grid must be between 0-8");
+          return false;
+        }
+        k->grid = (uint8_t) grid_val;
+        printf("Setting NKI grid to %d\n", k->grid);
+        
+        // Remove the key from kwargs so that we don't process it further or as varargs
+        if (PyDict_DelItem(kws, key) < 0) {
+          PyErr_Format(PyExc_ValueError, "Unexpected error while processing grid");
+          return NULL;
+        }
+        continue;
+      }
 
       struct Python_Expr *e = const_expr(&st, val);
       if (!e) {

@@ -34,6 +34,7 @@ struct kernel {
   PyObject_HEAD
   PyObject *f;   // Kernel function
   bool specialized;
+  uint8_t grid;
   struct region *python_region;
   struct Python_Kernel *python_kernel;
   struct region *nki_region;
