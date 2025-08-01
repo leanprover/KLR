@@ -28,7 +28,8 @@ This module defines the builtin constants used by tracing for NKI kernels.
 namespace KLR.Trace
 open KLR.Core
 
-private def nki_ : Name := .str (.str .anonymous "neuronxcc") "nki"
+private def neuronxcc : Name := .str .anonymous "neuronxcc"
+private def nki_ : Name := .str neuronxcc "nki"
 private def nki_isa : Name := .str nki_ "isa"
 private def nki_lang : Name := .str nki_ "language"
 
@@ -41,7 +42,7 @@ def NKIBuiltins : List (Name × BuiltinFn) :=
   , (nl "store", Tensor.store)
   , (nl "zeros", Tensor.zeros)
   --, (nl "ndarray", Tensor.ndarray) see comment in Tensor.lean
-  --, (nisa "tensor_scalar", Tensor.tensor_scalar)
+  -- isa
   , (nisa "activation", Isa.activation)
   --, (nisa "affine_select", Isa.affine_select)
   , (nisa "bn_stats", Isa.bn_stats)
@@ -62,17 +63,25 @@ def NKIBuiltins : List (Name × BuiltinFn) :=
   , (nisa "memset", Isa.memset)
   -- TODO range select
   , (nisa "reciprocal", Isa.reciprocal)
-  -- TODO scalar tensor tensor
   , (nisa "nc_stream_shuffle", Isa.nc_stream_shuffle)
   , (nisa "tensor_reduce", Isa.tensor_reduce)
   , (nisa "tensor_tensor_scan", Isa.tensor_tensor_scan)
   , (nisa "nc_transpose", Isa.nc_transpose)
   , (nisa "nc_matmul", Isa.nc_matmul)
+  , (nisa "activation_reduce", Isa.activation_reduce)
+  , (nisa "tensor_partition_reduce", Isa.tensor_partition_reduce)
+  , (nisa "tensor_scalar", Isa.tensor_scalar)
+  , (nisa "scalar_tensor_tensor", Isa.scalar_tensor_tensor)
+  , (nisa "tensor_tensor", Isa.tensor_tensor)
+  , (nisa "tensor_scalar_reduce", Isa.tensor_scalar_reduce)
+  , (nisa "tensor_copy_dynamic_src", Isa.tensor_copy_dynamic_src)
+  , (nisa "tensor_copy_dynamic_dst", Isa.tensor_copy_dynamic_dst)
   ]
 
 -- NKI environment, including constants and the names of builtin functions
 def NKIEnv : List (Name × Term) :=
-  [ module nki_
+  [ module neuronxcc
+  , module nki_
   , module nki_isa
   , module nki_lang
   , const_int (.str (nl "tile_size") "pmax") 128
@@ -84,6 +93,27 @@ def NKIEnv : List (Name × Term) :=
   , const_var (nl "sbuf")
   , const_var (nl "psum")
   , const_var (nl "exp")
+  , const_var (nl "")
+  , const_var (nl "add")
+  , const_var (nl "subtract")
+  , const_var (nl "multiply")
+  , const_var (nl "maximum")
+  , const_var (nl "minimum")
+  , const_var (nl "equal")
+  , const_var (nl "not_equal")
+  , const_var (nl "greater_equal")
+  , const_var (nl "greater")
+  , const_var (nl "less_equal")
+  , const_var (nl "less")
+  , const_var (nl "logical_not")
+  , const_var (nl "logical_and")
+  , const_var (nl "logical_or")
+  , const_var (nl "logical_xor")
+  -- engines
+  , const_var (nisa "unknown_engine")
+  , const_var (nisa "tensor_engine")
+  , const_var (nisa "vector_engine")
+  , const_var (nisa "scalar_engine")
   , (nl "mgrid", .mgrid)
   ]
   ++ NKIBuiltins.map fun (x,_) => (x, .builtin x (.obj x) none)

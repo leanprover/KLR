@@ -9,3 +9,6 @@ build/
 dist/
 klr.bin
 /.wheel/
+*.klr
+*.klir
+interop/klr/load_test

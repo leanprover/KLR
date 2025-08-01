@@ -547,12 +547,12 @@ PyObject *NKI_Expr__topy(struct NKI_Expr_ *x) {
         return NULL;
     }
     {
-      PyObject *obj = NKI_Expr_topy(x->ifExp.body);
+      PyObject *obj = NKI_Expr_topy(x->ifExp.tru);
       if (!obj || PyTuple_SetItem(tup, 1, obj) == -1)
         return NULL;
     }
     {
-      PyObject *obj = NKI_Expr_topy(x->ifExp.orelse);
+      PyObject *obj = NKI_Expr_topy(x->ifExp.fls);
       if (!obj || PyTuple_SetItem(tup, 2, obj) == -1)
         return NULL;
     }
@@ -717,6 +717,90 @@ PyObject *NKI_Pattern_topy(struct NKI_Pattern *x) {
   }
 }
 
+PyObject *NKI_RangeType_topy(enum NKI_RangeType x) {
+  switch (x) {
+  case NKI_RangeType_static: {
+    PyObject *tup = PyTuple_New(0);
+    if (!tup)
+      return NULL;
+    PyObject *res = construct("RangeType_static", tup);
+    Py_DECREF(tup);
+    return res;
+    break;
+  }
+  case NKI_RangeType_affine: {
+    PyObject *tup = PyTuple_New(0);
+    if (!tup)
+      return NULL;
+    PyObject *res = construct("RangeType_affine", tup);
+    Py_DECREF(tup);
+    return res;
+    break;
+  }
+  case NKI_RangeType_sequential: {
+    PyObject *tup = PyTuple_New(0);
+    if (!tup)
+      return NULL;
+    PyObject *res = construct("RangeType_sequential", tup);
+    Py_DECREF(tup);
+    return res;
+    break;
+  }
+  default:
+    return NULL;
+  }
+}
+
+PyObject *NKI_Iterator_topy(struct NKI_Iterator *x) {
+  switch (x->tag) {
+  case NKI_Iterator_expr: {
+    PyObject *tup = PyTuple_New(1);
+    if (!tup)
+      return NULL;
+    {
+      PyObject *obj = NKI_Expr_topy(x->expr.e);
+      if (!obj || PyTuple_SetItem(tup, 0, obj) == -1)
+        return NULL;
+    }
+    PyObject *res = construct("Iterator_expr", tup);
+    Py_DECREF(tup);
+    return res;
+    break;
+  }
+  case NKI_Iterator_range: {
+    PyObject *tup = PyTuple_New(4);
+    if (!tup)
+      return NULL;
+    {
+      PyObject *obj = NKI_RangeType_topy(x->range.ty);
+      if (!obj || PyTuple_SetItem(tup, 0, obj) == -1)
+        return NULL;
+    }
+    {
+      PyObject *obj = NKI_Expr_topy(x->range.l);
+      if (!obj || PyTuple_SetItem(tup, 1, obj) == -1)
+        return NULL;
+    }
+    {
+      PyObject *obj = NKI_Expr_topy(x->range.u);
+      if (!obj || PyTuple_SetItem(tup, 2, obj) == -1)
+        return NULL;
+    }
+    {
+      PyObject *obj = NKI_Expr_topy(x->range.s);
+      if (!obj || PyTuple_SetItem(tup, 3, obj) == -1)
+        return NULL;
+    }
+    PyObject *res = construct("Iterator_range", tup);
+    Py_DECREF(tup);
+    return res;
+    break;
+  }
+  default:
+    return NULL;
+  }
+}
+
 PyObject *NKI_Stmt__topy(struct NKI_Stmt_ *x) {
   switch (x->tag) {
   case NKI_Stmt_expr: {
@@ -857,12 +941,12 @@ PyObject *NKI_Stmt__topy(struct NKI_Stmt_ *x) {
     if (!tup)
       return NULL;
     {
-      PyObject *obj = NKI_Expr_topy(x->forLoop.x);
+      PyObject *obj = String_topy(x->forLoop.x);
       if (!obj || PyTuple_SetItem(tup, 0, obj) == -1)
         return NULL;
     }
     {
-      PyObject *obj = NKI_Expr_topy(x->forLoop.iter);
+      PyObject *obj = NKI_Iterator_topy(x->forLoop.iter);
       if (!obj || PyTuple_SetItem(tup, 1, obj) == -1)
         return NULL;
     }

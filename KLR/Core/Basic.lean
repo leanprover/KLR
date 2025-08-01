@@ -86,7 +86,7 @@ inductive Stmt where
   | ret (v : Value)
   | assign (x : String) (e : Expr)
   | store (dst : Access) (op : Operator) (args : List Value)
-  | oper (op : Operator)
+  | oper (op : Operator) (name : Option String)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 105]
@@ -131,46 +131,81 @@ instance : Tensors TensorRef where
   | .hbm _ => []
   | .register _ => []
 
+instance : Tensors Operand where
+  tensors op := match op with
+  | .imm .. => []
+  | .tile t => tensors t
+
+instance [Tensors a] : Tensors (Option a) where
+  tensors op := match op with
+  | .some t => tensors t
+  | .none => []
+
 instance : Tensors Operator where
   tensors op :=
-    let refs := match op with
+    let transformed := match op with
       | .activate d => [d.dst, d.src]
+      | .ncActivate d => [d.dst, d.src]
       | .affineSelect a => [a.dst, a.src]
+      | .ncAffineSelect a => [a.dst]
       | .dmaCopy d => [d.dst, d.src]
+      | .ncDmaCopy d => [d.dst, d.src]
       | .dmaTranspose d => [d.dst, d.src]
       | .dropout d => [d.dst, d.src]
       | .iota i => [i.dst]
       | .loadMaskRegister _ => []
       | .loadStationary l => [l.src]
       | .localGather l => [l.dst, l.src]
+      | .ncLocalGather l => [l.dst, l.src, l.index]
       | .matMul m => [m.dst, m.moving]
+      | .ncMatMul m => [m.dst, m.moving, m.stationary]
       | .memSet m => [m.dst]
       | .rangeSelect r => [r.dst, r.src]
+      | .ncRangeSelect r => [r.dst, r.bound0, r.bound1, r.onTrueTile]
       | .shuffle s => [s.dst, s.src]
       | .tensorReduce r => [r.dst, r.src]
       | .tensorTensorScan t => [t.dst, t.src0, t.src1]
       | .scalarTensorTensor s => [s.dst, s.src0, s.src1]
+      | .ncScalarTensorTensor s => [s.dst, s.data]
       | .transpose t => [t.dst, t.src]
       | .copy c => [c.dst, c.src]
+      | .ncCopy c => [c.dst, c.src]
       | .copyPredicated c => [c.dst, c.src, c.predicate]
       | .batchNormAggregate b => [b.dst, b.src]
       | .batchNormStats b => [b.dst, b.src]
-      | .findIndex8 f => [f.dst, f.src]
-      | .matchReplace8 m => [m.dst, m.src]
+      | .findIndex8 f => [f.dst, f.src, f.vals]
+      | .matchReplace8 m => [m.dst, m.src, m.vals]
       | .matchValueLoad m => [m.src]
       | .max8 m => [m.dst, m.src]
       | .reciprocal r => [r.dst, r.src]
       | .tensorScalar t => [t.dst, t.src]
       | .tensorTensor t => [t.dst, t.src0, t.src1]
-      | .ncMatMul t => [t.dst, t.stationary, t.moving]
-    refs.flatMap tensors
+      | .activationReduce t => [t.dst, t.src]
+      | .tensorPartitionReduce t => [t.dst, t.data]
+      | .tensorScalarReduce t => [t.dst, t.src, t.reduceRes]
+      | .selectReduce s => [s.dst, s.predicate, s.onTrue]
+      | .sequenceBounds s => [s.dst, s.segmentIds]
+    let additionalTensors := match op with
+      | .ncActivate d => tensors d.reduceRes
+      | .ncAffineSelect a => tensors a.onTrueTile
+      | .ncRangeSelect r => (tensors r.reduceRes) ++ (tensors r.bound0) ++ (tensors r.bound1) ++ (tensors r.onTrueTile)
+      | .dropout d => tensors d.threshold
+      | .matchReplace8 m => tensors m.dstIdx
+      | .tensorTensorScan t => tensors t.imm0
+      | .tensorScalar t => (tensors t.imm0) ++ (tensors t.imm1)
+      | .scalarTensorTensor s => (tensors s.src0) ++ (tensors s.src1)
+      | .activationReduce t => tensors t.reduceRes
+      | .tensorScalarReduce t => tensors t.operand0
+      | .selectReduce s => (tensors s.onFalse) ++ (tensors s.reduceRes)
+      | _ => []
+    (transformed.flatMap tensors) ++ additionalTensors
 
 instance : Tensors Stmt where
   tensors
   | .ret v => tensors v
   | .assign _ e => tensors e
   | .store dst _ vs => tensors (tensors dst :: vs.map tensors)
-  | .oper op => tensors op
+  | .oper op _ => tensors op
 
 def Kernel.internal (k : Kernel) : List TensorName :=
   let ts := (k.body.map tensors).flatten.eraseDups

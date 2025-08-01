@@ -209,8 +209,8 @@ private def belist (pairs : APPairs) (start : Nat) : BEList APPairIter :=
 end APPairs
 
 def AccessPattern.lelist (p : AccessPattern) : Err (BEList APPairIter) := do
-  let parOff <- p.partitionRowOffset
-  let freeOff <- p.freeElementOffset
+  let parOff := p.partitionRowOffset
+  let freeOff := p.freeElementOffset
   let parDimIter := APPairIter.make (APPair.mk 1 p.parNum) parOff
   -- Only the first free dimension gets an offset
   let freeIters := match p.freePattern with
@@ -341,18 +341,127 @@ private def apply2 (f0 : ByteArray -> ByteArray -> Err ByteArray) (rev0 : Bool) 
   apply1 f1 rev1 c1 (<- apply1 f0 rev0 c0 t)
 
 private def evalTensorScalar (ts : TensorScalar) (t: ByteArray) : Err ByteArray := do
-  match ts with
-  | TensorScalar.mk op0 c0 rev0 op1 c1 rev1 =>
-  let f0 <- evalAluOp op0
-  let f1 <- evalAluOp op1
-  let c0 := toLEByteArray c0
-  let c1 := toLEByteArray c1
+  let f0 ← evalAluOp ts.op0
+  let f1 ← match ts.op1 with
+    | some op => evalAluOp op
+    | none => evalAluOp .bypass
+  let c0 := <- match ts.imm0 with
+    | .imm (.float f) => .ok $ toLEByteArray f
+    | .imm (.int i) => .ok $ toLEByteArray i.toFloat
+    | _ => .error "Unsupported operand type for imm0"
+  let c1 := <- match ts.imm1 with
+    | some (.imm (.float f)) => .ok $ toLEByteArray f
+    | some (.imm (.int i)) => .ok $ toLEByteArray i.toFloat
+    | some _ => .error "Unsupported operand type for imm1"
+    | none => .ok $ toLEByteArray (0 : Float32)
+  let rev0 := ts.reverse == .first || ts.reverse == .both
+  let rev1 := ts.reverse == .second || ts.reverse == .both
   apply2 f0 rev0 c0 f1 rev1 c1 t
 
 #guard
-  let ts := TensorScalar.mk AluOp.add 1 false AluOp.bypass 0 false
-  let res := get! $ evalTensorScalar ts (toLEByteArray (1 : Float32))
-  Float32.ofLEByteArray! res == 2
+  let shape : Shape := ⟨ 1, [] ⟩
+  let addr : Address := ⟨ .sbuf, 1, 4, none, none ⟩
+  match TensorName.make "test" .float32 shape (some addr) with
+  | .ok t =>
+    let ts : TensorScalar := {
+      dst := .abstract (.simple t)
+      src := .abstract (.simple t)
+      engine := .unassigned
+      dtype := none
+      imm0 := .imm (.float 1)
+      op0 := .add
+      imm1 := some (.imm (.float 0))
+      op1 := some .bypass
+      reverse := .none
+    }
+    match evalTensorScalar ts (toLEByteArray (1 : Float32)) with
+    | .ok res => Float32.ofLEByteArray! res == 2
+    | .error _ => false
+  | .error _ => false
+
+private def evalOper (op : Core.Operator) : WithEnv Unit := match op with
+  | .activate { dst, src, accumulatorCmd, activationFunc, scale, bias, imm } => do
+    sorry
+  | .ncActivate { dst, src, accumulatorCmd, activationFunc, scale, bias, reduceOp, reduceRes, dtype } => do
+     sorry
+  | .activationReduce { dst, src, accumulatorCmd, activationFunc, scale, bias, reduceOp, reduceRes, dtype } => do
+     sorry
+  | .affineSelect { dst, src, fillMode, fillReg, maskPattern } => do
+     sorry
+  | .ncAffineSelect { dst, pred, onTrueTile, onFalseValue, dtype, cmpOp } => do
+     sorry
+  | .batchNormAggregate { dst, src, dtype } => do
+     sorry
+  | .batchNormStats { dst, src, dtype } => do
+     sorry
+  | .copy { dst, src, opDim } => do
+     sorry
+  | .ncCopy { dst, src, dtype, engine } => do
+     sorry
+  | .copyPredicated { dst, src, predicate, dtype, reversePred } => do
+     sorry
+  | .dmaCopy { dst, src, compute_op, dstBoundsCheck, srcBoundsCheck } => do
+     sorry
+  | .ncDmaCopy { dst, src, compute_op, oobMode, dgeMode } => do
+     sorry
+  | .dmaTranspose { dst, src, axes, dtype } => do
+     sorry
+  | .dropout { dst, src, thresholdType, threshold, dtype } => do
+     sorry
+  | .findIndex8 { dst, src, vals, dtype } => do
+     sorry
+  | .iota { dst, pattern, dtype } => do
+     sorry
+  | .loadMaskRegister { regNum } => do
+     sorry
+  | .loadStationary { src, isTranspose } => do
+     sorry
+  | .localGather { dst, src, indexMissBehavior, freePoolBuffer } => do
+     sorry
+  | .ncLocalGather { dst, src, index, numElemPerIdx, numValidIndicies } => do
+     sorry
+  | .matMul { dst, moving, psumAccumulateFlag } => do
+     sorry
+  | .ncMatMul { dst, stationary, moving, isStationaryOneZero, isMovingZero, isTranspose, tilePosition, tileSize } => do
+     sorry
+  | .matchReplace8 { dst, src, vals, replaceValue, dstIdx, dtype } => do
+     sorry
+  | .matchValueLoad { src } => do
+     sorry
+  | .max8 { dst, src, dtype } => do
+     sorry
+  | .memSet { dst, value, dtype, engine } => do
+     sorry
+  | .rangeSelect { dst, src, reduceCommand, reduceOp, base, fillValue, compOp0, compOp1, bound0, bound1 } => do
+     sorry
+  | .ncRangeSelect { dst, reduceCommand, reduceRes, reduceOp, compOp0, compOp1, bound0, bound1, rangeStart, onTrueTile, onFalseValue, dtype } => do
+     sorry
+  | .reciprocal { dst, src, dtype } => do
+     sorry
+  | .scalarTensorTensor { dst, src0, src1, op0, op1, reverseOperands, imm0, accumulatorCmd } => do
+     sorry
+  | .ncScalarTensorTensor { dst, data, src0, src1, op0, op1, reverseOperands, dtype } => do
+     sorry
+  | .shuffle { dst, src, shuffleMask, dtype } => do
+     sorry
+  | .tensorReduce { dst, src, op, opDim, negated, dtype, keepdims } => do
+     sorry
+  | .tensorScalar { dst, src, imm0, op0, imm1, op1, reverse, engine, dtype } => do
+     sorry
+  | .tensorTensor { dst, src0, src1, op, dtype, engine } => do
+     sorry
+  | .tensorTensorScan { dst, src0, src1, op0, op1, reverseOperands, imm0, accumulatorCmd, dtype } => do
+     sorry
+  | .tensorPartitionReduce { dst, op, data, dtype } => do
+     sorry
+  | .tensorScalarReduce { dst, src, operand0, op0, reverse0, dtype, reduceOp, reduceRes } => do
+     sorry
+  | .transpose { dst, src, dtype, engine } => do
+     sorry
+  | .selectReduce { dst, predicate, onTrue, onFalse, reduceRes, reduceCmd, reduceOp, reversePred, dtype } => do
+     sorry
+  | .sequenceBounds { dst, segmentIds, dtype } => do
+     sorry
 
 private def evalStmt (stmt : Core.Stmt) : WithEnv Unit := match stmt with
 | .ret v => do
@@ -362,34 +471,9 @@ private def evalStmt (stmt : Core.Stmt) : WithEnv Unit := match stmt with
 | .assign x e => do
   let v <- evalExpr e
   modify fun env => env.insert x v
-| .store dst (Operator.tensorScalar ts) [.access v] => do
-  let v <- read v
-  let f := evalTensorScalar ts
-  let v <- TensorLib.Tensor.Ufunc.unop v f
-  write dst v
-| .store dst Operator.load [arg] => do
-  let v <- evalValue arg
-  modify fun env => env.insert dst.tensor.name v
-| .store _ Operator.load args => throw s!"Load expected 1 argument, got {repr args}"
-| .store dst Operator.save [arg] => do
-  let v <- evalValue arg
-  modify fun env => env.insert dst.tensor.name v
-| .store dst (Operator.memset elemval) [] => do
-  if elemval ≥ 2^32 then
-   throw  s!"store memset: the element must fit in 32 bits"
-  else if elemval = 0 then
-    let dty <- evalDtype dst.tensor.dtype
-    let shape := evalShape dst.tensor.shape
-    write dst (TensorLib.Tensor.zeros dty shape)
-  else
-   throw s!"Unimplemented: store memset: nonzero"
-| .store _ (Operator.memset _) _ => throw  s!"Unimplemented: store memset with args"
-| .store _ (Operator.tensorScalar ts) _ => throw s!"Unimplemented: store tensorScalar {repr ts}"
-| .store _ (Operator.tensorScalarAddr ts) _ => throw s!"Unimplemented: store tensorScalarAddr {repr ts}"
-| .store _ Operator.save _ => do
-  let env <- get
-  dbg_trace s!"env: {repr env}"
-  throw s!"Unimplemented: store"
+| .store .. => do throw "Store will be deprecated"
+| .oper op _name => do
+    evalOper op
 
 private def evalKernel (kernel : Core.Kernel) (inputs : List Tensor) : WithEnv (List (String × Tensor)) := do
   let kernel <- checkInputTensors kernel inputs
