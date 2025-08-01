@@ -17,5 +17,6 @@ limitations under the License.
 import KLR.NKI.Annotations
 import KLR.NKI.Basic
 import KLR.NKI.Patterns
+import KLR.NKI.Pretty
 import KLR.NKI.Simplify
 import KLR.NKI.SimplifyOperators

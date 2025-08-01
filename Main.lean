@@ -233,7 +233,7 @@ def compile (p : Parsed) : IO UInt32 := do
   let (kernel, _) <- KLR.NKI.simplifyOperators kernel
   let kernel <- KLR.NKI.annotate kernel
   let kernel <- KLR.NKI.simplifyPatterns kernel
-  IO.println (reprStr kernel)
+  IO.println (Std.Format.pretty (Std.format kernel))
   return 0
 
 def typecheck (p : Parsed) : IO UInt32 := do
