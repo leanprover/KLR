@@ -253,7 +253,7 @@ static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
     // Handle Numpy & Torch tensors
     // Note: t is borrowed
     PyTypeObject *t = Py_TYPE(obj);
-    if (!t || !(strcmp(t->tp_name, "numpy.ndarray") == 0 || strcmp(t->tp_name, "Tensor") == 0))
+    if (!t || (strcmp(t->tp_name, "numpy.ndarray") != 0 && strcmp(t->tp_name, "Tensor") != 0))
       return NULL;
     PyObject *shape = PyObject_GetAttrString(obj, "shape");
     if (!shape) return NULL;
@@ -1221,7 +1221,7 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws) {
       es = &(*es)->next;
     }
   }
-  
+
   if (kws) {
     if (!PyDict_Check(kws)) {
       PyErr_SetString(PyExc_ValueError, "Invalid arguments: kwargs is not a dictionary");
