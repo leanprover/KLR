@@ -1191,7 +1191,7 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws) {
     PyErr_SetString(PyExc_RuntimeError, "No valid kernel for specialize");
     return false;
   }
- 
+  
   struct state st = {
     .region = k->python_region,
     .work = NULL,
@@ -1221,7 +1221,7 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws) {
       es = &(*es)->next;
     }
   }
- 
+  
   if (kws) {
     if (!PyDict_Check(kws)) {
       PyErr_SetString(PyExc_ValueError, "Invalid arguments: kwargs is not a dictionary");
