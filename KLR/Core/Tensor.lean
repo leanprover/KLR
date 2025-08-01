@@ -58,7 +58,7 @@ inductive Dtype where
     | .int8 | .int16 | .int64 | .int32
     | .uint8 | .uint16 | .uint32 | .uint64 => true
     | _ => false
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+  deriving BEq, Inhabited, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /-
 A tensor shape is a list of the sizes of each dimension of the tensor. By
@@ -489,6 +489,11 @@ inductive ParQuadrant where
   | par0 | par32 | par64 | par96
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
+@[serde tag = 1010]
+inductive SramMemory where
+  | sbuf
+  | psum
+deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 /-
 A structure representing the layout of a tensor in SRam. This maps very closely
 to the way that the ISA expects tensor accesses to be expressed. Specifically,
@@ -512,6 +517,7 @@ parQuadrant─►96│    ┌───────┐│        │
 structure TensorSram where
   name    : String
   dtype   : Dtype
+  memory : SramMemory
   -- Which parallel dimension channel this tensor starts at
   parQuadrant : ParQuadrant
   -- The size of this tensor in the parallel dimension

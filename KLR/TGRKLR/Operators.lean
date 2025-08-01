@@ -602,10 +602,18 @@ structure Reshape (Tensor : Type) (Scalar : Type) where
   deriving BEq, Repr
 
 @[serde tag = 1002]
-structure MakeVector (Tensor : Type) (Scalar : Type) where
-  dst : Scalar
+structure MatMulP (Tensor : Type) (Scalar : Type) where
+  dst : Tensor
+  a   : Tensor
+  b   : Tensor
+  deriving BEq, Repr, Inhabited, Nonempty
+
+@[serde tag = 1003]
+structure TransposeP (Tensor : Type) (Scalar : Type) where
+  dst : Tensor
   src : Tensor
-  deriving BEq, Repr
+  dims : List Nat
+  deriving BEq, Repr, Inhabited, Nonempty
 
 @[serde tag = 173]
 inductive Operator (Tensor : Type) (Scalar : Type) where
@@ -638,10 +646,10 @@ inductive Operator (Tensor : Type) (Scalar : Type) where
   | tensorTensorScan (op : TensorTensorScan Tensor Scalar)
   | transpose (op : Transpose Tensor Scalar)
 
-  | matmul (dst a b : Tensor)
-  | reshape (op : Reshape Tensor Scalar)
-  | identity (op : Identity Tensor Scalar)
-  | makeVector (op : MakeVector Tensor Scalar)
+  | matmulP (op : MatMulP Tensor Scalar)
+  | reshapeP (op : Reshape Tensor Scalar)
+  | identityP (op : Identity Tensor Scalar)
+  | transposeP (op : TransposeP Tensor Scalar)
   deriving BEq, Repr, Inhabited, Nonempty, Repr
 
 instance {Tensor Scalar : Type} [ToString Tensor] [ToString Scalar] : ToString (Operator Tensor Scalar) where
@@ -702,52 +710,52 @@ instance {Tensor Scalar : Type} [ToString Tensor] [ToString Scalar] : ToString (
         s!"{dst} = tensorTensorScan({src0}, {src1}, {op0}, {op1}, {repr reverseOperands}, {imm0}, {repr accumulatorCmd})"
     | .transpose ⟨dst, src⟩ =>
         s!"{dst} = transpose({src})"
-    | .matmul dst a b =>
+    | .matmulP ⟨dst, a, b⟩ =>
         s!"{dst} = matmul({a}, {b})"
-    | .reshape ⟨dst, src⟩ =>
+    | .reshapeP ⟨dst, src⟩ =>
         s!"{dst} = reshape({src})"
-    | .identity ⟨dst, src⟩ =>
+    | .identityP ⟨dst, src⟩ =>
         s!"{dst} = identity({src})"
-    | .makeVector ⟨dst, src⟩ =>
-        s!"{dst} = makeVector({src})"
+    | .transposeP ⟨dst, src, dims⟩ =>
+        s!"{dst} = transposeP({src}, {dims})"
 
 def dependencies : Operator Tensor Scalar -> List Tensor
-| .activate ⟨dst, src, _, _, _, _, _⟩ => [src, dst]
-| .affineSelect ⟨dst, src, _, _, _⟩ => [src, dst]
-| .batchNormAggregate ⟨dst, src⟩ => [src, dst]
-| .batchNormStats ⟨dst, src⟩ => [src, dst]
-| .copy ⟨dst, src, _⟩ => [src, dst]
-| .copyPredicated ⟨dst, src, _⟩ => [src, dst]
-| .dmaCopy ⟨dst, src, _, _, _⟩ => [src, dst]
-| .dmaTranspose ⟨dst, src⟩ => [src, dst]
-| .dropout ⟨dst, src, _, _⟩ => [src, dst]
-| .findIndex8 ⟨dst, src⟩ => [src, dst]
-| .iota ⟨dst, _⟩ => [dst]
+| .activate ⟨_, src, _, _, _, _, _⟩ => [src]
+| .affineSelect ⟨_, src, _, _, _⟩ => [src]
+| .batchNormAggregate ⟨_, src⟩ => [src]
+| .batchNormStats ⟨_, src⟩ => [src]
+| .copy ⟨_, src, _⟩ => [src]
+| .copyPredicated ⟨_, src, _⟩ => [src]
+| .dmaCopy ⟨_, src, _, _, _⟩ => [src]
+| .dmaTranspose ⟨_, src⟩ => [src]
+| .dropout ⟨_, src, _, _⟩ => [src]
+| .findIndex8 ⟨_, src⟩ => [src]
+| .iota ⟨_, _⟩ => []
 | .loadMaskRegister ⟨_⟩ => []
 | .loadStationary ⟨src, _⟩ => [src]
-| .localGather ⟨dst, src, _, _⟩ => [src, dst]
-| .matMul ⟨dst, moving, _⟩ => [moving, dst]
-| .matchReplace8 ⟨dst, src, _⟩ => [src, dst]
+| .localGather ⟨_, src, _, _⟩ => [src]
+| .matMul ⟨_, moving, _⟩ => [moving]
+| .matchReplace8 ⟨_, src, _⟩ => [src]
 | .matchValueLoad ⟨src⟩ => [src]
-| .max8 ⟨dst, src⟩ => [src, dst]
-| .memSet ⟨dst, _, _⟩ => [dst]
-| .rangeSelect ⟨dst, src, _, _, _, _, _, _, _, _⟩ => [src, dst]
-| .reciprocal ⟨dst, src⟩ => [src, dst]
-| .scalarTensorTensor ⟨dst, src0, src1, _, _, _, _, _⟩ =>
-    [src0, src1, dst]
-| .shuffle ⟨dst, src⟩ => [src, dst]
-| .tensorReduce ⟨dst, src, _, _, _⟩ => [src, dst]
-| .tensorScalar ⟨dst, src, _, _, _, _, _⟩ =>
-    [src, dst]
-| .tensorTensor ⟨dst, src0, src1, _⟩ =>
-    [src0, src1, dst]
-| .tensorTensorScan ⟨dst, src0, src1, _, _, _, _, _⟩ =>
-    [src0, src1, dst]
-| .transpose ⟨dst, src⟩ => [src, dst]
-| .matmul dst a b => [a, b, dst]
-| .reshape ⟨dst, src⟩ => [src, dst]
-| .identity ⟨dst, src⟩ => [src, dst]
-| .makeVector ⟨_, src⟩ => [src]
+| .max8 ⟨_, src⟩ => [src]
+| .memSet ⟨_, _, _⟩ => []
+| .rangeSelect ⟨_, src, _, _, _, _, _, _, _, _⟩ => [src]
+| .reciprocal ⟨_, src⟩ => [src]
+| .scalarTensorTensor ⟨_, src0, src1, _, _, _, _, _⟩ =>
+    [src0, src1]
+| .shuffle ⟨_, src⟩ => [src]
+| .tensorReduce ⟨_, src, _, _, _⟩ => [src]
+| .tensorScalar ⟨_, src, _, _, _, _, _⟩ =>
+    [src]
+| .tensorTensor ⟨_, src0, src1, _⟩ =>
+    [src0, src1]
+| .tensorTensorScan ⟨_, src0, src1, _, _, _, _, _⟩ =>
+    [src0, src1]
+| .transpose ⟨_, src⟩ => [src]
+| .matmulP ⟨_, a, b⟩ => [a, b]
+| .reshapeP ⟨_, src⟩ => [src]
+| .identityP ⟨_, src⟩ => [src]
+| .transposeP ⟨_, src, _⟩ => [src]
 
 def targets : Operator Tensor Scalar -> List Tensor
 | .activate ⟨dst, _, _, _, _, _, _⟩ => [dst]
@@ -778,10 +786,10 @@ def targets : Operator Tensor Scalar -> List Tensor
 | .tensorTensor ⟨dst, _, _, _⟩ => [dst]
 | .tensorTensorScan ⟨dst, _, _, _, _, _, _, _⟩ => [dst]
 | .transpose ⟨dst, _⟩ => [dst]
-| .matmul dst _ _ => [dst]
-| .reshape ⟨dst, _⟩ => [dst]
-| .identity ⟨dst, _⟩ => [dst]
-| .makeVector ⟨_, _⟩ => []
+| .matmulP ⟨dst, _, _⟩ => [dst]
+| .reshapeP ⟨dst, _⟩ => [dst]
+| .identityP ⟨dst, _⟩ => [dst]
+| .transposeP ⟨dst, _, _⟩ => [dst]
 
 def name : Operator Tensor Scalar -> String
 | .activate _ => "activate"
@@ -812,14 +820,10 @@ def name : Operator Tensor Scalar -> String
 | .tensorTensor _ => "tensorTensor"
 | .tensorTensorScan _ => "tensorTensorScan"
 | .transpose _ => "transpose"
-| .matmul _ _ _ => "matmul"
-| .reshape _ => "reshape"
-| .identity _ => "identity"
-| .makeVector _ => "makeVector"
-
-def scalarTargets : Operator Tensor Scalar -> List Scalar
-| .makeVector ⟨dst, _⟩ => [dst]
-| _ => []
+| .matmulP _ => "matmulP"
+| .reshapeP _ => "reshapeP"
+| .identityP _ => "identityP"
+| .transposeP _ => "transposeP"
 
 def scalarDependencies : Operator Tensor Scalar -> List Scalar
 | .dropout ⟨_, _, _, threshold⟩ => [threshold]

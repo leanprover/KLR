@@ -7,27 +7,39 @@ namespace KLR.TGRKLR.K3
 
 open KLR.TGR(TensorTy)
 
+abbrev Var := String
+
 structure TensorK3 where
-  name : String
+  name : Var
   shape : TensorTy
 deriving Inhabited, Repr, BEq
-instance : ToString TensorK3 where
-  toString t :=
-    s!"{t.name}<{t.shape.shape.val.toString}>"
 inductive ScalarK3
   | float (f : Float32)
   | int (f : Nat)
-  | vector (name : String) (size : Nat)
+  | vector (name : Var) (size : Nat) (dtype : TensorLib.Dtype)
 deriving Inhabited, Repr, BEq
+instance : ToString TensorK3 where
+  toString t :=
+    s!"%{t.name}<{t.shape.shape.val.toString}>"
 instance : ToString ScalarK3 where
   toString
     | .float f => s!"{f}"
     | .int i => s!"{i}"
-    | .vector name size => s!"{name}<{size}>"
+    | .vector name size dtype=> s!"{name}<{size}x{dtype}>"
 abbrev OperatorK3 := KLR.TGRKLR.Operator TensorK3 ScalarK3
 
-def Var := String
-deriving Inhabited, Repr, BEq, Hashable
+structure FunctionK3 where
+  name : String
+  inputs : List TensorK3
+  outputs : List TensorK3
+  statements : List OperatorK3
+
+instance : ToString FunctionK3 where
+  toString f :=
+    let inputs := f.inputs.map ToString.toString |> ",".intercalate
+    let outputs := f.outputs.map ToString.toString |> ",".intercalate
+    let body := f.statements.map ToString.toString |> "\n\t".intercalate
+    s!"def {f.name}({inputs}) -> {outputs} :\n\t{body}"
 
 structure Ctx where
   /- the type of each variable in the input program -/
@@ -260,10 +272,9 @@ def tryMakeBroadcastedTensorScalar (dst : KLR.TGR.Var) (vector : KLR.TGR.Var) (t
   | vectorHead :: vectorTail, _ :: tensorTail =>
     /- Make sure all but last dimensions match -/
     if natProd vectorTail == natProd tensorTail && vectorHead == 1 then
-      let vec := .vector (← gensym) (natProd vectorTail)
+      let vec := ← fetch vector
       pure $ .some [
-        .makeVector ⟨vec, ← fetch vector⟩,
-        mkTensorScalar (← lower dst) (← fetch tensor) vec (aluOpOfBinOp op),
+        mkTensorScalar (← lower dst) (← fetch tensor) (.vector vec.name vec.shape.shape.count vec.shape.dtype) (aluOpOfBinOp op),
       ]
     else
       pure .none
@@ -281,10 +292,9 @@ def compileTranspose (dst : KLR.TGR.Var) (src : KLR.TGR.Var) (dims : List Nat) :
   if srcShape == dstShape.reverse then
     pure [Operator.transpose ⟨← lower dst, ← fetch src⟩]
   else if srcShape == dstShape then
-    pure [.identity ⟨← lower dst, ← fetch src⟩]
+    pure [.identityP ⟨← lower dst, ← fetch src⟩]
   else
-    pure [.transpose ⟨← lower dst, ← fetch src⟩] -- TODO: this is a temporary solution
-    --throw s!"Transpose not supported for {srcShape} to {dstShape}."
+    pure [.transposeP ⟨← lower dst, ← fetch src, dims⟩]
 
 /- For now, the ordering of these rules is important, as it determines what order they will be tried in.
 Eventually, we want a heuristic that picks rules that consume more operators -/
@@ -309,11 +319,11 @@ def compileRules := [
   -- reductions
   [Rule| .reductionOp op a init [dim] -> ← compileReduction function op a init dim dst],
   -- Reshapes
-  [Rule| .reshape a _ -> [.reshape ⟨← lower dst, ← fetch a⟩]],
+  [Rule| .reshape a _ -> [.reshapeP ⟨← lower dst, ← fetch a⟩]],
   -- transpose
   [Rule| .transpose a dims -> ← compileTranspose dst a dims],
   -- matmul
-  [Rule| .batchMatmul a b -> [Operator.matmul (← lower dst) (← fetch a) (← fetch b)]],
+  [Rule| .batchMatmul a b -> [.matmulP ⟨← lower dst, ← fetch a, ← fetch b⟩]],
 
   [Rule| .arg _ -> let _ := (← lowerArg dst); []]
 ]
@@ -322,19 +332,6 @@ def makeTable (l : List KLR.TGR.Statement) : Std.HashMap String KLR.TGR.Statemen
   l.filterMap (fun x => match x with
     | KLR.TGR.Statement.assign dst _ _ => .some (dst, x)
     | _ => .none) |> Std.HashMap.ofList
-
-structure FunctionK3 where
-  name : String
-  inputs : List TensorK3
-  outputs : List TensorK3
-  statements : List OperatorK3
-
-instance : ToString FunctionK3 where
-  toString f :=
-    let inputs := f.inputs.map ToString.toString |> ",".intercalate
-    let outputs := f.outputs.map ToString.toString |> ",".intercalate
-    let body := f.statements.map ToString.toString |> "\n\t".intercalate
-    s!"def {f.name}({inputs}) -> {outputs} :\n\t{body}"
 
 partial def compileFunction (p : KLR.TGR.Function) : Compile FunctionK3 := do
   let retVars := p.statements.findSome? (fun s => match s with
