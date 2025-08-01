@@ -37,6 +37,15 @@ private def addStmt (s : Stmt) : Simplify Unit :=
 private def getAndClearStmts : Simplify (List Stmt) := do
   modifyGet fun st => (st.statements.toList, {st with statements := #[]})
 
+private def letBind (e : Expr) : Simplify Name := do
+  match e with
+  | ⟨ .var n, _⟩ => return n
+  | _ =>
+    let n <- freshName `x
+    let s := Stmt'.letM (.var n) none e
+    addStmt { stmt := s, pos := e.pos }
+    return n
+
 /-
 # Value Simplification
 -/
@@ -56,10 +65,6 @@ private def value : Python.Const -> Simplify Value
 We combine all of the different types into a single BinOp category.
 The distinction will be handled by the type system.
 -/
-
-private def boolOp : Python.BoolOp -> BinOp
-  | .land => .land
-  | .lor => .lor
 
 private def cmpOp : Python.CmpOp -> Simplify BinOp
   | .eq => return .eq
@@ -102,14 +107,22 @@ private def binOp : Python.BinOp -> Simplify BinOp
   | .and => return .and
   | .floor => return .floor
 
-private def booleanOp (op : BinOp) : List Expr -> Simplify Expr
+-- Make short-circuit of local and and or explicit
+private def booleanOp (op : Python.BoolOp) : List Expr -> Simplify Expr
+  | [] => throw "invalid boolean expression"
   | [e] => return e
-  | e :: es => return ⟨ .binOp op e (<- booleanOp op es), e.pos ⟩
-  | _ => throw "invalid boolean expression"
+  | e :: es => do
+    match op with
+    | .land => return ⟨ .conj e (<- booleanOp op es), e.pos ⟩
+    | .lor  => return ⟨ .disj e (<- booleanOp op es), e.pos ⟩
 
+-- Note: chanined comparison is _not_ short circuiting
 private def compare : Expr -> List BinOp -> List Expr -> Simplify Expr
   | l, [op], [y] => return ⟨ .binOp op l y, l.pos ⟩
-  | l, op :: ops, e :: es => return ⟨ .binOp op l (<- compare e ops es), l.pos ⟩
+  | l, op :: ops, e :: es => do
+    let first := ⟨ .binOp op l e, e.pos ⟩
+    let rest <- compare e ops es
+    return ⟨ .binOp .land first rest , l.pos ⟩
   | _, _, _ => throw "invalid comparison expression"
 
 /-
@@ -138,19 +151,12 @@ private def expr' (e' : Python.Expr') : Simplify Expr' :=
   match e' with
   | .const c => return .value (<- value c)
   | .name s _ => return .var s.toName
-  | .attr e id _ => do
-      match <- expr e with
-      | ⟨ .var s, _ ⟩ => return .var (.str s id)
-      | e =>
-        let n <- freshName `x
-        let s := Stmt'.letM (.var n) none e
-        addStmt { stmt := s, pos := e.pos }
-        return .var (n.str id)
+  | .attr e id _ => return .var (.str (<- letBind (<- expr e)) id)
   | .tuple l _
   | .list l _ => return .tuple (<- exprs l)
   | .subscript e ndx _ => return .access (<- expr e) (<- indexes ndx)
   | .slice .. => throw "invalid use of slice"
-  | .boolOp op l => return (<- booleanOp (boolOp op) (<- exprs l)).expr
+  | .boolOp op l => return (<- booleanOp op (<- exprs l)).expr
   | .binOp op l r => return .binOp (<- binOp op) (<- expr l) (<- expr r)
   | .unaryOp op e => return (<- unaryOp op) (<- expr e)
   | .compare a ops l => do
