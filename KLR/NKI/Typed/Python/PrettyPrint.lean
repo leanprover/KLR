@@ -15,7 +15,19 @@ limitations under the License.
 -/
 
 import KLR.NKI.Typed.Python.Basic
-import KLR.NKI.Typed.Python.Util
+
+def String.escape (s : String) (char : Char) : String :=
+  ⟨go s.toList⟩
+where
+  go
+  | [] => []
+  | '\\' :: c :: tl => '\\' :: c :: go tl
+  | c :: tl =>
+    if c == char then
+      '\\' :: c :: go tl
+    else
+      c :: go tl
+
 
 namespace KLR.NKI.Typed.Python
 

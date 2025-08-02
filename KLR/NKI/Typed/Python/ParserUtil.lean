@@ -1,0 +1,700 @@
+/-
+Copyright KLR Contributors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-/
+
+import Lean
+import Std.Data.HashSet
+-- import Strata.DDM.Format
+-- import Strata.DDM.Elab.Env
+-- import Strata.DDM.Util.PrattParsingTables
+
+/-!
+# Key changes:
+- No antiquots. We don't want users to be able to write Lean antiquots in a Python file
+- Differnet tokenizer:
+  - Python string with both `'` and `"`
+  - Line comments
+  - Block comments with both `'''` and `"""`
+  - No char literal
+  - Python identifier: first char can be `_` or alpha, rest must be alphanum or `_`
+-/
+
+namespace Lean.Parser.SyntaxStack
+
+def ofArray (a : Array Syntax) : SyntaxStack :=
+  a.foldl SyntaxStack.push .empty
+
+def toArray (s : SyntaxStack) : Array Syntax :=
+  s.toSubarray.toArray
+
+instance : Repr SyntaxStack where
+  reprPrec s _ := "SyntaxStack.ofArray " ++ repr s.toArray
+
+instance : Repr SyntaxStack where
+  reprPrec a p := reprPrec (a.toSubarray) p
+
+end Lean.Parser.SyntaxStack
+
+namespace Lean.Parser.TokenTable
+
+def addTokens (tt : TokenTable) (p : Parser) : TokenTable :=
+  let tkns := p.info.collectTokens []
+  tkns.foldl (λ tt t => tt.insert t t) tt
+
+end Lean.Parser.TokenTable
+
+namespace KLR.NKI.Typed.Python.Parser
+open Lean
+open Parser (
+    LeadingIdentBehavior
+    ParserContext
+    ParserFn
+    ParserModuleContext
+    ParserState
+    PrattParsingTables
+    SyntaxStack
+    Token
+    TokenMap
+    TokenTable
+    TrailingParser
+    andthenFn
+    checkLhsPrec
+    checkPrec
+    getNext
+    runLongestMatchParser
+    longestMatchStep
+    manyNoAntiquot
+    many1NoAntiquot
+    maxPrec
+    mkAtomicInfo
+    mkEmptySubstringAt
+    mkIdent
+    nodeInfo
+    optionalNoAntiquot
+    quotedCharFn
+    quotedStringFn
+    sepByNoAntiquot
+    sepBy1NoAntiquot
+    setLhsPrec
+    symbolInfo
+    takeUntilFn
+    takeWhileFn
+    trailingLoop
+    trailingNodeAux
+    trailingNodeFn
+    )
+
+export Lean.Parser (
+    InputContext
+    Parser
+    maxPrec
+    minPrec
+    node
+    skip
+    )
+
+@[inline] def isIdFirst (c : Char) : Bool :=
+  c.isAlpha || c = '_'
+
+@[inline] def isIdRest (c : Char) : Bool :=
+  c.isAlphanum || c = '_'
+
+-- private def isIdFirstOrBeginEscape (c : Char) : Bool :=
+--   isIdFirst c || isIdBeginEscape c
+
+private def isToken (idStartPos idStopPos : String.Pos) (tk : Option Token) : Bool :=
+  match tk with
+  | none    => false
+  | some tk =>
+     -- if a token is both a valid identifier and a symbol (i.e. a keyword),
+     -- we want it to be recognized as a symbol
+    tk.endPos ≥ idStopPos - idStartPos
+
+-- def ppIf {α} (cat : Name) (s : α) (msg : Thunk String): α :=
+--   if cat == `exp then
+--     @panic _ ⟨s⟩ msg.get
+--   else
+--     s
+
+-- def ppAux (cat : Name) (pre : String) (c : ParserContext) (s : ParserState) : ParserState :=
+--   ppIf cat s <| .mk fun () =>
+--     if let some msg := s.errorMsg then
+--       s!"{pre} {cat}: pos := {s.pos}, prec := {c.prec}, lhsPrec := {s.lhsPrec}, stxStack.size := {s.stxStack.size}, error := {toString msg}"
+--     else
+--       s!"{pre} {cat}: pos := {s.pos}, prec := {c.prec}, lhsPrec := {s.lhsPrec}, stxStack.size := {s.stxStack.size}, back := {toString s.stxStack.back}"
+
+/--
+Create a trailing node
+
+Note.  The parser maintains the invariant that an argument with minimum precedence p
+is filled by a term with precedence q, then q >= p.
+
+Parenthesis can be used to boost precedence in some contexts.
+
+s.lhsPrec is used in trailing nodes to indicate the precedence of the leading node.
+To respect the invariant, we need to check that the lhsPrec is at least the minimum
+first argument precedence.
+-/
+def trailingNode (n : SyntaxNodeKind) (prec minLhsPrec : Nat) (p : Parser) : TrailingParser :=
+  { info := nodeInfo n p.info
+    fn :=
+      fun c s =>
+        if c.prec ≥ prec then
+          s.mkUnexpectedError "unexpected token at this precedence level; consider parenthesizing the term"
+        else if s.lhsPrec < minLhsPrec then
+          s.mkUnexpectedError "unexpected token at this precedence level; consider parenthesizing the term"
+        else
+          let s := trailingNodeFn n p.fn c s
+          if s.hasError then
+            s
+          else
+            { s with lhsPrec := prec }
+  }
+
+/--
+Parses a sequence of the form `many (many '_' >> many1 digit)`, but if `needDigit` is true the parsed result must be nonempty.
+
+Note: this does not report that it is expecting `_` if we reach EOI or an unexpected character.
+Rationale: this error happens if there is already a `_`, and while sequences of `_` are allowed, it's a bit perverse to suggest extending the sequence.
+-/
+partial def takeDigitsFn (isDigit : Char → Bool) (expecting : String) (needDigit : Bool) : ParserFn := fun c s =>
+  let input := c.input
+  let i     := s.pos
+  if h : input.atEnd i then
+    if needDigit then
+      s.mkEOIError [expecting]
+    else
+      s
+  else
+    let curr := input.get' i h
+    if curr == '_' then takeDigitsFn isDigit expecting true c (s.next' c.input i h)
+    else if isDigit curr then takeDigitsFn isDigit expecting false c (s.next' c.input i h)
+    else if needDigit then s.mkUnexpectedError "unexpected character" (expected := [expecting])
+    else s
+
+/-- Consume whitespace and comments -/
+partial def whitespace : ParserFn := fun c s =>
+  let input := c.input
+  let i     := s.pos
+  if h : input.atEnd i then s
+  else
+    let curr := input.get' i h
+    if curr == '\t' then
+      s.mkUnexpectedError (pushMissing := false) "tabs are not allowed; please configure your editor to expand them"
+    else if curr == '\r' then
+      s.mkUnexpectedError (pushMissing := false) "isolated carriage returns are not allowed"
+    else if curr.isWhitespace then whitespace c (s.next' input i h)
+    -- line comments are ignored as whitespace
+    else if curr == '#' then whitespace c (takeUntilFn (· == '\n') c s)
+    else s
+
+def mkIdResult (startPos : String.Pos) (val : String) : ParserFn := fun c s =>
+  let stopPos         := s.pos
+  let input           := c.input
+  let rawVal          := { str := input, startPos := startPos, stopPos := stopPos  : Substring }
+  let s               := whitespace c s
+  let trailingStopPos := s.pos
+  let leading         := mkEmptySubstringAt input startPos
+  let trailing        := { str := input, startPos := stopPos, stopPos := trailingStopPos : Substring }
+  let info            := SourceInfo.original leading startPos trailing stopPos
+  let atom            := mkIdent info rawVal (.str .anonymous val)
+  s.pushSyntax atom
+
+/-- Push `(Syntax.node tk <new-atom>)` onto syntax stack if parse was successful. -/
+def mkNodeToken (n : SyntaxNodeKind) (startPos : String.Pos) : ParserFn := fun c s =>
+  if s.hasError then s else
+  let input     := c.input
+  let stopPos   := s.pos
+  let leading   := mkEmptySubstringAt input startPos
+  let val       := input.extract startPos stopPos
+  let s         := whitespace c s
+  let wsStopPos := s.pos
+  let trailing  := { str := input, startPos := stopPos, stopPos := wsStopPos : Substring }
+  let info      := SourceInfo.original leading startPos trailing stopPos
+  s.pushSyntax (Syntax.mkLit n val info)
+
+def mkTokenAndFixPos (startPos : String.Pos) (tk : Option Token) : ParserFn := fun c s =>
+  match tk with
+  | none    => s.mkErrorAt "token" startPos
+  | some tk =>
+    if c.forbiddenTk? == some tk then
+      s.mkErrorAt "forbidden token" startPos
+    else
+      let input     := c.input
+      let leading   := mkEmptySubstringAt input startPos
+      let stopPos   := startPos + tk
+      let s         := s.setPos stopPos
+      let s         := whitespace c s
+      let wsStopPos := s.pos
+      let trailing  := { str := input, startPos := stopPos, stopPos := wsStopPos : Substring }
+      let atom      := Parser.mkAtom (SourceInfo.original leading startPos trailing stopPos) tk
+      s.pushSyntax atom
+
+-- def charLitFnAux (startPos : String.Pos) : ParserFn := fun c s =>
+--   let input := c.input
+--   let i     := s.pos
+--   if h : input.atEnd i then s.mkEOIError
+--   else
+--     let curr := input.get' i h
+--     let s    := s.setPos (input.next' i h)
+--     let s    := if curr == '\\' then quotedCharFn c s else s
+--     if s.hasError then s
+--     else
+--       let i    := s.pos
+--       let curr := input.get i
+--       let s    := s.setPos (input.next i)
+--       if curr == '\'' then mkNodeToken charLitKind startPos c s
+--       else s.mkUnexpectedError "missing end of character literal"
+
+def identFnAux (startPos : String.Pos) (tk : Option Token) : ParserFn := fun c s =>
+  let input := c.input
+  let i     := s.pos
+  if h : input.atEnd i then
+    s.mkEOIError
+  else
+    let curr := input.get' i h
+    -- if isIdBeginEscape curr then
+    --   let startPart := input.next' i h
+    --   let s         := takeUntilFn isIdEndEscape c (s.setPos startPart)
+    --   if h : input.atEnd s.pos then
+    --     s.mkUnexpectedErrorAt "unterminated identifier escape" startPart
+    --   else
+    --     let stopPart  := s.pos
+    --     let s         := s.next' c.input s.pos h
+    --     if isToken startPos s.pos tk then
+    --       mkTokenAndFixPos startPos tk c s
+    --     else
+    --       let val := input.extract startPart stopPart
+    --       mkIdResult startPos val c s
+    if isIdFirst curr then
+      let startPart := i
+      let s         := takeWhileFn isIdRest c (s.next' input i h)
+      let stopPart  := s.pos
+      if isToken startPos s.pos tk then
+        mkTokenAndFixPos startPos tk c s
+      else
+        let val := input.extract startPart stopPart
+        mkIdResult startPos val c s
+    else
+      mkTokenAndFixPos startPos tk c s
+
+def decimalNumberFn (startPos : String.Pos) (c : ParserContext) : ParserState → ParserState := fun s =>
+  let s     := takeDigitsFn (fun c => c.isDigit) "decimal number" false c s
+  let input := c.input
+  let i     := s.pos
+  if h : input.atEnd i then
+    mkNodeToken numLitKind startPos c s
+  else
+    let curr := input.get' i h
+    if curr == '.' || curr == 'e' || curr == 'E' then
+      parseScientific s
+    else
+      mkNodeToken numLitKind startPos c s
+where
+  parseScientific s :=
+    let s := parseOptDot s
+    let s := parseOptExp s
+    mkNodeToken scientificLitKind startPos c s
+
+  parseOptDot s :=
+    let input := c.input
+    let i     := s.pos
+    let curr  := input.get i
+    if curr == '.' then
+      let i    := input.next i
+      let curr := input.get i
+      if curr.isDigit then
+        takeDigitsFn Char.isDigit "decimal number" false c (s.setPos i)
+      else
+        s.setPos i
+    else
+      s
+
+  parseOptExp s :=
+    let input := c.input
+    let i     := s.pos
+    let curr  := input.get i
+    if curr == 'e' || curr == 'E' then
+      let i    := input.next i
+      let i    := if input.get i == '-' || input.get i == '+' then input.next i else i
+      let curr := input.get i
+      if curr.isDigit then
+        takeDigitsFn Char.isDigit "decimal number" false c (s.setPos i)
+      else
+        s.mkUnexpectedError "missing exponent digits in scientific literal"
+    else
+      s
+
+def binNumberFn (startPos : String.Pos) : ParserFn := fun c s =>
+  let s := takeDigitsFn (fun c => c == '0' || c == '1') "binary number" true c s
+  mkNodeToken numLitKind startPos c s
+
+def octalNumberFn (startPos : String.Pos) : ParserFn := fun c s =>
+  let s := takeDigitsFn (fun c => '0' ≤ c && c ≤ '7') "octal number" true c s
+  mkNodeToken numLitKind startPos c s
+
+def hexNumberFn (startPos : String.Pos) : ParserFn := fun c s =>
+  let s := takeDigitsFn (fun c => ('0' ≤ c && c ≤ '9') || ('a' ≤ c && c ≤ 'f') || ('A' ≤ c && c ≤ 'F')) "hexadecimal number" true c s
+  mkNodeToken numLitKind startPos c s
+
+def numberFnAux : ParserFn := fun c s =>
+  let input    := c.input
+  let startPos := s.pos
+  if h : input.atEnd startPos then s.mkEOIError
+  else
+    let curr := input.get' startPos h
+    if curr == '0' then
+      let i    := input.next' startPos h
+      let curr := input.get i
+      if curr == 'b' || curr == 'B' then
+        binNumberFn startPos c (s.next input i)
+      else if curr == 'o' || curr == 'O' then
+        octalNumberFn startPos c (s.next input i)
+      else if curr == 'x' || curr == 'X' then
+        hexNumberFn startPos c (s.next input i)
+      else
+        decimalNumberFn startPos c (s.setPos i)
+    else if curr.isDigit then
+      decimalNumberFn startPos c (s.next input startPos)
+    else
+      s.mkError "numeral"
+
+/--
+TODO: This does not properly implement Python's string escape sequence:
+https://docs.python.org/3/reference/lexical_analysis.html#escape-sequences
+
+We also don't support raw strings with the 'r' or 'R' prefix.
+-/
+partial def strLitFnAux (startPos : String.Pos) (quote : Char) : ParserFn := fun c s =>
+  let input := c.input
+  let i     := s.pos
+  if h : input.atEnd i then s.mkUnexpectedErrorAt "unterminated string literal" startPos
+  else
+    let curr := input.get' i h
+    let s    := s.setPos (input.next' i h)
+    if curr == quote then
+      mkNodeToken strLitKind startPos c s
+    else if curr == '\\' then andthenFn quotedStringFn (strLitFnAux startPos quote) c s
+    else strLitFnAux startPos quote c s
+
+abbrev blockCommentKind : SyntaxNodeKind := `blockComment
+
+/--
+Finish parsing a block comment started with `"""` or `'''`.
+
+Note that block comments are parsed similar to statements in python,
+where the start of a block comment must be properly indented according to the
+current expected indentation level.
+-/
+partial def finishCommentBlock (startPos : String.Pos) (quote : Char) : ParserFn := fun c s =>
+  let input := c.input
+  let i     := s.pos
+  if h : input.atEnd i then
+    eoi s
+  else
+    let curr := input.get' i h
+    if curr == '\\' then -- escape sequence
+      let i := input.next' i h
+      if h : input.atEnd i then eoi s else
+      finishCommentBlock startPos quote c (s.next' input i h)
+    else
+      let j := input.nextWhile (· == quote) i
+      if j == i then
+        finishCommentBlock startPos quote c (s.next' input i h)
+      else
+        let s := s.setPos j
+        if j - i ≥ ("".pushn quote 3).endPos then
+          mkNodeToken blockCommentKind startPos c s
+        else
+          finishCommentBlock startPos quote c s
+where
+  eoi s := s.mkUnexpectedError "unterminated comment"
+
+private def tokenFnAux : ParserFn := fun c s =>
+  let input := c.input
+  let i     := s.pos
+  let curr  := input.get i
+  if curr == '\"' then
+    strOrCommentBlock '\"' c s
+  else if curr == '\'' then
+    strOrCommentBlock '\'' c s
+  else if curr.isDigit then
+    numberFnAux c s
+  else
+    let tk := c.tokens.matchPrefix input i
+    identFnAux i tk c s
+where
+  strOrCommentBlock quote c s :=
+    let input  := c.input
+    let i      := s.pos
+    let quote3 := "".pushn quote 3
+    let j      := input.nextWhile (· == quote) i
+    if j - i ≥ quote3.endPos then
+      finishCommentBlock i quote c (s.setPos (i + quote3))
+    else
+      strLitFnAux i quote c (s.next input i)
+
+private def updateTokenCache (startPos : String.Pos) (s : ParserState) : ParserState :=
+  -- do not cache token parsing errors, which are rare and usually fatal and thus not worth an extra field in `TokenCache`
+  match s with
+  | ⟨stack, lhsPrec, pos, ⟨_, catCache⟩, none, errs⟩ =>
+    if stack.size == 0 then s
+    else
+      let tk := stack.back
+      ⟨stack, lhsPrec, pos, ⟨{ startPos := startPos, stopPos := pos, token := tk }, catCache⟩, none, errs⟩
+  | other => other
+
+def tokenFn (expected : List String := []) : ParserFn := fun c s =>
+  let input := c.input
+  let i     := s.pos
+  if input.atEnd i then
+    s.mkEOIError expected
+  else
+    let tkc := s.cache.tokenCache
+    if tkc.startPos == i then
+      let s := s.pushSyntax tkc.token
+      s.setPos tkc.stopPos
+    else
+      let s := tokenFnAux c s
+      updateTokenCache i s
+
+/--
+  Parses a token and asserts the result is of the given kind.
+  `desc` is used in error messages as the token kind. -/
+def expectTokenFn (k : SyntaxNodeKind) (desc : String) : ParserFn := fun c s =>
+  let s := tokenFn [desc] c s
+  if !s.hasError && !(s.stxStack.back.isOfKind k) then s.mkUnexpectedTokenError desc else s
+
+def satisfySymbolFn (p : String → Bool) (expected : List String) : ParserFn := fun c s => Id.run do
+  let iniPos := s.pos
+  let s := tokenFn expected c s
+  if s.hasError then
+    return s
+  if let .atom _ sym := s.stxStack.back then
+    if p sym then
+      return s
+  -- this is a very hot `mkUnexpectedTokenErrors` call, so explicitly pass `iniPos`
+  s.mkUnexpectedTokenErrors expected iniPos
+
+def symbolFnAux (sym : String) (errorMsg : String) : ParserFn :=
+  satisfySymbolFn (fun s => s == sym) [errorMsg]
+
+def symbolFn (sym : String) : ParserFn :=
+  symbolFnAux sym ("'" ++ sym ++ "'")
+
+def symbolNoAntiquot (sym : String) : Parser :=
+  { info := symbolInfo sym
+    fn   := symbolFn sym }
+
+def identifier : Parser := {
+  fn   := fun ctx s =>
+    let s := tokenFn ["identifier"] ctx s
+    if s.hasError then
+      s
+    else if let .ident _ _ (.str .anonymous _) _ := s.stxStack.back then
+      s
+    else
+      s.mkUnexpectedTokenError "identifier"
+  info := mkAtomicInfo "ident"
+}
+
+def numLit : Parser :=
+  Parser.withAntiquot (Parser.mkAntiquot "num" numLitKind)
+  {
+    fn   := expectTokenFn numLitKind "numeral"
+    info := mkAtomicInfo "num"
+  }
+
+def decimalLit : Parser := {
+  fn   := expectTokenFn scientificLitKind "scientific number"
+  info := mkAtomicInfo "scientific"
+}
+
+def strLit : Parser := {
+  fn   := expectTokenFn strLitKind "string literal"
+  info := mkAtomicInfo "str"
+}
+
+def blockComment : Parser := {
+  fn   := expectTokenFn blockCommentKind "block comment"
+  info := mkAtomicInfo "blockComment"
+}
+
+def runParser (source fileName : String) (p : Parser) (tokens : TokenTable) : IO ParserState := do
+  let emptyEnv ← mkEmptyEnvironment 0
+  let ictx : InputContext := {
+    input    := source,
+    fileName := fileName
+    fileMap  := FileMap.ofString source
+  }
+
+  let pmctx : ParserModuleContext := { env := emptyEnv, options := {} }
+  -- TODO: this doesn't do what we want, so we have to manually supply the token table right now
+  -- let tokens : TokenTable := .empty
+  -- let tokens := tokens.addTokens p
+  let s : ParserState := {
+      pos      := 0
+      cache    := {
+        tokenCache := { startPos := source.endPos + ' ' }
+        parserCache := {}
+    }
+  }
+  let s := p.fn.run ictx pmctx tokens s
+  pure s
+
+def peekTokenAux (c : ParserContext) (s : ParserState) : ParserState × Except ParserState Syntax :=
+  let iniSz  := s.stackSize
+  let iniPos := s.pos
+  let s      := tokenFn [] c s
+  if let some _ := s.errorMsg then (s.restore iniSz iniPos, .error s)
+  else
+    let stx := s.stxStack.back
+    (s.restore iniSz iniPos, .ok stx)
+
+def peekToken (c : ParserContext) (s : ParserState) : ParserState × Except ParserState Syntax :=
+  let tkc := s.cache.tokenCache
+  if tkc.startPos == s.pos then
+    (s, .ok tkc.token)
+  else
+    peekTokenAux c s
+
+def indexed {α : Type} (map : TokenMap α) (c : ParserContext) (s : ParserState) (behavior : LeadingIdentBehavior) : ParserState × List α :=
+  let (s, stx) := peekToken c s
+  let find (n : Name) : ParserState × List α := (s,  map.findD n [])
+  match stx with
+  | .ok (.atom _ sym)      => find (.mkSimple sym)
+  | .ok (.ident _ _ val _) =>
+    match behavior with
+    | .default => find identKind
+    | .symbol =>
+      match map.find? val with
+      | some as => (s, as)
+      | none    => find identKind
+    | .both =>
+      match map.find? val with
+      | some as =>
+        if val == identKind then
+          (s, as)  -- avoid running the same parsers twice
+        else
+          match map.find? identKind with
+          | some as' => (s, as ++ as')
+          | _        => (s, as)
+      | none    => find identKind
+  | .ok (.node _ k _) => find k
+  | .ok _             => (s, [])
+  | .error s'         => (s', [])
+
+private def mkResult (s : ParserState) (iniSz : Nat) : ParserState :=
+  if s.stackSize == iniSz + 1 then s
+  else s.mkNode nullKind iniSz -- throw error instead?
+
+def longestMatchMkResult (startSize : Nat) (s : ParserState) : ParserState :=
+  if s.stackSize > startSize + 1 then s.mkNode choiceKind startSize else s
+
+def longestMatchFnAux (left? : Option Syntax) (startSize startLhsPrec : Nat) (startPos : String.Pos) (prevPrio : Nat) (ps : List (Parser × Nat)) : ParserFn :=
+  let rec parse (prevPrio : Nat) (ps : List (Parser × Nat)) :=
+    match ps with
+    | []    => fun _ s => longestMatchMkResult startSize s
+    | p::ps => fun c s =>
+      let (s, prevPrio) := longestMatchStep left? startSize startLhsPrec startPos prevPrio p.2 p.1.fn c s
+      parse prevPrio ps c s
+  parse prevPrio ps
+
+def longestMatchFn (left? : Option Syntax) : List (Parser × Nat) → ParserFn
+  | []    => fun _ s => s.mkError "longestMatch: empty list"
+  | [p]   => fun c s => runLongestMatchParser left? s.lhsPrec p.1.fn c s
+  | p::ps => fun c s =>
+    let startSize := s.stackSize
+    let startLhsPrec := s.lhsPrec
+    let startPos  := s.pos
+    let s         := runLongestMatchParser left? s.lhsPrec p.1.fn c s
+    longestMatchFnAux left? startSize startLhsPrec startPos p.2 ps c s
+
+def leadingParserAux (cat : Name) (tables : PrattParsingTables) (behavior : LeadingIdentBehavior) : ParserFn := fun c s => Id.run do
+  let iniSz   := s.stackSize
+  let (s, ps) := indexed tables.leadingTable c s behavior
+  if s.hasError then
+    return s
+  let ps      := tables.leadingParsers ++ ps
+  if ps.isEmpty then
+    -- if there are no applicable parsers, consume the leading token and flag it as unexpected at this position
+    let s := tokenFn [cat.toString] c s
+    if s.hasError then
+      return s
+    return s.mkUnexpectedTokenError cat.toString
+  let s := longestMatchFn none ps c s
+  mkResult s iniSz
+
+def leadingParser (cat : Name) (tables : PrattParsingTables) (behavior : LeadingIdentBehavior) (antiquot : ParserFn) : ParserFn :=
+  Parser.withAntiquotFn (isCatAntiquot := true) antiquot (leadingParserAux cat tables behavior)
+
+partial def trailingLoop (cat : Name) (tables : PrattParsingTables) (c : ParserContext) (s : ParserState) : ParserState := Id.run do
+  let iniSz  := s.stackSize
+  let iniPos := s.pos
+  let (s, ps)       := indexed tables.trailingTable c s LeadingIdentBehavior.default
+  if s.hasError then
+    -- let s := ppAux cat "trailingLoop indexed error" c s
+    -- Discard token parse errors and break the trailing loop instead.
+    -- The error will be flagged when the next leading position is parsed, unless the token
+    -- is in fact valid there (e.g. EOI at command level, no-longer forbidden token)
+    return s.restore iniSz iniPos
+  if ps.isEmpty && tables.trailingParsers.isEmpty then
+    return s -- no available trailing parser
+  let left   := s.stxStack.back
+  let s      := s.popSyntax
+  let ps     := ps ++ tables.trailingParsers
+  let s      := longestMatchFn left ps c s
+  if s.hasError then
+    -- Discard non-consuming parse errors and break the trailing loop instead, restoring `left`.
+    -- This is necessary for fallback parsers like `app` that pretend to be always applicable.
+    return if s.pos == iniPos then s.restore (iniSz - 1) iniPos |>.pushSyntax left else s
+  trailingLoop cat tables c s
+
+/--
+  Implements a variant of Pratt's algorithm. In Pratt's algorithms tokens have a right and left binding power.
+  In our implementation, parsers have precedence instead. This method selects a parser (or more, via
+  `longestMatchFn`) from `leadingTable` based on the current token. Note that the unindexed `leadingParsers` parsers
+  are also tried. We have the unidexed `leadingParsers` because some parsers do not have a "first token". Example:
+  ```
+  syntax term:51 "≤" ident "<" term "|" term : index
+  ```
+  Example, in principle, the set of first tokens for this parser is any token that can start a term, but this set
+  is always changing. Thus, this parsing rule is stored as an unindexed leading parser at `leadingParsers`.
+  After processing the leading parser, we chain with parsers from `trailingTable`/`trailingParsers` that have precedence
+  at least `c.prec` where `c` is the `ParsingContext`. Recall that `c.prec` is set by `categoryParser`.
+
+  Note that in the original Pratt's algorithm, precedences are only checked before calling trailing parsers. In our
+  implementation, leading *and* trailing parsers check the precedence. We claim our algorithm is more flexible,
+  modular and easier to understand.
+
+  `antiquotParser` should be a `mkAntiquot` parser (or always fail) and is tried before all other parsers.
+  It should not be added to the regular leading parsers because it would heavily
+  overlap with antiquotation parsers nested inside them. -/
+def prattParser (cat : Name) (tables : PrattParsingTables) (behavior : LeadingIdentBehavior) (antiquot : ParserFn) : ParserFn := fun c s =>
+  let s := leadingParser cat tables behavior antiquot c s
+  if s.hasError then
+    s
+  else
+    trailingLoop cat tables c s
+
+instance : Insert (Name × Parser × Nat) (TokenMap (Parser × Nat)) where
+  insert | (n, p, prec), tm => tm.insert n (p, prec)
+
+instance : Singleton (Name × Parser × Nat) (TokenMap (Parser × Nat)) where
+  singleton | (n, p, prec) => TokenMap.insert {} n (p, prec)
+
+instance : Insert Token TokenTable := ⟨fun a b => b.insert a a⟩
+
+instance : Singleton Token TokenTable := ⟨fun a => insert a ∅⟩

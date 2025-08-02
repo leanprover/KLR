@@ -40,11 +40,6 @@ def TensorLib.Dtype.toString : TensorLib.Dtype → String
 
 namespace KLR.NKI.Typed
 
--- structure Pos where
---   startPos : String.Pos := {}
---   endPos : String.Pos := {}
--- deriving Repr, ToExpr, ToJson
-
 inductive Kind
   | size
   | shape

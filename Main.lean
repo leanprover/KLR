@@ -238,16 +238,9 @@ def compile (p : Parsed) : IO UInt32 := do
 
 open Lean in
 def typecheck (p : Parsed) : IO UInt32 := do
-  let file := p.positionalArg! "file" |>.as! String
-  let prog ← NKI.Typed.DSL.parsePythonFile file
-  match prog with
-  | .ok prog =>
-    let json := toJson prog
-    IO.FS.writeFile s!"{file}.json" json.pretty
-    return 0
-  | .error err =>
-    IO.println err
-    return 1
+  let _file := p.positionalArg! "file" |>.as! String
+  IO.println "unimplemented"
+  return 1
 
 def trace (p : Parsed) : IO UInt32 := do
   let kernel <- parse p

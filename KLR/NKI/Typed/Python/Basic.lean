@@ -32,8 +32,7 @@ abbrev Ident := String
 
 abbrev QualifiedIdent := (List Ident × Ident)
 
-def QualifiedIdent.toString (i : QualifiedIdent) : String :=
-  match i with
+def QualifiedIdent.toString : QualifiedIdent → String
   | ([], i) => i
   | (qs, i) => s!"{".".intercalate qs}.{i}"
 

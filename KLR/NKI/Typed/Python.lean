@@ -15,8 +15,6 @@ limitations under the License.
 -/
 
 import KLR.NKI.Typed.Python.Basic
-import KLR.NKI.Typed.Python.Grammar
 import KLR.NKI.Typed.Python.Parser
+import KLR.NKI.Typed.Python.ParserUtil
 import KLR.NKI.Typed.Python.PrettyPrint
-import KLR.NKI.Typed.Python.Tests
-import KLR.NKI.Typed.Python.Util
