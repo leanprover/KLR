@@ -24,7 +24,7 @@ namespace KLR.NKI.Typed.Python.Parser
 open KLR.Core (Pos)
 open KLR.Compile.Pass (Pass PosError PassM)
 
-open Lean Parser
+open Lean
 
 abbrev typKind : SyntaxNodeKind := `typ
 
@@ -32,34 +32,90 @@ abbrev expKind : SyntaxNodeKind := `exp
 
 abbrev stmtKind : SyntaxNodeKind := `stmt
 
+abbrev stmtSeqKind : SyntaxNodeKind := `stmtSeq
+
 abbrev defKind : SyntaxNodeKind := `def
+
+def prattParserAntiquot (kind : Name) (name : String) (parsingTables : PrattParsingTables) : ParserFn :=
+  prattParser kind parsingTables .default (mkAntiquot name kind false true).fn
+
+def precCache (kind : Name) (pFn : ParserFn) (expected : List String) (prec : Nat) : Parser :=
+  setExpected expected
+    {fn := adaptCacheableContextFn ({ · with prec }) (withCacheFn kind pFn)}
 
 namespace Parse
 
-unsafe def pExp : Parser :=
-  p 0
-where
-  num := numLit
-  paren := leading_parser:maxPrec ("(" >> p 0 >> ")")
-  add := trailing_parser:30:30 (" + " >> p 31)
-  mul := trailing_parser:35:35 (" * " >> p 36)
-  pFn :=
-    let parsingTables : PrattParsingTables := {
+  unsafe def pExp : Parser :=
+    p 0
+  where
+    paren := leading_parser:maxPrec ("(" >> p 0 >> ")")
+
+    num := numLit
+
+    add := trailing_parser:30:30 (" + " >> p 31)
+    mul := trailing_parser:35:35 (" * " >> p 36)
+
+    parsingTables := {
       leadingTable := {
-        (`«$», num, maxPrec), -- needed for antiquot
-        (`num, num, maxPrec),
-        (`«(», paren, maxPrec)
+        (`«(», paren, maxPrec),
+        (numLitKind, num, maxPrec)
       },
       trailingTable := {
         (`«+», add, 30),
         (`«*», mul, 35)
       },
     }
-    prattParser expKind parsingTables .default (mkAntiquot "exp" expKind false true).fn
-  p (prec : Nat) :=
-    setExpected ["expression"]
-      {fn := adaptCacheableContextFn ({ · with prec })
-        (withCacheFn expKind pFn)}
+    pFn := prattParserAntiquot expKind "exp" parsingTables
+    p := precCache expKind pFn ["expression"]
+
+  mutual
+
+  unsafe def pStmt : Parser :=
+    p 0
+  where
+    exp := pExp
+
+    dfn := pDef
+
+    pass := leading_parser:maxPrec "pass"
+
+    parsingTables := {
+      leadingTable := {
+        (`pass, pass, maxPrec),
+        (`def, dfn, maxPrec)
+      },
+      leadingParsers := [
+        (exp, maxPrec)
+      ],
+      trailingTable := {
+      },
+    }
+    pFn := prattParserAntiquot stmtKind "stmt" parsingTables
+    p := precCache stmtKind pFn ["statement"]
+
+  unsafe def pStmtSeq : Parser := leading_parser
+    sepBy1Indent pStmt "; " (allowTrailingSep := true)
+
+  unsafe def pDef : Parser :=
+    p 0
+  where
+    dfn := leading_parser:maxPrec
+      -- Parser.optional Parser.checkWsBefore >> "def " >> identNoAntiquot >> "(" >> Parser.sepBy identNoAntiquot ", " >> ")" >> ":" >> pStmtSeq
+      "def " >> identNoAntiquot >> "(" >> Parser.sepBy identNoAntiquot ", " >> ")" >> ":" >> {fn := whitespace} >> pStmtSeq
+      -- "def " >> identNoAntiquot >> "(" >> Parser.sepBy identNoAntiquot ", " >> ")" >> ":" >> pStmtSeq
+
+    parsingTables := {
+      leadingTable := {
+        (`def, dfn, maxPrec)
+      }
+    }
+    pFn := prattParserAntiquot defKind "def" parsingTables
+    p := precCache defKind pFn ["def"]
+
+  end
+
+  unsafe def pPy : Parser :=
+    Parser.withPosition ({fn := whitespace} >> Parser.sepByIndent pStmt "; " (allowTrailingSep := true)) >> {fn := whitespace} >> Parser.eoi
 
 end Parse
 
@@ -82,8 +138,8 @@ namespace EvalM
       pure { line, column, lineEnd, columnEnd }
     | none => pure { line, column }
 
-  def throwUnsupportedSyntax {α} (stx : Syntax) : EvalM α := do
-    PassM.withPos (← .getPos stx) do
+  def throwUnsupportedSyntax {α} (pos : Pos) : EvalM α := do
+    PassM.withPos pos do
       throw "unsupported syntax"
 
 end EvalM
@@ -94,7 +150,8 @@ namespace Eval
   partial def eExp (stx : TSyntax expKind) : EvalM Exp := do
     let pos ← .getPos stx
     match stx with
-    | `(pExp| $n:num) => pure ⟨pos, .value <| .int <| .ofNat n.getNat⟩
+    | `(pExp.paren| ($e:exp)) => eExp e
+    | `(pExp.num| $n:num) => pure ⟨pos, .value <| .int <| n.getNat⟩
     | `(pExp| $x:exp * $y:exp) => do
       let x ← eExp x
       let y ← eExp y
@@ -103,12 +160,22 @@ namespace Eval
       let x ← eExp x
       let y ← eExp y
       pure ⟨pos, .binOp .add x y⟩
-    | stx =>
-      .throwUnsupportedSyntax stx
+    | _ => .throwUnsupportedSyntax pos
 
-  def py (stx : Syntax) (fileMap : FileMap) : Except String Exp :=
-    match ((eExp ⟨stx⟩).run { fileMap }).run {} with
-    | .ok (eExp, _) _ => .ok eExp
+  partial def eStmt (stx : TSyntax stmtKind) : EvalM Stmt := do
+    let pos ← .getPos stx
+    match stx with
+    | `(pStmt.pass| pass) => pure ⟨pos, .pass⟩
+    | `(pStmt| $e:exp) => pure ⟨pos, .exp (← eExp e)⟩
+    -- | _ => .throwUnsupportedSyntax pos
+
+  def eStmtSeq (stx : TSyntax stmtSeqKind) : EvalM (List Stmt) :=
+    dbg_trace stx
+    return []
+
+  def py (stx : Syntax) (fileMap : FileMap) : Except String (List Stmt) :=
+    match ((eStmtSeq ⟨stx⟩).run { fileMap }).run {} with
+    | .ok (stmts, _) _ => .ok stmts
     | .error err _ => .error err.msg
 
 end Eval
@@ -125,21 +192,42 @@ a python file supplied by the user. This is fine because:
    syntax when encoutering them.
 -/
 def pyTokens : TokenTable := {
+  -- "\n",
   "(", ")",
-  "+", "*"
+  "+", "*",
+  "def", ":", ";",
+  "pass"
 }
 
 def runPyParser (source fileName : String) (fileMap : FileMap) : IO (Except String Syntax) := unsafe do
-  let s ← runParser source fileName Parse.pExp pyTokens
+  let s ← runParser source fileName Parse.pPy pyTokens
   if s.hasError then
     let { line, column } := fileMap.toPosition s.pos
     return .error s!"{fileName} {line}:{column}: {s.errorMsg.get!.toString}"
   else
     return .ok s.stxStack.back
 
-def evalPy (source fileName : String) : IO (Except String Exp) := do
-  let fileMap := source.toFileMap
-  let stx ←← runPyParser source fileName fileMap
-  return Eval.py stx fileMap
+-- def evalPy (source fileName : String) : IO (Except String (List Stmt)) := do
+--   let fileMap := source.toFileMap
+--   let stx ←← runPyParser source fileName fileMap
+--   return Eval.py stx fileMap
 
-#eval return (← evalPy "100 * 10" "<input>").map (fun e => Exp.reprPrec e 0)
+-- #eval runPyParser "pass" "<input>" "pass".toFileMap
+def str :=
+"
+def fo():
+  pass
+"
+-- "
+-- # com1
+-- def foo ()       : # com2
+-- # com3
+--   # com4
+--   1 + 1
+--   # com5
+-- # com6
+
+-- "
+#eval return (←← runPyParser str "<input>" str.toFileMap).prettyPrint
+-- #eval return (← evalPy "(42 + 1)" "<input>").map (Stmt.listReprPrec · 0)
+-- #eval return (← evalPy "pass" "<input>").map (Stmt.listReprPrec · 0)
