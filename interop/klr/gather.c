@@ -1253,8 +1253,7 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws) {
         
         // Remove the key from kwargs so that we don't process it further or as varargs
         if (PyDict_DelItem(kws, key) < 0) {
-          PyErr_Format(PyExc_ValueError, "Unexpected error while processing grid");
-          return NULL;
+          return false;
         }
         continue;
       }
