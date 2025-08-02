@@ -1240,7 +1240,7 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws) {
       // Process special argument $grid
       if(strncmp(s, "$grid", 5) == 0) {
         if (!PyLong_Check(val)) {
-          PyErr_SetString(PyExc_ValueError, "grid must be an integer");
+          PyErr_SetString(PyExc_TypeError, "grid must be an integer");
           return false;
         }
         long grid_val = PyLong_AsLong(val);
