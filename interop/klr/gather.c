@@ -250,10 +250,10 @@ static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
     return e;
   }
   else {
-    // Handle Numpy tensors
+    // Handle Numpy & Torch tensors
     // Note: t is borrowed
     PyTypeObject *t = Py_TYPE(obj);
-    if (!t || strcmp(t->tp_name, "numpy.ndarray"))
+    if (!t || (strcmp(t->tp_name, "numpy.ndarray") != 0 && strcmp(t->tp_name, "Tensor") != 0))
       return NULL;
 
     PyObject *shape = PyObject_GetAttrString(obj, "shape");
@@ -1236,6 +1236,26 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws) {
       char *s = py_strdup(&st, key);
       if (!s)
         return false;
+
+      // Process special argument $grid
+      if(strncmp(s, "$grid", 5) == 0) {
+        if (!PyLong_Check(val)) {
+          PyErr_SetString(PyExc_TypeError, "grid must be an integer");
+          return false;
+        }
+        long grid_val = PyLong_AsLong(val);
+        if (grid_val < 0 || grid_val > 8) {
+          PyErr_SetString(PyExc_ValueError, "grid must be between 0-8");
+          return false;
+        }
+        k->grid = (uint8_t) grid_val;
+        
+        // Remove the key from kwargs so that we don't process it further or as varargs
+        if (PyDict_DelItem(kws, key) < 0) {
+          return false;
+        }
+        continue;
+      }
 
       struct Python_Expr *e = const_expr(&st, val);
       if (!e) {
