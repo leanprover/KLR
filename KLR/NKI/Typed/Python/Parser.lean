@@ -24,6 +24,10 @@ namespace KLR.NKI.Typed.Python.Parser
 open KLR.Core (Pos)
 open KLR.Compile.Pass (Pass PosError PassM)
 
+/-!
+https://docs.python.org/3/reference/grammar.html
+-/
+
 open Lean
 
 abbrev typKind : SyntaxNodeKind := `typ
@@ -42,6 +46,15 @@ def prattParserAntiquot (kind : Name) (name : String) (parsingTables : PrattPars
 def precCache (kind : Name) (pFn : ParserFn) (expected : List String) (prec : Nat) : Parser :=
   setExpected expected
     {fn := adaptCacheableContextFn ({ · with prec }) (withCacheFn kind pFn)}
+
+@[builtin_doc, inline] def sepBy1Indent (p : Parser) (sep : String) (psep : Parser := symbol sep) (allowTrailingSep : Bool := false) : Parser :=
+  let p := Parser.withAntiquotSpliceAndSuffix `sepBy p (symbol "*")
+  Parser.withPosition <|
+    Parser.sepBy1
+      (Parser.checkColGe >> p)
+      sep
+      (psep <|> Parser.checkColEq >> Parser.checkLinebreakBefore >> Parser.pushNone)
+      allowTrailingSep
 
 namespace Parse
 
@@ -94,15 +107,15 @@ namespace Parse
     p := precCache stmtKind pFn ["statement"]
 
   unsafe def pStmtSeq : Parser := leading_parser
-    sepBy1Indent pStmt "; " (allowTrailingSep := true)
+    sepBy1Indent pStmt "; " (psep := Parser.notFollowedBy "; " "def") (allowTrailingSep := true)
 
   unsafe def pDef : Parser :=
     p 0
   where
     dfn := leading_parser:maxPrec
-      -- Parser.optional Parser.checkWsBefore >> "def " >> identNoAntiquot >> "(" >> Parser.sepBy identNoAntiquot ", " >> ")" >> ":" >> pStmtSeq
-      "def " >> identNoAntiquot >> "(" >> Parser.sepBy identNoAntiquot ", " >> ")" >> ":" >> {fn := whitespace} >> pStmtSeq
-      -- "def " >> identNoAntiquot >> "(" >> Parser.sepBy identNoAntiquot ", " >> ")" >> ":" >> pStmtSeq
+      ("def " >> identNoAntiquot >>
+        "(" >> Parser.sepBy identNoAntiquot ", " >> ")" >> ":" >>
+       Parser.checkColGt >> pStmtSeq)
 
     parsingTables := {
       leadingTable := {
@@ -115,7 +128,7 @@ namespace Parse
   end
 
   unsafe def pPy : Parser :=
-    Parser.withPosition ({fn := whitespace} >> Parser.sepByIndent pStmt "; " (allowTrailingSep := true)) >> {fn := whitespace} >> Parser.eoi
+    Parser.sepByIndent pStmt "; " (allowTrailingSep := true) >> Parser.eoi
 
 end Parse
 
@@ -214,10 +227,8 @@ def runPyParser (source fileName : String) (fileMap : FileMap) : IO (Except Stri
 
 -- #eval runPyParser "pass" "<input>" "pass".toFileMap
 def str :=
-"
-def fo():
-  pass
-"
+"def fo():
+  pass"
 -- "
 -- # com1
 -- def foo ()       : # com2

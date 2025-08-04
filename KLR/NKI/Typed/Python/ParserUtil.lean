@@ -114,7 +114,6 @@ export Lean.Parser (
   withCacheFn
   mkAntiquot
   symbol
-  sepBy1Indent
   withAntiquot
   setExpected
   numLit
@@ -138,15 +137,17 @@ partial def whitespace : ParserFn := fun c s =>
   if h : input.atEnd i then s
   else
     let curr := input.get' i h
-    dbg_trace s!"at whitesapce: {curr}"
     if curr == '\t' then
       s.mkUnexpectedError (pushMissing := false) "tabs are not allowed; please configure your editor to expand them"
     else if curr == '\r' then
       s.mkUnexpectedError (pushMissing := false) "isolated carriage returns are not allowed"
     else if curr.isWhitespace then whitespace c (s.next' input i h)
     -- line comments are ignored as whitespace
-    else if curr == '#' then dbg_trace "consuming # comment"; whitespace c (takeUntilFn (· == '\n') c s)
+    else if curr == '#' then whitespace c (takeUntilFn (· == '\n') c s)
     else s
+
+def ws : Parser :=
+  { fn := whitespace }
 
 private def isToken (idStartPos idStopPos : String.Pos) (tk : Option Token) : Bool :=
   match tk with
