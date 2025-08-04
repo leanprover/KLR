@@ -182,6 +182,8 @@ theorem e4 : ⊢ (@wp DataT ⟨1⟩ e4L e4R (ΦIntPure (· = ·))) := by
   sorry
 
 
+/-! Example: Loops with .none as next entry are skipped -/
+
 def e6L : ExecState DataT :=
   withNoContext [
     .loop AffineIter "x" .none [],
@@ -193,12 +195,73 @@ def e6R : ExecState DataT :=
     .ret (.val .unit),
   ]
 
+
 theorem e6 : ⊢ @wp DataT ⟨2⟩ e6L e6R ΦUnitEq := by
   simp [withNoContext, e6L, e6R]
   wp_desync
-  dwp_left_pure LoopExitPure
-  dwp_left_pure RetPure
+  dwp_left_pure  LoopExitPure
+  dwp_left_pure  RetPure
   dwp_right_pure RetPure
   wp_resync
   wp_sync_val
   simp [ΦUnitEq, true_intro]
+
+
+/-! Example: Loop unrolling
+This doesn't demonstrate any interesting unrolling, but it's an example of doing loop unrolling
+w/ the proof state. -/
+
+-- The sequence: [2, 4, 6]
+def e7Iterator : AffineIter where
+  start     := 1
+  peek      := 2
+  num       := 2
+  start_num := 1
+  step      := 2
+
+def e7L : ExecState DataT :=
+  withNoContext [
+    .loop AffineIter "x" (.some e7Iterator) [.assign .none (.val .unit)],
+    .ret (.val .unit),
+  ]
+
+def e7R : ExecState DataT :=
+  withNoContext [
+    .assign .none (.val .unit),
+    .assign .none (.val .unit),
+    .assign .none (.val .unit),
+    .ret (.val .unit),
+  ]
+
+theorem e7 : ⊢ wp (DataT := DataT) ⟨2⟩ e7L e7R ΦUnitEq := by
+  simp [withNoContext, e7L, e7R]
+  wp_desync
+  dwp_right_pure AssignValuePure
+  dwp_left_pure  LoopNterPure
+  dwp_left_pure  AssignValuePure
+  wp_resync
+  simp
+  wp_desync
+  dwp_right_pure AssignValuePure
+  dwp_left_pure  LoopNterPure
+  dwp_left_pure  AssignValuePure
+  wp_resync
+  simp
+  wp_desync
+  dwp_right_pure AssignValuePure
+  dwp_left_pure  LoopNterPure
+  dwp_left_pure  AssignValuePure
+  wp_resync
+  simp
+  wp_desync
+  dwp_left_pure  LoopExitPure
+  dwp_left_pure  RetPure
+  dwp_right_pure RetPure
+  wp_resync
+  wp_sync_val
+  simp [ΦUnitEq, true_intro]
+
+
+-- Next: Unbounded loops
+-- Next: Loops with binding & pure expressions
+-- Loops that generalize over the local context to do induction
