@@ -459,7 +459,43 @@ theorem dwpLoopDoneR (Hx : 1 < Rx := by omega) :
   · iexact Hσ
 
 
+
+-- /- Proposition over locals. Used for generalization.
+-- LocProp should be solvable by `simp` for good automation. -/
+-- def LocProp (DataT : Type _) := @NML.Locals DataT → Prop
+-- @[simp] nonrec def LocProp.True : LocProp DataT := fun _ => True
+-- @[simp] def LocProp.And (p1 p2 : LocProp DataT) : LocProp DataT := fun loc => p1 loc ∧ p2 loc
+-- @[simp] def LocProp.Inc (s : String) (v : @Value DataT) : LocProp DataT := fun loc => loc s = some v
+-- @[simp] def LocProp.Emp (s : String) : LocProp DataT := fun loc => loc s = none
+
+
+/-- Generalize a wp by a relationship on its locations -/
+theorem wp_gen_loc (R : Locals DataT → Locals DataT → Prop) :
+  ⊢ (∀ locₗ locᵣ, ⌜R locₗ locᵣ⌝ -∗ wp (DataT := DataT) K (.run <| ⟨sₗ, locₗ⟩ :: pₗ) (.run <| ⟨sᵣ, locᵣ⟩ :: pᵣ) Φ) -∗
+    ⌜R llₗ llᵣ⌝ -∗
+    wp (DataT := DataT) K (.run <| ⟨sₗ, llₗ⟩ :: pₗ) (.run <| ⟨sᵣ, llᵣ⟩ :: pᵣ) Φ := by
+  iintro H HR
+  ispecialize H _ _ HR
+  iexact H
+
+
+
+
+
+
+
 end weakestpre
+
+
+
+
+
+
+
+
+
+
+
 
 /-- Unary weakest preconditions
 
@@ -470,6 +506,9 @@ These independent steps are defined semantically, and specified using a `uwpL/uw
 TODO: At the moment, allocL/R cannot be implemented as a UWP because the prog' and post cannot
 depend on state. Should this be fixed? I think it pretty much only matters in that case because
 the output has a state that is not mentioned by the input.
+
+
+TODO: Not sure this actually works at the frontend. Maybe make it a typeclass?
 -/
 structure uwp (DataT : Type _) where
   pre   : PROP DataT
