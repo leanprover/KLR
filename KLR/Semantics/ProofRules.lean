@@ -126,7 +126,9 @@ theorem wpAllocSync  {Φ : NML.Value DataT → NML.Value DataT → @PROP DataT} 
   -- Conclude using the updated resources and Hwp
   iintro ⟨Hwp, ℓₗ, ℓᵣ, Hℓₗ, Hℓᵣ, Hσ⟩
   ispecialize Hwp ℓₗ ℓᵣ Hℓₗ Hℓᵣ
-  exact entails_preorder.refl
+  isplit l [Hσ]
+  · iapply Hσ
+  · iapply Hwp
 
 /-! Desynchronized WP's (dwp)
 
@@ -267,6 +269,12 @@ theorem update_lemma_left (σₗ σᵣ : NML.State DataT)
   state_interp σₗ σᵣ ⊢ |==> ((ChipMemory.freshSBUFStore σₗ.1).1 ⇉ₗ∅ ∗ state_interp ⟨(ChipMemory.freshSBUFStore σₗ.1).2⟩ σᵣ) :=
   sorry
 
+theorem update_lemma_right (σₗ σᵣ : NML.State DataT)
+      (HL : ChipMemory.get_store σᵣ.memory (.sbufUnboundedIndex ℓ₂) = none):
+  state_interp σₗ σᵣ ⊢ |==> ((ChipMemory.freshSBUFStore σᵣ.1).1 ⇉ₗ∅ ∗ state_interp σₗ ⟨(ChipMemory.freshSBUFStore σᵣ.1).2⟩) :=
+  sorry
+
+
 -- NB. Keeping this code in the repo as an example for writing basic proof rules.
 open ChipIndex in
 /-- `dwp` for a single allocation step on the left. This is a little bit simpler
@@ -330,6 +338,73 @@ theorem dwpAllocL (Hx : 1 < Lx := by omega) :
     rw [Hℓ₁]
     exact step.asnV
   · iexact H
+
+
+open ChipIndex in
+theorem dwpAllocR (Hx : 1 < Rx := by omega) :
+    ⊢ (∀ ℓᵣ, (ℓᵣ [S]⇉ₗ∅) -∗
+        dwp Lm (Rm - 2) Lx (Rx - 2) p1 (.run <| p2'.map (.bind DataT · x (.uptr <| sbufUnboundedIndex ℓᵣ))) Φ) -∗
+      dwp Lm Rm Lx Rx p1 (.run <| ⟨.assign (.some x) (.alloc Memory.sbuf), locₗ⟩ :: p2') Φ := by
+  -- Unfold the dwp in the conclusion
+  iintro Hdwp
+  conv => rhs; unfold dwp
+  iintro sl sr Hs
+  -- Update the resources
+  refine .trans (sep_mono_r (update_lemma_right sl sr (ℓ₂ := sr.memory.sbufUnbounded.next_fresh) ?G)) ?_
+  case G =>
+    simp [ChipMemory.get_store]
+    rw [← AllocHeap.get_fresh (t := sr.memory.sbufUnbounded) (H := sr.memory.sbuf_wf)]
+    rfl
+  iintro ⟨Hdwp, Hupd⟩
+  -- Eliminate bupds from the hypotheses but not the conclusion, by duplicating the bupd in the conclusion.
+  istop
+  refine .trans ?_ bupd_idem.mp
+  refine .trans bupd_frame_l (BIUpdate.mono ?_)
+  iintro ⟨Hdwp, ⟨Hfrac, Hauth⟩⟩
+  -- Specialize Hdwp with the state alloc is stepping into
+  obtain ⟨ℓ₂, Hℓ₂⟩ : ∃ ℓ₂, (ChipMemory.freshSBUFStore sr.memory).fst = .sbufUnboundedIndex ℓ₂ := by
+    simp
+  ispecialize Hdwp ℓ₂
+  rw [Hℓ₂]
+  ispecialize Hdwp Hfrac
+  unfold dwp
+  ispecialize Hdwp sl { memory := (ChipMemory.freshSBUFStore sr.memory).snd } Hauth
+  -- Eliminate the bupd in the dwp
+  -- NB. This is why we duplicated the modality before.
+  refine .trans emp_sep.mp (BIUpdate.mono ?_)
+  -- Obtain the updated resources
+  iintro ⟨p1', p2', HΦ, s1, s2, ⟨n1, n2, %Hstep⟩, H⟩
+  -- Reestablish dwp using the updated resources
+  iexists p1'
+  iexists p2'
+  isplit l [HΦ]
+  · iexact HΦ
+  iexists s1
+  iexists s2
+  isplit r
+  · iexists n1
+    iexists (n2 + 2)
+    ipure_intro
+    obtain ⟨_, _, _, _, _, SR⟩ := Hstep
+    refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
+    have Htwo : 1 + 1 = 2 := by rfl
+    rw [Nat.add_comm _ _, ← Htwo, Nat.add_assoc, StepN_add_iff]
+    rename_i pi _ _ _ _ _
+    exists (ExecState.run ({ stmt := NML.Stmt.assign (some x) (.val (.uptr (ChipMemory.freshSBUFStore sr.memory).1)), env := locₗ } :: pi), State.mk (ChipMemory.freshSBUFStore sr.memory).2)
+    refine ⟨?_, ?_⟩
+    · apply stepN_1_iff_step.mpr  ?_
+      apply step.asnE
+      apply ExprStep.sbuf_alloc
+      rfl
+    · rw [StepN_add_iff]
+      exists (ExecState.run (List.map (fun x_1 => NML.Task.bind DataT x_1 x (Value.uptr (sbufUnboundedIndex ℓ₂))) pi), { memory := (ChipMemory.freshSBUFStore sr.memory).snd })
+      refine ⟨?_, ?_⟩
+      · apply stepN_1_iff_step.mpr
+        rw [Hℓ₂]
+        exact step.asnV
+      · exact SR
+  · iexact H
+
 
 end weakestpre
 

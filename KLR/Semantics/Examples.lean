@@ -99,6 +99,7 @@ def e3R : ExecState DataT :=
 
 set_option linter.deprecated false in
 theorem e3 : ⊢ @wp DataT ⟨2⟩ e3L e3R ΦUnitEq := by
+  simp [e3L, e3R, withNoContext]
   istart
   -- Enter desync mode, do two left pure steps, and one right pure step. Resync.
   -- Note (commented) that a third pure step does not work becase of the ⟨2⟩ bound.
