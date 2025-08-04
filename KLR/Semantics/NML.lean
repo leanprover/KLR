@@ -86,7 +86,7 @@ inductive Expr
 inductive Stmt where
 | ret          (_ : @Expr DataT)
 | assign       (_ : Option String) (_ : @Expr DataT)
-| loop         (I : Type _) [Iterator I (@Value DataT)] (_ : String) (_ : Option I) (body : Stmt) (body : List Stmt)
+| loop         (I : Type _) [Iterator I (@Value DataT)] (_ : String) (_ : Option I) (body : List Stmt)
 | edit_state   (_ : @State DataT → @State DataT)
 | ret_assert   (_ : @Expr DataT) (_ : @State DataT → Prop)
 
@@ -233,14 +233,14 @@ inductive step : ExecState DataT × State DataT → ExecState DataT × State Dat
     step (.run <| .cons ⟨.assign .none e, loc⟩ p, s)  (.run <| .cons ⟨.assign .none e', loc⟩ p, s')
 /-- [ Loop termination ] -/
 | loop_exit {I : Type _} [Iterator I (@Value DataT)] :
-    step (.run <| .cons ⟨.loop I _ .none _ _, _⟩ p, s) (.run p, s)
+    step (.run <| .cons ⟨.loop I _ .none _, _⟩ p, s) (.run p, s)
 /-- [ Loop enter body ] -/
 | loop_nter {I : Type _} [Iterator I (@Value DataT)] (i : I) :
     step
-      (.run <| .cons ⟨.loop I x (.some i) b _, loc⟩ p, s)
+      (.run <| .cons ⟨.loop I x (.some i) b, loc⟩ p, s)
       (.run <|
           .append (p.map (fun t => t.bind _ x (Iterator.peek i))) <|
-          .cons ⟨.loop I x (Iterator.next (@Value DataT) i) b _, loc⟩ <|
+          .cons ⟨.loop I x (Iterator.next (@Value DataT) i) b, loc⟩ <|
           p, s)
 /-- [ghost edit state] Apply a function to the current state. This is ghost code.
 This is erasable when f is a no-op. -/
@@ -337,3 +337,19 @@ theorem asnE_ExprLift : ExprLift (DataT := DataT) (NML.Stmt.assign x) := by
   cases x
   · exact NML.step.seqE He
   · exact NML.step.asnE He
+
+structure AffineIter where
+  start     : Int
+  peek      : Int
+  num       : Nat
+  start_num : Nat
+  step      : Int
+
+instance instIterAffineIter {DataT : Type _} : TensorLib.Iterator AffineIter (NML.Value DataT) where
+  next r :=
+    match r.num with
+    | .zero      => .none
+    | .succ num' => .some ⟨r.start, r.peek + r.step, num', r.start_num, r.step⟩
+  peek r  := NML.Value.int r.peek
+  size r  := r.num
+  reset r := ⟨r.start, r.start, r.start_num, r.start_num, r.step⟩
