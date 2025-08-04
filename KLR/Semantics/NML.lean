@@ -313,6 +313,11 @@ theorem RetPure {v : NML.Value DataT} :
     SmallStep.PureStep (NML.ExecState.run <| ⟨.ret (.val v), loc⟩ :: p') (.done v) :=
   fun _ => NML.step.retV
 
+theorem LoopExitPure [TensorLib.Iterator I (NML.Value DataT)]:
+    SmallStep.PureStep (NML.ExecState.run <| ⟨NML.Stmt.loop (DataT := DataT) I s .none body, loc⟩ :: p) (.run p) :=
+  fun _ => NML.step.loop_exit
+
+
 abbrev withNoContext {DataT} (L : List (NML.Stmt DataT)) : NML.ExecState DataT :=
   .run <| L.map (⟨·, NML.nolocals DataT⟩)
 

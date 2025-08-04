@@ -203,7 +203,6 @@ theorem wpResync : ⊢ Φ p1 p2 -∗ dwp 0 0 Lx Rx p1 p2 Φ := by
 
 -- NB. Keeping this code in the repo as an example for writing basic proof rules.
 /-- `dwp` for a single pure step on the left. -/
-@[deprecated "Use dwpL with a PureStep uwp instead. " (since:="2025/07/31") ]
 theorem dwpPureL (Hstep : PureStep p1 p1') (Hx : 0 < Lx := by omega) :
     ⊢ dwp (Lm - 1) Rm (Lx - 1) Rx p1' p2 Φ -∗ dwp Lm Rm Lx Rx p1 p2 Φ := by
   -- Unfold the dwp
@@ -235,7 +234,6 @@ theorem dwpPureL (Hstep : PureStep p1 p1') (Hx : 0 < Lx := by omega) :
 
 -- NB. Keeping this code in the repo as an example for writing basic proof rules.
 /-- `dwp` for a single pure step on the right. -/
-@[deprecated "Use dwpL with a PureStep uwp instead. " (since:="2025/07/31") ]
 theorem dwpPureR (Hstep : SmallStep.PureStep p2 p2') (Hx : 0 < Rx := by omega) :
     ⊢ dwp Lm (Rm - 1) Lx (Rx - 1) p1 p2' Φ -∗ dwp Lm Rm Lx Rx p1 p2 Φ := by
   -- Unfold the dwp
