@@ -274,7 +274,6 @@ theorem update_lemma_right (σₗ σᵣ : NML.State DataT)
   state_interp σₗ σᵣ ⊢ |==> ((ChipMemory.freshSBUFStore σᵣ.1).1 ⇉ₗ∅ ∗ state_interp σₗ ⟨(ChipMemory.freshSBUFStore σᵣ.1).2⟩) :=
   sorry
 
-
 -- NB. Keeping this code in the repo as an example for writing basic proof rules.
 open ChipIndex in
 /-- `dwp` for a single allocation step on the left. This is a little bit simpler
@@ -404,6 +403,62 @@ theorem dwpAllocR (Hx : 1 < Rx := by omega) :
         exact step.asnV
       · exact SR
   · iexact H
+
+/-- Proof rule for a completed loop on the left -/
+theorem dwpLoopDoneL (Hx : 1 < Lx := by omega) :
+    ⊢ dwp (Lm - 1) Rm (Lx - 1) Rx (.run p1') p2 Φ -∗
+      dwp Lm Rm Lx Rx (.run <| (⟨NML.Stmt.loop AffineIter s .none body, loc⟩ :: p1')) p2 Φ := by
+  iintro Hdwp
+  unfold dwp
+  iintro sl sr Hs
+  ispecialize Hdwp sl sr Hs
+  refine .trans emp_sep.mp (BIUpdate.mono ?_)
+  iintro ⟨p1', p2', HΦ, sl', sr', ⟨nl, nr, %Hstep⟩, Hσ⟩
+  iexists p1'
+  iexists p2'
+  isplit l [HΦ]
+  · iexact HΦ
+  iexists sl'
+  iexists sr'
+  isplit r [Hσ]
+  · iexists (nl + 1)
+    iexists nr
+    ipure_intro
+    obtain ⟨_, _, _, _, SL, _⟩ := Hstep
+    refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
+    rw [Nat.add_comm, StepN_add_iff]
+    refine ⟨_, ?_, SL⟩
+    refine stepN_1_iff_step.mpr ?_
+    exact step.loop_exit
+  · iexact Hσ
+
+/-- Proof rule for a completed loop on the left -/
+theorem dwpLoopDoneR (Hx : 1 < Rx := by omega) :
+    ⊢ dwp Lm (Rm - 1) Lx (Rx - 1) p1 (.run p2') Φ -∗
+      dwp Lm Rm Lx Rx p1 (.run <| (⟨NML.Stmt.loop AffineIter s .none body, loc⟩ :: p2')) Φ := by
+  iintro Hdwp
+  unfold dwp
+  iintro sl sr Hs
+  ispecialize Hdwp sl sr Hs
+  refine .trans emp_sep.mp (BIUpdate.mono ?_)
+  iintro ⟨p1', p2', HΦ, sl', sr', ⟨nl, nr, %Hstep⟩, Hσ⟩
+  iexists p1'
+  iexists p2'
+  isplit l [HΦ]
+  · iexact HΦ
+  iexists sl'
+  iexists sr'
+  isplit r [Hσ]
+  · iexists nl
+    iexists nr + 1
+    ipure_intro
+    obtain ⟨_, _, _, _, _, SR⟩ := Hstep
+    refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
+    rw [Nat.add_comm, StepN_add_iff]
+    refine ⟨_, ?_, SR⟩
+    refine stepN_1_iff_step.mpr ?_
+    exact step.loop_exit
+  · iexact Hσ
 
 
 end weakestpre
