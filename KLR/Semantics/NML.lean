@@ -239,7 +239,7 @@ inductive step : ExecState DataT × State DataT → ExecState DataT × State Dat
     step
       (.run <| .cons ⟨.loop I x (.some i) b, loc⟩ p, s)
       (.run <|
-          .append (p.map (fun t => t.bind _ x (Iterator.peek i))) <|
+          .append (b.map (fun t => (⟨t, loc⟩ : NML.Task DataT).bind _ x (TensorLib.Iterator.peek i))) <|
           .cons ⟨.loop I x (Iterator.next (@Value DataT) i) b, loc⟩ <|
           p, s)
 /-- [ghost edit state] Apply a function to the current state. This is ghost code.
@@ -313,9 +313,30 @@ theorem RetPure {v : NML.Value DataT} :
     SmallStep.PureStep (NML.ExecState.run <| ⟨.ret (.val v), loc⟩ :: p') (.done v) :=
   fun _ => NML.step.retV
 
-theorem LoopExitPure [TensorLib.Iterator I (NML.Value DataT)]:
+theorem LoopExitPure [TensorLib.Iterator I (NML.Value DataT)] :
     SmallStep.PureStep (NML.ExecState.run <| ⟨NML.Stmt.loop (DataT := DataT) I s .none body, loc⟩ :: p) (.run p) :=
   fun _ => NML.step.loop_exit
+
+theorem LoopNterPure [TensorLib.Iterator I (NML.Value DataT)] :
+    SmallStep.PureStep (State := @NML.State DataT) (Val := @NML.Value DataT)
+      (NML.ExecState.run <| .cons ⟨.loop I x (.some i) b, loc⟩ p)
+      (NML.ExecState.run <|
+          .append (b.map (fun t => (⟨t, loc⟩ : NML.Task DataT).bind _ x (TensorLib.Iterator.peek i))) <|
+          .cons ⟨.loop I x (TensorLib.Iterator.next (@NML.Value DataT) i) b, loc⟩ <| p) :=
+    fun _ => NML.step.loop_nter _
+
+
+
+
+
+-- | loop_nter {I : Type _} [Iterator I (@Value DataT)] (i : I) :
+--     step
+--       (.run <| .cons ⟨.loop I x (.some i) b, loc⟩ p, s)
+--       (.run <|
+--           .append (p.map (fun t => t.bind _ x (Iterator.peek i))) <|
+--           .cons ⟨.loop I x (Iterator.next (@Value DataT) i) b, loc⟩ <|
+--           p, s)
+
 
 
 abbrev withNoContext {DataT} (L : List (NML.Stmt DataT)) : NML.ExecState DataT :=
