@@ -134,7 +134,7 @@ def e5R : ExecState DataT :=
     .assign .none (.val (.bool false)),
     .ret (.val .unit),
   ]
-theorem e3' : ⊢ @wp DataT ⟨2⟩ e5L e5R ΦUnitEq := by
+theorem e5 : ⊢ @wp DataT ⟨2⟩ e5L e5R ΦUnitEq := by
   istart
   wp_desync
   unfold e5L e5R
@@ -182,4 +182,23 @@ theorem e4 : ⊢ (@wp DataT ⟨1⟩ e4L e4R (ΦIntPure (· = ·))) := by
   sorry
 
 
--- Idea: Iterator as value (make the proof rule use Lob induction)
+def e6L : ExecState DataT :=
+  withNoContext [
+    .loop AffineIter "x" .none [],
+    .ret (.val .unit),
+  ]
+
+def e6R : ExecState DataT :=
+  withNoContext [
+    .ret (.val .unit),
+  ]
+
+theorem e6 : ⊢ @wp DataT ⟨2⟩ e6L e6R ΦUnitEq := by
+  simp [withNoContext, e6L, e6R]
+  wp_desync
+  dwp_left_pure LoopExitPure
+  dwp_left_pure RetPure
+  dwp_right_pure RetPure
+  wp_resync
+  wp_sync_val
+  simp [ΦUnitEq, true_intro]
