@@ -219,14 +219,14 @@ inductive step : ExecState DataT × State DataT → ExecState DataT × State Dat
     step (.run <| .cons ⟨.ret e, loc⟩ ps, s)  (.run <| .cons ⟨.ret e', loc⟩ ps, s')
 /-- [ Assignment Value ] Expression evaluates first, with effects. -/
 | asnV :
-    step (.run <| .cons ⟨.assign (.some x) (.val v), loc⟩ p, s) (.run <| p.map (.bind _ · x v), s')
+    step (.run <| .cons ⟨.assign (.some x) (.val v), loc⟩ p, s) (.run <| p.map (.bind _ · x v), s)
 /-- [ Assignment Expression] Expression evaluates first, with effects. -/
 | asnE :
     ExprStep DataT e loc s e'  s' →
     step (.run <| .cons ⟨.assign (.some x) e, loc⟩ p, s)  (.run <| .cons ⟨.assign (.some x) e', loc⟩ p, s')
 /-- [ Sequencing Value ] -/
 | seqV :
-    step (.run <| .cons ⟨.assign .none (.val v), loc⟩ p, s) (.run p, s')
+    step (.run <| .cons ⟨.assign .none (.val v), loc⟩ p, s) (.run p, s)
 /-- [ Sequencing Expression ] -/
 | seqE :
     ExprStep DataT e loc s e' s' →
@@ -305,9 +305,15 @@ def PureExprStep {DataT : Type _} (p p' : NML.Expr DataT) (PL : NML.Locals DataT
 -- TODO: Generalize: Assignment of a _pure expression_ to a variable
 -- is a pure step which adds the pure variable to the local context
 /-- Assignment of a value to none is Pure -/
-theorem AssignValuePure {v : NML.Value DataT}:
+theorem SeqPure {v : NML.Value DataT}:
       SmallStep.PureStep (NML.ExecState.run <| ⟨.assign .none (.val v), loc⟩ :: p') (.run p') :=
     fun _ => NML.step.seqV
+
+theorem AssignPure {v : NML.Value DataT} :
+    SmallStep.PureStep
+      (NML.ExecState.run <| ⟨.assign (.some s) (.val v), loc⟩ :: p')
+      (.run <| p'.map (.bind _ · s v)) :=
+  fun _ => NML.step.asnV
 
 theorem RetPure {v : NML.Value DataT} :
     SmallStep.PureStep (NML.ExecState.run <| ⟨.ret (.val v), loc⟩ :: p') (.done v) :=
@@ -325,18 +331,36 @@ theorem LoopNterPure [TensorLib.Iterator I (NML.Value DataT)] :
           .cons ⟨.loop I x (TensorLib.Iterator.next (@NML.Value DataT) i) b, loc⟩ <| p) :=
     fun _ => NML.step.loop_nter _
 
+-- TODO: Make this less ad-hoc and
+theorem AssignPureExpr (H : PureExprStep e1 e2 PL) (Hl : PL loc):
+    SmallStep.PureStep
+      (NML.ExecState.run <| ⟨.assign (.some s) e1, loc⟩ :: p')
+      (NML.ExecState.run <| ⟨.assign (.some s) e2, loc⟩ :: p') := by
+  intro σ
+  apply NML.step.asnE
+  apply H σ
+  exact Hl
+
+theorem RetPureExpr (H : PureExprStep e1 e2 PL) (Hl : PL loc):
+    SmallStep.PureStep
+      (NML.ExecState.run <| ⟨.ret e1, loc⟩ :: p')
+      (NML.ExecState.run <| ⟨.ret e2, loc⟩ :: p') := by
+  intro σ
+  apply NML.step.retE
+  apply H σ
+  exact Hl
 
 
 
+@[simp] def ValPurePL (x : String) (v : NML.Value DataT) : @NML.Locals DataT → Prop :=
+  fun loc => loc x = some v
 
--- | loop_nter {I : Type _} [Iterator I (@Value DataT)] (i : I) :
---     step
---       (.run <| .cons ⟨.loop I x (.some i) b, loc⟩ p, s)
---       (.run <|
---           .append (p.map (fun t => t.bind _ x (Iterator.peek i))) <|
---           .cons ⟨.loop I x (Iterator.next (@Value DataT) i) b, loc⟩ <|
---           p, s)
+theorem VarPureE {x : String} {v : NML.Value DataT} :
+    PureExprStep (.var x) (.val v) (ValPurePL x v) := by
+  intro σ l
+  exact NML.ExprStep.var
 
+-- #check (AssignPureExpr VarPureE _)
 
 
 abbrev withNoContext {DataT} (L : List (NML.Stmt DataT)) : NML.ExecState DataT :=

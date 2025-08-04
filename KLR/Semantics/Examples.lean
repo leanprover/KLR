@@ -104,17 +104,17 @@ theorem e3 : ⊢ @wp DataT ⟨2⟩ e3L e3R ΦUnitEq := by
   -- Enter desync mode, do two left pure steps, and one right pure step. Resync.
   -- Note (commented) that a third pure step does not work becase of the ⟨2⟩ bound.
   wp_desync
-  dwp_left_pure AssignValuePure
-  dwp_left_pure AssignValuePure
-  -- dwp_left_pure AssignValuePure
-  dwp_right_pure AssignValuePure
+  dwp_left_pure SeqPure
+  dwp_left_pure SeqPure
+  -- dwp_left_pure SeqPure
+  dwp_right_pure SeqPure
   wp_resync
 
   -- Do another batch of step
   wp_desync
-  dwp_left_pure AssignValuePure
-  dwp_left_pure AssignValuePure
-  dwp_right_pure AssignValuePure
+  dwp_left_pure SeqPure
+  dwp_left_pure SeqPure
+  dwp_right_pure SeqPure
   wp_resync
 
   -- And close the proof off like example 1
@@ -142,7 +142,7 @@ theorem e5 : ⊢ @wp DataT ⟨2⟩ e5L e5R ΦUnitEq := by
   -- apply Entails.trans (PROP := PROP DataT) ?_ (wand_entails <| dwpL ?_ (Hx := ?_))
   sorry
   -- simp only []
-  -- let X := @dwpL DataT 1 1 2 2 e3R (u := (@uwpPureL DataT _ _ (@AssignValuePure DataT (nolocals DataT) [
+  -- let X := @dwpL DataT 1 1 2 2 e3R (u := (@uwpPureL DataT _ _ (@SeqPure DataT (nolocals DataT) [
   --           { stmt := NML.Stmt.assign none (Expr.val (NML.Value.bool false)), env := nolocals DataT },
   --           { stmt := NML.Stmt.assign none (Expr.val Value.unit), env := nolocals DataT },
   --           { stmt := NML.Stmt.assign none (Expr.val (NML.Value.int 3)), env := nolocals DataT },
@@ -153,9 +153,9 @@ theorem e5 : ⊢ @wp DataT ⟨2⟩ e5L e5R ΦUnitEq := by
   -- case G3 =>
   --   sorry
 
-  -- refine Entails.trans ?_ <| wand_elim (P := ?G1) (?Q := ?G2) <| ?G3 -- @dwpL DataT 1 1 2 2 e3R _  ?G2 -- 2 (u := @uwpPureL DataT _ _ <| AssignValuePure (DataT := DataT) (loc := nolocals _) (p' := _) (v := NML.Value.unit) ) _ _
+  -- refine Entails.trans ?_ <| wand_elim (P := ?G1) (?Q := ?G2) <| ?G3 -- @dwpL DataT 1 1 2 2 e3R _  ?G2 -- 2 (u := @uwpPureL DataT _ _ <| SeqPure (DataT := DataT) (loc := nolocals _) (p' := _) (v := NML.Value.unit) ) _ _
   -- apply Entails.trans ?_ <| wand_entails (dwpL (uwpPureL ?_) (Hx := ?_))
-  -- (uwpPureL AssignValuePure)
+  -- (uwpPureL SeqPure)
 
   all_goals sorry
 
@@ -236,21 +236,21 @@ def e7R : ExecState DataT :=
 theorem e7 : ⊢ wp (DataT := DataT) ⟨2⟩ e7L e7R ΦUnitEq := by
   simp [withNoContext, e7L, e7R]
   wp_desync
-  dwp_right_pure AssignValuePure
+  dwp_right_pure SeqPure
   dwp_left_pure  LoopNterPure
-  dwp_left_pure  AssignValuePure
+  dwp_left_pure  SeqPure
   wp_resync
   simp
   wp_desync
-  dwp_right_pure AssignValuePure
+  dwp_right_pure SeqPure
   dwp_left_pure  LoopNterPure
-  dwp_left_pure  AssignValuePure
+  dwp_left_pure  SeqPure
   wp_resync
   simp
   wp_desync
-  dwp_right_pure AssignValuePure
+  dwp_right_pure SeqPure
   dwp_left_pure  LoopNterPure
-  dwp_left_pure  AssignValuePure
+  dwp_left_pure  SeqPure
   wp_resync
   simp
   wp_desync
@@ -260,6 +260,38 @@ theorem e7 : ⊢ wp (DataT := DataT) ⟨2⟩ e7L e7R ΦUnitEq := by
   wp_resync
   wp_sync_val
   simp [ΦUnitEq, true_intro]
+
+/-- Pure assignments -/
+
+def ΦIntEq (v1 v2 : NML.Value DataT) : @PROP DataT := iprop(⌜∃ z, v1 = .int z ∧ v2 = .int z⌝)
+
+def e8L : ExecState DataT :=
+  withNoContext [
+    .assign (.some "x") (.val <| .int 3),
+    .assign (.some "y") (.var "x"),
+    .ret (.var "y"),
+  ]
+
+def e8R : ExecState DataT :=
+  withNoContext [
+    .ret (.val <| .int 3)
+  ]
+
+theorem e8 : ⊢ wp (DataT := DataT) ⟨5⟩ e8L e8R ΦIntEq := by
+  simp [withNoContext, e8L, e8R]
+  wp_desync
+  dwp_left_pure  AssignPure
+  dwp_left_pure  (AssignPureExpr VarPureE (by rfl))
+  dwp_left_pure  AssignPure
+  dwp_left_pure  (RetPureExpr VarPureE (by rfl))
+  dwp_left_pure  RetPure
+  dwp_right_pure RetPure
+  wp_resync
+  wp_sync_val
+  simp [ΦIntEq, true_intro]
+
+
+
 
 
 -- Next: Unbounded loops
