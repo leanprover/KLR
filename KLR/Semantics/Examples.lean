@@ -291,9 +291,48 @@ theorem e8 : ⊢ wp (DataT := DataT) ⟨5⟩ e8L e8R ΦIntEq := by
   simp [ΦIntEq, true_intro]
 
 
+/-! Example 9: Partiality -/
 
+structure LoopIter where
 
+-- TODO: I don't actually want to use the TensorLib iterator for this.
+-- "size" is not defined and "reset" will cause annoyances with Lob induction.
+instance instLoopIterator {DataT : Type _} : TensorLib.Iterator LoopIter (NML.Value DataT) where
+  next  := fun i => .some i
+  peek  := fun _ => .unit
+  size  := fun _ => 0
+  reset := fun _ => ⟨⟩
 
--- Next: Unbounded loops
--- Next: Loops with binding & pure expressions
--- Loops that generalize over the local context to do induction
+def e9L : ExecState DataT :=
+  withNoContext [
+    .loop LoopIter "x" (.some ⟨⟩) [.assign .none (.val .unit)],
+    -- No return, stuck
+  ]
+
+def e9R : ExecState DataT :=
+  withNoContext [
+    .loop LoopIter "y" (.some ⟨⟩) [.assign .none (.val .unit)],
+    .ret (.val .unit)
+  ]
+
+theorem e9 : ⊢ wp (DataT := DataT) ⟨5⟩ e9L e9R ΦIntEq := by
+  simp [withNoContext, e9L, e9R]
+  have Z := @wp_gen_loc DataT ⟨5⟩
+                (Stmt.loop LoopIter "x" (some { }) [NML.Stmt.assign none (Expr.val Value.unit)])
+                []
+                (Stmt.loop LoopIter "y" (some { }) [NML.Stmt.assign none (Expr.val Value.unit)])
+                [{ stmt := NML.Stmt.ret (Expr.val Value.unit), env := nolocals DataT }]
+                ΦIntEq
+                (nolocals DataT)
+                (nolocals DataT)
+                (fun _ _ => True)
+  refine include_sep Z ?_; clear Z
+  iintro ⟨H, Hemp⟩
+  iclear Hemp
+  iapply H
+  · iintro locₗ locᵣ Hemp; iclear Hemp
+    -- Here is where I'd apply the Loeb lemma
+    -- Also: need to be allowed to eliminate laters in the hypothesis
+    sorry
+  · exact fun n x a a => a
+

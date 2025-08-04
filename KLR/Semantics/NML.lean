@@ -76,6 +76,7 @@ inductive Value
 There is no control flow inside expressions. -/
 inductive Expr
 | val           (_ : @Value DataT)
+| unop          (_ : @Value DataT → @Value DataT)
 | var           (_ : String)
 | load          (_ : AffineMap) (_ : Expr)
 | alloc         (m : Memory)
