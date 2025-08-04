@@ -14,6 +14,7 @@ import Iris.Instances.UPred
 import Iris.Instances.heProp
 import Iris.BI
 import Iris.ProofMode
+import Iris.ProofMode.Tactics.Apply
 import Iris.BI.DerivedLaws
 import Iris.BI.Updates
 import Iris.Algebra.CMRA
@@ -149,7 +150,7 @@ theorem wp_to_fupd_PRelS :
       simp [PRelS, Hvl, Hvr, HΦ]
     · -- Both programs can step
       -- Eliminate the update modality from H while keeping it in the conclusion
-      ispecialize H Hσ
+      ispecialize H sl sr Hσ
       refine (emp_sep.mp.trans <| BIUpdate.mono ?_).trans BIUpdate.trans
       iintro ⟨cl', cr', nl, nr, ⟨%Hnl0, %Hnr0, %HnlK, %HnrK, %HSl, %HSr⟩, H⟩
       -- It suffices to prove the theorem on the continuation
