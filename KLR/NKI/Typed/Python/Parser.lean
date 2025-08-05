@@ -31,6 +31,8 @@ abbrev typKind : SyntaxNodeKind := `typ
 
 abbrev expKind : SyntaxNodeKind := `exp
 
+abbrev starExpsKind : SyntaxNodeKind := `starExps
+
 abbrev stmtKind : SyntaxNodeKind := `stmt
 
 abbrev stmtsKind : SyntaxNodeKind := `stmts
@@ -55,16 +57,11 @@ def precCache (kind : Name) (pFn : ParserFn) (expected : List String) (tokens : 
     }
   }
 
--- @[builtin_doc, inline] def sepBy1Indent (p : Parser) (sep : String) (psep : Parser := symbol sep) (allowTrailingSep : Bool := false) : Parser :=
---   let p := Parser.withAntiquotSpliceAndSuffix `sepBy p (symbol "*")
---   Parser.withPosition <|
---     Parser.sepBy1
---       (Parser.checkColGe >> p)
---       sep
---       (psep <|> Parser.checkColEq >> Parser.checkLinebreakBefore >> Parser.pushNone)
---       allowTrailingSep
-
 namespace Parse
+
+  def typTokens : List Token := [
+    "None", "bool", "int", "float", "str", "tuple", "list", "FunctionType", "[", "]"
+  ]
 
   unsafe def pTyp : Parser :=
     p
@@ -99,9 +96,17 @@ namespace Parse
       trailingTable := {
       },
     }
-    tokens := ["None", "bool", "int", "float", "str", "tuple", "list", "FunctionType", "[", "]"]
     pFn := prattParserAntiquot typKind "typ" parsingTables
-    p (prec : Nat := 0) := precCache typKind pFn ["type"] tokens prec
+    p (prec : Nat := 0) := precCache typKind pFn ["type"] typTokens prec
+
+  def expTokens : List Token := [
+    "(", ")", "[", "]", ",", "=", ".",
+    "None", "True", "False",
+    "**", "*", "/", "//", "%", "+", "-",
+    ">=", ">", "<=", "<", "!=", "==",
+    "and", "or",
+    "if", "else",
+  ]
 
   /--
   Refer to this doc for operator precedence:
@@ -151,7 +156,7 @@ namespace Parse
     arg        := leading_parser:maxPrec Parser.optional (Parser.ident >> "=") >> p
     -- TODO: check precedence here
     call       := trailing_parser:110:110
-      Parser.optional ("[" >> Parser.sepBy1 pTyp ", " (allowTrailingSep := true) >> "]") >>
+      Parser.optional ("[" >> setExpected ["type"] (Parser.sepBy1 pTyp ", " (allowTrailingSep := true)) >> "]") >>
         "(" >> Parser.sepBy arg ", " (allowTrailingSep := true) >> ")"
     attr       := trailing_parser:110:110 "." >> Parser.ident
 
@@ -195,61 +200,30 @@ namespace Parse
         (`«.», attr, 110)
       },
     }
-    tokens := [
-      "(", ")", "[", "]", ",", "=", ".",
-      "None", "True", "False",
-      "**", "*", "/", "//", "%", "+", "-",
-      ">=", ">", "<=", "<", "!=", "==",
-      "and", "or",
-      "if", "else",
-    ]
     pFn := prattParserAntiquot expKind "exp" parsingTables
-    p (prec : Nat := 0) := precCache expKind pFn ["expression"] tokens prec
+    p (prec : Nat := 0) := precCache expKind pFn ["expression"] expTokens prec
 
-  -- unsafe def pStmt : Parser :=
-  --   p 0
-  -- where
-  --   exp := pExp
+  /--
+  Simpliefied version of the `star_expressions` in `python.gram`.
 
-  --   -- dfn := pDef
-
-  --   pass := leading_parser:maxPrec "pass"
-
-  --   parsingTables := {
-  --     leadingTable := {
-  --       (`pass, pass, maxPrec)
-  --       -- (`def, dfn, maxPrec)
-  --     },
-  --     leadingParsers := [
-  --       (exp, maxPrec)
-  --     ],
-  --     trailingTable := {
-  --     },
-  --   }
-  --   pFn := prattParserAntiquot stmtKind "stmt" parsingTables
-  --   p := precCache stmtKind pFn ["statement"]
-
-  -- unsafe def pStmtSeq : Parser := leading_parser
-  --   sepBy1Indent pStmt "; " (psep := Parser.notFollowedBy "; " "def") (allowTrailingSep := true)
-
-  -- unsafe def pDef : Parser :=
-  --   p 0
-  -- where
-  --   dfn := leading_parser:maxPrec
-  --     ("def " >> identNoAntiquot >>
-  --       "(" >> Parser.sepBy identNoAntiquot ", " >> ")" >> ":" >>
-  --      Parser.checkColGt >> pStmtSeq)
-
-  --   parsingTables := {
-  --     leadingTable := {
-  --       (`def, dfn, maxPrec)
-  --     }
-  --   }
-  --   pFn := prattParserAntiquot defKind "def" parsingTables
-  --   p := precCache defKind pFn ["def"]
-
-  -- unsafe def pPy : Parser :=
-  --   Parser.sepByIndent pStmt "; " (allowTrailingSep := true) >> Parser.eoi
+  Note: While this can technically be written with let-bindings instead of
+  where-bindings, the leading node does not work properly with let-bindings,
+  which leads to incorrect expansions.
+  -/
+  unsafe def pStarExps : Parser :=
+    p
+  where
+    single := leading_parser:maxPrec pExp
+    tuple := leading_parser:maxPrec
+      pExp >> "," >> Parser.optional (Parser.sepBy1 pExp "," (allowTrailingSep := true))
+    parsingTables := {
+      leadingParsers := [
+        (single, maxPrec),
+        (tuple, maxPrec)
+      ]
+    }
+    pFn := prattParserAntiquot starExpsKind "starExps" parsingTables
+    p := precCache starExpsKind pFn ["expression"] [","] 0
 
 end Parse
 
@@ -359,76 +333,58 @@ namespace Eval
       let fst ← eExp fst
       let rest ← rest.mapM eExp
       pure ⟨pos, .tuple (fst :: rest.toList)⟩
-    | `(pExp| [$[$es:exp],*]) => do
-      let es ← es.mapM eExp
-      pure ⟨pos, .list es.toList⟩
-    | `(pExp| $f:exp ( $[$args:arg],* )) => do
-      let f ← eExp f
-      let args ← eArgs pos (args.map (⟨·⟩))
-      pure ⟨pos, .call f [] args.toList⟩
     | `(pExp| $f:exp [ $[$typArgs:typ],* ] ( $[$args:arg],* )) => do
       let f ← eExp f
       let typArgs ← typArgs.mapM eTyp
       let args ← eArgs pos (args.map (⟨·⟩))
       pure ⟨pos, .call f typArgs.toList args.toList⟩
+    | `(pExp| $f:exp ( $[$args:arg],* )) => do
+      let f ← eExp f
+      let args ← eArgs pos (args.map (⟨·⟩))
+      pure ⟨pos, .call f [] args.toList⟩
     | `(pExp| $e:exp.$f:ident) => do
       let e ← eExp e
       let f := f.getId.toString
       pure ⟨pos, .attr e f⟩
+    | `(pExp| [$[$es:exp],*]) => do
+      let es ← es.mapM eExp
+      pure ⟨pos, .list es.toList⟩
     | _ => .throwUnsupportedSyntax pos
 
   end
 
-  -- partial def eStmt (stx : TSyntax stmtKind) : EvalM Stmt := do
-  --   let pos ← .getPos stx
-  --   match stx with
-  --   | `(pStmt.pass| pass) => pure ⟨pos, .pass⟩
-  --   | `(pStmt| $e:exp) => pure ⟨pos, .exp (← eExp e)⟩
-  --   -- | _ => .throwUnsupportedSyntax pos
-
-  -- def eStmtSeq (stx : TSyntax stmtSeqKind) : EvalM (List Stmt) :=
-  --   dbg_trace stx
-  --   return []
-
-  -- def py (stx : Syntax) (fileMap : FileMap) : Except String (List Stmt) :=
-  --   match ((eStmtSeq ⟨stx⟩).run { fileMap }).run {} with
-  --   | .ok (stmts, _) _ => .ok stmts
-  --   | .error err _ => .error err.msg
+  def eStarExps (stx : TSyntax starExpsKind) : EvalM Exp := do
+    let pos ← .getPos stx
+    match stx with
+    | `(pStarExps| $e:exp) =>
+      eExp e
+    | `(pStarExps| $e:exp, $[ $[$es:exp],* ]?) =>
+      let es ←
+        match es with
+        | some es => (e :: es.toList).mapM eExp
+        | none => pure [← eExp e]
+      pure ⟨pos, .tuple es⟩
+    | _ => .throwUnsupportedSyntax pos
 
 end Eval
 
--- /--
--- TokenTable for Python.
+/--
+TokenTable for Python.
 
--- Note: The antiquot parsers used to match on `Syntax` in Lean is also built-in to the
--- same parsers used to parse regular Python files. Here, the intentional omission of the `$`
--- token used to denote antiquotations means we will disallow antiquotations when parsing
--- a python file supplied by the user. This is fine because:
--- 1. `$` has no special meaning in Python, so we don't need any parsing rules containing `$` tokens.
--- 2. Even if we somehow parsed an antiquot, the `expandX` functions will throw an unsupported
---    syntax when encoutering them.
--- -/
--- def pyTokens : TokenTable := {
---   /-
---   Special characters
---   Note that `"` and `'` are not included since string literal is a special token.
---   -/
---   "(", ")", "[", "]", ",", ":", ";", ".", "=",
---   /- Types -/
---   "None", "bool", "int", "float", "tuple", "list", "FunctionType",
---   /- Atoms -/
---   "True", "False",
---   /- Operators -/
---   "**", "*", "/", "//", "%", "+", "-", ">=", ">", "<=", "<", "!=", "==",
---   /- Keywords -/
---   "if", "else", "def", "pass"
--- }
+Note: The antiquot parsers used to match on `Syntax` in Lean is also built-in to the
+same parsers used to parse regular Python files. Here, the intentional omission of the `$`
+token used to denote antiquotations means we will disallow antiquotations when parsing
+a python file supplied by the user. This is fine because:
+1. `$` has no special meaning in Python, so we don't need any parsing rules containing `$` tokens.
+2. Even if we somehow parsed an antiquot, the `expandX` functions will throw an unsupported
+   syntax when encoutering them.
+-/
+def pyTokens : TokenTable :=
+  TokenTable.empty ++ Parse.typTokens ++ Parse.expTokens
 
 def runPyParser (source fileName : String) (fileMap : FileMap) : IO (Except String Syntax) := unsafe do
-  let p := Parse.pExp
-  let tokens := p.info.collectTokens []
-  let tokens := tokens.foldl (fun tk s => tk.insert s s) {}
-  let s ← runParser source fileName (p >> Parser.eoi) tokens
+  let p := Parse.pStarExps
+  let s ← runParser source fileName (p >> Parser.eoi) pyTokens
   if s.hasError then
     let { line, column } := fileMap.toPosition s.pos
     return .error s!"{fileName} {line}:{column}: {s.errorMsg.get!.toString}"
@@ -438,13 +394,13 @@ def runPyParser (source fileName : String) (fileMap : FileMap) : IO (Except Stri
 def evalPy (source fileName : String) : IO (Except String Exp) := do
   let fileMap := source.toFileMap
   let stx ←← runPyParser source fileName fileMap
-  match ((Eval.eExp ⟨stx⟩).run { fileMap }).run {} with
+  match ((Eval.eStarExps ⟨stx⟩).run { fileMap }).run {} with
   | .ok (res, _) _ => return .ok res
   | .error err _ => return .error err.msg
 
-def str := "foo[int,](10 < 10)"
+def str := "foo[int](0)"
 #eval (evalPy str "<input>")
-#eval return dbg_trace (←← runPyParser str "<input>" str.toFileMap); 0
+#eval return (←← runPyParser str "<input>" str.toFileMap)
 -- #eval (evalPy str "<input>") >>= fun x =>
 --   match x with
 --   | .ok x => IO.println (toJson x).pretty

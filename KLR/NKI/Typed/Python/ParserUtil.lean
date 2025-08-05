@@ -632,3 +632,9 @@ instance : Singleton (Name × Parser × Nat) (TokenMap (Parser × Nat)) where
 instance : Insert Token TokenTable := ⟨fun a b => b.insert a a⟩
 
 instance : Singleton Token TokenTable := ⟨fun a => insert a ∅⟩
+
+instance : HAppend TokenTable (List Token) TokenTable where
+  hAppend tt tl :=
+    tl.foldl (fun tt t => tt.insert t t) tt
+
+def TokenTable.empty : TokenTable := .empty
