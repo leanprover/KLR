@@ -141,8 +141,7 @@ namespace Parse
     tuple      := leading_parser:maxPrec
       "(" >> p >> "," >> Parser.sepBy p ", " (allowTrailingSep := true) >> ")"
     list       := leading_parser:maxPrec "[" >> Parser.sepBy p ", " (allowTrailingSep := true) >> "]"
-    arg        := withAntiquot (mkAntiquot "arg" `arg) <|
-      leading_parser:maxPrec Parser.optional (Parser.ident >> "=") >> p
+    arg        := leading_parser:maxPrec Parser.optional (Parser.ident >> "=") >> p
     -- TODO: check precedence here
     call       := trailing_parser:110:110
       Parser.optional ("[" >> Parser.sepBy1 pTyp ", " (allowTrailingSep := true) >> "]") >>
@@ -372,13 +371,13 @@ namespace Eval
       pure ⟨pos, .list es.toList⟩
     | `(pExp| $f:exp ( $[$args:arg],* )) => do
       let f ← eExp f
-      let args ← eArgs pos args
+      let args ← eArgs pos (args.map (⟨·⟩))
       pure ⟨pos, .call f [] args.toList⟩
     | `(pExp| $f:exp [ $[$typArgs:typ],* ] ( $[$args:arg],* )) => do
       dbg_trace "matched"
       let f ← eExp f
       let typArgs ← typArgs.mapM eTyp
-      let args ← eArgs pos args
+      let args ← eArgs pos (args.map (⟨·⟩))
       pure ⟨pos, .call f typArgs.toList args.toList⟩
     | `(pExp| $e:exp.$f:ident) => do
       let e ← eExp e
@@ -448,7 +447,7 @@ def evalPy (source fileName : String) : IO (Except String Exp) := do
   | .ok (res, _) _ => return .ok res
   | .error err _ => return .error err.msg
 
-def str := "foo(1, 2)"
+def str := "foo[int,](1,1)"
 #eval (evalPy str "<input>")
 #eval return dbg_trace (←← runPyParser str "<input>" str.toFileMap); 0
 -- #eval (evalPy str "<input>") >>= fun x =>
