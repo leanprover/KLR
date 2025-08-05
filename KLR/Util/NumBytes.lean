@@ -73,6 +73,9 @@ instance [NumBytes a][NumBytes b] : NumBytes (a × b) where
 instance [Enum a] : NumBytes a where
   numBytes _ := 1
 
+instance [Inhabited a][NumBytes a] : NumBytes (Vector a n) where
+  numBytes _ := if n == 0 then 0 else n * numBytes (default : a)
+
 end NumBytes
 
 def mkNumBytesHeader (indVal : InductiveVal) : TermElabM Header := do

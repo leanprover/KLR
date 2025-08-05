@@ -16,6 +16,7 @@ limitations under the License.
 
 import Util.Base64
 import Util.BitVec
+import Util.Bstruct
 import Util.Common
 import Util.Enum
 import Util.Float

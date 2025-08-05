@@ -28,9 +28,6 @@ open Lean.Parser.Term(matchAltExpr)
 open Lean.PrettyPrinter(ppCommand ppExpr ppTerm)
 open TensorLib(get!)
 
-syntax item := Lean.Parser.Command.ctor (":=" num)?
-syntax items := manyIndent(item)
-
 namespace KLR.Util
 
 class Enum (a : Type) where
@@ -56,6 +53,8 @@ private partial def nextNat (nats : Array Nat) (current : Nat) : Array Nat × Na
 open Lean.Parser.Command
 open Lean.Parser.Term
 
+syntax item := Lean.Parser.Command.ctor (":=" num)?
+syntax items := manyIndent(item)
 syntax (name := enumcmd) declModifiers "enum" ident "where" item* optDeriving : command
 
 @[command_elab enumcmd]
@@ -63,8 +62,10 @@ def elabEnum : CommandElab
 | `($modifiers:declModifiers enum $name:ident where $items:item* $dcs:optDeriving) => doit modifiers name items dcs
 | _ => throwError "invalid enum syntax"
 where
-  -- TODO: I can't figure out how to type `modifiers` or `dcs`
-  doit modifiers (name : TSyntax `ident) (items : TSyntaxArray `item) dcs : CommandElabM Unit := do
+  doit (modifiers : TSyntax `Lean.Parser.Command.declModifiers)
+       (name : TSyntax `ident)
+       (items : TSyntaxArray `KLR.Util.item)
+       (dcs : TSyntax `Lean.Parser.Command.optDeriving) : CommandElabM Unit := do
     let mut unsortedValues : List (TSyntax `Lean.Parser.Command.ctor × TSyntax `num) := []
     let mut ctors : Array (TSyntax `Lean.Parser.Command.ctor) := #[]
     let mut numValues : Array Nat := #[]
