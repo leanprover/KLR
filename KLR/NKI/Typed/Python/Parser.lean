@@ -35,7 +35,7 @@ abbrev argKind : SyntaxNodeKind := `arg
 
 abbrev idxKind: SyntaxNodeKind := `idx
 
-abbrev starExpsKind : SyntaxNodeKind := `starExps
+abbrev expsKind : SyntaxNodeKind := `exps
 
 abbrev patKind : SyntaxNodeKind := `pat
 
@@ -240,13 +240,13 @@ namespace Parse
   end
 
   /--
-  Simpliefied version of the `star_expressions` in `python.gram`.
+  Simpliefied version of `expressions` in `python.gram`.
 
   Note: While this can technically be written with let-bindings instead of
   where-bindings, the leading node does not work properly with let-bindings,
   which leads to incorrect expansions.
   -/
-  unsafe def pStarExps : Parser :=
+  unsafe def pExps : Parser :=
     p
   where
     single := leading_parser:maxPrec pExp
@@ -258,8 +258,8 @@ namespace Parse
         (tuple, maxPrec)
       ]
     }
-    pFn := prattParserAntiquot starExpsKind "starExps" parsingTables
-    p := precCache starExpsKind pFn ["expression"] [","] 0
+    pFn := prattParserAntiquot expsKind "exps" parsingTables
+    p := precCache expsKind pFn ["expression"] [","] 0
 
   unsafe def pPat : Parser :=
     p
@@ -287,7 +287,7 @@ namespace Parse
   unsafe def pSimplStmt : Parser :=
     p
   where
-    ass := leading_parser pPat >> Parser.optional (":" >> pTyp) >> "=" >> pStarExps
+    ass := leading_parser pPat >> Parser.optional (":" >> pTyp) >> "=" >> pExps
     parsingTables := {
       leadingParsers := [
         (ass, maxPrec)
@@ -438,12 +438,12 @@ namespace Eval
 
   end
 
-  def eStarExps (stx : TSyntax starExpsKind) : EvalM Exp := do
+  def eExps (stx : TSyntax expsKind) : EvalM Exp := do
     let pos ← .getPos stx
     match stx with
-    | `(pStarExps| $e:exp) =>
+    | `(pExps| $e:exp) =>
       eExp e
-    | `(pStarExps| $e:exp, $[ $[$es:exp],* ]?) =>
+    | `(pExps| $e:exp, $[ $[$es:exp],* ]?) =>
       let es ←
         match es with
         | some es => (e :: es.toList).mapM eExp
@@ -462,10 +462,10 @@ namespace Eval
   def eSimplStmt (stx : TSyntax simplStmtKind) : EvalM Stmt := do
     let pos ← .getPos stx
     match stx with
-    | `(pSimplStmt| $p:pat $[: $t:typ]? = $e:starExps) =>
+    | `(pSimplStmt| $p:pat $[: $t:typ]? = $e:exps) =>
       let p ← ePat p
       let t ← t.mapM eTyp
-      let e ← eStarExps e
+      let e ← eExps e
       pure ⟨pos, .assign p t e⟩
     | _ => .throwUnsupportedSyntax pos
 
@@ -501,7 +501,7 @@ def evalPy (source fileName : String) : IO (Except String Stmt) := do
   | .ok (res, _) _ => return .ok res
   | .error err _ => return .error err.msg
 
-def str := "(a,b),c = ((0,0), 1)"
+def str := "(a,b),c : tuple[tuple[int, int], int] = ((0,0), 1)"
 #eval return (←←evalPy str "<input>")
 -- #eval return toJson (←←evalPy str "<input>")
 -- #eval return (←← runPyParser str "<input>" str.toFileMap)
