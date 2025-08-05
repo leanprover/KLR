@@ -37,9 +37,13 @@ abbrev idxKind: SyntaxNodeKind := `idx
 
 abbrev starExpsKind : SyntaxNodeKind := `starExps
 
+abbrev patKind : SyntaxNodeKind := `pat
+
 abbrev stmtKind : SyntaxNodeKind := `stmt
 
 abbrev stmtsKind : SyntaxNodeKind := `stmts
+
+abbrev simplStmtKind : SyntaxNodeKind := `simplStmt
 
 abbrev simplStmtsKind : SyntaxNodeKind := `simplStmts
 
@@ -217,8 +221,8 @@ namespace Parse
     p
   where
     ellipsis := leading_parser "..."
-    coord := leading_parser pExp
-    slice := leading_parser
+    coord    := leading_parser pExp
+    slice    := leading_parser
       Parser.optional pExp >> ":" >> Parser.optional pExp >>
         Parser.optional (":" >> Parser.optional pExp)
     parsingTables := {
@@ -246,7 +250,7 @@ namespace Parse
     p
   where
     single := leading_parser:maxPrec pExp
-    tuple := leading_parser:maxPrec
+    tuple  := leading_parser:maxPrec
       pExp >> "," >> Parser.optional (Parser.sepBy1 pExp "," (allowTrailingSep := true))
     parsingTables := {
       leadingParsers := [
@@ -256,6 +260,41 @@ namespace Parse
     }
     pFn := prattParserAntiquot starExpsKind "starExps" parsingTables
     p := precCache starExpsKind pFn ["expression"] [","] 0
+
+  unsafe def pPat : Parser :=
+    p
+  where
+    id             := Parser.ident
+    paren          := leading_parser "(" >> p >> ")"
+    tuple          := trailing_parser "," >> Parser.sepBy p "," (allowTrailingSep := true)
+    parsingTables  := {
+      leadingTable := {
+        (`«(», paren, maxPrec),
+        (identKind, id, maxPrec),
+        (`«$», id, maxPrec)
+      },
+      trailingTable := {
+        (`«,», tuple, maxPrec)
+      }
+    }
+    pFn := prattParserAntiquot patKind "pat" parsingTables
+    p := precCache patKind pFn ["binding pattern"] ["(", ")", ","] 0
+
+  def simplStmtTokens : List Token := [
+    "="
+  ]
+
+  unsafe def pSimplStmt : Parser :=
+    p
+  where
+    ass := leading_parser pPat >> Parser.optional (":" >> pTyp) >> "=" >> pStarExps
+    parsingTables := {
+      leadingParsers := [
+        (ass, maxPrec)
+      ]
+    }
+    pFn := prattParserAntiquot simplStmtKind "simplStmt" parsingTables
+    p := precCache simplStmtKind pFn ["statement"] simplStmtTokens 0
 
 end Parse
 
@@ -412,6 +451,24 @@ namespace Eval
       pure ⟨pos, .tuple es⟩
     | _ => .throwUnsupportedSyntax pos
 
+  partial def ePat : TSyntax patKind → EvalM Pattern
+    | `(pPat| ($p:pat)) => ePat p
+    | `(pPat| $id:ident) => pure <| .var id.getId.toString
+    | `(pPat| $p:pat, $[ $ps:pat ],*) => do
+      let ps ← (p :: ps.toList).mapM ePat
+      pure <| .tuple ps
+    | stx => do EvalM.throwUnsupportedSyntax (← EvalM.getPos stx)
+
+  def eSimplStmt (stx : TSyntax simplStmtKind) : EvalM Stmt := do
+    let pos ← .getPos stx
+    match stx with
+    | `(pSimplStmt| $p:pat $[: $t:typ]? = $e:starExps) =>
+      let p ← ePat p
+      let t ← t.mapM eTyp
+      let e ← eStarExps e
+      pure ⟨pos, .assign p t e⟩
+    | _ => .throwUnsupportedSyntax pos
+
 end Eval
 
 /--
@@ -426,10 +483,10 @@ a python file supplied by the user. This is fine because:
    syntax when encoutering them.
 -/
 def pyTokens : TokenTable :=
-  TokenTable.empty ++ Parse.typTokens ++ Parse.expTokens ++ Parse.idxTokens
+  TokenTable.empty ++ Parse.typTokens ++ Parse.expTokens ++ Parse.idxTokens ++ Parse.simplStmtTokens
 
 def runPyParser (source fileName : String) (fileMap : FileMap) : IO (Except String Syntax) := unsafe do
-  let p := Parse.pStarExps
+  let p := Parse.pSimplStmt
   let s ← runParser source fileName (p >> Parser.eoi) pyTokens
   if s.hasError then
     let { line, column } := fileMap.toPosition s.pos
@@ -437,15 +494,16 @@ def runPyParser (source fileName : String) (fileMap : FileMap) : IO (Except Stri
   else
     return .ok s.stxStack.back
 
-def evalPy (source fileName : String) : IO (Except String Exp) := do
+def evalPy (source fileName : String) : IO (Except String Stmt) := do
   let fileMap := source.toFileMap
   let stx ←← runPyParser source fileName fileMap
-  match ((Eval.eStarExps ⟨stx⟩).run { fileMap }).run {} with
+  match ((Eval.eSimplStmt ⟨stx⟩).run { fileMap }).run {} with
   | .ok (res, _) _ => return .ok res
   | .error err _ => return .error err.msg
 
-def str := "foo[1,...,1:1:,]"
-#eval (evalPy str "<input>")
+def str := "(a,b),c = ((0,0), 1)"
+#eval return (←←evalPy str "<input>")
+-- #eval return toJson (←←evalPy str "<input>")
 -- #eval return (←← runPyParser str "<input>" str.toFileMap)
 -- #eval (evalPy str "<input>") >>= fun x =>
 --   match x with

@@ -274,7 +274,7 @@ def Stmt'.reprPrec : Stmt' → Nat → Format
     s!"return {e}"
   | .assign pat typ rhs, _ =>
     let pat := pat.reprPrec 0
-    let typ := typ.map (·.reprPrec 0)
+    let typ := (typ.map ((" : " : Format) ++ ·.reprPrec 0)).getD Format.nil
     let rhs :=
       match rhs.exp with
       | .tuple es =>
@@ -283,7 +283,7 @@ def Stmt'.reprPrec : Stmt' → Nat → Format
         let es := joinSep es ", "
         if len == 1 then es ++ "," else es
       | _ => rhs.reprPrec 0
-    s!"{pat} : {typ} = {rhs}"
+    s!"{pat}{typ} = {rhs}"
   | .funcDef dfn, _ => dfn.reprPrec 0
   | .ifStm cond thn elifs els, _ =>
     let cond := cond.reprPrec 0
@@ -312,6 +312,9 @@ def Stmt'.reprPrec : Stmt' → Nat → Format
   | .continueLoop, _ => "continue"
 
 end
+
+instance instReprStmt : Repr Stmt where
+  reprPrec := Stmt.reprPrec
 
 def Prog.reprPrec (p : Prog) (_ : Nat) : Format :=
   let stmts := p.stmts.map (·.reprPrec 0)
