@@ -284,6 +284,9 @@ def Stmt'.reprPrec : Stmt' → Nat → Format
         if len == 1 then es ++ "," else es
       | _ => rhs.reprPrec 0
     s!"{pat}{typ} = {rhs}"
+  | .assert e, _ =>
+    let e := e.reprPrec 0
+    s!"assert {e}"
   | .funcDef dfn, _ => dfn.reprPrec 0
   | .ifStm cond thn elifs els, _ =>
     let cond := cond.reprPrec 0

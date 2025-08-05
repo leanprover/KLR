@@ -151,6 +151,7 @@ inductive Stmt'
   | imprtFrom (mod : QualifiedIdent) (imp : Ident) (as : Option Ident)
   | ret (e : Exp)
   | assign (pat : Pattern) (typ : Option Typ) (rhs : Exp)
+  | assert (e : Exp)
   | funcDef (dfn : FuncDef)
   | ifStm (cond : Exp) (thn : List Stmt) (elifs : List (Exp × List Stmt)) (els : Option (List Stmt))
   | forLoop (name : Ident) (iter : Exp) (body : List Stmt)
