@@ -50,7 +50,7 @@ def NKIBuiltins : List (Name × BuiltinFn) :=
   , (nisa "tensor_copy", Isa.tensor_copy)
   , (nisa "tensor_copy_predicated", Isa.tensor_copy_predicated)
   , (nisa "dma_copy", Isa.dma_copy)
-  -- TODO dmaTranspose
+  , (nisa "dma_transpose", Isa.dma_transpose)
   , (nisa "dropout", Isa.dropout)
   , (nisa "nc_find_index8", Isa.nc_find_index8)
   , (nisa "iota", Isa.iota)
@@ -61,7 +61,10 @@ def NKIBuiltins : List (Name × BuiltinFn) :=
   -- TODO match value load
   , (nisa "max8", Isa.max8)
   , (nisa "memset", Isa.memset)
-  -- TODO range select
+  , (nisa "range_select", Isa.range_select)
+  , (nisa "select_reduce", Isa.select_reduce)
+  , (nisa "sequence_bounds", Isa.sequence_bounds)
+  , (nisa "local_gather", Isa.local_gather)
   , (nisa "reciprocal", Isa.reciprocal)
   , (nisa "nc_stream_shuffle", Isa.nc_stream_shuffle)
   , (nisa "tensor_reduce", Isa.tensor_reduce)
