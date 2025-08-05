@@ -31,6 +31,10 @@ abbrev typKind : SyntaxNodeKind := `typ
 
 abbrev expKind : SyntaxNodeKind := `exp
 
+abbrev argKind : SyntaxNodeKind := `arg
+
+abbrev idxKind: SyntaxNodeKind := `idx
+
 abbrev starExpsKind : SyntaxNodeKind := `starExps
 
 abbrev stmtKind : SyntaxNodeKind := `stmt
@@ -108,6 +112,10 @@ namespace Parse
     "if", "else",
   ]
 
+  def idxTokens : List Token := ["...", ":"]
+
+  mutual
+
   /--
   Refer to this doc for operator precedence:
   https://docs.python.org/3/reference/expressions.html#operator-precedence
@@ -159,6 +167,7 @@ namespace Parse
       Parser.optional ("[" >> setExpected ["type"] (Parser.sepBy1 pTyp ", " (allowTrailingSep := true)) >> "]") >>
         "(" >> Parser.sepBy arg ", " (allowTrailingSep := true) >> ")"
     attr       := trailing_parser:110:110 "." >> Parser.ident
+    access     := trailing_parser:110:110 "[" >> Parser.sepBy1 pIdx "," (allowTrailingSep := true) >> "]"
 
     parsingTables := {
       leadingTable := {
@@ -197,11 +206,34 @@ namespace Parse
         (`if, ite, 65),
         (`«[», call, 110),
         (`«(», call, 110),
-        (`«.», attr, 110)
+        (`«.», attr, 110),
+        (`«[», access, 110)
       },
     }
     pFn := prattParserAntiquot expKind "exp" parsingTables
     p (prec : Nat := 0) := precCache expKind pFn ["expression"] expTokens prec
+
+  unsafe def pIdx : Parser :=
+    p
+  where
+    ellipsis := leading_parser "..."
+    coord := leading_parser pExp
+    slice := leading_parser
+      Parser.optional pExp >> ":" >> Parser.optional pExp >>
+        Parser.optional (":" >> Parser.optional pExp)
+    parsingTables := {
+      leadingTable := {
+        (`«...», ellipsis, maxPrec)
+      },
+      leadingParsers := [
+        (slice, maxPrec),
+        (coord, maxPrec)
+      ]
+    }
+    pFn := prattParserAntiquot idxKind "idx" parsingTables
+    p := precCache idxKind pFn ["index expression"] idxTokens 0
+
+  end
 
   /--
   Simpliefied version of the `star_expressions` in `python.gram`.
@@ -286,7 +318,7 @@ namespace Eval
 
   mutual
 
-  partial def eArgs (pos : Pos) (args : Array (TSyntax `arg)) : EvalM (Array Arg) := do
+  partial def eArgs (pos : Pos) (args : Array (TSyntax argKind)) : EvalM (Array Arg) := do
     let args ← args.mapM (fun arg =>
       match arg with
       | `(pExp.arg| $[$id:ident =]? $e:exp) => do
@@ -294,6 +326,16 @@ namespace Eval
       | _ => .throwUnsupportedSyntax pos
     )
     .pure args
+
+  partial def eIdx : TSyntax idxKind → EvalM Index
+    | `(pIdx| ...) => pure .ellipsis
+    | `(pIdx| $e:exp) => do pure <| .coord <| ← eExp e
+    | `(pIdx| $[$l:exp]? : $[$u:exp]? $[ : $[$step:exp]? ]?) => do
+      let l ← l.mapM eExp
+      let u ← u.mapM eExp
+      let step ← (step.getD none).mapM eExp
+      pure <| .slice l u step
+    | stx => do .throwUnsupportedSyntax (← .getPos stx)
 
   partial def eExp (stx : TSyntax expKind) : EvalM Exp := do
     let pos ← .getPos stx
@@ -349,6 +391,10 @@ namespace Eval
     | `(pExp| [$[$es:exp],*]) => do
       let es ← es.mapM eExp
       pure ⟨pos, .list es.toList⟩
+    | `(pExp| $e:exp[ $[$idxes:idx],* ]) => do
+      let e ← eExp e
+      let idxes ← idxes.mapM eIdx
+      pure ⟨pos, .access e idxes.toList⟩
     | _ => .throwUnsupportedSyntax pos
 
   end
@@ -380,7 +426,7 @@ a python file supplied by the user. This is fine because:
    syntax when encoutering them.
 -/
 def pyTokens : TokenTable :=
-  TokenTable.empty ++ Parse.typTokens ++ Parse.expTokens
+  TokenTable.empty ++ Parse.typTokens ++ Parse.expTokens ++ Parse.idxTokens
 
 def runPyParser (source fileName : String) (fileMap : FileMap) : IO (Except String Syntax) := unsafe do
   let p := Parse.pStarExps
@@ -398,9 +444,9 @@ def evalPy (source fileName : String) : IO (Except String Exp) := do
   | .ok (res, _) _ => return .ok res
   | .error err _ => return .error err.msg
 
-def str := "foo[int](0)"
+def str := "foo[1,...,1:1:,]"
 #eval (evalPy str "<input>")
-#eval return (←← runPyParser str "<input>" str.toFileMap)
+-- #eval return (←← runPyParser str "<input>" str.toFileMap)
 -- #eval (evalPy str "<input>") >>= fun x =>
 --   match x with
 --   | .ok x => IO.println (toJson x).pretty

@@ -127,8 +127,8 @@ def Exp.optionReprPrec : Option Exp → Nat → Option Format
 def Index.reprPrec : Index → Nat → Format
   | .coord i, p => i.reprPrec p
   | .slice l u step, _ =>
-    let l := Exp.optionReprPrec l 0 |> Option.getD Format.nil
-    let u := Exp.optionReprPrec u 0 |> Option.getD Format.nil
+    let l : Format := (Exp.optionReprPrec l 0).getD Format.nil
+    let u : Format := (Exp.optionReprPrec u 0).getD Format.nil
     let step := Exp.optionReprPrec step 0
     match step with
     | some step => s!"{l}:{u}:{step}"
