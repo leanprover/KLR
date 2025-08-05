@@ -55,42 +55,19 @@ def Typ.listReprPrec : List Typ → Nat → List Format
   | [], _ => []
   | hd :: tl, p => hd.reprPrec p :: Typ.listReprPrec tl p
 
-def Typ.collectArrowRhs : Typ → Nat → List Format
-  | { typ, .. }, p => typ.collectArrowRhs p
-
-def Typ'.collectArrowRhs : Typ' → Nat → List Format
-  | .arrow α β, p =>
-    let α := α.reprPrec p
-    let βs := β.collectArrowRhs p
-    α :: βs
-  | t, p => [t.reprPrec p]
-
-def Typ.collectAllRhs : Typ → Nat → (List Format) × Format
-  | { typ, .. }, p => typ.collectAllRhs p
-
-def Typ'.collectAllRhs : Typ' → Nat → (List Format) × Format
-  | .all argName body, p =>
-    let arg := s!"{argName}"
-    let (args, body) := body.collectAllRhs p
-    (arg :: args, body)
-  | t, p => ([], t.reprPrec p)
-
 def Typ.reprPrec : Typ → Nat → Format
   | { typ, .. }, p => typ.reprPrec p
 
 def Typ'.reprPrec : Typ' → Nat → Format
   | .var name, _ => name
   | .prim p, _ => s!"{p}"
-  | .arrow α β, _ =>
-    let α := α.reprPrec 0
-    let βs := β.collectArrowRhs 0
-    let ts := joinSep (α :: βs) ", "
-    s!"FuntionType[{ts}]"
-  | .all argName body, _ =>
-    let arg : Format := argName
-    let (args, body) := body.collectAllRhs 0
-    let args := joinSep (arg :: args) " "
-    s!"forall {args}. {body}"
+  | .func typParams params, _ =>
+    let params := joinSep (params.map (Typ.reprPrec · 0)) ", "
+    let body := s!"FunctionType[{params}]"
+    if typParams.length > 0 then
+      s!"forall {joinSep typParams " "}. {body}"
+    else
+      body
   | .iter e, _ => s!"Iterable[{e.reprPrec 0}]"
   | .tuple ts, _ =>
     let ts := joinSep (Typ.listReprPrec ts 0) ", "
@@ -130,12 +107,14 @@ inductive Assoc | l | r | c
 
 /--
 See https://docs.python.org/3/reference/expressions.html#operator-precedence
+
+NOTE: Chaining of comparisons are disallowed by the parser. See `KLR.NKI.Typed.Python.Parser.Parse.pExp`
 -/
 def BinOp.reprPrec : BinOp → String × Nat × Assoc
   | .pow => ("**", 100, .r)
   | .mul => ("*", 90, .c) | .div => ("/", 90, .l) | .floor => ("//", 90, .l) | .mod => ("%", 90, .l)
   | .add => ("+", 85, .c) | .sub => ("-", 85, .l)
-  | .ge => (">=", 80, .r) | .gt => (">", 80, .r) | .le => ("<=", 80, .r) | .lt => ("<", 80, .r) | .ne => ("!=", 80, .r) | .eq => ("==", 80, .r)
+  | .ge => (">=", 80, .c) | .gt => (">", 80, .c) | .le => ("<=", 80, .c) | .lt => ("<", 80, .c) | .ne => ("!=", 80, .c) | .eq => ("==", 80, .c)
   | .land => ("and", 75, .c)
   | .lor => ("or", 70, .c)
 
@@ -195,13 +174,15 @@ def Exp'.reprPrec : Exp' → Nat → Format
     let es := if len == 1 then es ++ "," else es
     braket es
   | .ifExp test body orelse, p =>
+    -- TODO: check precedence here
     let opP := 65
-    let test := test.reprPrec 0
-    let body := body.reprPrec 0
-    let orelse := orelse.reprPrec 0
+    let test := test.reprPrec 67
+    let body := body.reprPrec 65
+    let orelse := orelse.reprPrec 66
     let fmt := s!"{body} if {test} else {orelse}"
     if opP < p then paren fmt else fmt
-  | .app f typArgs args, _ =>
+  | .call f typArgs args, _ =>
+    -- TODO: check precedence here
     let f := f.reprPrec ppMaxPrec
     let typArgs := typArgs.map (fun t => t.reprPrec 0)
     let typArgs := joinSep typArgs ", "

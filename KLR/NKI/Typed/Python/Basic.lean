@@ -49,14 +49,16 @@ deriving ToJson
 inductive Typ'
   | var (name : Ident)
   | prim (p : Prim)
-  | arrow (α β : Typ)
-  | all (argName : Ident) (body : Typ)
+  | func (typParams : List Ident) (params : List Typ)
   | iter (e : Typ)
   | tuple (ts : List Typ)
   | list (t : Typ)
-deriving Repr, ToJson
+deriving ToJson
 
 end
+
+instance : Inhabited Typ where
+  default := { typ := .prim .none }
 
 inductive Value
   | none
@@ -108,7 +110,7 @@ inductive Exp'
   | tuple (es : List Exp)
   | list (es : List Exp)
   | ifExp (test body orelse : Exp)
-  | app (f : Exp) (typArgs : List Typ) (args : List Arg)
+  | call (f : Exp) (typArgs : List Typ) (args : List Arg)
   | access (e : Exp) (indices : List Index)
   | attr (e : Exp) (field : Ident)
 deriving ToJson
