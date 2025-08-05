@@ -421,7 +421,7 @@ def pyTokens : TokenTable := {
   Special characters
   Note that `"` and `'` are not included since string literal is a special token.
   -/
-  "(", ")", "[", "]", ",", ":", ";", ".",
+  "(", ")", "[", "]", ",", ":", ";", ".", "=",
   /- Types -/
   "None", "bool", "int", "float", "tuple", "list", "FunctionType",
   /- Atoms -/
@@ -447,7 +447,7 @@ def evalPy (source fileName : String) : IO (Except String Exp) := do
   | .ok (res, _) _ => return .ok res
   | .error err _ => return .error err.msg
 
-def str := "foo[int,](1,1)"
+def str := "foo(a=1)"
 #eval (evalPy str "<input>")
 #eval return dbg_trace (←← runPyParser str "<input>" str.toFileMap); 0
 -- #eval (evalPy str "<input>") >>= fun x =>
