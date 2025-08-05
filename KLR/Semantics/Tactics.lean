@@ -30,10 +30,3 @@ macro "dwp_left_pure " t:term : tactic =>
 
 macro "dwp_right_pure " t:term : tactic =>
   `(tactic| apply Entails.trans ?_ <| wand_entails <| dwpPureR $t (Hx := by simp))
-
-theorem include_sep {P Q : @PROP DataT} (L : ⊢ P) (H : P ∗ Q ⊢ R) : Q ⊢ R := by
-  refine Entails.trans ?_ (Q := iprop(P ∗ Q)) ?_
-  · refine Entails.trans ?_ (Q := iprop(emp ∗ Q)) ?_
-    · exact ProofMode.from_and_intro (fun n x a a => trivial) fun n x a a => a
-    · exact sep_mono L fun n x a a => a
-  · exact H

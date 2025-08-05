@@ -43,8 +43,9 @@ def state_frag (left right : State DataT) : PROP DataT :=
   heProp_frag _ _ _ _ (.mk left.memory right.memory)
 
 /-- PointsTo for a single element in the store -/
-def PointsTo (k : ProdNeuronIndex) (v : DataT) : PROP DataT :=
-  heProp_elem _ _ _ _ k v
+def PointsTo (k : ProdNeuronIndex) (v : Option DataT) : PROP DataT :=
+  heProp_frag _ _ _ _ (Heap.point k v)
+
 notation k " ↦ " v => PointsTo k v
 notation k " ↦ₗ " v => PointsTo (ProdIndex.left k) v
 notation k " ↦ᵣ " v => PointsTo (ProdIndex.right k) v

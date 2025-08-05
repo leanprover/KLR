@@ -336,3 +336,72 @@ theorem e9 : ⊢ wp (DataT := DataT) ⟨5⟩ e9L e9R ΦIntEq := by
     sorry
   · exact fun n x a a => a
 
+/-! Example: Pure loop fusion
+
+NB. This is hard to extract as a general pattern right now because the wp
+doesn't satisfy a bind rule. MARKUSDE: Think more on swp idea. -/
+
+structure ProgressIter (T : Type _) where
+  state   : Nat
+  initial : Nat
+  interp  : Nat → T
+
+instance : TensorLib.Iterator (ProgressIter T) T where
+  next  i := match i.state with | 0 => none | .succ n' => some { i with state := n' }
+  peek  i := i.interp i.state
+  size  i := i.initial
+  reset i := { i with state := i.initial }
+
+-- To make this example interesting:
+-- -> A shape [n] tensor v in SBUF
+-- -> A function to change a single element of the tensor
+-- -> Fine-grained ownership notation ⟨ℓ₁, i⟩ ↦ x
+-- -> Ownership equation (ℓₗ [S]⇉ₗ v) ⊢ ([∗] i, ⟨ℓₗ, i⟩ ↦ v[i])
+
+
+/- Reading and writing a point -/
+
+-- dwp read
+-- Example: Given left points to, updates the left points to, reads and returns it, right is a value, prove equal
+
+-- dwpReadpRetL
+
+def e10L (ℓ : ChipIndex) (x : Nat × Nat) (d₀ : DataT): ExecState DataT :=
+  withNoContext [
+    .set_point (.val <| .uptr ℓ) (.val <| .iptr x) (.val <| .data d₀),
+    .ret (.read_point (.val <| .uptr ℓ) (.val <| .iptr x)),
+  ]
+
+def e10R (d₀ : DataT) : ExecState DataT :=
+  withNoContext [
+    .ret (.val <| .data d₀)
+  ]
+
+def ΦEq (v1 v2 : NML.Value DataT) : @PROP DataT := iprop(⌜v1 = v2⌝)
+
+theorem e10 (ℓ : ChipIndex) (x : Nat × Nat) (mv : Option DataT) (d₀ : DataT) :
+    (⟨ℓ, x⟩ ↦ₗ mv) ⊢ wp (DataT := DataT) ⟨5⟩ (e10L ℓ x d₀) (e10R d₀) ΦEq := by
+  iintro Hfrag
+  wp_desync
+  simp [withNoContext, e10L, e10R]
+  have Z := @dwpSetpL (DataT := DataT) 5 ℓ x 1 1 5 [({ stmt := NML.Stmt.ret ((Expr.val (Value.uptr ℓ)).read_point (Expr.val (Value.iptr x))), env := nolocals DataT })]
+            (ExecState.run [{ stmt := NML.Stmt.ret (Expr.val (NML.Value.data d₀)), env := nolocals DataT }])
+            (fun x1 x2 => wp { car := 5 } x1 x2 ΦEq) mv (nolocals DataT) d₀ (by simp)
+  refine (include_sep Z ?_); clear Z
+  iintro ⟨H, Hfrag⟩
+  iapply H with [] <;> try iexact Hfrag
+  iintro Hfrag'
+  simp
+  have Z := @dwpReadpRetL DataT 4 ℓ x 0 1 5 (nolocals DataT) []
+            (ExecState.run [{ stmt := NML.Stmt.ret (Expr.val (Value.data d₀)), env := nolocals DataT }])
+            (fun x1 x2 => wp { car := 5 } x1 x2 ΦEq) d₀ (by simp)
+  refine (include_sep Z ?_); clear Z
+  iintro ⟨H, Hfrag⟩
+  iapply H <;> try iexact Hfrag
+  iintro Hfrag
+  simp
+  dwp_left_pure   RetPure
+  dwp_right_pure  RetPure
+  wp_resync
+  wp_sync_val
+  simp [ΦEq, true_intro]

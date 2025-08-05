@@ -14,6 +14,13 @@ open Iris Iris.BI Iris.BI.BIBase KLR.Core Iris NML SmallStep
 
 variable {DataT : Type _}
 
+theorem include_sep {P Q : @PROP DataT} (L : ⊢ P) (H : P ∗ Q ⊢ R) : Q ⊢ R := by
+  refine Entails.trans ?_ (Q := iprop(P ∗ Q)) ?_
+  · refine Entails.trans ?_ (Q := iprop(emp ∗ Q)) ?_
+    · exact ProofMode.from_and_intro (fun n x a a => trivial) fun n x a a => a
+    · exact sep_mono L fun n x a a => a
+  · exact H
+
 /-- Two values are related when they are related by Φ. -/
 theorem wpValVal (H1 : toVal p1 = some v1) (H2 : toVal p2 = some v2) :
     Φ v1 v2 ⊢ wp K p1 p2 Φ := by
@@ -401,6 +408,134 @@ theorem dwpAllocR (Hx : 1 < Rx := by omega) :
         exact step.asnV
       · exact SR
   · iexact H
+
+theorem update_set_lemma_left (σₗ σᵣ : NML.State DataT) (mv mv' : Option DataT) :
+  ⊢ (ℓ ↦ₗ mv) -∗ state_interp σₗ σᵣ -∗
+    |==> ((ℓ ↦ₗ mv') ∗ state_interp { σₗ with memory := Store.set σₗ.memory ℓ mv' } σᵣ) :=
+  sorry
+
+theorem update_set_lemma_right (σₗ σᵣ : NML.State DataT) (mv mv' : Option DataT) :
+  ⊢ (ℓ ↦ᵣ mv) -∗ state_interp σₗ σᵣ -∗
+    |==> ((ℓ ↦ᵣ mv') ∗ state_interp σₗ { σᵣ with memory := Store.set σᵣ.memory ℓ mv' } ) :=
+  sorry
+
+
+theorem dwpSetpL {v : DataT} (Hx : 0 < Lx := by omega) :
+    ⊢ ((⟨i, x⟩ ↦ₗ some v) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx (.run <| p1) p2 Φ) -∗
+       (⟨i, x⟩ ↦ₗ mv) -∗
+       (dwp Lm Rm Lx Rx (.run <| ⟨.set_point (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v), loc⟩ :: p1) p2 Φ) := by
+  -- Unfold the dwp in the conclusion
+  iintro Hdwp
+  conv => rhs; unfold dwp
+  iintro Hmv sl sr Hs
+  -- Add the update lemma to the context
+  refine include_sep (@update_set_lemma_left DataT ⟨i, x⟩ sl sr mv (some v)) ?_
+  iintro ⟨Hupd, ⟨Hdwp, Hmv⟩, Hσ⟩
+  ispecialize Hupd Hmv Hσ
+  -- Eliminate bupds from the hypotheses but not the conclusion, by duplicating the bupd in the conclusion.
+  istop
+  refine .trans ?_ bupd_idem.mp
+  refine .trans bupd_frame_l (BIUpdate.mono ?_)
+  iintro ⟨Hdwp, ⟨Hfrac, Hauth⟩⟩
+  -- Specialize, unfold, and specialize the dwp
+  ispecialize Hdwp Hfrac
+  unfold dwp
+  ispecialize Hdwp _ sr Hauth
+  -- Eliminate the bupd
+  refine .trans emp_sep.mp (BIUpdate.mono ?_)
+  -- Conclude using the current hypotheses
+  iintro ⟨p1', p2', HΦ, s1, s2, ⟨n1, n2, %Hstep⟩, H⟩
+  iexists p1'
+  iexists p2'
+  isplit l [HΦ]
+  · iexact HΦ
+  iexists s1
+  iexists s2
+  isplit r [H] <;> try iexact H
+  iexists (n1 + 1)
+  iexists n2
+  ipure_intro
+  obtain ⟨_, _, _, _, SL, _⟩ := Hstep
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
+  rw [Nat.add_comm _ _, StepN_add_iff]
+  refine ⟨_, ⟨stepN_1_iff_step.mpr step.setp, SL⟩⟩
+
+theorem dwpSetpR {v : DataT} (Hx : 0 < Rx := by omega) :
+    ⊢ ((⟨i, x⟩ ↦ᵣ some v) -∗ dwp Lm (Rm - 1) Lx (Rx - 1) p1 (.run <| p2) Φ) -∗
+       (⟨i, x⟩ ↦ᵣ mv) -∗
+       (dwp Lm Rm Lx Rx p1 (.run <| ⟨.set_point (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v), loc⟩ :: p2) Φ) := by
+  -- Unfold the dwp in the conclusion
+  iintro Hdwp
+  conv => rhs; unfold dwp
+  iintro Hmv sl sr Hs
+  -- Add the update lemma to the context
+  refine include_sep (@update_set_lemma_right DataT ⟨i, x⟩ sl sr mv (some v)) ?_
+  iintro ⟨Hupd, ⟨Hdwp, Hmv⟩, Hσ⟩
+  ispecialize Hupd Hmv Hσ
+  -- Eliminate bupds from the hypotheses but not the conclusion, by duplicating the bupd in the conclusion.
+  istop
+  refine .trans ?_ bupd_idem.mp
+  refine .trans bupd_frame_l (BIUpdate.mono ?_)
+  iintro ⟨Hdwp, ⟨Hfrac, Hauth⟩⟩
+  -- Specialize, unfold, and specialize the dwp
+  ispecialize Hdwp Hfrac
+  unfold dwp
+  ispecialize Hdwp sl _ Hauth
+  -- Eliminate the bupd
+  refine .trans emp_sep.mp (BIUpdate.mono ?_)
+  -- Conclude using the current hypotheses
+  iintro ⟨p1', p2', HΦ, s1, s2, ⟨n1, n2, %Hstep⟩, H⟩
+  iexists p1'
+  iexists p2'
+  isplit l [HΦ]
+  · iexact HΦ
+  iexists s1
+  iexists s2
+  isplit r [H] <;> try iexact H
+  iexists n1
+  iexists (n2 + 1)
+  ipure_intro
+  obtain ⟨_, _, _, _, _, SR⟩ := Hstep
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
+  rw [Nat.add_comm _ _, StepN_add_iff]
+  refine ⟨_, ⟨stepN_1_iff_step.mpr step.setp, SR⟩⟩
+
+-- TODO: This is only used for an example right now, a less ad-hoc solution for
+-- ExprSteps that use state is necessary.
+theorem dwpReadpRetL {v : DataT} (Hx : 0 < Lx := by omega) :
+    ⊢ ((⟨i, x⟩ ↦ₗ some v) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx (.run <| ⟨.ret (.val <| .data v), loc⟩ :: p1) p2 Φ) -∗
+      (⟨i, x⟩ ↦ₗ some v) -∗
+      (dwp Lm Rm Lx Rx (.run <| ⟨.ret <| .read_point (.val <| .uptr i) (.val <| .iptr x), loc⟩ :: p1) p2 Φ) := by
+  iintro Hdwp Hfrag
+  conv => rhs; unfold dwp
+  iintro sl sr Hs
+  -- Use one of the validity lemmas to get...
+  istop
+  have Hstore : Store.get sl.memory (⟨i, x⟩ : ChipCellIndex) = some v := sorry
+  istart
+  iintro ⟨⟨Hdwp, Hfrag⟩, Hs⟩
+  unfold dwp
+  ispecialize Hdwp Hfrag _ _ Hs
+  refine .trans emp_sep.mp (BIUpdate.mono ?_)
+  iintro ⟨p1', p2', HΦ, s1, s2, ⟨n1, n2, %Hstep⟩, H⟩
+  iexists p1'
+  iexists p2'
+  isplit l [HΦ]
+  · iexact HΦ
+  iexists s1
+  iexists s2
+  isplit r [H] <;> try iexact H
+  iexists (n1 + 1)
+  iexists n2
+  ipure_intro
+  obtain ⟨_, _, _, _, SL, _⟩ := Hstep
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
+  rw [Nat.add_comm _ _, StepN_add_iff]
+  refine ⟨_, ⟨stepN_1_iff_step.mpr ?_, SL⟩⟩
+  apply NML.step.retE
+  exact ExprStep.readp Hstore
+
+
 
 /-- Proof rule for a completed loop on the left -/
 theorem dwpLoopDoneL (Hx : 1 < Lx := by omega) :

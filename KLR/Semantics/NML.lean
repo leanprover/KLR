@@ -71,6 +71,8 @@ inductive Value
 | ptr      (_ : TensorHandle)
 -- uptr: like a TensorHandle but no metadata. Just a raw pointer to a store that can hold anything.
 | uptr     (_ : ChipIndex)
+-- A raw index into a chip's memory
+| iptr     (l : Nat × Nat)
 
 /-- NML expressions. These are terms which reduce to a value and possibly update the state.
 There is no control flow inside expressions. -/
@@ -82,12 +84,15 @@ inductive Expr
 | alloc         (m : Memory)
 | store         (src : Expr) (_ : AffineMap) (dst : Expr)
 | unary_scalar  (_ : Expr) (_ : DataT → DataT)
+-- A "raw access" to a mmeory bank, ignoring any layout considerations
+| read_point    (chip index : Expr)
 
 /-- NML statements.  -/
 inductive Stmt where
 | ret          (_ : @Expr DataT)
 | assign       (_ : Option String) (_ : @Expr DataT)
 | loop         (I : Type _) [Iterator I (@Value DataT)] (_ : String) (_ : Option I) (body : List Stmt)
+| set_point    (chip index val : @Expr DataT)
 | edit_state   (_ : @State DataT → @State DataT)
 | ret_assert   (_ : @Expr DataT) (_ : @State DataT → Prop)
 
@@ -145,6 +150,11 @@ inductive ExprStep : @Expr DataT → @Locals DataT → @State DataT → @Expr Da
 | sbuf_alloc :
     ⟨dst_index, memory'⟩ = ChipMemory.freshSBUFStore st.memory →
     ExprStep (.alloc Memory.sbuf) loc st (.val (.uptr dst_index)) (State.mk memory')
+| readp :
+    Store.get st.memory (⟨c, x⟩ : ChipCellIndex) = some v' →
+    ExprStep (.read_point (.val <| .uptr c) (.val <| .iptr x)) loc st (.val <| .data v) st
+
+
 /- [Non-sized, full, load] Load a HBM tile to a SBUF tile. Return a pointer to the new tile. Similar to nki.load.
 For now, only support trivial indexing.
   - Evaluate the location expression to a tensor pointer in hbm
@@ -232,6 +242,24 @@ inductive step : ExecState DataT × State DataT → ExecState DataT × State Dat
 | seqE :
     ExprStep DataT e loc s e' s' →
     step (.run <| .cons ⟨.assign .none e, loc⟩ p, s)  (.run <| .cons ⟨.assign .none e', loc⟩ p, s')
+/-- [ Set at point; chip ] -/
+| setpEChip :
+    ExprStep DataT e loc s e' s' →
+    step (.run <| .cons ⟨.set_point e e2 e3, loc⟩ p, s)  (.run <| .cons ⟨.set_point e' e2 e3, loc⟩ p, s')
+/-- [ Set at point; index ] for when the location has already stepped to an iptr -/
+| setpEIndex :
+    ExprStep DataT e loc s e' s' →
+    step (.run <| .cons ⟨.set_point (.val <| .uptr i) e  e3, loc⟩ p, s)
+         (.run <| .cons ⟨.set_point (.val <| .uptr i) e' e3, loc⟩ p, s')
+/-- [ Set at point; value ] for when the location has already stepped to an iptr -/
+| setpEVal:
+    ExprStep DataT e loc s e' s' →
+    step (.run <| .cons ⟨.set_point (.val <| .uptr i) (.val <| .iptr x) e  , loc⟩ p, s)
+         (.run <| .cons ⟨.set_point (.val <| .uptr i) (.val <| .iptr x) e' , loc⟩ p, s')
+/-- [ Set at point; update] for when all arguments are fully evaluated -/
+| setp:
+    step (.run <| .cons ⟨.set_point (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v) , loc⟩ p, s)
+         (.run p, { s with memory := ChipMemory.set s.memory ⟨i, x⟩ (some v)})
 /-- [ Loop termination ] -/
 | loop_exit {I : Type _} [Iterator I (@Value DataT)] :
     step (.run <| .cons ⟨.loop I _ .none _, _⟩ p, s) (.run p, s)
@@ -351,7 +379,32 @@ theorem RetPureExpr (H : PureExprStep e1 e2 PL) (Hl : PL loc):
   apply H σ
   exact Hl
 
+theorem SetpEChipPureExpr (H : PureExprStep e e' PL) (Hl : PL loc) :
+    SmallStep.PureStep
+      (NML.ExecState.run <| .cons ⟨.set_point e e2 e3, loc⟩ p)
+      (NML.ExecState.run <| .cons ⟨.set_point e' e2 e3, loc⟩ p) := by
+  intro σ
+  apply NML.step.setpEChip
+  apply H σ
+  apply Hl
 
+theorem SetpEChipPureIndex (H : PureExprStep e e' PL) (Hl : PL loc) :
+    SmallStep.PureStep
+      (NML.ExecState.run <| .cons ⟨.set_point (.val <| .uptr i) e  e3, loc⟩ p)
+      (NML.ExecState.run <| .cons ⟨.set_point (.val <| .uptr i) e' e3, loc⟩ p) := by
+  intro σ
+  apply NML.step.setpEIndex
+  apply H σ
+  apply Hl
+
+theorem StepEChipPureVal (H : PureExprStep e e' PL) (Hl : PL loc) :
+    SmallStep.PureStep
+      (NML.ExecState.run <| .cons ⟨.set_point (.val <| .uptr i) (.val <| .iptr x) e  , loc⟩ p)
+      (NML.ExecState.run <| .cons ⟨.set_point (.val <| .uptr i) (.val <| .iptr x) e' , loc⟩ p) := by
+  intro σ
+  apply NML.step.setpEVal
+  apply H σ
+  apply Hl
 
 @[simp] def ValPurePL (x : String) (v : NML.Value DataT) : @NML.Locals DataT → Prop :=
   fun loc => loc x = some v
@@ -362,7 +415,6 @@ theorem VarPureE {x : String} {v : NML.Value DataT} :
   exact NML.ExprStep.var
 
 -- #check (AssignPureExpr VarPureE _)
-
 
 abbrev withNoContext {DataT} (L : List (NML.Stmt DataT)) : NML.ExecState DataT :=
   .run <| L.map (⟨·, NML.nolocals DataT⟩)
