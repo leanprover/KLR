@@ -46,9 +46,14 @@ abbrev defKind : SyntaxNodeKind := `def
 def prattParserAntiquot (kind : Name) (name : String) (parsingTables : PrattParsingTables) : ParserFn :=
   prattParser kind parsingTables .default (mkAntiquot name kind false true).fn
 
-def precCache (kind : Name) (pFn : ParserFn) (expected : List String) (prec : Nat) : Parser :=
-  setExpected expected
-    {fn := adaptCacheableContextFn ({ · with prec }) (withCacheFn kind pFn)}
+def precCache (kind : Name) (pFn : ParserFn) (expected : List String) (tokens : List Token) (prec : Nat) : Parser :=
+  setExpected expected {
+    fn := adaptCacheableContextFn ({ · with prec }) (withCacheFn kind pFn),
+    info := {
+      collectTokens tokens' :=
+        tokens.foldl (fun tk s => tk.insert s) tokens'
+    }
+  }
 
 -- @[builtin_doc, inline] def sepBy1Indent (p : Parser) (sep : String) (psep : Parser := symbol sep) (allowTrailingSep : Bool := false) : Parser :=
 --   let p := Parser.withAntiquotSpliceAndSuffix `sepBy p (symbol "*")
@@ -79,6 +84,7 @@ namespace Parse
     parsingTables := {
       leadingTable := {
         (identKind, id, maxPrec),
+        (`«$», id, maxPrec),
         (`None, none, maxPrec),
         (`bool, bool, maxPrec),
         (`int, int, maxPrec),
@@ -93,8 +99,9 @@ namespace Parse
       trailingTable := {
       },
     }
+    tokens := ["None", "bool", "int", "float", "str", "tuple", "list", "FunctionType", "[", "]"]
     pFn := prattParserAntiquot typKind "typ" parsingTables
-    p (prec : Nat := 0) := precCache typKind pFn ["type"] prec
+    p (prec : Nat := 0) := precCache typKind pFn ["type"] tokens prec
 
   /--
   Refer to this doc for operator precedence:
@@ -152,12 +159,16 @@ namespace Parse
       leadingTable := {
         (`«(», paren, maxPrec),
         (identKind, id, maxPrec),
+        (`«$», id, maxPrec),
         (`None, none, maxPrec),
         (`True, tt, maxPrec),
         (`False, ff, maxPrec),
         (numLitKind, num, maxPrec),
+        (`«$», num, maxPrec),
         (scientificLitKind, scientific, maxPrec),
+        (`«$», scientific, maxPrec),
         (strLitKind, str, maxPrec),
+        (`«$», str, maxPrec),
         (`«-», neg, 95),
         (`«(», tuple, maxPrec),
         (`«[», list, maxPrec)
@@ -184,31 +195,39 @@ namespace Parse
         (`«.», attr, 110)
       },
     }
+    tokens := [
+      "(", ")", "[", "]", ",", "=", ".",
+      "None", "True", "False",
+      "**", "*", "/", "//", "%", "+", "-",
+      ">=", ">", "<=", "<", "!=", "==",
+      "and", "or",
+      "if", "else",
+    ]
     pFn := prattParserAntiquot expKind "exp" parsingTables
-    p (prec : Nat := 0) := precCache expKind pFn ["expression"] prec
+    p (prec : Nat := 0) := precCache expKind pFn ["expression"] tokens prec
 
-  unsafe def pStmt : Parser :=
-    p 0
-  where
-    exp := pExp
+  -- unsafe def pStmt : Parser :=
+  --   p 0
+  -- where
+  --   exp := pExp
 
-    -- dfn := pDef
+  --   -- dfn := pDef
 
-    pass := leading_parser:maxPrec "pass"
+  --   pass := leading_parser:maxPrec "pass"
 
-    parsingTables := {
-      leadingTable := {
-        (`pass, pass, maxPrec)
-        -- (`def, dfn, maxPrec)
-      },
-      leadingParsers := [
-        (exp, maxPrec)
-      ],
-      trailingTable := {
-      },
-    }
-    pFn := prattParserAntiquot stmtKind "stmt" parsingTables
-    p := precCache stmtKind pFn ["statement"]
+  --   parsingTables := {
+  --     leadingTable := {
+  --       (`pass, pass, maxPrec)
+  --       -- (`def, dfn, maxPrec)
+  --     },
+  --     leadingParsers := [
+  --       (exp, maxPrec)
+  --     ],
+  --     trailingTable := {
+  --     },
+  --   }
+  --   pFn := prattParserAntiquot stmtKind "stmt" parsingTables
+  --   p := precCache stmtKind pFn ["statement"]
 
   -- unsafe def pStmtSeq : Parser := leading_parser
   --   sepBy1Indent pStmt "; " (psep := Parser.notFollowedBy "; " "def") (allowTrailingSep := true)
@@ -273,13 +292,13 @@ namespace Eval
     let pos ← .getPos stx
     let typ : Typ' ←
       match stx with
-      | `(pTyp.id| $id:ident) => pure <| .var id.getId.toString
-      | `(pTyp.none| None) => pure <| .prim .none
-      | `(pTyp.bool| bool) => pure <| .prim .bool
-      | `(pTyp.int| int) => pure <| .prim <| .numeric .int
-      | `(pTyp.float| float) => pure <| .prim <| .numeric .float
-      | `(pTyp.str| str) => pure <| .prim .string
-      | `(pTyp.tuple| tuple[ $[$ts:typ],* ]) => do
+      | `(pTyp| $id:ident) => pure <| .var id.getId.toString
+      | `(pTyp| None) => pure <| .prim .none
+      | `(pTyp| bool) => pure <| .prim .bool
+      | `(pTyp| int) => pure <| .prim <| .numeric .int
+      | `(pTyp| float) => pure <| .prim <| .numeric .float
+      | `(pTyp| str) => pure <| .prim .string
+      | `(pTyp| tuple[ $[$ts:typ],* ]) => do
         let ts ← ts.mapM eTyp
         pure <| .tuple ts.toList
       | `(pTyp.list| list[ $t:typ ]) => do
@@ -305,68 +324,42 @@ namespace Eval
   partial def eExp (stx : TSyntax expKind) : EvalM Exp := do
     let pos ← .getPos stx
     match stx with
-    -- paren      := leading_parser:maxPrec "(" >> p >> ")"
-    | `(pExp.paren| ($e:exp)) => eExp e
-    -- id         := Parser.ident
-    | `(pExp.id| $id:ident) => pure ⟨pos, .var id.getId.toString⟩
-    -- none       := leading_parser:maxPrec "None"
-    | `(pExp.none| None) => pure ⟨pos, .value .none⟩
-    -- tt         := leading_parser:maxPrec "True"
-    | `(pExp.tt| True) => pure ⟨pos, .value <| .bool true⟩
-    -- ff         := leading_parser:maxPrec "False"
-    | `(pExp.ff| False) => pure ⟨pos, .value <| .bool false⟩
-    -- num        := Parser.numLit
-    | `(pExp.num| $n:num) => pure ⟨pos, .value <| .int <| n.getNat⟩
-    -- scientific := Parser.scientificLit
-    | `(pExp.scientific| $n:scientific) =>
+    | `(pExp| ($e:exp)) => eExp e
+    | `(pExp| $id:ident) => pure ⟨pos, .var id.getId.toString⟩
+    | `(pExp| None) => pure ⟨pos, .value .none⟩
+    | `(pExp| True) => pure ⟨pos, .value <| .bool true⟩
+    | `(pExp| False) => pure ⟨pos, .value <| .bool false⟩
+    | `(pExp| $n:num) => pure ⟨pos, .value <| .int <| n.getNat⟩
+    | `(pExp| $n:scientific) =>
       -- See: `Lean.TSyntax.getScientific`
       match n.getScientific with
       | (0, false, 0) => .throwAt pos "malformed float literal"
       | (n, sign, e) =>
         let f := if sign then n.toFloat * 10 ^ (-e.toFloat) else n.toFloat * 10 ^ e.toFloat
         pure ⟨pos, .value <| .float f⟩
-    -- str        := Parser.strLit
-    | `(pExp.str| $s:str) => pure ⟨pos, .value <| .string s.getString⟩
-    -- pow        := trailing_parser:100:101 " ** " >> p 100
-    -- | `(pExp| $b:exp ** $e:exp) => sorry
-    -- neg        := leading_parser:95 "-" >> p 95
+    | `(pExp| $s:str) => pure ⟨pos, .value <| .string s.getString⟩
+    | `(pExp| $b:exp ** $e:exp) => do pure ⟨pos, .binOp .pow (← eExp b) (← eExp e)⟩
     | `(pExp.neg| -$e:exp) => do pure ⟨pos, .unaryOp .neg (← eExp e)⟩
-    -- mul        := trailing_parser:90:90 " * " >> p 91
     | `(pExp| $x:exp * $y:exp) => do pure ⟨pos, .binOp .mul (← eExp x) (← eExp y)⟩
-    -- div        := trailing_parser:90:90 " / " >> p 91
     | `(pExp| $x:exp / $y:exp) => do pure ⟨pos, .binOp .div (← eExp x) (← eExp y)⟩
-    -- floor      := trailing_parser:90:90 " // " >> p 91
     | `(pExp| $x:exp // $y:exp) => do pure ⟨pos, .binOp .floor (← eExp x) (← eExp y)⟩
-    -- mod        := trailing_parser:90:90 " % " >> p 91
     | `(pExp| $x:exp % $y:exp) => do pure ⟨pos, .binOp .mod (← eExp x) (← eExp y)⟩
-    -- add        := trailing_parser:85:85 " + " >> p 86
     | `(pExp| $x:exp + $y:exp) => do pure ⟨pos, .binOp .add (← eExp x) (← eExp y)⟩
-    -- sub        := trailing_parser:85:85 " - " >> p 86
     | `(pExp| $x:exp - $y:exp) => do pure ⟨pos, .binOp .sub (← eExp x) (← eExp y)⟩
-    -- ge         := trailing_parser:80:80 " >= " >> p 80
     | `(pExp| $x:exp >= $y:exp) => do pure ⟨pos, .binOp .ge (← eExp x) (← eExp y)⟩
-    -- gt         := trailing_parser:80:80 " > " >> p 80
     | `(pExp| $x:exp > $y:exp) => do pure ⟨pos, .binOp .gt (← eExp x) (← eExp y)⟩
-    -- le         := trailing_parser:80:80 " <= " >> p 80
     | `(pExp| $x:exp <= $y:exp) => do pure ⟨pos, .binOp .le (← eExp x) (← eExp y)⟩
-    -- lt         := trailing_parser:80:80 " < " >> p 80
     | `(pExp| $x:exp < $y:exp) => do pure ⟨pos, .binOp .lt (← eExp x) (← eExp y)⟩
-    -- ne         := trailing_parser:80:80 " != " >> p 80
     | `(pExp| $x:exp != $y:exp) => do pure ⟨pos, .binOp .ne (← eExp x) (← eExp y)⟩
-    -- eq         := trailing_parser:80:80 " == " >> p 80
     | `(pExp| $x:exp == $y:exp) => do pure ⟨pos, .binOp .eq (← eExp x) (← eExp y)⟩
-    -- land       := trailing_parser:75:75 " and " >> p 76
-    -- | `(pExp| $x:exp and $y:exp) => do pure ⟨pos, .binOp .land (← eExp x) (← eExp y)⟩
-    -- lor        := trailing_parser:70:70 " or " >> p 71
-    -- | `(pExp| $x:exp (or $y:exp)) => do pure ⟨pos, .binOp .lor (← eExp x) (← eExp y)⟩
-    -- ite        := trailing_parser:65 " if " >> p 67 >> " else " >> p 66
+    | `(pExp| $x:exp and $y:exp) => do pure ⟨pos, .binOp .land (← eExp x) (← eExp y)⟩
+    | `(pExp| $x:exp or $y:exp) => do pure ⟨pos, .binOp .lor (← eExp x) (← eExp y)⟩
     | `(pExp| $thn:exp if $cond:exp else $els:exp) => do pure ⟨pos, .ifExp (← eExp cond) (← eExp thn) (← eExp els)⟩
-    -- tuple      := leading_parser:maxPrec "(" >> p >> "," >> Parser.sepBy p ", " >> Parser.optional "," >> ")"
-    | `(pExp.tuple| ($fst:exp, $[$rest:exp],*)) => do
+    | `(pExp| ($fst:exp, $[$rest:exp],*)) => do
       let fst ← eExp fst
       let rest ← rest.mapM eExp
       pure ⟨pos, .tuple (fst :: rest.toList)⟩
-    | `(pExp.list| [$[$es:exp],*]) => do
+    | `(pExp| [$[$es:exp],*]) => do
       let es ← es.mapM eExp
       pure ⟨pos, .list es.toList⟩
     | `(pExp| $f:exp ( $[$args:arg],* )) => do
@@ -374,7 +367,6 @@ namespace Eval
       let args ← eArgs pos (args.map (⟨·⟩))
       pure ⟨pos, .call f [] args.toList⟩
     | `(pExp| $f:exp [ $[$typArgs:typ],* ] ( $[$args:arg],* )) => do
-      dbg_trace "matched"
       let f ← eExp f
       let typArgs ← typArgs.mapM eTyp
       let args ← eArgs pos (args.map (⟨·⟩))
@@ -387,16 +379,16 @@ namespace Eval
 
   end
 
-  partial def eStmt (stx : TSyntax stmtKind) : EvalM Stmt := do
-    let pos ← .getPos stx
-    match stx with
-    | `(pStmt.pass| pass) => pure ⟨pos, .pass⟩
-    | `(pStmt| $e:exp) => pure ⟨pos, .exp (← eExp e)⟩
-    -- | _ => .throwUnsupportedSyntax pos
+  -- partial def eStmt (stx : TSyntax stmtKind) : EvalM Stmt := do
+  --   let pos ← .getPos stx
+  --   match stx with
+  --   | `(pStmt.pass| pass) => pure ⟨pos, .pass⟩
+  --   | `(pStmt| $e:exp) => pure ⟨pos, .exp (← eExp e)⟩
+  --   -- | _ => .throwUnsupportedSyntax pos
 
-  def eStmtSeq (stx : TSyntax stmtSeqKind) : EvalM (List Stmt) :=
-    dbg_trace stx
-    return []
+  -- def eStmtSeq (stx : TSyntax stmtSeqKind) : EvalM (List Stmt) :=
+  --   dbg_trace stx
+  --   return []
 
   -- def py (stx : Syntax) (fileMap : FileMap) : Except String (List Stmt) :=
   --   match ((eStmtSeq ⟨stx⟩).run { fileMap }).run {} with
@@ -405,35 +397,38 @@ namespace Eval
 
 end Eval
 
-/--
-TokenTable for Python.
+-- /--
+-- TokenTable for Python.
 
-Note: The antiquot parsers used to match on `Syntax` in Lean is also built-in to the
-same parsers used to parse regular Python files. Here, the intentional omission of the `$`
-token used to denote antiquotations means we will disallow antiquotations when parsing
-a python file supplied by the user. This is fine because:
-1. `$` has no special meaning in Python, so we don't need any parsing rules containing `$` tokens.
-2. Even if we somehow parsed an antiquot, the `expandX` functions will throw an unsupported
-   syntax when encoutering them.
--/
-def pyTokens : TokenTable := {
-  /-
-  Special characters
-  Note that `"` and `'` are not included since string literal is a special token.
-  -/
-  "(", ")", "[", "]", ",", ":", ";", ".", "=",
-  /- Types -/
-  "None", "bool", "int", "float", "tuple", "list", "FunctionType",
-  /- Atoms -/
-  "True", "False",
-  /- Operators -/
-  "**", "*", "/", "//", "%", "+", "-", ">=", ">", "<=", "<", "!=", "==",
-  /- Keywords -/
-  "if", "else", "def", "pass"
-}
+-- Note: The antiquot parsers used to match on `Syntax` in Lean is also built-in to the
+-- same parsers used to parse regular Python files. Here, the intentional omission of the `$`
+-- token used to denote antiquotations means we will disallow antiquotations when parsing
+-- a python file supplied by the user. This is fine because:
+-- 1. `$` has no special meaning in Python, so we don't need any parsing rules containing `$` tokens.
+-- 2. Even if we somehow parsed an antiquot, the `expandX` functions will throw an unsupported
+--    syntax when encoutering them.
+-- -/
+-- def pyTokens : TokenTable := {
+--   /-
+--   Special characters
+--   Note that `"` and `'` are not included since string literal is a special token.
+--   -/
+--   "(", ")", "[", "]", ",", ":", ";", ".", "=",
+--   /- Types -/
+--   "None", "bool", "int", "float", "tuple", "list", "FunctionType",
+--   /- Atoms -/
+--   "True", "False",
+--   /- Operators -/
+--   "**", "*", "/", "//", "%", "+", "-", ">=", ">", "<=", "<", "!=", "==",
+--   /- Keywords -/
+--   "if", "else", "def", "pass"
+-- }
 
 def runPyParser (source fileName : String) (fileMap : FileMap) : IO (Except String Syntax) := unsafe do
-  let s ← runParser source fileName (Parse.pExp >> Parser.eoi) pyTokens
+  let p := Parse.pExp
+  let tokens := p.info.collectTokens []
+  let tokens := tokens.foldl (fun tk s => tk.insert s s) {}
+  let s ← runParser source fileName (p >> Parser.eoi) tokens
   if s.hasError then
     let { line, column } := fileMap.toPosition s.pos
     return .error s!"{fileName} {line}:{column}: {s.errorMsg.get!.toString}"
@@ -447,7 +442,7 @@ def evalPy (source fileName : String) : IO (Except String Exp) := do
   | .ok (res, _) _ => return .ok res
   | .error err _ => return .error err.msg
 
-def str := "foo(a=1)"
+def str := "foo[int,](10 < 10)"
 #eval (evalPy str "<input>")
 #eval return dbg_trace (←← runPyParser str "<input>" str.toFileMap); 0
 -- #eval (evalPy str "<input>") >>= fun x =>

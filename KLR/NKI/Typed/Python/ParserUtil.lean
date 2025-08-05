@@ -108,6 +108,7 @@ export Lean.Parser (
   ParserFn
   PrattParsingTables
   TokenTable
+  Token
 
   identNoAntiquot
   adaptCacheableContextFn
