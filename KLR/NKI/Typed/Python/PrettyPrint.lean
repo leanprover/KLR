@@ -270,8 +270,8 @@ def Stmt'.reprPrec : Stmt' → Nat → Format
     | some as => s!"{imp} as {as}"
     | none => imp
   | .ret e, _ =>
-    let e := e.reprPrec 0
-    s!"return {e}"
+    let e := e.map ((" " : Format) ++ ·.reprPrec 0)
+    s!"return{e}"
   | .assign pat typ rhs, _ =>
     let pat := pat.reprPrec 0
     let typ := (typ.map ((" : " : Format) ++ ·.reprPrec 0)).getD Format.nil

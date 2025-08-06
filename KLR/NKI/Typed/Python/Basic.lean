@@ -149,7 +149,7 @@ inductive Stmt'
   | exp (exp : Exp)
   | imprt (mod : QualifiedIdent) (as : Option Ident)
   | imprtFrom (mod : QualifiedIdent) (imp : Ident) (as : Option Ident)
-  | ret (e : Exp)
+  | ret (e : Option Exp)
   | assign (pat : Pattern) (typ : Option Typ) (rhs : Exp)
   | assert (e : Exp)
   | funcDef (dfn : FuncDef)

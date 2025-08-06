@@ -280,17 +280,35 @@ namespace Parse
     pFn := prattParserAntiquot patKind "pat" parsingTables
     p := precCache patKind pFn ["binding pattern"] ["(", ")", ","] 0
 
+  -- Simple statement parsers
   def simplStmtTokens : List Token := [
-    "="
+    "=", "+=", "-=", "*=", "@=", "/=", "%=", "**=", "//=",
+    "return", "assert", "pass", "break", "continue",
+    "import", "from", "as",
   ]
 
   unsafe def pSimplStmt : Parser :=
     p
   where
     ass := leading_parser pPat >> Parser.optional (":" >> pTyp) >> "=" >> pExps
+    expStmt := leading_parser pExps
+    ret := leading_parser "return" >> Parser.optional pExp
+    asrt := leading_parser "assert" >> pExp
+    pass := leading_parser "pass"
+    brk := leading_parser "break"
+    cont := leading_parser "continue"
+
     parsingTables := {
+      leadingTable := {
+        (`return, ret, maxPrec),
+        (`assert, asrt, maxPrec),
+        (`pass, pass, maxPrec),
+        (`break, brk, maxPrec),
+        (`continue, cont, maxPrec)
+      },
       leadingParsers := [
-        (ass, maxPrec)
+        (ass, maxPrec),
+        (expStmt, maxPrec)
       ]
     }
     pFn := prattParserAntiquot simplStmtKind "simplStmt" parsingTables
@@ -364,7 +382,7 @@ namespace Eval
         pure ⟨id.map (Name.toString ∘ TSyntax.getId), ← eExp e⟩
       | _ => .throwUnsupportedSyntax pos
     )
-    .pure args
+    pure args
 
   partial def eIdx : TSyntax idxKind → EvalM Index
     | `(pIdx| ...) => pure .ellipsis
@@ -467,6 +485,21 @@ namespace Eval
       let t ← t.mapM eTyp
       let e ← eExps e
       pure ⟨pos, .assign p t e⟩
+    | `(pSimplStmt| $e:exps) => do
+      let e ← eExps e
+      pure ⟨pos, .exp e⟩
+    | `(pSimplStmt| return $[$e:exp]?) => do
+      let e ← e.mapM eExp
+      pure ⟨pos, .ret e⟩
+    | `(pSimplStmt| assert $e:exp) => do
+      let e ← eExp e
+      pure ⟨pos, .assert e⟩
+    | `(pSimplStmt| pass) => do
+      pure ⟨pos, .pass⟩
+    | `(pSimplStmt| break) => do
+      pure ⟨pos, .breakLoop⟩
+    | `(pSimplStmt| continue) => do
+      pure ⟨pos, .continueLoop⟩
     | _ => .throwUnsupportedSyntax pos
 
 end Eval
@@ -503,9 +536,24 @@ def evalPy (source fileName : String) : IO (Except String Stmt) := do
 
 def str := "(a,b),c : tuple[tuple[int, int], int] = ((0,0), 1)"
 #eval return (←←evalPy str "<input>")
--- #eval return toJson (←←evalPy str "<input>")
--- #eval return (←← runPyParser str "<input>" str.toFileMap)
--- #eval (evalPy str "<input>") >>= fun x =>
---   match x with
---   | .ok x => IO.println (toJson x).pretty
---   | .error err => IO.println s!"error: {err}"
+
+def testExp := "foo[1]"
+#eval return (←←evalPy testExp "<input>")
+
+-- Test additional statements
+def testReturn := "return 42"
+#eval return (←←evalPy testReturn "<input>")
+
+def testAssert := "assert x > 0"
+#eval return (←←evalPy testAssert "<input>")
+
+def testPass := "pass"
+#eval return (←←evalPy testPass "<input>")
+
+def testBreak := "break"
+#eval return (←←evalPy testBreak "<input>")
+
+def testContinue := "continue"
+#eval return (←←evalPy testContinue "<input>")
+
+end KLR.NKI.Typed.Python.Parser
