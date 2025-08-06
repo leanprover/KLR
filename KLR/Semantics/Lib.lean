@@ -45,6 +45,9 @@ abbrev PNat := { n : Nat // 0 < n }
 @[simp] def PNat.add (n1 n2 : PNat) : PNat := ⟨n1.1 + n2.1, Nat.add_pos_left n1.2 _⟩
 @[simp] def PNat.one : PNat := ⟨1, Nat.one_pos⟩
 
+
+-- TODO: Upstream this entire section
+
 section iris_lib
 open Iris
 
@@ -112,7 +115,6 @@ theorem UPred.all_absorbing [UCMRA A] (P : UPred A) : Iris.BI.Absorbing P where
       apply Hx1x2.trans
       apply CMRA.op_commN
     · apply n.le_refl
-
 
 theorem bupd_soundness [UCMRA M] (P : UPred M) [Iris.BI.Plain P] : (⊢ |==> P) → ⊢ P := (·.trans bupd_elim)
 
@@ -183,6 +185,37 @@ theorem laterN_intro [UCMRA M] {P : UPred M} : iprop(P ⊢ ▷^[n] P) := by
   · simp [BI.BIBase.laterN]
   · exact .trans BI.later_intro (BI.later_mono IH)
 
+theorem bupd_ownM_updateP [UCMRA M] (Φ : M → Prop) :
+    x ~~>: Φ → UPred.ownM x ⊢ |==> ∃ y, ⌜Φ y⌝ ∧ UPred.ownM y := by
+  intro Hup
+  rintro n x2 _ ⟨x3, Hk⟩ k yf _ Hv
+  have G : ✓{k} x •? some (x3 • yf) := by
+    simp [CMRA.op?]
+    apply CMRA.validN_ne _ Hv
+    refine .trans ?_ CMRA.assoc.dist.symm
+    refine CMRA.op_commN.trans (.trans ?_ CMRA.op_commN)
+    apply CMRA.op_ne.ne
+    apply OFE.Dist.le Hk
+    trivial
+  obtain ⟨y, _, _⟩ := Hup k (some (x3 • yf)) G
+  exists (y • x3)
+  refine ⟨?_, ?_⟩
+  · rename_i Hy
+    simp [CMRA.op?] at Hy
+    apply CMRA.validN_ne _ Hy
+    refine .trans ?_ CMRA.assoc.dist
+    exact CMRA.op_ne.ne .rfl
+  · simp [BI.exists, BI.sExists, UPred.sExists]
+    exists (UPred.ownM y)
+    refine ⟨?_, ?_⟩
+    · exists y
+      refine UPred.ext_iff.mpr ?_
+      apply funext (fun n => funext fun x => ?_)
+      simp [BI.pure, BI.and, UPred.and, UPred.pure]
+      intro _
+      trivial
+    · exists x3
+
 end iris_lib
 
 /- TODO : Upstream
@@ -241,3 +274,4 @@ def AffineMap.is_trivial (a : AffineMap) : Prop :=
 
 theorem Iris.BI.BIBase.Entails.trans' {PROP : Type _} [BI PROP] {P Q R : PROP} (h2 : Q ⊢ R) (h1 : P ⊢ Q) : P ⊢ R :=
   h1.trans h2
+

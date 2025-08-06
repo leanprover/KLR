@@ -76,7 +76,7 @@ theorem wpPureSync {Φ : Value DataT → Value DataT → @PROP DataT}
 theorem update_lemma (σₗ σᵣ : NML.State DataT) :
   state_interp σₗ σᵣ ⊢
     |==> (∃ ℓₗ ℓᵣ, ℓₗ [S]⇉ₗ∅ ∗ ℓᵣ [S]⇉ᵣ∅ ∗
-    state_interp ⟨(ChipMemory.freshSBUFStore σₗ.1).2⟩ ⟨(ChipMemory.freshSBUFStore σᵣ.1).2⟩) :=
+    state_interp ⟨(ChipMemory.freshSBUFStore σₗ.1).2⟩ ⟨(ChipMemory.freshSBUFStore σᵣ.1).2⟩) := by
   sorry
 
 -- NB. Keeping this code in the repo as an example for writing basic proof rules.
