@@ -128,7 +128,7 @@ export Lean.Parser (
 )
 
 /-
-# ---------------------------Start of Custom Tokenizer--------------------------
+# --------------------------Start of Custom Parser Utils------------------------
 
 Only functions marked with [CUSTOM] are actually different.
 Otherwise, they are just copied over from Lean.Parser
@@ -370,10 +370,6 @@ def getString (s : StrLit) : String :=
   match Syntax.isLit? strLitKind s.raw with
   | some val => val.extract (val.next 0) (val.prev val.endPos)
   | _        => ""
-
-/-
-# ----------------------------End of Custom Tokenizer---------------------------
--/
 
 def peekTokenAux (c : ParserContext) (s : ParserState) : ParserState × Except ParserState Syntax :=
   let iniSz  := s.stackSize
@@ -628,7 +624,11 @@ def optional (p : Parser) : Parser :=
   optionalNoAntiquot (withAntiquotSpliceAndSuffix `optional p (symbol "?"))
 
 /-
-# New
+# ----------------------------End of Custom Parser Utils------------------------
+-/
+
+/-
+# ----------------------------New Things----------------------------------------
 -/
 
 def runParser (source fileName : String) (p : Parser) (tokens : TokenTable) : IO ParserState := do
@@ -649,7 +649,6 @@ def runParser (source fileName : String) (p : Parser) (tokens : TokenTable) : IO
   }
   let s := p.fn.run ictx pmctx tokens s
   pure s
-
 
 /-
 # -------------------Set Builder Notation for TokenTable/Map--------------------

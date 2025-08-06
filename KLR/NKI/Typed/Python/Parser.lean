@@ -282,14 +282,12 @@ namespace Parse
     pFn := prattParserAntiquot patKind "pat" parsingTables
     p := precCache patKind pFn ["binding pattern"] ["(", ")", ","] 0
 
-  -- Simple statement parsers
   def simplStmtTokens : List Token := [
     "=", "+=", "-=", "*=", "@=", "/=", "%=", "**=", "//=",
     "return", "assert", "pass", "break", "continue",
     "import", "from", "as"
   ]
 
-  -- Helper parser for dotted names like "os.path"
   def pDottedName : Parser :=
     withAntiquot
       (mkAntiquot "dottedName" dottedNameKind false true)
