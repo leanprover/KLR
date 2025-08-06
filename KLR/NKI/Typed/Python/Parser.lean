@@ -76,17 +76,17 @@ namespace Parse
   unsafe def pTyp : Parser :=
     p
   where
-    id    := Parser.ident
+    id    := ident
     none  := leading_parser:maxPrec "None"
     bool  := leading_parser:maxPrec "bool"
     int   := leading_parser:maxPrec "int"
     float := leading_parser:maxPrec "float"
     str   := leading_parser:maxPrec "str"
     tuple := leading_parser:maxPrec
-      "tuple" >> "[" >> Parser.sepBy1 p ", " (allowTrailingSep := true) >> "]"
+      "tuple" >> "[" >> sepBy1 p ", " (allowTrailingSep := true) >> "]"
     list  := leading_parser:maxPrec "list" >> "[" >> p >> "]"
     func  := leading_parser:maxPrec
-      "FunctionType" >> "[" >> Parser.sepBy1 p ", " (allowTrailingSep := true) >> "]"
+      "FunctionType" >> "[" >> sepBy1 p ", " (allowTrailingSep := true) >> "]"
 
     parsingTables := {
       leadingTable := {
@@ -130,14 +130,14 @@ namespace Parse
     p
   where
     paren      := leading_parser:maxPrec "(" >> p >> ")"
-    id         := Parser.ident
+    id         := ident
     -- Atoms
     none       := leading_parser:maxPrec "None"
     tt         := leading_parser:maxPrec "True"
     ff         := leading_parser:maxPrec "False"
-    num        := Parser.numLit
-    scientific := Parser.scientificLit
-    str        := Parser.strLit
+    num        := numLit
+    scientific := scientificLit
+    str        := strLit
     -- Operations
     pow        := trailing_parser:100:101 " ** " >> p 100
     neg        := leading_parser:95 "-" >> p 95
@@ -165,15 +165,15 @@ namespace Parse
     -- TODO: check precedence here
     ite        := trailing_parser:65 " if " >> p 67 >> " else " >> p 66
     tuple      := leading_parser:maxPrec
-      "(" >> p >> "," >> Parser.sepBy p ", " (allowTrailingSep := true) >> ")"
-    list       := leading_parser:maxPrec "[" >> Parser.sepBy p ", " (allowTrailingSep := true) >> "]"
-    arg        := leading_parser:maxPrec Parser.optional (Parser.ident >> "=") >> p
+      "(" >> p >> "," >> sepBy p ", " (allowTrailingSep := true) >> ")"
+    list       := leading_parser:maxPrec "[" >> sepBy p ", " (allowTrailingSep := true) >> "]"
+    arg        := leading_parser:maxPrec optional (ident >> "=") >> p
     -- TODO: check precedence here
     call       := trailing_parser:110:110
-      Parser.optional ("[" >> setExpected ["type"] (Parser.sepBy1 pTyp ", " (allowTrailingSep := true)) >> "]") >>
-        "(" >> Parser.sepBy arg ", " (allowTrailingSep := true) >> ")"
-    attr       := trailing_parser:110:110 "." >> Parser.ident
-    access     := trailing_parser:110:110 "[" >> Parser.sepBy1 pIdx "," (allowTrailingSep := true) >> "]"
+      optional ("[" >> setExpected ["type"] (sepBy1 pTyp ", " (allowTrailingSep := true)) >> "]") >>
+        "(" >> sepBy arg ", " (allowTrailingSep := true) >> ")"
+    attr       := trailing_parser:110:110 "." >> ident
+    access     := trailing_parser:110:110 "[" >> sepBy1 pIdx "," (allowTrailingSep := true) >> "]"
 
     parsingTables := {
       leadingTable := {
@@ -225,8 +225,8 @@ namespace Parse
     ellipsis := leading_parser "..."
     coord    := leading_parser pExp
     slice    := leading_parser
-      Parser.optional pExp >> ":" >> Parser.optional pExp >>
-        Parser.optional (":" >> Parser.optional pExp)
+      optional pExp >> ":" >> optional pExp >>
+        optional (":" >> optional pExp)
     parsingTables := {
       leadingTable := {
         (`«...», ellipsis, maxPrec)
@@ -253,7 +253,7 @@ namespace Parse
   where
     single := leading_parser:maxPrec pExp
     tuple  := leading_parser:maxPrec
-      pExp >> "," >> Parser.optional (Parser.sepBy1 pExp "," (allowTrailingSep := true))
+      pExp >> "," >> optional (sepBy1 pExp "," (allowTrailingSep := true))
     parsingTables := {
       leadingParsers := [
         (single, maxPrec),
@@ -266,9 +266,9 @@ namespace Parse
   unsafe def pPat : Parser :=
     p
   where
-    id             := Parser.ident
+    id             := ident
     paren          := leading_parser "(" >> p >> ")"
-    tuple          := trailing_parser "," >> Parser.sepBy p "," (allowTrailingSep := true)
+    tuple          := trailing_parser "," >> sepBy p "," (allowTrailingSep := true)
     parsingTables  := {
       leadingTable := {
         (`«(», paren, maxPrec),
@@ -293,20 +293,20 @@ namespace Parse
   def pDottedName : Parser :=
     withAntiquot
       (mkAntiquot "dottedName" dottedNameKind false true)
-      (Parser.sepBy1 Parser.ident "." (allowTrailingSep := false))
+      (sepBy1 ident "." (allowTrailingSep := false))
 
   unsafe def pSimplStmt : Parser :=
     p
   where
-    ass := leading_parser pPat >> Parser.optional (":" >> pTyp) >> "=" >> pExps
+    ass := leading_parser pPat >> optional (":" >> pTyp) >> "=" >> pExps
     expStmt := leading_parser pExps
-    ret := leading_parser "return" >> Parser.optional pExp
+    ret := leading_parser "return" >> optional pExp
     asrt := leading_parser "assert" >> pExp
     pass := leading_parser "pass"
     brk := leading_parser "break"
     cont := leading_parser "continue"
-    imprt := leading_parser "import" >> pDottedName >> Parser.optional ("as" >> Parser.ident)
-    imprtFrom := leading_parser "from" >> pDottedName >> "import" >> Parser.ident >> Parser.optional ("as" >> Parser.ident)
+    imprt := leading_parser "import" >> pDottedName >> optional ("as" >> ident)
+    imprtFrom := leading_parser "from" >> pDottedName >> "import" >> ident >> optional ("as" >> ident)
 
     parsingTables := {
       leadingTable := {
@@ -553,7 +553,7 @@ def pyTokens : TokenTable :=
 
 def runPyParser (source fileName : String) (fileMap : FileMap) : IO (Except String Syntax) := unsafe do
   let p := Parse.pSimplStmt
-  let s ← runParser source fileName (p >> Parser.eoi) pyTokens
+  let s ← runParser source fileName (p >> eoi) pyTokens
   if s.hasError then
     let { line, column } := fileMap.toPosition s.pos
     return .error s!"{fileName} {line}:{column}: {s.errorMsg.get!.toString}"
@@ -567,7 +567,7 @@ def evalPy (source fileName : String) : IO (Except String Stmt) := do
   | .ok (res, _) _ => return .ok res
   | .error err _ => return .error err.msg
 
-def str := "(a,b),c : tuple[tuple[int, int], int] = ((0,0), 1)"
+def str := "(a,b),c : tuple[tuple[int, int], int] = ((0,0), 1, \"asdf\", \'asdf\')"
 #eval return (←←evalPy str "<input>")
 
 def testExp := "foo[1]"

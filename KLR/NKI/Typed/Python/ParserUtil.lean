@@ -88,6 +88,12 @@ open Parser (
 
   manyNoAntiquot
 
+  withAntiquotSpliceAndSuffix
+
+  sepByNoAntiquot
+  sepBy1NoAntiquot
+  optionalNoAntiquot
+
   leadingNode
   withFn
   termParser -- sussy
@@ -113,6 +119,7 @@ export Lean.Parser (
   TokenTable
   Token
 
+  eoi
   adaptCacheableContextFn
   withCacheFn
   mkAntiquot
@@ -593,47 +600,32 @@ def symbol (sym : String) : Parser :=
 instance : Coe String Parser where
   coe := symbol
 
--- def nonReservedSymbolNoAntiquot (sym : String) (includeIdent := false) : Parser :=
---   let sym := sym.trim
---   { info := nonReservedSymbolInfo sym includeIdent,
---     fn   := nonReservedSymbolFn sym }
+/-
+`sepByNoAntiquot` and `sepBy1NoAntiquot` is safe.
+But `sepByElemParser` calls `symbol`.
+Same story with `optional`.
+-/
 
--- def nonReservedSymbol (sym : String) (includeIdent := false) : Parser :=
---   tokenWithAntiquot (nonReservedSymbolNoAntiquot sym includeIdent)
+def sepByElemParser (p : Parser) (sep : String) : Parser :=
+  withAntiquotSpliceAndSuffix `sepBy p (symbol (sep.trim ++ "*"))
 
--- /--
---   Define parser for `$e` (if `anonymous == true`) and `$e:name`.
---   `kind` is embedded in the antiquotation's kind, and checked at syntax `match` unless `isPseudoKind` is true.
---   Antiquotations can be escaped as in `$$e`, which produces the syntax tree for `$e`. -/
--- def mkAntiquot (name : String) (kind : SyntaxNodeKind) (anonymous := true) (isPseudoKind := false) : Parser :=
---   let kind := kind ++ (if isPseudoKind then `pseudo else .anonymous) ++ `antiquot
---   let nameP := node `antiquotName <| checkNoWsBefore ("no space before ':" ++ name ++ "'") >> symbol ":" >> nonReservedSymbol name
---   -- if parsing the kind fails and `anonymous` is true, check that we're not ignoring a different
---   -- antiquotation kind via `noImmediateColon`
---   let nameP := if anonymous then nameP <|> checkNoImmediateColon >> pushNone else nameP
---   -- antiquotations are not part of the "standard" syntax, so hide "expected '$'" on error
---   leadingNode kind maxPrec <| atomic <|
---     setExpected [] "$" >>
---     manyNoAntiquot (checkNoWsBefore "" >> "$") >>
---     checkNoWsBefore "no space before spliced term" >> antiquotExpr >>
---     nameP
+def sepBy (p : Parser) (sep : String) (psep : Parser := symbol sep) (allowTrailingSep : Bool := false) : Parser :=
+  sepByNoAntiquot (sepByElemParser p sep) psep allowTrailingSep
 
--- def withAntiquotFn (antiquotP p : ParserFn) (isCatAntiquot := false) : ParserFn := fun c s =>
---   -- fast check that is false in most cases
---   if c.input.get s.pos == '$' then
---     -- Do not allow antiquotation choice nodes here as `antiquotP` is the strictly more general
---     -- antiquotation than any in `p`.
---     -- If it is a category antiquotation, do not backtrack into the category at all as that would
---     -- run *all* parsers of the category, and trailing parsers will later be applied anyway.
---     orelseFnCore (antiquotBehavior := if isCatAntiquot then .acceptLhs else .takeLongest) antiquotP p c s
---   else
---     p c s
+def sepBy1 (p : Parser) (sep : String) (psep : Parser := symbol sep) (allowTrailingSep : Bool := false) : Parser :=
+  sepBy1NoAntiquot (sepByElemParser p sep) psep allowTrailingSep
 
--- /-- Optimized version of `mkAntiquot ... <|> p`. -/
--- @[builtin_doc] def withAntiquot (antiquotP p : Parser) : Parser := {
---   fn := withAntiquotFn antiquotP.fn p.fn
---   info := orelseInfo antiquotP.info p.info
--- }
+/-- The parser `optional(p)`, or `(p)?`, parses `p` if it succeeds,
+otherwise it succeeds with no value.
+
+Note that because `?` is a legal identifier character, one must write `(p)?` or `p ?` for
+it to parse correctly. `ident?` will not work; one must write `(ident)?` instead.
+
+This parser has arity 1: it produces a `nullKind` node containing either zero arguments
+(for the `none` case) or the list of arguments produced by `p`.
+(In particular, if `p` has arity 0 then the two cases are not differentiated!) -/
+def optional (p : Parser) : Parser :=
+  optionalNoAntiquot (withAntiquotSpliceAndSuffix `optional p (symbol "?"))
 
 /-
 # New
