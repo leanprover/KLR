@@ -30,3 +30,44 @@ macro "dwp_left_pure " t:term : tactic =>
 
 macro "dwp_right_pure " t:term : tactic =>
   `(tactic| apply Entails.trans ?_ <| wand_entails <| dwpPureR $t (Hx := by simp))
+
+theorem tac_uwp_elim_triv_both {P Q : @PROP DataT} (H : P ⊢ Q) : P ⊢ emp ∗ (emp -∗ Q) := by
+  apply H.trans
+  iintro H
+  isplit r
+  · exact fun n x a a => a
+  iintro -
+  iexact H
+
+theorem tac_uwp_elim_triv_pre {P Q R : @PROP DataT} (H : P ⊢ R ∗ Q) : P ⊢ R ∗ (emp -∗ Q) := by
+  apply H.trans
+  iintro ⟨HR, HQ⟩
+  isplit l [HR]
+  · iexact HR
+  iintro -
+  iexact HQ
+
+theorem tac_uwp_elim_triv_post {P Q : @PROP DataT} (H : P ⊢ R -∗ Q) : P ⊢ emp ∗ (R -∗ Q) := by
+  apply H.trans
+  iintro H
+  isplit r [H]
+  · exact fun n x a a => a
+  iexact H
+
+macro "uwp_left " u:term : tactic => `(tactic|
+  apply Entails.trans ?_ (dwpL' $u (by simp)) <;>
+  simp <;>
+  (first
+   | apply tac_uwp_elim_triv_both
+   | apply tac_uwp_elim_triv_pre
+   | apply tac_uwp_elim_triv_post) <;>
+  istart)
+
+macro "uwp_right " u:term : tactic => `(tactic|
+  apply Entails.trans ?_ (dwpR' $u (by simp)) <;>
+  simp <;>
+  (first
+   | apply tac_uwp_elim_triv_both
+   | apply tac_uwp_elim_triv_pre
+   | apply tac_uwp_elim_triv_post) <;>
+  istart)
