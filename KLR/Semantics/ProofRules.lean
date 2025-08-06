@@ -130,13 +130,13 @@ theorem wpAllocSync  {Φ : NML.Value DataT → NML.Value DataT → @PROP DataT} 
     · exists (ExecState.run ({ stmt := NML.Stmt.assign none (.val (.uptr (ChipMemory.freshSBUFStore σₗ.memory).1)), env := locₗ } :: p1), State.mk (ChipMemory.freshSBUFStore σₗ.memory).2)
       refine ⟨?_, ?_⟩
       · refine stepN_1_iff_step.mpr ?_
-        apply asnE_ExprLift
+        apply LiftEAsn
         exact ExprStep.sbuf_alloc rfl
       · exact stepN_1_iff_step.mpr step.seqV
     · exists (ExecState.run ({ stmt := NML.Stmt.assign none (.val (.uptr (ChipMemory.freshSBUFStore σᵣ.memory).1)), env := loc₂ } :: p2), State.mk (ChipMemory.freshSBUFStore σᵣ.memory).2)
       refine ⟨?_, ?_⟩
       · refine stepN_1_iff_step.mpr ?_
-        apply asnE_ExprLift
+        apply LiftEAsn
         exact ExprStep.sbuf_alloc rfl
       · exact stepN_1_iff_step.mpr step.seqV
   -- Eliminate the later
@@ -908,8 +908,8 @@ def liftE (e : ewp DataT) (p : Expr DataT → Stmt DataT) (ps : List (NML.Task D
   steps := 1
 
 /-- Lift an `ewpL` to a `uwpL` provided the context is `ExprLift` -/
-def liftEL (e : ewpL DataT) {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) (ps : List (NML.Task DataT))
-     (loc : NML.Locals DataT) (Hloc : e.locP loc) : uwpL DataT where
+def liftEL (e : ewpL DataT) {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) {ps : List (NML.Task DataT)}
+     {loc : NML.Locals DataT} (Hloc : e.locP loc) : uwpL DataT where
   touwp := liftE e.toewp p ps loc
   spec  := by
     apply Entails.trans e.spec ?_
@@ -924,8 +924,8 @@ def liftEL (e : ewpL DataT) {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) (p
     · iexact Hupd
 
 /-- Lift an `ewpR` to a `uwpR` provided the context is `ExprLift` -/
-def liftER (e : ewpR DataT) {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) (ps : List (NML.Task DataT))
-    (loc : NML.Locals DataT) (Hloc : e.locP loc) : uwpR DataT where
+def liftER (e : ewpR DataT) {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) {ps : List (NML.Task DataT)}
+    {loc : NML.Locals DataT} (Hloc : e.locP loc) : uwpR DataT where
   touwp := liftE e.toewp p ps loc
   spec  := by
     apply Entails.trans e.spec ?_

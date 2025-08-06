@@ -328,6 +328,63 @@ theorem e8 : ⊢ wp (DataT := DataT) ⟨5⟩ e8L e8R ΦIntEq := by
   wp_sync_val
   simp [ΦIntEq, true_intro]
 
+-- E8 but using the uwp machinery
+theorem e8' : ⊢ wp (DataT := DataT) ⟨5⟩ e8L e8R ΦIntEq := by
+  simp [withNoContext, e8L, e8R]
+
+  wp_desync
+
+  apply Entails.trans ?_ (dwpL' (uwpPureL AssignPure) (by simp [uwpPureL]))
+  istart
+  isplit l
+  · exact true_intro
+  iintro -
+  simp [uwpPureL]
+  simp [NML.Task.bind]
+
+  apply Entails.trans ?_ (dwpL' (liftEL (ewpVarL _ (.int 3)) LiftEAsn
+        (by simp [ewpVarL, Locals.bind])) (by simp [ewpVarL, liftEL, liftE]))
+  istart
+  isplit l
+  · exact true_intro
+  iintro -
+  simp [ewpVarL, liftEL, liftE]
+
+  apply Entails.trans ?_ (dwpL' (uwpPureL AssignPure) (by simp [uwpPureL]))
+  istart
+  isplit l
+  · exact true_intro
+  iintro -
+  simp [uwpPureL]
+  simp [NML.Task.bind]
+
+  apply Entails.trans ?_ (dwpL' (liftEL (ewpVarL _ (.int 3)) LiftERet
+        (by simp [ewpVarL, Locals.bind])) (by simp [ewpVarL, liftEL, liftE]))
+  istart
+  isplit l
+  · exact true_intro
+  iintro -
+  simp [ewpVarL, liftEL, liftE]
+
+  apply Entails.trans ?_ (dwpL' (uwpPureL RetPure) (by simp [uwpPureL]))
+  istart
+  isplit l
+  · exact true_intro
+  iintro -
+  simp [uwpPureL]
+
+  apply Entails.trans ?_ (dwpR' (uwpPureR RetPure) (by simp [uwpPureR]))
+  istart
+  isplit l
+  · exact true_intro
+  iintro -
+  simp [uwpPureR]
+
+  wp_resync
+  wp_sync_val
+  simp [ΦIntEq, true_intro]
+
+
 
 /-! Example 9: Partiality -/
 

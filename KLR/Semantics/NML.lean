@@ -431,11 +431,11 @@ def ExprLift {DataT : Type _} (p : NML.Expr DataT → NML.Stmt DataT) : Prop :=
     NML.ExprStep DataT e l s e' s' →
     NML.step DataT ⟨.run <| ⟨p e, l⟩ :: ps, s⟩ ⟨.run <| ⟨p e', l⟩ :: ps, s'⟩
 
-theorem retE_ExprLift : ExprLift (DataT := DataT) NML.Stmt.ret := by
+theorem LiftERet : ExprLift (DataT := DataT) NML.Stmt.ret := by
   intro e e' s s' l ps He
   exact NML.step.retE He
 
-theorem asnE_ExprLift : ExprLift (DataT := DataT) (NML.Stmt.assign x) := by
+theorem LiftEAsn: ExprLift (DataT := DataT) (NML.Stmt.assign x) := by
   intro e e' s s' l ps He
   cases x
   · exact NML.step.seqE He
