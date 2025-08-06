@@ -315,8 +315,10 @@ def e9R : ExecState DataT :=
     .ret (.val .unit)
   ]
 
+
 theorem e9 : ⊢ wp (DataT := DataT) ⟨5⟩ e9L e9R ΦIntEq := by
   simp [withNoContext, e9L, e9R]
+  istart
   have Z := @wp_gen_loc DataT ⟨5⟩
                 (Stmt.loop LoopIter "x" (some { }) [NML.Stmt.assign none (Expr.val Value.unit)])
                 []
