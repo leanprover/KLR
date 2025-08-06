@@ -14,16 +14,13 @@ import KLR.Semantics.Tactics
 section weakestpre
 open Iris.BI.BIBase KLR.Core Iris NML Iris.BI
 
-
 variable {DataT : Type _}
-
 
 /-- Example relation: Both programs reutrn integers, and the integer of the left program is less
 than the integer of the right program. -/
 
 def ΦIsIntLePure (v1 v2 : NML.Value DataT) : Prop := ∃ (z1 z2 : Int), v1 = NML.Value.int z1 ∧ v2 = .int z2 ∧ z1 < z2
 def ΦIsIntLe (v1 v2 : NML.Value DataT) : @PROP DataT := iprop(⌜ΦIsIntLePure v1 v2⌝)
-
 
 /-- Simplest possible example: Two programs in "done" states -/
 theorem example0 : ⊢ (@wp DataT ⟨1⟩ (.done (.int 4)) (.done (.int 5)) ΦIsIntLe) := by
@@ -136,40 +133,65 @@ def e5R : ExecState DataT :=
   ]
 theorem e5 : ⊢ @wp DataT ⟨2⟩ e5L e5R ΦUnitEq := by
   istart
-  wp_desync
   unfold e5L e5R
   simp [withNoContext]
-  -- apply Entails.trans (PROP := PROP DataT) ?_ (wand_entails <| dwpL ?_ (Hx := ?_))
-  sorry
-  -- simp only []
-  -- let X := @dwpL DataT 1 1 2 2 e3R (u := (@uwpPureL DataT _ _ (@SeqPure DataT (nolocals DataT) [
-  --           { stmt := NML.Stmt.assign none (Expr.val (NML.Value.bool false)), env := nolocals DataT },
-  --           { stmt := NML.Stmt.assign none (Expr.val Value.unit), env := nolocals DataT },
-  --           { stmt := NML.Stmt.assign none (Expr.val (NML.Value.int 3)), env := nolocals DataT },
-  --           { stmt := NML.Stmt.ret (Expr.val Value.unit), env := nolocals DataT }] (NML.Value.int 3)))) (fun x1 x2 => wp { car := 2 } x1 x2 ΦUnitEq) (Nat.le_refl 1)
-  -- dsimp [uwpPureL] at X
-  -- refine Entails.trans (PROP := PROP DataT) ?G1 (Q := iprop((True -∗ dwp 0 2 0 2 (ExecState.run ?p') e3R fun x1 x2 => wp { car := 2 } x1 x2 ΦUnitEq) ∗ True))
-  --   (wand_entails <| ?G3)
-  -- case G3 =>
-  --   sorry
+  wp_desync
+  dwp_left_pure  SeqPure
+  dwp_right_pure SeqPure
+  dwp_left_pure  RetPure
+  dwp_right_pure RetPure
+  wp_resync
+  wp_sync_val
+  simp [ΦUnitEq, true_intro]
 
-  -- refine Entails.trans ?_ <| wand_elim (P := ?G1) (?Q := ?G2) <| ?G3 -- @dwpL DataT 1 1 2 2 e3R _  ?G2 -- 2 (u := @uwpPureL DataT _ _ <| SeqPure (DataT := DataT) (loc := nolocals _) (p' := _) (v := NML.Value.unit) ) _ _
-  -- apply Entails.trans ?_ <| wand_entails (dwpL (uwpPureL ?_) (Hx := ?_))
-  -- (uwpPureL SeqPure)
+-- e5 but with uwp
+theorem e5' : ⊢ @wp DataT ⟨2⟩ e5L e5R ΦUnitEq := by
+  istart
+  unfold e5L e5R
+  simp [withNoContext]
+  wp_desync
 
-  all_goals sorry
+  -- Acoomplishes the same thing as dwp_left_pure, except this
+  -- technique is more general and allows for side conditions
+  apply Entails.trans ?_ (dwpL' (uwpPureL SeqPure) (by simp [uwpPureL]))
+  istart
+  isplit l
+  · exact true_intro
+  iintro -
+  simp [uwpPureL]
+
+  apply Entails.trans ?_ (dwpL' (uwpPureL RetPure) (by simp [uwpPureL]))
+  istart
+  isplit l
+  · exact true_intro
+  iintro -
+  simp [uwpPureL]
+
+  apply Entails.trans ?_ (dwpR' (uwpPureR SeqPure) (by simp [uwpPureR]))
+  istart
+  isplit l
+  · exact true_intro
+  iintro -
+  simp [uwpPureR]
+
+  apply Entails.trans ?_ (dwpR' (uwpPureR RetPure) (by simp [uwpPureR]))
+  istart
+  isplit l
+  · exact true_intro
+  iintro -
+  simp [uwpPureR]
+
+  wp_resync
+  wp_sync_val
+  simp [ΦUnitEq, true_intro]
 
 
--- Other things I need to test soon:
--- Assignments to variables
--- Starting with state in hbm
 
 def e4L : ExecState DataT :=
   .run [⟨.assign (.some "x") (.val <| .int 3), nolocals _⟩, ⟨.ret (.var "x"), nolocals _⟩]
 
 def e4R : ExecState DataT :=
   .run [⟨.assign (.some "y") (.val <| .int 3), nolocals _⟩, ⟨.ret (.var "y"), nolocals _⟩]
-
 
 def ΦInt (R : Int → Int → @PROP DataT) (v1 v2 : NML.Value DataT) : @PROP DataT :=
   iprop(∃ z1 z2, ⌜v1 = .int z1⌝ ∗ ⌜v2 = .int z2⌝ ∗ R z1 z2)
@@ -178,9 +200,25 @@ def ΦIntPure (R : Int → Int → Prop) (v1 v2 : NML.Value DataT) : @PROP DataT
 
 theorem e4 : ⊢ (@wp DataT ⟨1⟩ e4L e4R (ΦIntPure (· = ·))) := by
   unfold e4L e4R
-  -- I really need this independent stepping thing
-  sorry
-
+  wp_desync
+  dwp_left_pure  AssignPure
+  dwp_right_pure AssignPure
+  wp_resync
+  simp [List.map, NML.Task.bind]
+  wp_desync
+  dwp_left_pure  (RetPureExpr VarPureE (by rfl))
+  dwp_right_pure (RetPureExpr VarPureE (by rfl))
+  wp_resync
+  wp_desync
+  dwp_left_pure  RetPure
+  dwp_right_pure RetPure
+  wp_resync
+  wp_sync_val
+  simp [ΦIntPure, ΦInt]
+  iexists 3
+  iexists 3
+  ipure_intro
+  simp
 
 /-! Example: Loops with .none as next entry are skipped -/
 
@@ -394,16 +432,17 @@ theorem e10 (ℓ : ChipIndex) (x : Nat × Nat) (mv : Option DataT) (d₀ : DataT
   iapply H with [] <;> try iexact Hfrag
   iintro Hfrag'
   simp
-  have Z := @dwpReadpRetL DataT 4 ℓ x 0 1 5 (nolocals DataT) []
-            (ExecState.run [{ stmt := NML.Stmt.ret (Expr.val (Value.data d₀)), env := nolocals DataT }])
-            (fun x1 x2 => wp { car := 5 } x1 x2 ΦEq) d₀ (by simp)
-  refine (include_sep Z ?_); clear Z
-  iintro ⟨H, Hfrag⟩
-  iapply H <;> try iexact Hfrag
-  iintro Hfrag
+  istop
+  refine .trans ?_ (dwpReadpRetL' (v := d₀))
+  istart
+  iintro H
+  isplit r [H] <;> try iexact H
+  istart
+  iintro H
   simp
   dwp_left_pure   RetPure
   dwp_right_pure  RetPure
   wp_resync
   wp_sync_val
   simp [ΦEq, true_intro]
+

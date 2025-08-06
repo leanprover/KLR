@@ -24,6 +24,7 @@ theorem bupd_ownM_update [UCMRA M] {x y : M} : x ~~> y → UPred.ownM x ⊢ |==>
 
 variable {DataT : Type _}
 
+-- TODO: iapply should depricate this
 theorem include_sep {P Q : @PROP DataT} (L : ⊢ P) (H : P ∗ Q ⊢ R) : Q ⊢ R := by
   refine Entails.trans ?_ (Q := iprop(P ∗ Q)) ?_
   · refine Entails.trans ?_ (Q := iprop(emp ∗ Q)) ?_
@@ -294,12 +295,20 @@ theorem update_lemma_left (σₗ σᵣ : NML.State DataT) (HL : ChipMemory.get_s
     (hhmap (fun x v => some (toAgree ( LeibnizO.mk v ))) ( ProdStore.mk σₗ.memory σᵣ.memory ))
     -- Ah, this is updating an infinite number of cells so needs special treatment
     -- (.left (ChipMemory.freshSBUFStore σₗ.memory).snd)
+
+    -- Maybe what we need is for the state_interp to also include frag ownership for
+    -- all spaces after the allocated part.
   sorry
 
 theorem update_lemma_right (σₗ σᵣ : NML.State DataT)
       (HL : ChipMemory.get_store σᵣ.memory (.sbufUnboundedIndex ℓ₂) = none):
   state_interp σₗ σᵣ ⊢ |==> ((ChipMemory.freshSBUFStore σᵣ.1).1 ⇉ₗ∅ ∗ state_interp σₗ ⟨(ChipMemory.freshSBUFStore σᵣ.1).2⟩) :=
   sorry
+
+
+
+
+
 
 -- NB. Keeping this code in the repo as an example for writing basic proof rules.
 open ChipIndex in
@@ -570,6 +579,17 @@ theorem dwpReadpRetL {v : DataT} (Hx : 0 < Lx := by omega) :
   exact ExprStep.readp Hstore
 
 
+theorem dwpReadpRetL' {v : DataT} (Hx : 0 < Lx := by omega) :
+    ((⟨i, x⟩ ↦ₗ some v) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx (.run <| ⟨.ret (.val <| .data v), loc⟩ :: p1) p2 Φ) ∗
+      (⟨i, x⟩ ↦ₗ some v) ⊢
+      (dwp Lm Rm Lx Rx (.run <| ⟨.ret <| .read_point (.val <| .uptr i) (.val <| .iptr x), loc⟩ :: p1) p2 Φ) := by
+  apply BI.wand_entails
+  apply Entails.trans (dwpReadpRetL (v := v))
+  istart
+  iintro H1 ⟨H2, H3⟩
+  iapply H1 with [H2]
+  · iexact H2
+  · iexact H3
 
 /-- Proof rule for a completed loop on the left -/
 theorem dwpLoopDoneL (Hx : 1 < Lx := by omega) :
@@ -704,13 +724,13 @@ variable {DataT : Type _}
 
 /-- Step the left-hand side of a dwp using a `uwpL`. -/
 theorem dwpL (u : uwpL DataT) (Hx : u.steps ≤ Lx) :
-    ⊢ (u.post -∗ dwp (Lm - u.steps) Rm (Lx - u.steps) Rx u.prog' pr Φ) ∗ u.pre -∗
+    ⊢ u.pre ∗ (u.post -∗ dwp (Lm - u.steps) Rm (Lx - u.steps) Rx u.prog' pr Φ)  -∗
       dwp Lm Rm Lx Rx u.prog pr Φ := by
   -- Include the spec inside the separating context
   apply Entails.trans u.spec ?_
   -- Unfold the dwp in the conclusion
   conv => rhs; rhs; unfold dwp
-  iintro Hspec ⟨Hdwp, Hpre⟩ sl sr Hs
+  iintro Hspec ⟨Hpre, Hdwp⟩ sl sr Hs
   -- Apply the spec to obtain a new post state and an update
   ispecialize Hspec sl sr Hpre Hs
   icases Hspec with ⟨sl', %Hstep, Hupd⟩
@@ -743,15 +763,20 @@ theorem dwpL (u : uwpL DataT) (Hx : u.steps ≤ Lx) :
     exists (u.prog', sl')
   · iexact Hs''
 
+-- Let's see if this even works before going ham with the refactoring
+theorem dwpL' (u : uwpL DataT) (Hx : u.steps ≤ Lx) :
+    u.pre ∗ (u.post -∗ dwp (Lm - u.steps) Rm (Lx - u.steps) Rx u.prog' pr Φ) ⊢
+    dwp Lm Rm Lx Rx u.prog pr Φ := (wand_entails <| dwpL u Hx)
+
 /-- Step the right-hand side of a dwp using a `uwpR`. -/
 theorem dwpR (u : uwpR DataT) (Hx : u.steps ≤ Rx) :
-    ⊢ (u.post -∗ dwp Lm (Rm - u.steps) Lx (Rx - u.steps) pl u.prog' Φ) ∗ u.pre -∗
+    ⊢ u.pre ∗ (u.post -∗ dwp Lm (Rm - u.steps) Lx (Rx - u.steps) pl u.prog' Φ) -∗
       dwp Lm Rm Lx Rx pl u.prog Φ := by
   -- Include the spec inside the separating context
   apply Entails.trans u.spec ?_
   -- Unfold the dwp in the conclusion
   conv => rhs; rhs; unfold dwp
-  iintro Hspec ⟨Hdwp, Hpre⟩ sl sr Hs
+  iintro Hspec ⟨Hpre, Hdwp⟩ sl sr Hs
   -- Apply the spec to obtain a new post state and an update
   ispecialize Hspec sl sr Hpre Hs
   icases Hspec with ⟨sr', %Hstep, Hupd⟩
@@ -783,6 +808,12 @@ theorem dwpR (u : uwpR DataT) (Hx : u.steps ≤ Rx) :
     apply StepN_add_iff.mpr
     exists (u.prog', sr')
   · iexact Hs''
+
+-- Let's see if this even works before going ham with the refactoring
+theorem dwpR' (u : uwpR DataT) (Hx : u.steps ≤ Rx) :
+    u.pre ∗ (u.post -∗ dwp Lm (Rm - u.steps) Lx (Rx - u.steps) pl u.prog' Φ)
+    ⊢ dwp Lm Rm Lx Rx pl u.prog Φ :=
+  (wand_entails <| dwpR u Hx)
 
 def uwpPureL {p p' : Prog DataT} (H : PureStep p p') : uwpL DataT where
   pre   := iprop(True)
