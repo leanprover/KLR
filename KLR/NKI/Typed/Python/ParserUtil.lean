@@ -100,6 +100,9 @@ open Parser (
 # Export List
 We carefully control what is exported from this file to control the tokenizer behavior.
 The code in `Python/Parser.lean` must only use parser utilities exported here.
+
+Note: The antiquot functions may call the built-in tokenizer. But this is fine since
+it is only used in pattern matching.
 -/
 export Lean.Parser (
   maxPrec
@@ -110,14 +113,11 @@ export Lean.Parser (
   TokenTable
   Token
 
-  identNoAntiquot
   adaptCacheableContextFn
   withCacheFn
   mkAntiquot
-  symbol
   withAntiquot
   setExpected
-  numLit
 )
 
 /-
@@ -296,9 +296,9 @@ private def tokenFnAux : ParserFn := fun c s =>
   let i     := s.pos
   let curr  := input.get i
   if curr == '\"' then
-    strOrCommentBlock '\"' c s
+    strOrCommentBlock curr c s
   else if curr == '\'' then
-    strOrCommentBlock '\'' c s
+    strOrCommentBlock curr c s
   else if curr.isDigit then
     numberFnAux c s
   else
@@ -351,6 +351,18 @@ def blockComment : Parser := {
   fn   := expectTokenFn blockCommentKind "block comment"
   info := mkAtomicInfo "blockComment"
 }
+
+/--
+[CUSTOM]
+
+`Lean.TSyntax.getString` is quite complicated and onlys works with Lean's
+string lexical grammar. This implementation performs zero checks on the validity
+of the string.
+-/
+def getString (s : StrLit) : String :=
+  match Syntax.isLit? strLitKind s.raw with
+  | some val => val.extract (val.next 0) (val.prev val.endPos)
+  | _        => ""
 
 /-
 # ----------------------------End of Custom Tokenizer---------------------------
@@ -452,6 +464,180 @@ def prattParser (kind : Name) (tables : PrattParsingTables) (behavior : LeadingI
     s
   else
     trailingLoop tables c s
+
+def numLitFn : ParserFn := expectTokenFn numLitKind "numeral"
+
+def numLitNoAntiquot : Parser := {
+  fn   := numLitFn
+  info := mkAtomicInfo "num"
+}
+
+/-- The parser `num` parses a numeric literal in several bases:
+
+* Decimal: `129`
+* Hexadecimal: `0xdeadbeef`
+* Octal: `0o755`
+* Binary: `0b1101`
+
+This parser has arity 1: it produces a `numLitKind` node containing an atom with the text of the
+literal.
+You can use `TSyntax.getNat` to extract the number from the resulting syntax object. -/
+def numLit : Parser :=
+  withAntiquot (mkAntiquot "num" numLitKind) numLitNoAntiquot
+
+def scientificLitFn : ParserFn := expectTokenFn scientificLitKind "scientific number"
+
+def scientificLitNoAntiquot : Parser := {
+  fn   := scientificLitFn
+  info := mkAtomicInfo "scientific"
+}
+
+/-- The parser `scientific` parses a scientific-notation literal, such as `1.3e-24`.
+
+This parser has arity 1: it produces a `scientificLitKind` node containing an atom with the text
+of the literal.
+You can use `TSyntax.getScientific` to extract the parts from the resulting syntax object. -/
+def scientificLit : Parser :=
+  withAntiquot (mkAntiquot "scientific" scientificLitKind) scientificLitNoAntiquot
+
+def strLitFn : ParserFn := expectTokenFn strLitKind "string literal"
+
+def strLitNoAntiquot : Parser := {
+  fn   := strLitFn
+  info := mkAtomicInfo "str"
+}
+
+/-- The parser `str` parses a string literal, such as `"foo"` or `"\r\n"`. Strings can contain
+C-style escapes like `\n`, `\"`, `\x00` or `\u2665`, as well as literal unicode characters like `∈`.
+Newlines in a string are interpreted literally.
+
+This parser has arity 1: it produces a `strLitKind` node containing an atom with the raw
+literal (including the quote marks and without interpreting the escapes).
+You can use `TSyntax.getString` to decode the string from the resulting syntax object. -/
+def strLit : Parser :=
+  withAntiquot (mkAntiquot "str" strLitKind) strLitNoAntiquot
+
+def identFn : ParserFn := expectTokenFn identKind "identifier"
+
+def identNoAntiquot : Parser := {
+  fn   := identFn
+  info := mkAtomicInfo "ident"
+}
+
+/-- The parser `ident` parses a single identifier, possibly with namespaces, such as `foo` or
+`bar.baz`. The identifier must not be a declared token, so for example it will not match `"def"`
+because `def` is a keyword token. Tokens are implicitly declared by using them in string literals
+in parser declarations, so `syntax foo := "bla"` will make `bla` no longer legal as an identifier.
+
+Identifiers can contain special characters or keywords if they are escaped using the `«»` characters:
+`«def»` is an identifier named `def`, and `«x»` is treated the same as `x`. This is useful for
+using disallowed characters in identifiers such as `«foo.bar».baz` or `«hello world»`.
+
+This parser has arity 1: it produces a `Syntax.ident` node containing the parsed identifier.
+You can use `TSyntax.getId` to extract the name from the resulting syntax object. -/
+def ident : Parser :=
+  withAntiquot (mkAntiquot "ident" identKind) identNoAntiquot
+
+def satisfySymbolFn (p : String → Bool) (expected : List String) : ParserFn := fun c s => Id.run do
+  let iniPos := s.pos
+  let s := tokenFn expected c s
+  if s.hasError then
+    return s
+  if let .atom _ sym := s.stxStack.back then
+    if p sym then
+      return s
+  -- this is a very hot `mkUnexpectedTokenErrors` call, so explicitly pass `iniPos`
+  s.mkUnexpectedTokenErrors expected iniPos
+
+def symbolFnAux (sym : String) (errorMsg : String) : ParserFn :=
+  satisfySymbolFn (fun s => s == sym) [errorMsg]
+
+def symbolInfo (sym : String) : ParserInfo := {
+  collectTokens := fun tks => sym :: tks
+  firstTokens   := FirstTokens.tokens [ sym ]
+}
+
+def symbolFn (sym : String) : ParserFn :=
+  symbolFnAux sym ("'" ++ sym ++ "'")
+
+def symbolNoAntiquot (sym : String) : Parser :=
+  let sym := sym.trim
+  { info := symbolInfo sym
+    fn   := symbolFn sym }
+
+-- We support three kinds of antiquotations: `$id`, `$_`, and `$(t)`, where `id` is a term identifier and `t` is a term.
+def antiquotNestedExpr : Parser := node `antiquotNestedExpr (symbolNoAntiquot "(" >> decQuotDepth termParser >> symbolNoAntiquot ")")
+def antiquotExpr : Parser       := identNoAntiquot <|> symbolNoAntiquot "_" <|> antiquotNestedExpr
+
+def tokenAntiquotFn : ParserFn := fun c s => Id.run do
+  if s.hasError then
+    return s
+  let iniSz  := s.stackSize
+  let iniPos := s.pos
+  let s      := (checkNoWsBefore >> symbolNoAntiquot "%" >> symbolNoAntiquot "$" >> checkNoWsBefore >> antiquotExpr).fn c s
+  if s.hasError then
+    return s.restore iniSz iniPos
+  s.mkNode (`token_antiquot) (iniSz - 1)
+
+def tokenWithAntiquot : Parser → Parser := withFn fun f c s =>
+  let s := f c s
+  -- fast check that is false in most cases
+  if c.input.get s.pos == '%' then
+    tokenAntiquotFn c s
+  else
+    s
+
+def symbol (sym : String) : Parser :=
+  tokenWithAntiquot (symbolNoAntiquot sym)
+
+instance : Coe String Parser where
+  coe := symbol
+
+-- def nonReservedSymbolNoAntiquot (sym : String) (includeIdent := false) : Parser :=
+--   let sym := sym.trim
+--   { info := nonReservedSymbolInfo sym includeIdent,
+--     fn   := nonReservedSymbolFn sym }
+
+-- def nonReservedSymbol (sym : String) (includeIdent := false) : Parser :=
+--   tokenWithAntiquot (nonReservedSymbolNoAntiquot sym includeIdent)
+
+-- /--
+--   Define parser for `$e` (if `anonymous == true`) and `$e:name`.
+--   `kind` is embedded in the antiquotation's kind, and checked at syntax `match` unless `isPseudoKind` is true.
+--   Antiquotations can be escaped as in `$$e`, which produces the syntax tree for `$e`. -/
+-- def mkAntiquot (name : String) (kind : SyntaxNodeKind) (anonymous := true) (isPseudoKind := false) : Parser :=
+--   let kind := kind ++ (if isPseudoKind then `pseudo else .anonymous) ++ `antiquot
+--   let nameP := node `antiquotName <| checkNoWsBefore ("no space before ':" ++ name ++ "'") >> symbol ":" >> nonReservedSymbol name
+--   -- if parsing the kind fails and `anonymous` is true, check that we're not ignoring a different
+--   -- antiquotation kind via `noImmediateColon`
+--   let nameP := if anonymous then nameP <|> checkNoImmediateColon >> pushNone else nameP
+--   -- antiquotations are not part of the "standard" syntax, so hide "expected '$'" on error
+--   leadingNode kind maxPrec <| atomic <|
+--     setExpected [] "$" >>
+--     manyNoAntiquot (checkNoWsBefore "" >> "$") >>
+--     checkNoWsBefore "no space before spliced term" >> antiquotExpr >>
+--     nameP
+
+-- def withAntiquotFn (antiquotP p : ParserFn) (isCatAntiquot := false) : ParserFn := fun c s =>
+--   -- fast check that is false in most cases
+--   if c.input.get s.pos == '$' then
+--     -- Do not allow antiquotation choice nodes here as `antiquotP` is the strictly more general
+--     -- antiquotation than any in `p`.
+--     -- If it is a category antiquotation, do not backtrack into the category at all as that would
+--     -- run *all* parsers of the category, and trailing parsers will later be applied anyway.
+--     orelseFnCore (antiquotBehavior := if isCatAntiquot then .acceptLhs else .takeLongest) antiquotP p c s
+--   else
+--     p c s
+
+-- /-- Optimized version of `mkAntiquot ... <|> p`. -/
+-- @[builtin_doc] def withAntiquot (antiquotP p : Parser) : Parser := {
+--   fn := withAntiquotFn antiquotP.fn p.fn
+--   info := orelseInfo antiquotP.info p.info
+-- }
+
+/-
+# New
+-/
 
 def runParser (source fileName : String) (p : Parser) (tokens : TokenTable) : IO ParserState := do
   let emptyEnv ← mkEmptyEnvironment 0

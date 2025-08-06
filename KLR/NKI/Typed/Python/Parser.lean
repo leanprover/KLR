@@ -39,6 +39,8 @@ abbrev expsKind : SyntaxNodeKind := `exps
 
 abbrev patKind : SyntaxNodeKind := `pat
 
+abbrev dottedNameKind : SyntaxNodeKind := `dottedName
+
 abbrev stmtKind : SyntaxNodeKind := `stmt
 
 abbrev stmtsKind : SyntaxNodeKind := `stmts
@@ -284,8 +286,14 @@ namespace Parse
   def simplStmtTokens : List Token := [
     "=", "+=", "-=", "*=", "@=", "/=", "%=", "**=", "//=",
     "return", "assert", "pass", "break", "continue",
-    "import", "from", "as",
+    "import", "from", "as"
   ]
+
+  -- Helper parser for dotted names like "os.path"
+  def pDottedName : Parser :=
+    withAntiquot
+      (mkAntiquot "dottedName" dottedNameKind false true)
+      (Parser.sepBy1 Parser.ident "." (allowTrailingSep := false))
 
   unsafe def pSimplStmt : Parser :=
     p
@@ -297,6 +305,8 @@ namespace Parse
     pass := leading_parser "pass"
     brk := leading_parser "break"
     cont := leading_parser "continue"
+    imprt := leading_parser "import" >> pDottedName >> Parser.optional ("as" >> Parser.ident)
+    imprtFrom := leading_parser "from" >> pDottedName >> "import" >> Parser.ident >> Parser.optional ("as" >> Parser.ident)
 
     parsingTables := {
       leadingTable := {
@@ -304,7 +314,9 @@ namespace Parse
         (`assert, asrt, maxPrec),
         (`pass, pass, maxPrec),
         (`break, brk, maxPrec),
-        (`continue, cont, maxPrec)
+        (`continue, cont, maxPrec),
+        (`import, imprt, maxPrec),
+        (`from, imprtFrom, maxPrec)
       },
       leadingParsers := [
         (ass, maxPrec),
@@ -351,11 +363,14 @@ end EvalM
 namespace Eval
   open Parse
 
+  def eIdent : TSyntax `ident → Ident :=
+    Name.toString ∘ TSyntax.getId
+
   partial def eTyp (stx : TSyntax typKind) : EvalM Typ := do
     let pos ← .getPos stx
     let typ : Typ' ←
       match stx with
-      | `(pTyp| $id:ident) => pure <| .var id.getId.toString
+      | `(pTyp| $id:ident) => pure <| .var <| eIdent id
       | `(pTyp| None) => pure <| .prim .none
       | `(pTyp| bool) => pure <| .prim .bool
       | `(pTyp| int) => pure <| .prim <| .numeric .int
@@ -379,7 +394,7 @@ namespace Eval
     let args ← args.mapM (fun arg =>
       match arg with
       | `(pExp.arg| $[$id:ident =]? $e:exp) => do
-        pure ⟨id.map (Name.toString ∘ TSyntax.getId), ← eExp e⟩
+        pure ⟨id.map eIdent, ← eExp e⟩
       | _ => .throwUnsupportedSyntax pos
     )
     pure args
@@ -398,7 +413,7 @@ namespace Eval
     let pos ← .getPos stx
     match stx with
     | `(pExp| ($e:exp)) => eExp e
-    | `(pExp| $id:ident) => pure ⟨pos, .var id.getId.toString⟩
+    | `(pExp| $id:ident) => pure ⟨pos, .var <| eIdent id⟩
     | `(pExp| None) => pure ⟨pos, .value .none⟩
     | `(pExp| True) => pure ⟨pos, .value <| .bool true⟩
     | `(pExp| False) => pure ⟨pos, .value <| .bool false⟩
@@ -410,7 +425,7 @@ namespace Eval
       | (n, sign, e) =>
         let f := if sign then n.toFloat * 10 ^ (-e.toFloat) else n.toFloat * 10 ^ e.toFloat
         pure ⟨pos, .value <| .float f⟩
-    | `(pExp| $s:str) => pure ⟨pos, .value <| .string s.getString⟩
+    | `(pExp| $s:str) => pure ⟨pos, .value <| .string <| Python.Parser.getString s⟩
     | `(pExp| $b:exp ** $e:exp) => do pure ⟨pos, .binOp .pow (← eExp b) (← eExp e)⟩
     | `(pExp.neg| -$e:exp) => do pure ⟨pos, .unaryOp .neg (← eExp e)⟩
     | `(pExp| $x:exp * $y:exp) => do pure ⟨pos, .binOp .mul (← eExp x) (← eExp y)⟩
@@ -443,7 +458,7 @@ namespace Eval
       pure ⟨pos, .call f [] args.toList⟩
     | `(pExp| $e:exp.$f:ident) => do
       let e ← eExp e
-      let f := f.getId.toString
+      let f := eIdent f
       pure ⟨pos, .attr e f⟩
     | `(pExp| [$[$es:exp],*]) => do
       let es ← es.mapM eExp
@@ -471,11 +486,18 @@ namespace Eval
 
   partial def ePat : TSyntax patKind → EvalM Pattern
     | `(pPat| ($p:pat)) => ePat p
-    | `(pPat| $id:ident) => pure <| .var id.getId.toString
+    | `(pPat| $id:ident) => pure <| .var <| eIdent id
     | `(pPat| $p:pat, $[ $ps:pat ],*) => do
       let ps ← (p :: ps.toList).mapM ePat
       pure <| .tuple ps
-    | stx => do EvalM.throwUnsupportedSyntax (← EvalM.getPos stx)
+    | stx => do .throwUnsupportedSyntax (← .getPos stx)
+
+  def eDottedName : TSyntax dottedNameKind → EvalM QualifiedIdent
+    | `(pDottedName| $[$ids:ident].*) => do
+      let qualifers := ids.pop.toList.map eIdent
+      let name := eIdent ids.back!
+      pure (qualifers, name)
+    | stx => do .throwUnsupportedSyntax (← .getPos stx)
 
   def eSimplStmt (stx : TSyntax simplStmtKind) : EvalM Stmt := do
     let pos ← .getPos stx
@@ -485,21 +507,32 @@ namespace Eval
       let t ← t.mapM eTyp
       let e ← eExps e
       pure ⟨pos, .assign p t e⟩
-    | `(pSimplStmt| $e:exps) => do
-      let e ← eExps e
-      pure ⟨pos, .exp e⟩
-    | `(pSimplStmt| return $[$e:exp]?) => do
-      let e ← e.mapM eExp
+    | `(pSimplStmt| return $[$e:exp]?) =>
+      let e ← match e with
+        | some e => eExp e
+        | none => pure ⟨pos, .value .none⟩
       pure ⟨pos, .ret e⟩
-    | `(pSimplStmt| assert $e:exp) => do
+    | `(pSimplStmt| assert $e:exp) =>
       let e ← eExp e
       pure ⟨pos, .assert e⟩
-    | `(pSimplStmt| pass) => do
+    | `(pSimplStmt| pass) =>
       pure ⟨pos, .pass⟩
-    | `(pSimplStmt| break) => do
+    | `(pSimplStmt| break) =>
       pure ⟨pos, .breakLoop⟩
-    | `(pSimplStmt| continue) => do
+    | `(pSimplStmt| continue) =>
       pure ⟨pos, .continueLoop⟩
+    | `(pSimplStmt| $e:exps) =>
+      let e ← eExps e
+      pure ⟨pos, .exp e⟩
+    | `(pSimplStmt| import $imp:dottedName $[as $alias_:ident]?) =>
+      let imp ← eDottedName imp
+      let alias_ := alias_.map eIdent
+      pure ⟨pos, .imprt imp alias_⟩
+    | `(pSimplStmt| from $frm:dottedName import $imp:ident $[as $alias_:ident]?) =>
+      let frm ← eDottedName frm
+      let imp := eIdent imp
+      let alias_ := alias_.map eIdent
+      pure ⟨pos, .imprtFrom frm imp alias_⟩
     | _ => .throwUnsupportedSyntax pos
 
 end Eval
@@ -538,7 +571,7 @@ def str := "(a,b),c : tuple[tuple[int, int], int] = ((0,0), 1)"
 #eval return (←←evalPy str "<input>")
 
 def testExp := "foo[1]"
-#eval return (←←evalPy testExp "<input>")
+#eval return toJson (←←evalPy testExp "<input>")
 
 -- Test additional statements
 def testReturn := "return 42"
@@ -556,4 +589,24 @@ def testBreak := "break"
 def testContinue := "continue"
 #eval return (←←evalPy testContinue "<input>")
 
-end KLR.NKI.Typed.Python.Parser
+-- Test import statements
+def testImport := "import math"
+#eval return (←←evalPy testImport "<input>")
+
+def testImportAs := "import numpy as np"
+#eval return (←←evalPy testImportAs "<input>")
+
+def testImportDotted := "import os.path"
+#eval return (←←evalPy testImportDotted "<input>")
+
+def testImportDottedAs := "import os.path as ospath"
+#eval return (←←evalPy testImportDottedAs "<input>")
+
+def testFromImport := "from math import sin"
+#eval return (←←evalPy testFromImport "<input>")
+
+def testFromImportAs := "from math import sin as sine"
+#eval return (←←evalPy testFromImportAs "<input>")
+
+def testFromImportDotted := "from os.path import join"
+#eval return (←←evalPy testFromImportDotted "<input>")
