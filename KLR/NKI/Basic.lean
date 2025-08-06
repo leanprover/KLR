@@ -107,12 +107,6 @@ namespace Pattern
 def isVar : Pattern -> Bool
   | .var .. => true | _ => false
 
-def findVar (ps : List Pattern) : PassM (Name × List Pattern) :=
-  match ps.partition Pattern.isVar with
-  | ([], ps) => return (<- freshName, ps)
-  | (.var n :: vs, ps) => return (n, vs ++ ps)
-  | _ => throw "invalid pattern"
-
 end Pattern
 
 @[serde tag = 8]

@@ -28,54 +28,22 @@ open Compile.Pass
 
 abbrev SimplifyOp := PassM
 
--- TODO: maybe we can fetch these names from the NKI environment in Trace/NKI.lean?
-private def operatorNames : List Name := [
-  `neuronxcc.nki.isa.nc_matmul,
-  `neuronxcc.nki.isa.nc_transpose,
-  `neuronxcc.nki.isa.activation,
-  `neuronxcc.nki.isa.activation_reduce,
-  `neuronxcc.nki.isa.tensor_reduce,
-  `neuronxcc.nki.isa.tensor_partition_reduce,
-  `neuronxcc.nki.isa.tensor_tensor,
-  `neuronxcc.nki.isa.tensor_tensor_scan,
-  `neuronxcc.nki.isa.scalar_tensor_tensor,
-  `neuronxcc.nki.isa.tensor_scalar,
-  `neuronxcc.nki.isa.tensor_scalar_reduce,
-  `neuronxcc.nki.isa.tensor_copy,
-  `neuronxcc.nki.isa.tensor_copy_dynamic_src,
-  `neuronxcc.nki.isa.tensor_copy_dynamic_dst,
-  `neuronxcc.nki.isa.tensor_copy_predicated,
-  `neuronxcc.nki.isa.reciprocal,
-  `neuronxcc.nki.isa.iota,
-  `neuronxcc.nki.isa.dropout,
-  `neuronxcc.nki.isa.affine_select,
-  `neuronxcc.nki.isa.range_select,
-  `neuronxcc.nki.isa.memset,
-  `neuronxcc.nki.isa.bn_stats,
-  `neuronxcc.nki.isa.bn_aggr,
-  `neuronxcc.nki.isa.local_gather,
-  `neuronxcc.nki.isa.dma_copy,
-  `neuronxcc.nki.isa.max8,
-  `neuronxcc.nki.isa.nc_find_index8,
-  `neuronxcc.nki.isa.nc_match_replace8,
-  `neuronxcc.nki.isa.nc_stream_shuffle
-]
+private def isISA : Expr -> Bool
+  | ⟨ .var (.str `neuronxcc.nki.isa _), _ ⟩ => true
+  | _ => false
 
 private def rewriteOp (rhs: Expr) (dst: Expr) : SimplifyOp (Option Stmt') := do
   match rhs.expr with
   | .call f args kws =>
-    if let .var n := f.expr then
-      if operatorNames.contains n then
-        if kws.any fun x => x.name == "dst" then
+    if isISA f then
+      if kws.any fun x => x.name == "dst" then
           throw  "Operation with destination specified should not use assignment form"
-        let kws : List Keyword := ⟨ "dst",  dst⟩ :: kws
-        let call : Expr' := .call f args kws
-        return some (.expr ⟨call, rhs.pos⟩)
-      else
-        return none
+      let kws : List Keyword := ⟨ "dst",  dst⟩ :: kws
+      let call : Expr' := .call f args kws
+      return some (.expr ⟨call, rhs.pos⟩)
     else
       return none
-  | _ => none
+  | _ => return none
 
 mutual
 private def stmt (s : Stmt) : SimplifyOp (Stmt) := do
@@ -89,11 +57,11 @@ private def stmts (s : List Stmt) : SimplifyOp (List Stmt) := do
 
 private def stmt' (s : Stmt') : SimplifyOp Stmt' := do
   match s with
-  | .letM p ty e =>
-    let (n, _) <- Pattern.findVar [p]
-    match <- rewriteOp e ⟨ .var n, e.pos ⟩ with
-    | some _ => throw "assignment from nki functions should be done on memory regions and have a form of foo(b, dst=a[...])"
-    | none => return .letM p ty e
+  | .letM _ _ e =>
+    if let .call f .. := e.expr then
+      if isISA f then
+        warn "ISA function does not return a value"
+    return s
   | .setM x e accum =>
     match <- rewriteOp e x with
     | some op =>
@@ -129,4 +97,4 @@ private def kernel (k : Kernel) : SimplifyOp Kernel := do
 def simplifyOperators (k : Kernel) : Err (Kernel × List PosError) :=
   match (kernel k).run {} with
   | .ok x s => .ok (x, s.warnings.toList ++ s.newWarns.toList)
-  | .error e _ => .error (toString e)
+  | .error e _ => .error ("something :" ++ toString e)

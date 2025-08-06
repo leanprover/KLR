@@ -175,6 +175,11 @@ private def expr' (e' : Python.Expr') : Simplify Expr' :=
 private def index (e : Python.Expr) : Simplify Index := do
   match e with
   | ⟨ .const .ellipsis, _ ⟩ => return .ellipsis
+  | ⟨ .slice l u step, p ⟩ => withPos p do
+      let l <- l.attach.mapM fun ⟨ e, _ ⟩ => expr e
+      let u <- u.attach.mapM fun ⟨ e, _ ⟩ => expr e
+      let step <- step.attach.mapM fun ⟨ e, _ ⟩ => expr e
+      return .slice l u step
   | ⟨ e', p ⟩ => withPos p do return .coord ⟨ <- expr' e', p ⟩
   termination_by sizeOf e
 
@@ -216,6 +221,12 @@ def simpleVar (e : Expr) : Simplify Name :=
     else throw "expecting simple variable"
   | _ => throw "expecting simple variable"
 
+def findVar (ps : List Pattern) : Simplify (Name × List Pattern) :=
+  match ps.partition Pattern.isVar with
+  | ([], ps) => return (<- freshName, ps)
+  | (.var n :: vs, ps) => return (n, vs ++ ps)
+  | _ => throw "invalid pattern"
+
 def isLetPattern (e : Expr) : Bool :=
   match e.expr with
   | .var n => isSimpleName n
@@ -249,7 +260,7 @@ def assign (xs : List Expr) (e : Expr) (t : Option Expr) : Simplify (List Stmt')
   | ([], none) => throw "invalid assignment statement"
   | ([x], none) => return [.letM x t e]
   | (xs, none) =>
-    let (n, xs) <- Pattern.findVar xs
+    let (n, xs) <- findVar xs
     let first := .letM (.var n) t e
     let e' : Expr := ⟨ .var n, e.pos ⟩
     let rest := xs.map fun x' => .letM x' t e'
