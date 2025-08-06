@@ -63,7 +63,7 @@
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "5bae654a93acf0eefeae02d51e294df0ac9f4cf5",
+   "rev": "bad4319b7179ec473716f169a80b78dac32a37bb",
    "name": "iris",
    "manifestFile": "lake-manifest.json",
    "inputRev": null,
