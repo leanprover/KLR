@@ -538,6 +538,16 @@ theorem dwpSetpL {v : DataT} (Hx : 0 < Lx := by omega) :
   rw [Nat.add_comm _ _, StepN_add_iff]
   refine ⟨_, ⟨stepN_1_iff_step.mpr step.setp, SL⟩⟩
 
+
+theorem dwpSetpL' {v : DataT} (Hx : 0 < Lx := by omega) :
+    ((⟨i, x⟩ ↦ₗ mv) ∗ ((⟨i, x⟩ ↦ₗ some v) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx (.run <| p1) p2 Φ))
+    ⊢ (dwp Lm Rm Lx Rx (.run <| ⟨.set_point (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v), loc⟩ :: p1) p2 Φ) := by
+  apply BI.wand_entails
+  refine .trans (@dwpSetpL DataT Lx i x Lm Rm Rx p1 p2 Φ mv loc v Hx) ?_
+  iintro H1 ⟨H2, H3⟩
+  iapply H1 with [H3]
+  iexact H2
+
 theorem dwpSetpR {v : DataT} (Hx : 0 < Rx := by omega) :
     ⊢ ((⟨i, x⟩ ↦ᵣ some v) -∗ dwp Lm (Rm - 1) Lx (Rx - 1) p1 (.run <| p2) Φ) -∗
        (⟨i, x⟩ ↦ᵣ mv) -∗
@@ -578,6 +588,15 @@ theorem dwpSetpR {v : DataT} (Hx : 0 < Rx := by omega) :
   rw [Nat.add_comm _ _, StepN_add_iff]
   refine ⟨_, ⟨stepN_1_iff_step.mpr step.setp, SR⟩⟩
 
+theorem dwpSetpR' {v : DataT} (Hx : 0 < Rx := by omega) :
+    ((⟨i, x⟩ ↦ᵣ mv) ∗ ((⟨i, x⟩ ↦ᵣ some v) -∗ dwp Lm (Rm - 1) Lx (Rx - 1) p1 (.run <| p2) Φ))
+    ⊢ (dwp Lm Rm Lx Rx p1 (.run <| ⟨.set_point (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v), loc⟩ :: p2) Φ) := by
+  apply BI.wand_entails
+  refine .trans (@dwpSetpR DataT Rx i x Lm Rm Lx p1 p2 Φ mv loc v Hx) ?_
+  iintro H1 ⟨H2, H3⟩
+  iapply H1 with [H3]
+  iexact H2
+
 -- TODO: This is only used for an example right now, a less ad-hoc solution for
 -- ExprSteps that use state is necessary.
 theorem dwpReadpRetL {v : DataT} (Hx : 0 < Lx := by omega) :
@@ -615,16 +634,15 @@ theorem dwpReadpRetL {v : DataT} (Hx : 0 < Lx := by omega) :
 
 
 theorem dwpReadpRetL' {v : DataT} (Hx : 0 < Lx := by omega) :
-    ((⟨i, x⟩ ↦ₗ some v) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx (.run <| ⟨.ret (.val <| .data v), loc⟩ :: p1) p2 Φ) ∗
-      (⟨i, x⟩ ↦ₗ some v) ⊢
-      (dwp Lm Rm Lx Rx (.run <| ⟨.ret <| .read_point (.val <| .uptr i) (.val <| .iptr x), loc⟩ :: p1) p2 Φ) := by
+    (⟨i, x⟩ ↦ₗ some v) ∗ ((⟨i, x⟩ ↦ₗ some v) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx (.run <| ⟨.ret (.val <| .data v), loc⟩ :: p1) p2 Φ)
+    ⊢ (dwp Lm Rm Lx Rx (.run <| ⟨.ret <| .read_point (.val <| .uptr i) (.val <| .iptr x), loc⟩ :: p1) p2 Φ) := by
   apply BI.wand_entails
   apply Entails.trans (dwpReadpRetL (v := v))
   istart
   iintro H1 ⟨H2, H3⟩
-  iapply H1 with [H2]
-  · iexact H2
+  iapply H1 with [H3]
   · iexact H3
+  · iexact H2
 
 /-- Proof rule for a completed loop on the left -/
 theorem dwpLoopDoneL (Hx : 1 < Lx := by omega) :
@@ -936,16 +954,18 @@ structure ewpR (DataT : Type _) extends ewp DataT where
   spec : ⊢ iprop(∀ σₗ σᵣ, pre -∗ state_interp σₗ σᵣ -∗
     (∀ loc, ∃ σᵣ', ⌜locP loc → ExprStep DataT expr loc σᵣ expr' σᵣ'⌝ ∗ |==> (state_interp σₗ σᵣ' ∗ post)))
 
-def liftE (e : ewp DataT) (p : Expr DataT → Stmt DataT) (ps : List (NML.Task DataT)) (loc : NML.Locals DataT) : uwp DataT where
+@[simp] def liftE (e : ewp DataT) (p : Expr DataT → Stmt DataT) (ps : List (NML.Task DataT)) (loc : NML.Locals DataT) : uwp DataT where
   pre   := e.pre
   post  := e.post
   prog  := .run <| ⟨p e.expr,  loc⟩ :: ps
   prog' := .run <| ⟨p e.expr', loc⟩ :: ps
   steps := 1
 
+
+
 /-- Lift an `ewpL` to a `uwpL` provided the context is `ExprLift` -/
-def liftEL (e : ewpL DataT) {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) {ps : List (NML.Task DataT)}
-     {loc : NML.Locals DataT} (Hloc : e.locP loc) : uwpL DataT where
+@[simp] def liftEL (e : ewpL DataT) {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) {ps : List (NML.Task DataT)}
+     {loc : NML.Locals DataT} (Hloc : e.locP loc := by simp) : uwpL DataT where
   touwp := liftE e.toewp p ps loc
   spec  := by
     apply Entails.trans e.spec ?_
@@ -959,9 +979,13 @@ def liftEL (e : ewpL DataT) {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) {p
       exact stepN_1_iff_step.mpr (Hp e.expr e.expr' σₗ Hσₗ' loc ps (Hstep Hloc))
     · iexact Hupd
 
+@[simp] def ExprLift.liftL  {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) (e : ewpL DataT) {ps : List (NML.Task DataT)}
+     {loc : NML.Locals DataT} (Hloc : e.locP loc := by simp) : uwpL DataT :=
+  liftEL e Hp (Hloc := Hloc) (ps := ps)
+
 /-- Lift an `ewpR` to a `uwpR` provided the context is `ExprLift` -/
-def liftER (e : ewpR DataT) {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) {ps : List (NML.Task DataT)}
-    {loc : NML.Locals DataT} (Hloc : e.locP loc) : uwpR DataT where
+@[simp] def liftER (e : ewpR DataT) {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) {ps : List (NML.Task DataT)}
+    {loc : NML.Locals DataT} (Hloc : e.locP loc := by simp) : uwpR DataT where
   touwp := liftE e.toewp p ps loc
   spec  := by
     apply Entails.trans e.spec ?_
@@ -975,7 +999,11 @@ def liftER (e : ewpR DataT) {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) {p
       exact stepN_1_iff_step.mpr (Hp e.expr e.expr' σᵣ Hσᵣ' loc ps (Hstep Hloc))
     · iexact Hupd
 
-def ewpVarL (s : String) (v : Value DataT) : ewpL DataT where
+@[simp] def ExprLift.liftR {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) (e : ewpR DataT) {ps : List (NML.Task DataT)}
+     {loc : NML.Locals DataT} (Hloc : e.locP loc := by simp) : uwpR DataT :=
+  liftER e Hp (Hloc := Hloc) (ps := ps)
+
+@[simp] def ewpVarL {s : String} (v : Value DataT) : ewpL DataT where
   pre   := iprop(True)
   post  := iprop(True)
   expr  := .var s
@@ -992,7 +1020,7 @@ def ewpVarL (s : String) (v : Value DataT) : ewpL DataT where
       iintro Hσ
       iexact Hσ
 
-def ewpVarR (s : String) (v : Value DataT) : ewpR DataT where
+@[simp] def ewpVarR {s : String} (v : Value DataT) : ewpR DataT where
   pre   := iprop(True)
   post  := iprop(True)
   expr  := .var s
@@ -1008,6 +1036,7 @@ def ewpVarR (s : String) (v : Value DataT) : ewpR DataT where
       refine .trans ?_ sep_true.mpr
       iintro Hσ
       iexact Hσ
+
 
 
 
