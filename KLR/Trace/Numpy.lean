@@ -29,12 +29,18 @@ private def np : String -> Name := .str numpy
 -- We are only using numpy to name operators
 -- This will be changed in upcoming NKI API and we will not need this.
 private def syms := [
+  -- datatypes
   "uint8" , "int8" , "uint16" , "int16" , "uint32" , "int32" , "float16" , "float32" , "bool",
+  -- bitwise ALU Ops
   "bitwise_not", "bitwise_invert", "bitwise_and", "bitwise_or", "bitwise_xor",
   "bitwise_left_shift", "bitwise_right_shift",
+  -- Arithmetic ALU Ops
   "add", "subtract", "multiply", "maximum", "minimum",
   "equal", "not_equal", "greater_equal", "greater", "less_equal", "less",
-  "logical_not", "logical_and", "logical_or", "logical_xor"
+  "logical_not", "logical_and", "logical_or", "logical_xor",
+  -- Activation Func
+  "copy", "square", "tanh", "exp", "log", "sin", "arctan", "sqrt",
+  "reciprocal", "sign", "abs"
   ]
 
 def NumpyEnv : List (Name × Term) :=
