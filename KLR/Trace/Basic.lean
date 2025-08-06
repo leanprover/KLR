@@ -289,7 +289,7 @@ def Term.attr : Term -> String -> Trace Term
   | _, id => throw s!"unsupported attribute {id}"
 where
   dtype dty :=
-    let name := "nki.language." ++ dstr dty
+    let name := "neuronxcc.nki.language." ++ dstr dty
     .expr (.value $ .var name) (.obj name.toName)
   tuple (l : List (Option Nat)) : Term :=
     Term.tuple $ l.map fun

@@ -626,7 +626,7 @@ termination_by (stop - start).natAbs
 def termToIter : Term -> Err (List Term)
   | .tuple l | .list l => return l
   | .expr (.call "range" l _) _
-  | .expr (.call "nki.language.affine_range" l _) _ =>
+  | .expr (.call "neuronxcc.nki.language.affine_range" l _) _ =>
     -- affine_range must behave equally to a simple sequential loop.
     match l with
     | [ .int e ] => return (range 0 e 1)
