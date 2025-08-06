@@ -283,9 +283,9 @@ namespace Parse
     p := precCache patKind pFn ["binding pattern"] ["(", ")", ","] 0
 
   def simplStmtTokens : List Token := [
-    "=", "+=", "-=", "*=", "@=", "/=", "%=", "**=", "//=",
+    "=", "+=", "-=", "*=", "/=", "%=", "**=", "//=",
     "return", "assert", "pass", "break", "continue",
-    "import", "from", "as"
+    "import", "from", "as",
   ]
 
   def pDottedName : Parser :=
@@ -296,15 +296,22 @@ namespace Parse
   unsafe def pSimplStmt : Parser :=
     p
   where
-    ass := leading_parser pPat >> optional (":" >> pTyp) >> "=" >> pExps
-    expStmt := leading_parser pExps
-    ret := leading_parser "return" >> optional pExp
-    asrt := leading_parser "assert" >> pExp
-    pass := leading_parser "pass"
-    brk := leading_parser "break"
-    cont := leading_parser "continue"
-    imprt := leading_parser "import" >> pDottedName >> optional ("as" >> ident)
+    ass       := leading_parser pPat >> optional (":" >> pTyp) >> "=" >> pExps
+    expStmt   := leading_parser pExps
+    ret       := leading_parser "return" >> optional pExp
+    asrt      := leading_parser "assert" >> pExp
+    pass      := leading_parser "pass"
+    brk       := leading_parser "break"
+    cont      := leading_parser "continue"
+    imprt     := leading_parser "import" >> pDottedName >> optional ("as" >> ident)
     imprtFrom := leading_parser "from" >> pDottedName >> "import" >> ident >> optional ("as" >> ident)
+    augAdd    := leading_parser ident >> " += " >> pExp
+    augSub    := leading_parser ident >> " -= " >> pExp
+    augMul    := leading_parser ident >> " *= " >> pExp
+    augDiv    := leading_parser ident >> " /= " >> pExp
+    augMod    := leading_parser ident >> " %= " >> pExp
+    augPow    := leading_parser ident >> " **= " >> pExp
+    augFloor  := leading_parser ident >> " //= " >> pExp
 
     parsingTables := {
       leadingTable := {
@@ -314,12 +321,19 @@ namespace Parse
         (`break, brk, maxPrec),
         (`continue, cont, maxPrec),
         (`import, imprt, maxPrec),
-        (`from, imprtFrom, maxPrec)
+        (`from, imprtFrom, maxPrec),
+        (identKind, augAdd, maxPrec),
+        (identKind, augSub, maxPrec),
+        (identKind, augMul, maxPrec),
+        (identKind, augDiv, maxPrec),
+        (identKind, augMod, maxPrec),
+        (identKind, augPow, maxPrec),
+        (identKind, augFloor, maxPrec)
       },
       leadingParsers := [
         (ass, maxPrec),
         (expStmt, maxPrec)
-      ]
+      ],
     }
     pFn := prattParserAntiquot simplStmtKind "simplStmt" parsingTables
     p := precCache simplStmtKind pFn ["statement"] simplStmtTokens 0
@@ -469,6 +483,11 @@ namespace Eval
 
   end
 
+  def eAugAssign (pos : Pos) (id : TSyntax `ident) (e : TSyntax expKind) (op : BinOp) : EvalM Stmt := do
+    let id := eIdent id
+    let e ← eExp e
+    pure ⟨pos, .assign (.var id) none ⟨pos, .binOp op ⟨pos, .var id⟩ e⟩⟩
+
   def eExps (stx : TSyntax expsKind) : EvalM Exp := do
     let pos ← .getPos stx
     match stx with
@@ -499,12 +518,27 @@ namespace Eval
 
   def eSimplStmt (stx : TSyntax simplStmtKind) : EvalM Stmt := do
     let pos ← .getPos stx
+    -- Handle statement types with pattern matching
     match stx with
     | `(pSimplStmt| $p:pat $[: $t:typ]? = $e:exps) =>
       let p ← ePat p
       let t ← t.mapM eTyp
       let e ← eExps e
       pure ⟨pos, .assign p t e⟩
+    | `(pSimplStmt.augAdd| $id:ident += $e:exp) =>
+      eAugAssign pos id e .add
+    | `(pSimplStmt.augSub| $id:ident -= $e:exp) =>
+      eAugAssign pos id e .sub
+    | `(pSimplStmt.augMul| $id:ident *= $e:exp) =>
+      eAugAssign pos id e .mul
+    | `(pSimplStmt.augDiv| $id:ident /= $e:exp) =>
+      eAugAssign pos id e .div
+    | `(pSimplStmt.augMod| $id:ident %= $e:exp) =>
+      eAugAssign pos id e .mod
+    | `(pSimplStmt.augPow| $id:ident **= $e:exp) =>
+      eAugAssign pos id e .pow
+    | `(pSimplStmt.augFloor| $id:ident //= $e:exp) =>
+      eAugAssign pos id e .floor
     | `(pSimplStmt| return $[$e:exp]?) =>
       let e ← match e with
         | some e => eExp e
@@ -608,3 +642,12 @@ def testFromImportAs := "from math import sin as sine"
 
 def testFromImportDotted := "from os.path import join"
 #eval return (←←evalPy testFromImportDotted "<input>")
+
+def testAugAdd := "x += 5"
+#eval return (←←evalPy testAugAdd "<input>")
+
+def testAugSub := "y -= 3"
+#eval return (←←evalPy testAugSub "<input>")
+
+def testAugMul := "z *= 2"
+#eval return (←←evalPy testAugMul "<input>")
