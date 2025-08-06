@@ -9,8 +9,18 @@ import KLR.Semantics.NML
 import KLR.Semantics.Logic
 import KLR.Semantics.SmallStep
 
+
 section weakestpre
 open Iris Iris.BI Iris.BI.BIBase KLR.Core Iris NML SmallStep
+
+-- TODO: Upstream
+theorem bupd_ownM_update [UCMRA M] {x y : M} : x ~~> y → UPred.ownM x ⊢ |==> UPred.ownM y := by
+  intro Hupd
+  refine (bupd_ownM_updateP _ (UpdateP.of_update Hupd)).trans ?_
+  refine BIUpdate.mono ?_
+  iintro ⟨y', %He, H⟩
+  rw [He]
+  iexact H
 
 variable {DataT : Type _}
 
@@ -269,9 +279,21 @@ theorem dwpPureR (Hstep : SmallStep.PureStep p2 p2') (Hx : 0 < Rx := by omega) :
     trivial
   · iexact H
 
-theorem update_lemma_left (σₗ σᵣ : NML.State DataT)
-      (HL : ChipMemory.get_store σₗ.memory (.sbufUnboundedIndex ℓ₁) = none):
-  state_interp σₗ σᵣ ⊢ |==> ((ChipMemory.freshSBUFStore σₗ.1).1 ⇉ₗ∅ ∗ state_interp ⟨(ChipMemory.freshSBUFStore σₗ.1).2⟩ σᵣ) :=
+theorem update_lemma_left (σₗ σᵣ : NML.State DataT) (HL : ChipMemory.get_store σₗ.memory (.sbufUnboundedIndex ℓ₁) = none):
+  state_interp σₗ σᵣ ⊢ |==> ((ChipMemory.freshSBUFStore σₗ.1).1 ⇉ₗ∅ ∗ state_interp ⟨(ChipMemory.freshSBUFStore σₗ.1).2⟩ σᵣ) := by
+  unfold state_interp
+  unfold heProp_auth
+  unfold PointsToS
+  unfold heProp_frag
+  simp only []
+  -- Combine the ownM into an op
+  refine .trans ?_ (BIUpdate.mono BI.sep_comm.mp)
+  refine .trans ?_ (BIUpdate.mono ((UPred.ownM_op _ _).mp))
+  apply bupd_ownM_update
+  have X := @heap_view_alloc PNat ProdNeuronIndex (Agree (LeibnizO DataT)) ProdNeuronMemory _ _ _
+    (hhmap (fun x v => some (toAgree ( LeibnizO.mk v ))) ( ProdStore.mk σₗ.memory σᵣ.memory ))
+    -- Ah, this is updating an infinite number of cells so needs special treatment
+    -- (.left (ChipMemory.freshSBUFStore σₗ.memory).snd)
   sorry
 
 theorem update_lemma_right (σₗ σᵣ : NML.State DataT)
@@ -411,7 +433,19 @@ theorem dwpAllocR (Hx : 1 < Rx := by omega) :
 
 theorem update_set_lemma_left (σₗ σᵣ : NML.State DataT) (mv mv' : Option DataT) :
   ⊢ (ℓ ↦ₗ mv) -∗ state_interp σₗ σᵣ -∗
-    |==> ((ℓ ↦ₗ mv') ∗ state_interp { σₗ with memory := Store.set σₗ.memory ℓ mv' } σᵣ) :=
+    |==> ((ℓ ↦ₗ mv') ∗ state_interp { σₗ with memory := Store.set σₗ.memory ℓ mv' } σᵣ) := by
+  unfold state_interp
+  unfold heProp_auth
+  unfold PointsTo
+  unfold heProp_frag
+  simp only []
+  -- -- Combine the ownM into an op
+  -- refine .trans ?_ (BIUpdate.mono BI.sep_comm.mp)
+  -- refine .trans ?_ (BIUpdate.mono ((UPred.ownM_op _ _).mp))
+  -- apply bupd_ownM_update
+  -- have X := @heap_view_alloc PNat ProdNeuronIndex (Agree (LeibnizO DataT)) ProdNeuronMemory _ _ _
+  --   (hhmap (fun x v => some (toAgree ( LeibnizO.mk v ))) ( ProdStore.mk σₗ.memory σᵣ.memory ))
+  --   -- (.left (ChipMemory.freshSBUFStore σₗ.memory).snd)
   sorry
 
 theorem update_set_lemma_right (σₗ σᵣ : NML.State DataT) (mv mv' : Option DataT) :
