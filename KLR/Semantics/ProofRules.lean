@@ -9,8 +9,6 @@ import KLR.Semantics.NML
 import KLR.Semantics.Logic
 import KLR.Semantics.SmallStep
 
-
-section weakestpre
 open Iris Iris.BI Iris.BI.BIBase KLR.Core Iris NML SmallStep
 
 -- TODO: Upstream
@@ -31,6 +29,93 @@ theorem include_sep {P Q : @PROP DataT} (L : ⊢ P) (H : P ∗ Q ⊢ R) : Q ⊢ 
     · exact ProofMode.from_and_intro (fun n x a a => trivial) fun n x a a => a
     · exact sep_mono L fun n x a a => a
   · exact H
+
+
+
+section algebra
+
+/-! Update lemmas (WIP)
+
+To modify ghost state (terms in the separation logic like `l ⇉ₗ∅` or `⟨c, x⟩ ↦ v`, which desugar to
+`UPred.ownM` terms), Iris uses the |==> modality. Specifically, the lemma `bupd_ownM_update` says that
+```
+x ~~> y → UPred.ownM x ⊢ |==> UPred.ownM y
+```
+In other words, if there is a `x ~~> y` update proven in the Iris libray, we are allowed to update
+an `UPred.ownM x` resource to an `UPred.ownM y`  resource, under an "update modality" `|==>`.
+The important updates for us are in `src/Iris/Algebra/HeapView.lean`.
+
+In this section, I prove the update lemmas we need for all of the proof rules. -/
+
+
+theorem update_lemma_left (σₗ σᵣ : NML.State DataT) (HL : ChipMemory.get_store σₗ.memory (.sbufUnboundedIndex ℓ₁) = none):
+  state_interp σₗ σᵣ ⊢ |==> ((ChipMemory.freshSBUFStore σₗ.1).1 ⇉ₗ∅ ∗ state_interp ⟨(ChipMemory.freshSBUFStore σₗ.1).2⟩ σᵣ) := by
+  unfold state_interp
+  unfold heProp_auth
+  unfold PointsToS
+  unfold heProp_frag
+  simp only []
+  -- Combine the ownM into an op
+  refine .trans ?_ (BIUpdate.mono BI.sep_comm.mp)
+  refine .trans ?_ (BIUpdate.mono ((UPred.ownM_op _ _).mp))
+  apply bupd_ownM_update
+  have X := @heap_view_alloc PNat ProdNeuronIndex (Agree (LeibnizO DataT)) ProdNeuronMemory _ _ _
+    (hhmap (fun x v => some (toAgree ( LeibnizO.mk v ))) ( ProdStore.mk σₗ.memory σᵣ.memory ))
+    -- Ah, this is updating an infinite number of cells so needs special treatment
+    -- (.left (ChipMemory.freshSBUFStore σₗ.memory).snd)
+
+    -- Maybe what we need is for the state_interp to also include frag ownership for
+    -- all spaces after the allocated part.
+  sorry
+
+theorem update_lemma_right (σₗ σᵣ : NML.State DataT)
+      (HL : ChipMemory.get_store σᵣ.memory (.sbufUnboundedIndex ℓ₂) = none):
+  state_interp σₗ σᵣ ⊢ |==> ((ChipMemory.freshSBUFStore σᵣ.1).1 ⇉ₗ∅ ∗ state_interp σₗ ⟨(ChipMemory.freshSBUFStore σᵣ.1).2⟩) :=
+  sorry
+
+-- TODO: Port updates for heaps
+theorem update_lemma (σₗ σᵣ : NML.State DataT) :
+  state_interp σₗ σᵣ ⊢
+    |==> (∃ ℓₗ ℓᵣ, ℓₗ [S]⇉ₗ∅ ∗ ℓᵣ [S]⇉ᵣ∅ ∗
+    state_interp ⟨(ChipMemory.freshSBUFStore σₗ.1).2⟩ ⟨(ChipMemory.freshSBUFStore σᵣ.1).2⟩) := by
+  sorry
+
+theorem update_set_lemma_left (σₗ σᵣ : NML.State DataT) (mv mv' : Option DataT) :
+  ⊢ (ℓ ↦ₗ mv) -∗ state_interp σₗ σᵣ -∗
+    |==> ((ℓ ↦ₗ mv') ∗ state_interp { σₗ with memory := Store.set σₗ.memory ℓ mv' } σᵣ) := by
+  unfold state_interp
+  unfold heProp_auth
+  unfold PointsTo
+  unfold heProp_frag
+  simp only []
+  -- -- Combine the ownM into an op
+  -- refine .trans ?_ (BIUpdate.mono BI.sep_comm.mp)
+  -- refine .trans ?_ (BIUpdate.mono ((UPred.ownM_op _ _).mp))
+  -- apply bupd_ownM_update
+  -- have X := @heap_view_alloc PNat ProdNeuronIndex (Agree (LeibnizO DataT)) ProdNeuronMemory _ _ _
+  --   (hhmap (fun x v => some (toAgree ( LeibnizO.mk v ))) ( ProdStore.mk σₗ.memory σᵣ.memory ))
+  --   -- (.left (ChipMemory.freshSBUFStore σₗ.memory).snd)
+  sorry
+
+theorem update_set_lemma_right (σₗ σᵣ : NML.State DataT) (mv mv' : Option DataT) :
+  ⊢ (ℓ ↦ᵣ mv) -∗ state_interp σₗ σᵣ -∗
+    |==> ((ℓ ↦ᵣ mv') ∗ state_interp σₗ { σᵣ with memory := Store.set σᵣ.memory ℓ mv' } ) :=
+  sorry
+
+
+end algebra
+
+
+section basicrules
+
+/-! Basic proof rules
+
+The most basic proof rules. For these, both programs must take at least one step.
+-/
+
+
+
+
 
 /-- Two values are related when they are related by Φ. -/
 theorem wpValVal (H1 : toVal p1 = some v1) (H2 : toVal p2 = some v2) :
@@ -83,12 +168,6 @@ theorem wpPureSync {Φ : Value DataT → Value DataT → @PROP DataT}
   -- Conclude
   exact sep_symm
 
--- TODO: Port updates for heaps
-theorem update_lemma (σₗ σᵣ : NML.State DataT) :
-  state_interp σₗ σᵣ ⊢
-    |==> (∃ ℓₗ ℓᵣ, ℓₗ [S]⇉ₗ∅ ∗ ℓᵣ [S]⇉ᵣ∅ ∗
-    state_interp ⟨(ChipMemory.freshSBUFStore σₗ.1).2⟩ ⟨(ChipMemory.freshSBUFStore σᵣ.1).2⟩) := by
-  sorry
 
 -- NB. Keeping this code in the repo as an example for writing basic proof rules.
 open ChipMemory in
@@ -148,6 +227,10 @@ theorem wpAllocSync  {Φ : NML.Value DataT → NML.Value DataT → @PROP DataT} 
   · iapply Hσ
   · iapply Hwp
 
+end basicrules
+
+
+section dwp
 /-! Desynchronized WP's (dwp)
 
 Many interesting relational proofs will take different steps on the left- and right-handed sides.
@@ -279,31 +362,6 @@ theorem dwpPureR (Hstep : SmallStep.PureStep p2 p2') (Hx : 0 < Rx := by omega) :
     refine StepN.step (Hstep sr) ?_
     trivial
   · iexact H
-
-theorem update_lemma_left (σₗ σᵣ : NML.State DataT) (HL : ChipMemory.get_store σₗ.memory (.sbufUnboundedIndex ℓ₁) = none):
-  state_interp σₗ σᵣ ⊢ |==> ((ChipMemory.freshSBUFStore σₗ.1).1 ⇉ₗ∅ ∗ state_interp ⟨(ChipMemory.freshSBUFStore σₗ.1).2⟩ σᵣ) := by
-  unfold state_interp
-  unfold heProp_auth
-  unfold PointsToS
-  unfold heProp_frag
-  simp only []
-  -- Combine the ownM into an op
-  refine .trans ?_ (BIUpdate.mono BI.sep_comm.mp)
-  refine .trans ?_ (BIUpdate.mono ((UPred.ownM_op _ _).mp))
-  apply bupd_ownM_update
-  have X := @heap_view_alloc PNat ProdNeuronIndex (Agree (LeibnizO DataT)) ProdNeuronMemory _ _ _
-    (hhmap (fun x v => some (toAgree ( LeibnizO.mk v ))) ( ProdStore.mk σₗ.memory σᵣ.memory ))
-    -- Ah, this is updating an infinite number of cells so needs special treatment
-    -- (.left (ChipMemory.freshSBUFStore σₗ.memory).snd)
-
-    -- Maybe what we need is for the state_interp to also include frag ownership for
-    -- all spaces after the allocated part.
-  sorry
-
-theorem update_lemma_right (σₗ σᵣ : NML.State DataT)
-      (HL : ChipMemory.get_store σᵣ.memory (.sbufUnboundedIndex ℓ₂) = none):
-  state_interp σₗ σᵣ ⊢ |==> ((ChipMemory.freshSBUFStore σᵣ.1).1 ⇉ₗ∅ ∗ state_interp σₗ ⟨(ChipMemory.freshSBUFStore σᵣ.1).2⟩) :=
-  sorry
 
 
 
@@ -439,29 +497,6 @@ theorem dwpAllocR (Hx : 1 < Rx := by omega) :
         exact step.asnV
       · exact SR
   · iexact H
-
-theorem update_set_lemma_left (σₗ σᵣ : NML.State DataT) (mv mv' : Option DataT) :
-  ⊢ (ℓ ↦ₗ mv) -∗ state_interp σₗ σᵣ -∗
-    |==> ((ℓ ↦ₗ mv') ∗ state_interp { σₗ with memory := Store.set σₗ.memory ℓ mv' } σᵣ) := by
-  unfold state_interp
-  unfold heProp_auth
-  unfold PointsTo
-  unfold heProp_frag
-  simp only []
-  -- -- Combine the ownM into an op
-  -- refine .trans ?_ (BIUpdate.mono BI.sep_comm.mp)
-  -- refine .trans ?_ (BIUpdate.mono ((UPred.ownM_op _ _).mp))
-  -- apply bupd_ownM_update
-  -- have X := @heap_view_alloc PNat ProdNeuronIndex (Agree (LeibnizO DataT)) ProdNeuronMemory _ _ _
-  --   (hhmap (fun x v => some (toAgree ( LeibnizO.mk v ))) ( ProdStore.mk σₗ.memory σᵣ.memory ))
-  --   -- (.left (ChipMemory.freshSBUFStore σₗ.memory).snd)
-  sorry
-
-theorem update_set_lemma_right (σₗ σᵣ : NML.State DataT) (mv mv' : Option DataT) :
-  ⊢ (ℓ ↦ᵣ mv) -∗ state_interp σₗ σᵣ -∗
-    |==> ((ℓ ↦ᵣ mv') ∗ state_interp σₗ { σᵣ with memory := Store.set σᵣ.memory ℓ mv' } ) :=
-  sorry
-
 
 theorem dwpSetpL {v : DataT} (Hx : 0 < Lx := by omega) :
     ⊢ ((⟨i, x⟩ ↦ₗ some v) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx (.run <| p1) p2 Φ) -∗
@@ -667,21 +702,7 @@ theorem wp_gen_loc (R : Locals DataT → Locals DataT → Prop) :
   ispecialize H _ _ HR
   iexact H
 
-
-
-
-
-
-
-end weakestpre
-
-
-
-
-
-
-
-
+end dwp
 
 
 
@@ -815,7 +836,7 @@ theorem dwpR' (u : uwpR DataT) (Hx : u.steps ≤ Rx) :
     ⊢ dwp Lm Rm Lx Rx pl u.prog Φ :=
   (wand_entails <| dwpR u Hx)
 
-def uwpPureL {p p' : Prog DataT} (H : PureStep p p') : uwpL DataT where
+@[simp] def uwpPureL {p p' : Prog DataT} (H : PureStep p p') : uwpL DataT where
   pre   := iprop(True)
   post  := iprop(True)
   prog  := p
@@ -832,7 +853,7 @@ def uwpPureL {p p' : Prog DataT} (H : PureStep p p') : uwpL DataT where
       iintro Hσ
       iexact Hσ
 
-def uwpPureR {p p' : Prog DataT} (H : PureStep p p') : uwpR DataT where
+@[simp] def uwpPureR {p p' : Prog DataT} (H : PureStep p p') : uwpR DataT where
   pre   := iprop(True)
   post  := iprop(True)
   prog  := p
@@ -872,11 +893,26 @@ def uwpPureR {p p' : Prog DataT} (H : PureStep p p') : uwpR DataT where
 -- Sync'd ret_assert
 -- This should be enought to verify loop fusion
 
-
-
 end uwp
 
 section ewp
+
+/-! ewp
+
+Often, the uwp step you want to take amounts to stepping one of its subexpressions.
+Instead of describing the stepping rules for every expression in every context, the ewp
+abstraction is a simple way to define uwp's of this form.
+
+The main items in this section:
+
+- SmallStep.ExprLift: a statement about an statment with a hole, which says that steps of an
+  expression remain in that hole.
+
+- ewp, ewpL, ewpR: a spec for an expression, independent of its context. The spec also quantifies
+  over the local enviornments this step can take place in.
+
+-- liftE, lfitEL, liftER: Combine an ExprLift expression and an `ewp` to get a `uwp`.
+-/
 
 open Iris Iris.BI Iris.BI.BIBase KLR.Core Iris NML SmallStep
 
@@ -963,7 +999,7 @@ def ewpVarR (s : String) (v : Value DataT) : ewpR DataT where
   locP  := (· s = some v)
   expr' := .val v
   spec  := by
-    iintro σₗ σᵣ %_ Hσ loc
+    iintro σₗ σᵣ - Hσ loc
     iexists σᵣ
     isplit r
     · ipure_intro
@@ -973,6 +1009,8 @@ def ewpVarR (s : String) (v : Value DataT) : ewpR DataT where
       iintro Hσ
       iexact Hσ
 
+
+
 -- NTS: Not sure I want to do sbuf_alloc in this format because the expression returned it depends on state
 -- But you should add set or something to make sure it works
 
@@ -980,10 +1018,7 @@ def ewpVarR (s : String) (v : Value DataT) : ewpR DataT where
 end ewp
 
 
-
-
 /-
-
 def UWP.Frame (u : UWP DataT) (P : PROP DataT) : UWP DataT where
   pre   := iprop(u.pre  ∗ P)
   post  := iprop(u.post ∗ P)
