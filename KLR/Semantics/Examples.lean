@@ -156,14 +156,14 @@ theorem e4 : ⊢ (@wp DataT ⟨1⟩ e4L e4R (ΦIntPure (· = ·))) := by
 theorem e4' : ⊢ (wp (DataT := DataT) ⟨1⟩ e4L e4R (ΦIntPure (· = ·))) := by
   unfold e4L e4R
   wp_desync
-  uwp_left  (uwpPureL AssignPure)
-  uwp_right (uwpPureR AssignPure)
+  uwp_left  uwpPureL AssignPure
+  uwp_right uwpPureR AssignPure
   wp_resync; wp_desync
-  uwp_left  (uwpPureL <| RetPureExpr VarPureE (by rfl))
-  uwp_right (uwpPureR <| RetPureExpr VarPureE (by rfl))
+  uwp_left  uwpPureL <| RetPureExpr VarPureE (by rfl)
+  uwp_right uwpPureR <| RetPureExpr VarPureE (by rfl)
   wp_resync; wp_desync
-  uwp_left  (uwpPureL RetPure)
-  uwp_right (uwpPureR RetPure)
+  uwp_left  uwpPureL RetPure
+  uwp_right uwpPureR RetPure
   wp_resync; wp_sync_val
   simp [ΦIntPure, ΦInt]
   iexists 3
@@ -202,10 +202,10 @@ theorem e5' : ⊢ @wp DataT ⟨2⟩ e5L e5R ΦUnitEq := by
   unfold e5L e5R
   simp [withNoContext]
   wp_desync
-  uwp_left  (uwpPureL SeqPure)
-  uwp_left  (uwpPureL RetPure)
-  uwp_right (uwpPureR SeqPure)
-  uwp_right (uwpPureR RetPure)
+  uwp_left  uwpPureL SeqPure
+  uwp_left  uwpPureL RetPure
+  uwp_right uwpPureR SeqPure
+  uwp_right uwpPureR RetPure
   wp_resync
   wp_sync_val
   simp [ΦUnitEq, true_intro]
@@ -294,21 +294,21 @@ theorem e7 : ⊢ wp (DataT := DataT) ⟨2⟩ e7L e7R ΦUnitEq := by
 theorem e7' : ⊢ wp (DataT := DataT) ⟨2⟩ e7L e7R ΦUnitEq := by
   simp [withNoContext, e7L, e7R]
   wp_desync
-  uwp_right (uwpPureR SeqPure)
-  uwp_left  (uwpPureL LoopNterPure)
-  uwp_left  (uwpPureL SeqPure)
+  uwp_right uwpPureR SeqPure
+  uwp_left  uwpPureL LoopNterPure
+  uwp_left  uwpPureL SeqPure
   wp_resync; simp; wp_desync
-  uwp_right (uwpPureR SeqPure)
-  uwp_left  (uwpPureL LoopNterPure)
-  uwp_left  (uwpPureL SeqPure)
+  uwp_right uwpPureR SeqPure
+  uwp_left  uwpPureL LoopNterPure
+  uwp_left  uwpPureL SeqPure
   wp_resync; simp; wp_desync
-  uwp_right (uwpPureR SeqPure)
-  uwp_left  (uwpPureL LoopNterPure)
-  uwp_left  (uwpPureL SeqPure)
+  uwp_right uwpPureR SeqPure
+  uwp_left  uwpPureL LoopNterPure
+  uwp_left  uwpPureL SeqPure
   wp_resync; simp; wp_desync
-  uwp_left  (uwpPureL LoopExitPure)
-  uwp_left  (uwpPureL RetPure)
-  uwp_right (uwpPureR RetPure)
+  uwp_left  uwpPureL LoopExitPure
+  uwp_left  uwpPureL RetPure
+  uwp_right uwpPureR RetPure
   wp_resync
   wp_sync_val
   simp [ΦUnitEq, true_intro]
@@ -329,6 +329,9 @@ def e8R : ExecState DataT :=
     .ret (.val <| .int 3)
   ]
 
+-- TODO: Move
+attribute [simp] Locals.bind
+
 theorem e8 : ⊢ wp (DataT := DataT) ⟨5⟩ e8L e8R ΦIntEq := by
   simp [withNoContext, e8L, e8R]
   wp_desync
@@ -345,55 +348,13 @@ theorem e8 : ⊢ wp (DataT := DataT) ⟨5⟩ e8L e8R ΦIntEq := by
 -- E8 but using the uwp machinery
 theorem e8' : ⊢ wp (DataT := DataT) ⟨5⟩ e8L e8R ΦIntEq := by
   simp [withNoContext, e8L, e8R]
-
   wp_desync
-
-  apply Entails.trans ?_ (dwpL' (uwpPureL AssignPure) (by simp [uwpPureL]))
-  istart
-  isplit l
-  · exact true_intro
-  iintro -
-  simp [uwpPureL]
-  simp [NML.Task.bind]
-
-  apply Entails.trans ?_ (dwpL' (liftEL (ewpVarL _ (.int 3)) LiftEAsn
-        (by simp [ewpVarL, Locals.bind])) (by simp [ewpVarL, liftEL, liftE]))
-  istart
-  isplit l
-  · exact true_intro
-  iintro -
-  simp [ewpVarL, liftEL, liftE]
-
-  apply Entails.trans ?_ (dwpL' (uwpPureL AssignPure) (by simp [uwpPureL]))
-  istart
-  isplit l
-  · exact true_intro
-  iintro -
-  simp [uwpPureL]
-  simp [NML.Task.bind]
-
-  apply Entails.trans ?_ (dwpL' (liftEL (ewpVarL _ (.int 3)) LiftERet
-        (by simp [ewpVarL, Locals.bind])) (by simp [ewpVarL, liftEL, liftE]))
-  istart
-  isplit l
-  · exact true_intro
-  iintro -
-  simp [ewpVarL, liftEL, liftE]
-
-  apply Entails.trans ?_ (dwpL' (uwpPureL RetPure) (by simp [uwpPureL]))
-  istart
-  isplit l
-  · exact true_intro
-  iintro -
-  simp [uwpPureL]
-
-  apply Entails.trans ?_ (dwpR' (uwpPureR RetPure) (by simp [uwpPureR]))
-  istart
-  isplit l
-  · exact true_intro
-  iintro -
-  simp [uwpPureR]
-
+  uwp_left  uwpPureL AssignPure
+  uwp_left  LiftEAsn.liftL <| ewpVarL (.int 3)
+  uwp_left  uwpPureL AssignPure
+  uwp_left  LiftERet.liftL <| ewpVarL (.int 3)
+  uwp_left  uwpPureL RetPure
+  uwp_right uwpPureR RetPure
   wp_resync
   wp_sync_val
   simp [ΦIntEq, true_intro]
@@ -495,24 +456,16 @@ theorem e10 (ℓ : ChipIndex) (x : Nat × Nat) (mv : Option DataT) (d₀ : DataT
   iintro Hfrag
   wp_desync
   simp [withNoContext, e10L, e10R]
-  have Z := @dwpSetpL (DataT := DataT) 5 ℓ x 1 1 5 [({ stmt := NML.Stmt.ret ((Expr.val (Value.uptr ℓ)).read_point (Expr.val (Value.iptr x))), env := nolocals DataT })]
-            (ExecState.run [{ stmt := NML.Stmt.ret (Expr.val (NML.Value.data d₀)), env := nolocals DataT }])
-            (fun x1 x2 => wp { car := 5 } x1 x2 ΦEq) mv (nolocals DataT) d₀ (by simp)
-  refine (include_sep Z ?_); clear Z
-  iintro ⟨H, Hfrag⟩
-  iapply H with [] <;> try iexact Hfrag
+  refine .trans ?_ (dwpSetpL' (mv := mv))
   iintro Hfrag'
-  simp
-  istop
-  refine .trans ?_ (dwpReadpRetL' (v := d₀))
-  istart
+  isplit l [Hfrag']; iexact Hfrag'
+  iintro Hfrag'
+  istop; refine .trans ?_ (dwpReadpRetL' (v := d₀)); istart
   iintro H
-  isplit r [H] <;> try iexact H
-  istart
-  iintro H
-  simp
-  dwp_left_pure   RetPure
-  dwp_right_pure  RetPure
+  isplit l [H]; iexact H
+  iintro - -- The frag coupling is not used
+  uwp_left  uwpPureL RetPure
+  uwp_right uwpPureR RetPure
   wp_resync
   wp_sync_val
   simp [ΦEq, true_intro]
