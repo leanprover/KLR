@@ -24,3 +24,4 @@ import KLR.Serde
 import KLR.Trace
 import KLR.Util
 import KLR.KLR
+import KLR.Semantics

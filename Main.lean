@@ -298,6 +298,21 @@ def evalKLR (p : Parsed) : IO UInt32 := do
     TensorLib.Npy.Ndarray.save! arr filename
   return 0
 
+def modelKLR (p : Parsed) : IO UInt32 := do
+  let file := p.positionalArg! "file" |>.as! String
+  let arr <- IO.FS.readBinFile file
+  let contents <- KLR.File.parseBytes arr .cbor
+  IO.println <| "→ to JSON"
+  let L := Lean.toJson contents
+  IO.println L
+  IO.println <| "→ from JSON"
+  let K : KLR.Core.Kernel ← Lean.FromJson.fromJson? L
+  IO.println <| "done"
+  return 0
+
+def equivKLR (p : Parsed) : IO UInt32 := do
+  return 0
+
 -- -- Command configuration
 
 def gatherCmd := `[Cli|
@@ -389,6 +404,32 @@ def evalKLRCmd := `[Cli|
     ...inputFiles : String;       ".npy files corresponding to the inputs to the kernel, in positional order"
 ]
 
+
+def modelKLRCmd:= `[Cli|
+  "model" VIA modelKLR;
+  "Emit a Lean model of a KLR kernel which describes its semantics exactly."
+
+  FLAGS:
+    o, outfile : String; "Name of output file"
+
+  ARGS:
+    file : String; "KLR format input file"
+]
+
+
+def equivKLRCmd:= `[Cli|
+  "equiv" VIA equivKLR;
+  "Emit a Lean file containing an open theorem that two KLR kernels are equivalent."
+
+  FLAGS:
+    o, outfile : String; "Name of output file"
+
+  ARGS:
+    fileL : String; "KLR format first input file"
+    fileR : String; "KLR format second input file"
+]
+
+
 def klrCmd : Cmd := `[Cli|
   klr NOOP; ["0.0.12"]
   "KLR is an IR for NKI and other tensor-like languages in Lean."
@@ -400,7 +441,9 @@ def klrCmd : Cmd := `[Cli|
     infoCmd;
     nkiToKLRCmd;
     traceCmd;
-    typecheckCmd
+    typecheckCmd;
+    modelKLRCmd;
+    equivKLRCmd
 ]
 
 def main (args : List String) : IO UInt32 := do
