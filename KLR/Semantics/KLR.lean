@@ -25,11 +25,6 @@ def KLR.Core.Expr.semantics : KLR.Core.Expr → Err (@NML.Expr DataT)
 | .value v => @v.semantics DataT float_interp |>.bind (.ok <| NML.Expr.val ·)
 | _ => .error "Semantics not defined"
 
-def KLR.Core.TensorRef.semantics : KLR.Core.TensorRef → Err Nat
-| .sbuf x =>
-  sorry
-| _ => .error "Semantics not defined"
-
 -- Since immediates can be registers, I'll give their semantics as an Expr.
 def KLR.Core.Immediate.semantics : KLR.Core.Immediate → Err (@NML.Expr DataT)
 | .int i   => .ok <| .val <| .int i.toInt
@@ -85,3 +80,43 @@ def KLR.Core.Stmt.semantics : KLR.Core.Stmt → Err (@NML.Stmt DataT)
 | .assign x e => @e.semantics DataT float_interp |>.bind (.ok <| .assign (some x) ·)
 | .oper op => @KLR.Core.Operator.semantics DataT float_interp op
 | _ => .error "Semantics not defined"
+
+-- Default AffineMap (row major form)
+def AffineMap.ofShape (s : KLR.Core.Shape) : AffineMap where
+  free_offset  := 0
+  free_strides := s.freeDims.map (fun _ => 1)
+  par_offset   := 0
+  par_stride   := 1
+
+theorem AffineMap.ofShape_wf : (AffineMap.ofShape s).free_strides.length = s.freeDims.length := by
+  simp [AffineMap.ofShape]
+
+/-- Return fresh HBM pointers for input and output tensors.
+NB. The variable names given to each tensor pointer are derived from the tensor name itself,
+so tensors with the same name will shadow each other. -/
+def KLR.Core.Address.toInputOutputPointer (i : Nat) (n : KLR.Core.TensorName) : Err (String × @NML.Value DataT) :=
+  match n.address.parOffset, n.address.freeOffset with
+  | .none, .none =>
+      let h : NML.TensorHandle := {
+        index := .hbmIndex i
+        layout := AffineMap.ofShape n.shape
+        shape := n.shape
+        layout_wf := AffineMap.ofShape_wf
+        dtype := n.dtype
+        name := .some n.name
+      }
+      .ok (n.name, NML.Value.ptr h)
+  | _, _ => .error "Input tensors must not have memory location specified"
+
+
+def BindingsToLocals : List (String × @NML.Value DataT) → @NML.Locals DataT :=
+  List.foldl (fun ℓ ⟨s, v⟩ => ℓ.bind _ s v) (NML.nolocals DataT)
+
+/-- Transform a KLR kernel into its NML program interpretation.
+To perform this transformation, you must provide a datatype to interpret floats into,
+as well as a partial function for interpreting floats into that type. -/
+def KLR.Core.Kernel.semantics (k : KLR.Core.Kernel) : Err (@NML.ExecState DataT) :=
+  List.mapM (KLR.Core.Stmt.semantics (DataT := DataT) (float_interp := float_interp)) k.body |>.bind fun p =>
+  -- Set up pointers to HBM for each of the input tensors
+  List.mapIdxM (@KLR.Core.Address.toInputOutputPointer DataT) (k.inputs ++ k.outputs) |>.bind fun L =>
+  .ok <| .run <| p.map (⟨·, BindingsToLocals L⟩)
