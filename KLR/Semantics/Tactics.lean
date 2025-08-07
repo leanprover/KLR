@@ -55,12 +55,13 @@ theorem tac_uwp_elim_triv_post {P Q : @PROP DataT} (H : P ⊢ R -∗ Q) : P ⊢ 
   iexact H
 
 macro "uwp_left " u:term : tactic => `(tactic|
-  apply Entails.trans ?_ (dwpL' $u (by simp)) <;>
+  apply Entails.trans ?_ (dwpL' $u ?_) <;>
   simp <;>
   (first
    | apply tac_uwp_elim_triv_both
    | apply tac_uwp_elim_triv_pre
-   | apply tac_uwp_elim_triv_post) <;>
+   | apply tac_uwp_elim_triv_post
+   | skip) <;>
   istart)
 
 macro "uwp_right " u:term : tactic => `(tactic|

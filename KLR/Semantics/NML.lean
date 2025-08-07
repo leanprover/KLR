@@ -435,11 +435,23 @@ theorem LiftERet : ExprLift (DataT := DataT) NML.Stmt.ret := by
   intro e e' s s' l ps He
   exact NML.step.retE He
 
-theorem LiftEAsn: ExprLift (DataT := DataT) (NML.Stmt.assign x) := by
+theorem LiftEAsn : ExprLift (DataT := DataT) (NML.Stmt.assign x) := by
   intro e e' s s' l ps He
   cases x
   · exact NML.step.seqE He
   · exact NML.step.asnE He
+
+theorem LiftEChipSetp : ExprLift (DataT := DataT) (NML.Stmt.set_point · e₂ e₃) := by
+  intro e e' s s' l ps He
+  exact NML.step.setpEChip He
+
+theorem LiftEIndexSetp : ExprLift (DataT := DataT) (NML.Stmt.set_point (.val <| .uptr i) · e₃) := by
+  intro e e' s s' l ps He
+  exact NML.step.setpEIndex He
+
+theorem LiftEValSetp : ExprLift (DataT := DataT) (NML.Stmt.set_point (.val <| .uptr i) (.val <| .iptr x) ·) := by
+  intro e e' s s' l ps He
+  exact NML.step.setpEVal He
 
 structure AffineIter where
   start     : Int
