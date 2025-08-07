@@ -93,6 +93,7 @@ inductive Stmt where
 | assign       (_ : Option String) (_ : @Expr DataT)
 | loop         (I : Type _) [Iterator I (@Value DataT)] (_ : String) (_ : Option I) (body : List Stmt)
 | set_point    (chip index val : @Expr DataT)
+| set_phys_hbm_area (start num : Nat) (val : @Expr DataT)
 | edit_state   (_ : @State DataT → @State DataT)
 | ret_assert   (_ : @Expr DataT) (_ : @State DataT → Prop)
 
