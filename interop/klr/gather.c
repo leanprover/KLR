@@ -419,7 +419,7 @@ static struct ref reference(struct state *st, struct Python_Expr *e) {
   switch(e->expr->tag) {
   case Python_Expr_name:
     ref.name = (char*)e->expr->name.id;
-    ref.obj = lookup(st, e->expr->name.id);
+    ref.obj = lookup(st, ref.name);
     if (!ref.obj) {
       ref.name = NULL;
       break;
@@ -448,10 +448,12 @@ static struct ref reference(struct state *st, struct Python_Expr *e) {
   }
 
   if (ref.name && ref.obj) {
-    if (PyFunction_Check(ref.obj))
+    if (PyFunction_Check(ref.obj)) {
+      ref.name = py_fun_name(st, ref.obj);
       add_work(st, ref.obj);
-    else
+    } else {
       add_global(st, ref.name, ref.obj);
+    }
   }
   PyErr_Clear(); // Make sure we don't report any errors
   return ref;
@@ -641,8 +643,11 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
         break;
       }
 
-      if (e->name.ctx == Python_Ctx_load)
-        reference(st, res);
+      if (e->name.ctx == Python_Ctx_load) {
+        struct ref r = reference(st, res);
+        if (r.name)
+          e->name.id = r.name;
+      }
       break;
     }
     case Attribute_kind: {
