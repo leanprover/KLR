@@ -325,10 +325,10 @@ instance : FromNKI AccumCmd where
     match t with
     | .expr (.value $ .var name) _ =>
       match name with
-        | "neuronxcc.nki.isareduce_cmd.idle" => return .Idle
-        | "neuronxcc.nki.isareduce_cmd.reset" => return .Zero
-        | "neuronxcc.nki.isareduce_cmd.reduce" => return .Accumulate
-        | "neuronxcc.nki.isareduce_cmd.reset_reduce" => return .ZeroAccumulate
+        | "neuronxcc.nki.isa.reduce_cmd.idle" => return .Idle
+        | "neuronxcc.nki.isa.reduce_cmd.reset" => return .Zero
+        | "neuronxcc.nki.isa.reduce_cmd.reduce" => return .Accumulate
+        | "neuronxcc.nki.isa.reduce_cmd.reset_reduce" => return .ZeroAccumulate
         -- Something should emit LoadAccumulate? Not sure what
         | _ => err
       | _ => err
