@@ -32,6 +32,7 @@ private def neuronxcc : Name := .str .anonymous "neuronxcc"
 private def nki_ : Name := .str neuronxcc "nki"
 private def nki_isa : Name := .str nki_ "isa"
 private def nki_lang : Name := .str nki_ "language"
+private def nisa_cmd : Name := .str nki_isa "reduce_cmd"
 
 private def nl : String -> Name := .str nki_lang
 private def nisa : String -> Name := .str nki_isa
@@ -87,6 +88,7 @@ def NKIEnv : List (Name × Term) :=
   , module nki_
   , module nki_isa
   , module nki_lang
+  , module nisa_cmd
   , const_int (.str (nl "tile_size") "pmax") 128
   , const_int (.str (nl "tile_size") "gemm_stationary_fmax") 128
   , const_int (.str (nl "tile_size") "gemm_moving_fmax") 512
@@ -117,6 +119,10 @@ def NKIEnv : List (Name × Term) :=
   , const_var (nisa "tensor_engine")
   , const_var (nisa "vector_engine")
   , const_var (nisa "scalar_engine")
+  , const_var (.str (nisa "reduce_cmd") "idle")
+  , const_var (.str (nisa "reduce_cmd") "reset")
+  , const_var (.str (nisa "reduce_cmd") "reduce")
+  , const_var (.str (nisa "reduce_cmd") "reset_reduce")
   , (nl "mgrid", .mgrid)
   ]
   ++ NKIBuiltins.map fun (x,_) => (x, .builtin x (.obj x) none)
