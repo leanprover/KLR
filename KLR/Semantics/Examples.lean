@@ -466,7 +466,7 @@ theorem e10 (ℓ : ChipIndex) (x : Nat × Nat) (mv : Option DataT) (d₀ : DataT
   istop; refine .trans ?_ (dwpReadpRetL' (v := d₀)); istart
   iintro H
   isplit l [H]; iexact H
-  iintro - -- The frag coupling is not used
+  iintro - -- The frag part is not used
   uwp_left  uwpPureL RetPure
   uwp_right uwpPureR RetPure
   wp_resync
