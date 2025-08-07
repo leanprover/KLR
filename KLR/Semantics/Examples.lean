@@ -456,10 +456,13 @@ theorem e10 (ℓ : ChipIndex) (x : Nat × Nat) (mv : Option DataT) (d₀ : DataT
   iintro Hfrag
   wp_desync
   simp [withNoContext, e10L, e10R]
+  -- TODO: Turn dwpSetPL' into a uwp instance
+  iintro H
   refine .trans ?_ (dwpSetpL' (mv := mv))
   iintro Hfrag'
   isplit l [Hfrag']; iexact Hfrag'
   iintro Hfrag'
+  -- TODO: read_point should have a uwp
   istop; refine .trans ?_ (dwpReadpRetL' (v := d₀)); istart
   iintro H
   isplit l [H]; iexact H
@@ -470,3 +473,4 @@ theorem e10 (ℓ : ChipIndex) (x : Nat × Nat) (mv : Option DataT) (d₀ : DataT
   wp_sync_val
   simp [ΦEq, true_intro]
 
+-- TODO: e10 but step the expressions using the ewp machinery

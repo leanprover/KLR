@@ -888,6 +888,20 @@ theorem dwpR' (u : uwpR DataT) (Hx : u.steps ≤ Rx) :
       iintro Hσ
       iexact Hσ
 
+-- TODO: Update example 10
+def uwpSetpL {i : ChipIndex} {x : Nat × Nat} {mv : Option DataT} {v : DataT} {loc : Locals DataT}
+    {p1 : List (NML.Task DataT)} : uwpL DataT where
+  pre   := iprop(⟨i, x⟩ ↦ₗ mv)
+  post  := iprop(⟨i, x⟩ ↦ₗ some v)
+  prog  := .run <| ⟨.set_point (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v), loc⟩ :: p1
+  prog' := .run <| p1
+  steps := 1
+  spec  := by
+    sorry
+
+
+
+
 -- | load_full :
 --     AffineMap.is_trivial asn →
 --     ExprStep e loc st (.ptr tensor) st' →
@@ -1036,6 +1050,9 @@ structure ewpR (DataT : Type _) extends ewp DataT where
       refine .trans ?_ sep_true.mpr
       iintro Hσ
       iexact Hσ
+
+
+
 
 
 
