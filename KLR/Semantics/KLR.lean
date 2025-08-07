@@ -26,7 +26,8 @@ def KLR.Core.Expr.semantics : KLR.Core.Expr → Err (@NML.Expr DataT)
 | _ => .error "Semantics not defined"
 
 def KLR.Core.TensorRef.semantics : KLR.Core.TensorRef → Err Nat
--- | .sbuf _ => sorry
+| .sbuf x =>
+  sorry
 | _ => .error "Semantics not defined"
 
 -- Since immediates can be registers, I'll give their semantics as an Expr.
@@ -55,11 +56,20 @@ def KLR.Core.Operator.semantics : KLR.Core.Operator → Err (@NML.Stmt DataT)
 | matchValueLoad     _ => .error "Semantics not defined"
 | max8               _ => .error "Semantics not defined"
 | memSet             op =>
-  let dst := op.dst.semantics
-  let imm := @op.value.semantics DataT
-  match op.count with
-  | 1 => sorry
-  | _ => .error "Semantics not defined"
+  -- NB. This model ignores the `count` field and sets the entire tensor to imm.
+  let imm := @op.value.semantics DataT float_interp
+  match op.dst with
+  | .sbuf _     => .error "Semantics not defined"
+  | .hbm v      =>
+      -- By virtue of using an Operand,
+      -- a programmer has given a specific index into the HBM to set the memory of.
+      match v.dims with
+      -- For right now, only model contiguous memsets
+      | [⟨1, n⟩] => imm |>.bind (fun x => .ok <| .set_phys_hbm_area v.address n x)
+      | _ => .error "Semantics not defined"
+  | .psum _     => .error "Semantics not defined"
+  | .register _ => .error "Semantics not defined"
+  | .abstract _ => .error "Semantics not defined"
 | rangeSelect        _ => .error "Semantics not defined"
 | reciprocal         _ => .error "Semantics not defined"
 | scalarTensorTensor _ => .error "Semantics not defined"
@@ -73,5 +83,5 @@ def KLR.Core.Operator.semantics : KLR.Core.Operator → Err (@NML.Stmt DataT)
 def KLR.Core.Stmt.semantics : KLR.Core.Stmt → Err (@NML.Stmt DataT)
 | .ret v => @v.semantics DataT float_interp |>.bind (.ok <| .ret <| .val ·)
 | .assign x e => @e.semantics DataT float_interp |>.bind (.ok <| .assign (some x) ·)
-| .oper op => KLR.Core.Operator.semantics op
+| .oper op => @KLR.Core.Operator.semantics DataT float_interp op
 | _ => .error "Semantics not defined"
