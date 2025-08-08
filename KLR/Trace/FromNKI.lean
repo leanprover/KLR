@@ -56,6 +56,11 @@ instance [FromNKI a] [FromNKI b] : FromNKI (Sum a b) where
       | .ok b => return .inr b
       | .error e => throw s!"cannot convert to either type in sum: {e}"
 
+instance [FromNKI a] [FromNKI b] : FromNKI (a × b) where
+  fromNKI?
+  | .tuple [x, y] => do return (<- fromNKI? x, <- fromNKI? y)
+  | _ => throw "expecting 2-tuple"
+
 instance : FromNKI Term := ⟨ .ok ⟩
 
 instance : FromNKI Expr where
