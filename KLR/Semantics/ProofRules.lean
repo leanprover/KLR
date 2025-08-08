@@ -227,6 +227,25 @@ theorem wpAllocSync  {Φ : NML.Value DataT → NML.Value DataT → @PROP DataT} 
   · iapply Hσ
   · iapply Hwp
 
+def wpAffineLoopRelSync {p1 p2 : List (NML.Stmt DataT)} {pc1 pc2 : List (NML.Task DataT)}
+      {i : AffineIter} {bl br : String} {Φ : Value DataT → Value DataT → @PROP DataT}
+      (IPre IPost : @Value DataT → @PROP DataT) :
+    -- If the conjunction of postconditions is enough to verify the programs after the loop,
+    ((([∗] (TensorLib.Iterator.toList i |>.map IPost)) -∗ wp K (.run <| pc1) (.run <| pc2) Φ) -∗
+    -- And each loop iterate can be verified independently
+    (∀ v, IPre v -∗
+       wp K (.run <| p1.map (⟨·, locl.bind _ bl v⟩))
+            (.run <| p2.map (⟨·, locl.bind _ bl v⟩))
+            (fun _ _ => IPost v)) -∗
+    -- And we have the conjunction of all the preconditions
+    ([∗] (TensorLib.Iterator.toList i |>.map IPre)))
+    -- Then the entire program is verified
+    ⊢ wp K
+        (.run <| ⟨.loop AffineIter bl (.some i) p1, locl⟩ :: pc1)
+        (.run <| ⟨.loop AffineIter br (.some i) p2, locr⟩ :: pc2)
+        Φ := by
+  sorry
+
 end basicrules
 
 
@@ -501,7 +520,7 @@ theorem dwpAllocR (Hx : 1 < Rx := by omega) :
 theorem dwpSetpL {v : DataT} (Hx : 0 < Lx := by omega) :
     ⊢ ((⟨i, x⟩ ↦ₗ some v) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx (.run <| p1) p2 Φ) -∗
        (⟨i, x⟩ ↦ₗ mv) -∗
-       (dwp Lm Rm Lx Rx (.run <| ⟨.set_point (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v), loc⟩ :: p1) p2 Φ) := by
+       (dwp Lm Rm Lx Rx (.run <| ⟨.setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v), loc⟩ :: p1) p2 Φ) := by
   -- Unfold the dwp in the conclusion
   iintro Hdwp
   conv => rhs; unfold dwp
@@ -541,7 +560,7 @@ theorem dwpSetpL {v : DataT} (Hx : 0 < Lx := by omega) :
 
 theorem dwpSetpL' {v : DataT} (Hx : 0 < Lx := by omega) :
     ((⟨i, x⟩ ↦ₗ mv) ∗ ((⟨i, x⟩ ↦ₗ some v) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx (.run <| p1) p2 Φ))
-    ⊢ (dwp Lm Rm Lx Rx (.run <| ⟨.set_point (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v), loc⟩ :: p1) p2 Φ) := by
+    ⊢ (dwp Lm Rm Lx Rx (.run <| ⟨.setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v), loc⟩ :: p1) p2 Φ) := by
   apply BI.wand_entails
   refine .trans (@dwpSetpL DataT Lx i x Lm Rm Rx p1 p2 Φ mv loc v Hx) ?_
   iintro H1 ⟨H2, H3⟩
@@ -551,7 +570,7 @@ theorem dwpSetpL' {v : DataT} (Hx : 0 < Lx := by omega) :
 theorem dwpSetpR {v : DataT} (Hx : 0 < Rx := by omega) :
     ⊢ ((⟨i, x⟩ ↦ᵣ some v) -∗ dwp Lm (Rm - 1) Lx (Rx - 1) p1 (.run <| p2) Φ) -∗
        (⟨i, x⟩ ↦ᵣ mv) -∗
-       (dwp Lm Rm Lx Rx p1 (.run <| ⟨.set_point (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v), loc⟩ :: p2) Φ) := by
+       (dwp Lm Rm Lx Rx p1 (.run <| ⟨.setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v), loc⟩ :: p2) Φ) := by
   -- Unfold the dwp in the conclusion
   iintro Hdwp
   conv => rhs; unfold dwp
@@ -590,7 +609,7 @@ theorem dwpSetpR {v : DataT} (Hx : 0 < Rx := by omega) :
 
 theorem dwpSetpR' {v : DataT} (Hx : 0 < Rx := by omega) :
     ((⟨i, x⟩ ↦ᵣ mv) ∗ ((⟨i, x⟩ ↦ᵣ some v) -∗ dwp Lm (Rm - 1) Lx (Rx - 1) p1 (.run <| p2) Φ))
-    ⊢ (dwp Lm Rm Lx Rx p1 (.run <| ⟨.set_point (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v), loc⟩ :: p2) Φ) := by
+    ⊢ (dwp Lm Rm Lx Rx p1 (.run <| ⟨.setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v), loc⟩ :: p2) Φ) := by
   apply BI.wand_entails
   refine .trans (@dwpSetpR DataT Rx i x Lm Rm Lx p1 p2 Φ mv loc v Hx) ?_
   iintro H1 ⟨H2, H3⟩
@@ -602,7 +621,7 @@ theorem dwpSetpR' {v : DataT} (Hx : 0 < Rx := by omega) :
 theorem dwpReadpRetL {v : DataT} (Hx : 0 < Lx := by omega) :
     ⊢ ((⟨i, x⟩ ↦ₗ some v) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx (.run <| ⟨.ret (.val <| .data v), loc⟩ :: p1) p2 Φ) -∗
       (⟨i, x⟩ ↦ₗ some v) -∗
-      (dwp Lm Rm Lx Rx (.run <| ⟨.ret <| .read_point (.val <| .uptr i) (.val <| .iptr x), loc⟩ :: p1) p2 Φ) := by
+      (dwp Lm Rm Lx Rx (.run <| ⟨.ret <| .readp (.val <| .uptr i) (.val <| .iptr x), loc⟩ :: p1) p2 Φ) := by
   iintro Hdwp Hfrag
   conv => rhs; unfold dwp
   iintro sl sr Hs
@@ -635,7 +654,7 @@ theorem dwpReadpRetL {v : DataT} (Hx : 0 < Lx := by omega) :
 
 theorem dwpReadpRetL' {v : DataT} (Hx : 0 < Lx := by omega) :
     (⟨i, x⟩ ↦ₗ some v) ∗ ((⟨i, x⟩ ↦ₗ some v) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx (.run <| ⟨.ret (.val <| .data v), loc⟩ :: p1) p2 Φ)
-    ⊢ (dwp Lm Rm Lx Rx (.run <| ⟨.ret <| .read_point (.val <| .uptr i) (.val <| .iptr x), loc⟩ :: p1) p2 Φ) := by
+    ⊢ (dwp Lm Rm Lx Rx (.run <| ⟨.ret <| .readp (.val <| .uptr i) (.val <| .iptr x), loc⟩ :: p1) p2 Φ) := by
   apply BI.wand_entails
   apply Entails.trans (dwpReadpRetL (v := v))
   istart
@@ -893,7 +912,7 @@ def uwpSetpL {i : ChipIndex} {x : Nat × Nat} {mv : Option DataT} {v : DataT} {l
     {p1 : List (NML.Task DataT)} : uwpL DataT where
   pre   := iprop(⟨i, x⟩ ↦ₗ mv)
   post  := iprop(⟨i, x⟩ ↦ₗ some v)
-  prog  := .run <| ⟨.set_point (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v), loc⟩ :: p1
+  prog  := .run <| ⟨.setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v), loc⟩ :: p1
   prog' := .run <| p1
   steps := 1
   spec  := by
