@@ -49,6 +49,9 @@ def NKIEnv : List (Name × Term) :=
   , const_int (.str (nl "tile_size") "pmax") 128
   , const_int (.str (nl "tile_size") "gemm_stationary_fmax") 128
   , const_int (.str (nl "tile_size") "gemm_moving_fmax") 512
+  , const_int (.str (nisa "nc_version") "gen1") 1
+  , const_int (.str (nisa "nc_version") "gen2") 2
+  , const_int (.str (nisa "nc_version") "gen3") 3
   , (nl "mgrid", .mgrid)
   ]
   ++ builtinEnv.map fun (x,_) => (x, .builtin x (.obj x) none)

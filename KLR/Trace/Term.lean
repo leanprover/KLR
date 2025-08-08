@@ -501,12 +501,16 @@ nki par_dim (t : Term) := do
   warn "par_dim is deprecated"
   return t
 
+-- TODO nki macro doesn't work if there are no arguments
+def get_nc_version (_ : List Term) (_ : List (String × Term)) : Trace Term := do
+  lookup `arch
+
 nki ndarray
   (shape : Shape)
   (dtype : Dtype)
   (buffer : Option Memory := none)
   (name : Option String := none)
-  (address : Option (Nat × Nat)) := do
+  (address : Option (Nat × Nat) := none) := do
     let memory := buffer.getD .sbuf
     let (parSize, freeSize) := Address.defaultSize shape dtype
     let (parOffset, freeOffset) := match address with
@@ -547,12 +551,14 @@ This indirection is necessary because the builtin implementations take terms
 and live in the Trace monad, which contains an environment of terms.
 -/
 
+private def nisa : String -> Name := .str `neuronxcc.nki.isa
 private def nl : String -> Name := .str `neuronxcc.nki.language
 
 def builtinEnv : List (Name × BuiltinFn) :=
   (memViewName, memView) ::
   (nl "par_dim", par_dim) ::
   (nl "ndarray", ndarray) ::
+  (nisa "get_nc_version", get_nc_version) ::
   ( `len, python_len) ::
   ( `min, python_min) ::
   Isa.builtins
