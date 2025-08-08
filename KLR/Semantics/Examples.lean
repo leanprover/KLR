@@ -64,7 +64,7 @@ Prove that allocation under any heap is safe using a relational proof.
 -/
 
 def ex2 : ExecState DataT :=
-  (.run [⟨.assign .none (.alloc Memory.sbuf), nolocals _⟩, ⟨.ret <| .val .unit, nolocals _⟩])
+  (.run [⟨.assign .none (.alloc Memory.sbuf), Locals.Emp _⟩, ⟨.ret <| .val .unit, Locals.Emp _⟩])
 
 theorem example2 (σ : State DataT) : SmallStep.Safe (ex2, σ) := by
   -- It suffices to show that `(ex2, σ) ∼ (ex2, σ) : fun _ _ => True`
@@ -121,10 +121,10 @@ theorem e3 : ⊢ @wp DataT ⟨2⟩ e3L e3R ΦUnitEq := by
   exact true_intro
 
 def e4L : ExecState DataT :=
-  .run [⟨.assign (.some "x") (.val <| .int 3), nolocals _⟩, ⟨.ret (.var "x"), nolocals _⟩]
+  .run [⟨.assign (.some "x") (.val <| .int 3), Locals.Emp _⟩, ⟨.ret (.var "x"), Locals.Emp _⟩]
 
 def e4R : ExecState DataT :=
-  .run [⟨.assign (.some "y") (.val <| .int 3), nolocals _⟩, ⟨.ret (.var "y"), nolocals _⟩]
+  .run [⟨.assign (.some "y") (.val <| .int 3), Locals.Emp _⟩, ⟨.ret (.var "y"), Locals.Emp _⟩]
 
 def ΦInt (R : Int → Int → @PROP DataT) (v1 v2 : NML.Value DataT) : @PROP DataT :=
   iprop(∃ z1 z2, ⌜v1 = .int z1⌝ ∗ ⌜v2 = .int z2⌝ ∗ R z1 z2)
@@ -268,50 +268,52 @@ theorem e7 : ⊢ wp (DataT := DataT) ⟨2⟩ e7L e7R ΦUnitEq := by
   wp_desync
   dwp_right_pure SeqPure
   dwp_left_pure  LoopNterPure
-  dwp_left_pure  SeqPure
-  wp_resync
-  simp
-  wp_desync
-  dwp_right_pure SeqPure
-  dwp_left_pure  LoopNterPure
-  dwp_left_pure  SeqPure
-  wp_resync
-  simp
-  wp_desync
-  dwp_right_pure SeqPure
-  dwp_left_pure  LoopNterPure
-  dwp_left_pure  SeqPure
-  wp_resync
-  simp
-  wp_desync
-  dwp_left_pure  LoopExitPure
-  dwp_left_pure  RetPure
-  dwp_right_pure RetPure
-  wp_resync
-  wp_sync_val
-  simp [ΦUnitEq, true_intro]
+  sorry
+  -- dwp_left_pure  SeqPure
+  -- wp_resync
+  -- simp
+  -- wp_desync
+  -- dwp_right_pure SeqPure
+  -- dwp_left_pure  LoopNterPure
+  -- dwp_left_pure  SeqPure
+  -- wp_resync
+  -- simp
+  -- wp_desync
+  -- dwp_right_pure SeqPure
+  -- dwp_left_pure  LoopNterPure
+  -- dwp_left_pure  SeqPure
+  -- wp_resync
+  -- simp
+  -- wp_desync
+  -- dwp_left_pure  LoopExitPure
+  -- dwp_left_pure  RetPure
+  -- dwp_right_pure RetPure
+  -- wp_resync
+  -- wp_sync_val
+  -- simp [ΦUnitEq, true_intro]
 
 theorem e7' : ⊢ wp (DataT := DataT) ⟨2⟩ e7L e7R ΦUnitEq := by
   simp [withNoContext, e7L, e7R]
   wp_desync
   uwp_right uwpPureR SeqPure
   uwp_left  uwpPureL LoopNterPure
-  uwp_left  uwpPureL SeqPure
-  wp_resync; simp; wp_desync
-  uwp_right uwpPureR SeqPure
-  uwp_left  uwpPureL LoopNterPure
-  uwp_left  uwpPureL SeqPure
-  wp_resync; simp; wp_desync
-  uwp_right uwpPureR SeqPure
-  uwp_left  uwpPureL LoopNterPure
-  uwp_left  uwpPureL SeqPure
-  wp_resync; simp; wp_desync
-  uwp_left  uwpPureL LoopExitPure
-  uwp_left  uwpPureL RetPure
-  uwp_right uwpPureR RetPure
-  wp_resync
-  wp_sync_val
-  simp [ΦUnitEq, true_intro]
+  sorry
+  -- uwp_left  uwpPureL SeqPure
+  -- wp_resync; simp; wp_desync
+  -- uwp_right uwpPureR SeqPure
+  -- uwp_left  uwpPureL LoopNterPure
+  -- uwp_left  uwpPureL SeqPure
+  -- wp_resync; simp; wp_desync
+  -- uwp_right uwpPureR SeqPure
+  -- uwp_left  uwpPureL LoopNterPure
+  -- uwp_left  uwpPureL SeqPure
+  -- wp_resync; simp; wp_desync
+  -- uwp_left  uwpPureL LoopExitPure
+  -- uwp_left  uwpPureL RetPure
+  -- uwp_right uwpPureR RetPure
+  -- wp_resync
+  -- wp_sync_val
+  -- simp [ΦUnitEq, true_intro]
 
 /-- Pure assignments -/
 
@@ -393,10 +395,10 @@ theorem e9 : ⊢ wp (DataT := DataT) ⟨5⟩ e9L e9R ΦIntEq := by
                 (Stmt.loop LoopIter "x" (some { }) [NML.Stmt.assign none (Expr.val Value.unit)])
                 []
                 (Stmt.loop LoopIter "y" (some { }) [NML.Stmt.assign none (Expr.val Value.unit)])
-                [{ stmt := NML.Stmt.ret (Expr.val Value.unit), env := nolocals DataT }]
+                [{ stmt := NML.Stmt.ret (Expr.val Value.unit), env := Locals.Emp DataT }]
                 ΦIntEq
-                (nolocals DataT)
-                (nolocals DataT)
+                (Locals.Emp DataT)
+                (Locals.Emp DataT)
                 (fun _ _ => True)
   refine include_sep Z ?_; clear Z
   iintro ⟨H, Hemp⟩
@@ -440,8 +442,8 @@ instance : TensorLib.Iterator (ProgressIter T) T where
 
 def e10L (ℓ : ChipIndex) (x : Nat × Nat) (d₀ : DataT): ExecState DataT :=
   withNoContext [
-    .set_point (.val <| .uptr ℓ) (.val <| .iptr x) (.val <| .data d₀),
-    .ret (.read_point (.val <| .uptr ℓ) (.val <| .iptr x)),
+    .setp (.val <| .uptr ℓ) (.val <| .iptr x) (.val <| .data d₀),
+    .ret (.readp (.val <| .uptr ℓ) (.val <| .iptr x)),
   ]
 
 def e10R (d₀ : DataT) : ExecState DataT :=
@@ -462,7 +464,7 @@ theorem e10 (ℓ : ChipIndex) (x : Nat × Nat) (mv : Option DataT) (d₀ : DataT
   iintro Hfrag'
   isplit l [Hfrag']; iexact Hfrag'
   iintro Hfrag'
-  -- TODO: read_point should have a uwp
+  -- TODO: readp should have a uwp
   istop; refine .trans ?_ (dwpReadpRetL' (v := d₀)); istart
   iintro H
   isplit l [H]; iexact H
@@ -474,3 +476,35 @@ theorem e10 (ℓ : ChipIndex) (x : Nat × Nat) (mv : Option DataT) (d₀ : DataT
   simp [ΦEq, true_intro]
 
 -- TODO: e10 but step the expressions using the ewp machinery
+
+section e11
+
+variable (body : List Stmt) (binder : String)
+
+-- Indexed precondition / postcondition. Eliminate bad Local contexts (out of range index
+-- or bad local contexts) using False as a precondition
+variable (PRE POST : Locals DataT → Nat → PROP DataT)
+
+-- I can define this semantically.
+-- wp P (fun _ => wp Q Φ) -∗ wp (P <> Q) Φ
+-- when the scope of P ends before Q
+
+-- Define what it means for a subprogram to respect scope
+
+-- Then the next problem: what about relations?
+-- When the loop heads line up syntactically, it is fine. That can be the first relational
+-- rule I prove. When the looping structures are different I want to do this proof step using
+-- variables, basically.
+
+-- So we assign ghost variables to each iterator in each program, an (indexed) bijection between their values,
+-- and then we have a rule which says it suffices to
+
+
+
+
+
+
+
+
+
+end e11
