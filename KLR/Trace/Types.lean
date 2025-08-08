@@ -291,8 +291,8 @@ def enterFun (m : Trace a) : Trace a := fun s =>
   | .error err s => .error err s
 
 -- append fully traced statement
-def add_stmt (stmt : Stmt) : Trace Unit :=
-  modify fun s => { s with body := s.body.push stmt }
+def add_stmt (stmt : Pos -> Stmt) : Trace Unit :=
+  modify fun s => { s with body := s.body.push (stmt s.pos) }
 
 -- emit a warning
 def warn (msg : String) : Trace Unit :=
