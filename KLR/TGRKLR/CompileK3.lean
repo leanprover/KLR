@@ -245,7 +245,8 @@ def compileReduction (f : KLR.TGR.Function) (op : KLR.TGR.BinaryOp) (a : KLR.TGR
     let initialValue ← match lookupVar init with
       | some (.assign _ (.full value _) _) => pure value
       | _ => throw s!"Initial value for reduction {init} not found."
-    let intermediate := {name := ← gensym, shape := (← lookupTy a)}
+    let reducedShape := (← lookupTy a).shape.val.take (ndim - 1)
+    let intermediate := {name := ← gensym, shape := ⟨⟨reducedShape⟩, (← lookupTy a).dtype⟩}
     /- TODO: is there a way to incorporate the inital value into the TensorReduce instruction? -/
     pure [
       /- perform reduction -/
@@ -297,7 +298,9 @@ def compileTranspose (dst : KLR.TGR.Var) (src : KLR.TGR.Var) (dims : List Nat) :
     pure [.transposeP ⟨← lower dst, ← fetch src, dims⟩]
 
 /- For now, the ordering of these rules is important, as it determines what order they will be tried in.
-Eventually, we want a heuristic that picks rules that consume more operators -/
+Eventually, we want a heuristic that picks rules that consume more operators
+
+Additionally, we probably want some way to mark the inputs to a rule as commutative so rules don't need to be duplciated -/
 def compileRules := [
   -- mul by constant
   [Rule| .binaryOp .mul <.full n _> a ->  [.activate ⟨← lower dst, ← fetch a, .Idle, .copy, .float (← floatOfScalarArray n), .float 0, .float 0⟩]],
@@ -360,11 +363,6 @@ partial def compileFunction (p : KLR.TGR.Function) : Compile FunctionK3 := do
       match compiled with
       | .some ops => do
         statements := ops ++ statements
-        dbg_trace "======================="
-        dbg_trace s!"Compiled {v}"
-        dbg_trace s!"symEnv: {(← get).symEnv}"
-        dbg_trace s!"freevars: {(← get).freeVars}"
-        dbg_trace s!"ops: {ops}"
       | .none => throw s!"No rule found that matches variable {v}"
 
   return {

@@ -21,7 +21,10 @@ import TensorLib.Tensor
 import SHerLOC
 import KLR.TGR
 import SHerLOC.Analysis.Graph
-import KLR.TGRKLR
+import KLR.TGRKLR.CompileK3
+import KLR.TGRKLR.CompileK2
+import KLR.TGRKLR.DotK3
+import KLR.TGRKLR.InterpK2
 
 open Cli
 open KLR
@@ -328,6 +331,50 @@ def hloToTGR (p : Parsed) : IO UInt32 := do
     IO.eprintln e
     return 1
 
+def hloToKLR (p : Parsed) : IO UInt32 := do
+  let file := p.positionalArg! "file" |>.as! String
+  let s <- IO.FS.readFile file
+  match StableHLO.Parsing.parse s with
+  | .ok (hlo, _) =>
+    let tgr := KLR.TGR.Compile.compile hlo
+    match tgr with
+    | (.ok _, s) => do
+      --IO.println (toString s.program)
+      let headFunction := s.program.functions.head!
+      writeContent "tgr.txt" p (toString s.program)
+      let klr3 := KLR.TGRKLR.K3.compile headFunction
+      match klr3 with
+      | (.ok func, _) =>
+        writeContent "k3.txt" p s!"{func}"
+        writeContent "k3.dot" p (KLR.TGRKLR.K3.graph func |> toString)
+        let klr2 := KLR.TGRKLR.K2.compile func
+        match klr2 with
+        | (.ok func, _) =>
+          writeContent "k2.txt" p s!"{func}"
+          match KLR.TGRKLR.K2.Interp.interp func with
+          | (.ok (), ctx) =>
+            writeContent "k2.result" p s!"{ctx}"
+            return 0
+          | (.error e, ctx) =>
+            IO.eprintln s!"Error interpreting K2: {e}"
+            writeContent "k2.err" p s!"{ctx}"
+          return 1
+        | (.error e, ctx) =>
+          IO.eprintln s!"Error compiling HLO to K2: {e}"
+          IO.eprintln s!"{repr ctx}"
+          return 0
+      | (.error e, ctx) =>
+        IO.eprintln s!"Error compiling HLO to K3: {e}"
+        IO.eprintln s!"{repr ctx}"
+        return 0
+    | (.error e, s) => do
+      IO.eprintln s!"Error compiling HLO to TGR: {e}"
+      IO.eprintln s!"{repr s}"
+      return 1
+  | .error e =>
+    IO.eprintln e
+    return 1
+
 -- -- Command configuration
 
 def gatherCmd := `[Cli|
@@ -427,6 +474,15 @@ def hloToTGRCmd := `[Cli|
   ARGS:
     file : String;      "File of HLO graph in .mlir format"
 ]
+def hloToKLRCmd := `[Cli|
+  "hlo-to-klr" VIA hloToKLR;
+  "Compile HLO graph to KLR graph"
+
+  FLAGS:
+    o, outfile : String; "Name of output file"
+  ARGS:
+    file : String;      "File of HLO graph in .mlir format"
+]
 
 def klrCmd : Cmd := `[Cli|
   klr NOOP; ["0.0.12"]
@@ -440,7 +496,8 @@ def klrCmd : Cmd := `[Cli|
     nkiToKLRCmd;
     traceCmd;
     typecheckCmd;
-    hloToTGRCmd
+    hloToTGRCmd;
+    hloToKLRCmd
 ]
 
 def main (args : List String) : IO UInt32 := do

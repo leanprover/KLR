@@ -1,0 +1,359 @@
+import TensorLib.Tensor
+import KLR.TGRKLR.Operators
+import KLR.TGRKLR.CompileK2
+
+namespace KLR.TGRKLR.K2.Interp
+
+open KLR.TGR(TensorTy)
+open Std.Format
+
+inductive Value where
+  | none
+  | int (n : Int)
+  | float (f : Float32)
+  | address (parOffset : Nat) (freeOffset : Nat)
+deriving Inhabited, Repr, BEq
+
+instance : ToString Value where
+  toString
+    | .none => "none"
+    | .int n => s!"int({n})"
+    | .float f => s!"float({f})"
+    | .address parOffset freeOffset =>
+      s!"address({parOffset},{freeOffset})"
+
+
+def parQuadrantToNat : Core.ParQuadrant → Nat
+  | .par0 => 0
+  | .par32 => 32
+  | .par64 => 64
+  | .par96 => 96
+
+structure Partition where
+  (data : Vector Value 100)
+deriving Repr, Inhabited, BEq
+
+instance : ToString (Vector Value N) where
+  toString v :=
+    let values := v.toList.map (fun x => toString x)
+    s!"[{String.intercalate ", " values}]"
+instance : ToString Partition where
+  toString p := s!"Partition({p.data})"
+
+structure Ctx where
+  dram : Std.HashMap Var (Array Value)
+  sbuf : Vector Partition 128
+  psum : Vector Partition 128
+  regs : Vector Value 32
+  peState : Array (Array Value)
+  log : List String
+deriving Repr, Inhabited, BEq
+
+instance : ToString Ctx where
+  toString ctx :=
+    let dramStr := ctx.dram.toList.map (fun (k, v) => s!"{k} -> {v}") |>.intersperse "\n"
+    let sbufStr := (ctx.sbuf.toList.map toString)     |>.intersperse "\n"
+    let psumStr := ctx.psum.toList.map toString       |>.intersperse "\n"
+    let regsStr := ctx.regs.toList.map toString       |>.intersperse ", "
+    let peStateStr := ctx.peState.toList.map toString |>.intersperse "\n"
+    let logStr := ctx.log |>.intersperse "\n"
+    s!"Dram:\n{dramStr}\n\nSbuf:\n{sbufStr}\n\nPsum:\n{psumStr}\n\nRegs: [{regsStr}]\n\nPE State:\n{peStateStr}\n\nLog:\n{logStr}"
+
+abbrev Interp T := EStateM String Ctx T
+
+def log (msg : String) : Interp Unit := do
+  modify fun ctx => { ctx with log := ctx.log ++ [msg] }
+
+def accessToIndices (pattern : List Core.APPair) : Array Nat :=
+  let rec helper (acc : Array Nat) (pattern : List Core.APPair) :=
+    match pattern with
+    | ⟨step, num⟩ :: rest => Id.run do
+      let out := Array.range' 0 num step.toNat
+        |>.map (fun i => acc.map (fun x => x + i))
+        |>.flatten
+      helper out rest
+    | [] => acc
+  helper #[0] pattern
+
+def dramAccess (offset : Nat) (pattern : List Core.APPair) (data : Array Value) : Array Value :=
+  let indices := accessToIndices pattern
+  indices.map (fun i => data[i + offset]!)
+
+def dramWrite
+  (dest : Var) (destOffset : Nat) (destPattern : List Core.APPair)
+  (sourceData : Array Value) : Interp Unit := do
+  let indices := accessToIndices destPattern
+  if indices.size != sourceData.size then
+    throw s!"Size mismatch in dramWrite: {indices.size} != {sourceData.size}"
+  let mut newDram := (← get).dram[dest]!
+  for i in List.range indices.size do
+    let index := destOffset + indices[i]!
+    dbg_trace s!"Writing to dram[{dest}][{index}] = {sourceData[i]!} (tensor size: {newDram.size})"
+    newDram := newDram.set! index (sourceData[i]!)
+  modify fun ctx => { ctx with dram := ctx.dram.insert dest newDram }
+
+def sbufWrite (dest : TensorK2) (data : Array Value) : Interp Unit := do
+  if data.isEmpty then
+    dbg_trace "sbufWrite: Data is empty"
+    throw "sbufWrite: Data cannot be empty"
+  let ⟨_name, _dtype, memory, parQuadrant, parDim, freeOffset, freePattern⟩ := dest
+  let accessIndices := accessToIndices freePattern
+  let startRow := parQuadrantToNat parQuadrant
+  let mem ← match memory with
+    | .sbuf => EStateM.get |>.map fun ctx => ctx.sbuf
+    | .psum => EStateM.get |>.map fun ctx => ctx.psum
+  let mut mem := mem
+  if accessIndices.size * parDim != data.size then
+    throw s!"Size mismatch in sbufWrite: {accessIndices.size * parDim} != {data.size}"
+  let mut i := 0
+  for row in [startRow:startRow + parDim] do
+    for accessIndex in accessIndices do
+      let index := freeOffset + accessIndex
+      if index >= 4096 then
+        throw s!"Index out of bounds in sbufWrite: {index} >= 4096"
+      if i >= data.size then
+        throw s!"Data index out of bounds in sbufWrite: {i} >= {data.size}"
+      mem := mem.set! row ⟨mem[row]!.data.set! index data[i]!⟩
+      i := i + 1
+  match memory with
+  | .sbuf => modify fun ctx => { ctx with sbuf := mem }
+  | .psum => modify fun ctx => { ctx with psum := mem }
+
+def sbufRead (src : TensorK2) : Interp (Array Value) := do
+  let ⟨_name, _dtype, memory, parQuadrant, parDim, freeOffset, freePattern⟩ := src
+  let accessIndices := accessToIndices freePattern
+  let startRow := parQuadrantToNat parQuadrant
+  let mem ← match memory with
+    | .sbuf => EStateM.get |>.map fun ctx => ctx.sbuf
+    | .psum => EStateM.get |>.map fun ctx => ctx.psum
+  let mut values := Array.mkEmpty (accessIndices.size * parDim)
+  for row in [startRow:startRow + parDim] do
+    for accessIndex in accessIndices do
+      let index := freeOffset + accessIndex
+      if index >= 4096 then
+        throw s!"Index out of bounds in sbufRead: {index} >= 4096"
+      dbg_trace s!"Reading from sbuf[{row}][{index}]"
+      values := values.push (mem[row]!.data[index]!)
+  pure values
+
+def natToParQuadrant (n : Nat) : Interp Core.ParQuadrant :=
+  match n with
+  | 0 => pure .par0
+  | 32 => pure .par32
+  | 64 => pure .par64
+  | 96 => pure .par96
+  | _ => throw s!"Invalid partition quadrant: {n}"
+
+def interpExpr (expr : ScalarK2) : Interp Value := do
+  match expr with
+  | .int n => pure (.int n)
+  | .float f => pure (.float f)
+  | .var v => do
+    let value := (← get).regs[v]!
+    match value with
+    | .none => throw s!"Variable {v} is not initialized"
+    | .int n => pure (.int n)
+    | .float f => pure (.float f)
+    | .address parOffset freeOffset => pure (.address parOffset freeOffset)
+  | .expr op a b => do
+    match ← interpExpr a, ← interpExpr b with
+    | .int a, .int b =>
+      let op := match op with
+      | .mult => (.*.)
+      | .add => (.+.)
+      pure (.int (op a b))
+    | .float a, .float b =>
+      let op := match op with
+      | .mult => (.*.)
+      | .add => (.+.)
+      pure (.float (op a b))
+    | a, b => throw s!"Unsupported operation on {repr a} and {repr b}"
+
+def reshape (data : Array Value) (parDim : Nat) (freeDim : Nat) : Interp (Array (Array Value)) := do
+  if data.size != parDim * freeDim then
+    throw s!"Size mismatch in reshape: {data.size} != {parDim * freeDim}"
+  let mut out : Array (Array Value) := Array.emptyWithCapacity parDim
+  for i in List.range parDim do
+    out := out.push ((data.toSubarray (i * freeDim) ((i + 1) * freeDim)).toArray)
+  pure out
+def flatten (data : Array (Array Value)) : Interp (Array Value) := do
+  let mut out : Array Value := #[]
+  for row in data do
+    out := out ++ row
+  pure out
+
+def aluOpToFun (op : AluOp) : Interp (Float32 → Float32 → Float32) := do
+  let op ← match op with
+    | .add => pure (. + .)
+    | .subtract => pure (. - .)
+    | .mult => pure (. * .)
+    | .divide => pure (. / .)
+    | .max => pure (fun a b => if a > b then a else b)
+    | _ => throw s!"Unsupported tensorTensor operator: {repr op}"
+
+def interpOp (op : OperatorK2) : Interp Unit := do
+  match op with
+  | .activate ⟨dst, src, _accumCmd, op, _scale, _bias, _imm⟩ =>
+    let srcValues ← sbufRead src
+    let dstValues ← match op with
+    | .copy => pure srcValues
+    | .exp => srcValues.mapM fun
+        | .float f => pure $ .float f.exp
+        | x => throw s!"Expected float in activate, but got {repr x}"
+    | _ => throw s!"Unsupported activation op: {repr op}"
+    sbufWrite dst dstValues
+  | .tensorTensor ⟨dst, a, b, op⟩ =>
+    let aValues ← sbufRead a
+    let bValues ← sbufRead b
+    if aValues.size != bValues.size then
+      throw s!"Size mismatch in tensorTensor: {aValues.size} != {bValues.size}"
+    let mut dstValues := Array.mkEmpty aValues.size
+    let op ← aluOpToFun op
+    for i in List.range aValues.size do
+      match aValues[i]!, bValues[i]! with
+      | .float a, .float b =>
+        dstValues := dstValues.set! i (Value.float (op a b))
+      | _, _ => throw s!"Expected float values in tensorTensor, but got {repr aValues[i]!} and {repr bValues[i]!}"
+    sbufWrite dst dstValues
+  | .tensorScalar ⟨dst, src, imm0, op0, _imm1, _op1, _reverse⟩ =>
+    let srcValues ← sbufRead src
+    let parDim := src.parDim
+    let freeDim := accessToIndices src.freePattern |>.size
+    let op ← aluOpToFun op0
+    let destValues ← match imm0 with
+    | .float f => srcValues.mapM fun
+        | .float v => pure $ .float (op v f)
+        | x => throw s!"Expected float in tensorScalar, but got {repr x}"
+    | .var r =>
+      match (← get).regs[r]! with
+      | .address parOffset freeOffset =>
+        let srcValues ← reshape srcValues parDim freeDim
+        if parOffset != 0 then
+          throw s!"Expected parOffset to be 0 in tensorScalar, but got {parOffset}"
+        let vec := { name := "", dtype := src.dtype, memory := .sbuf, parQuadrant := .par0, parDim, freeOffset, freePattern := [⟨1, 1⟩] }
+        let vecValues ← sbufRead vec
+        dbg_trace s!"TensorScalar operation with variablevalues: {vecValues} and srcValues: {srcValues}"
+        let result ← srcValues.zip vecValues |>.mapM fun (row, scalar) =>
+          match scalar with
+          | .float scalar => row.mapM (fun value =>
+            match value with
+            | .float v => pure $ Value.float (op v scalar)
+            | x => throw s!"Expected float in tensorScalar, but got {repr x}")
+          | x => throw s!"Expected float in tensorScalar, but got {repr x}"
+        dbg_trace s!"TensorScalar operation with variable result: {result}"
+        flatten result
+      | x => throw s!"Expected address in tensorScalar, but got {repr x}"
+    | _ => throw s!"Unsupported immediate type in tensorScalar: {repr imm0}"
+    dbg_trace s!"TensorScalar operation result: {destValues}"
+    sbufWrite dst destValues
+  | .tensorReduce ⟨dst, src, op, _opDim, _negated⟩ =>
+    let parDim := src.parDim
+    let freeDim := accessToIndices src.freePattern |>.size
+    let srcValues ← sbufRead src
+    let tile ← reshape srcValues parDim freeDim
+    let op ← aluOpToFun op
+    let destValues ← tile.mapM fun row =>
+      (row.foldlM (fun acc value =>
+        match value with
+        | Value.float f => pure $ op acc f
+        | _ => throw s!"Expected float value in tensorReduce, but got {repr value}")
+      0.0) |> EStateM.map fun result => .float result
+    sbufWrite dst destValues
+  | .loadStationary ⟨src, _⟩ =>
+    let parDim := src.parDim
+    let freeDim := accessToIndices src.freePattern |>.size
+    let srcValues ← sbufRead src
+    let newPeState ← reshape srcValues parDim freeDim
+    modify fun ctx => { ctx with peState := newPeState }
+  | .matMul ⟨dst, moving, _⟩ =>
+    let parDim := moving.parDim
+    let freeDim := accessToIndices moving.freePattern |>.size
+    let moving ← reshape (← sbufRead moving) parDim freeDim
+    let stationary := (← get).peState
+    -- simulate np.einsum("bij,bkj->bik", a, b)
+    let (iSize, jSize) := (parDim, freeDim)
+    let kSize := moving.size
+    let mut dest := Array.replicate iSize (Array.replicate kSize (.float 0.0))
+    for i in List.range iSize do
+      for k in List.range kSize do
+        let mut sum := 0.0
+        for j in List.range jSize do
+          sum ← match (moving[i]![j]!, stationary[k]![j]!) with
+            | (.float a, .float b) => pure (a * b + sum)
+            | _ => throw s!"Expected float values in matMul, but got {repr moving[i]![j]!} and {repr stationary[j]![k]!}"
+        dest := dest.set! i (dest[i]!.set! k (.float sum))
+    let destValues ← flatten dest
+    sbufWrite dst destValues
+  | .copy ⟨dst, src, _⟩ =>
+    let srcValues ← sbufRead src
+    dbg_trace s!"Copying values from {src} to {dst}: {srcValues}"
+    sbufWrite dst srcValues
+  | _ => throw s!"Unsupported operator: {repr op}"
+
+partial def interpStatement (statement : StatementK2) : Interp Unit := do
+  log s!"--- Statement ---\n{toString statement}"--\n{toString (← get)}"
+  dbg_trace s!"--- Statement ---\n{toString statement}"--\n{toString (← get)}"
+  match statement with
+  | .comment s => pure ()
+  | .op op => interpOp op
+  | .loop var start stop step body =>
+    let mut counter := start
+    while counter < stop do
+      modify fun ctx => { ctx with regs := ctx.regs.set! var (.int counter) }
+      body.forM interpStatement
+      counter := counter + step
+  | .ifzero var consequent alternate =>
+    if (← get).regs[var]! == (.int 0) then
+      consequent.forM interpStatement
+    else
+      alternate.forM interpStatement
+  | .load dst ⟨srcName, srcOffset, srcPattern⟩ =>
+    let srcOffset ← match (← interpExpr srcOffset) with
+      | .int n => pure n.toNat
+      | _ => throw "Expected integer offset for load"
+    let sourceValues := (← get).dram[srcName]! |> dramAccess srcOffset srcPattern
+    dbg_trace sourceValues
+    sbufWrite dst sourceValues
+  | .store ⟨dstName, dstOffset, dstPattern⟩ src =>
+    let srcValues ← sbufRead src
+    let dstOffset ← match (← interpExpr dstOffset) with
+      | .int n => pure n.toNat
+      | _ => throw "Expected integer offset for store"
+    dramWrite dstName dstOffset dstPattern srcValues
+  | .dramToDram ⟨dstName, dstOffset, dstPattern⟩ ⟨srcName, srcOffset, srcPattern⟩ =>
+    let srcOffset ← match (← interpExpr srcOffset) with
+      | .int n => pure n.toNat
+      | _ => throw "Expected integer offset for dramToDram"
+    let sourceValues := (← get).dram[srcName]! |> dramAccess srcOffset srcPattern
+    let dstOffset ← match (← interpExpr dstOffset) with
+      | .int n => pure n.toNat
+      | _ => throw "Expected integer offset for dramToDram"
+    dramWrite dstName dstOffset dstPattern sourceValues
+  | .move reg expr =>
+    let value ← interpExpr expr
+    modify fun ctx => { ctx with regs := ctx.regs.set! reg value }
+  | .moveAddress reg parOffset freeOffset =>
+    modify fun ctx =>
+      { ctx with regs := ctx.regs.set! reg (.address (parQuadrantToNat parOffset) freeOffset) }
+
+def interpFunction (f : FunctionK2) : Interp Unit := do
+  let _ ← f.statements.mapIdxM (fun i stmt => do
+    interpStatement stmt)
+  pure ()
+
+
+def interp (klr : FunctionK2) : (Except String Unit) × Ctx := Id.run do
+  let mut ctx := default
+  for (name, type) in klr.tensors do
+    let initialData := Array.replicate type.shape.count (Value.float 0.0)
+    ctx := { ctx with dram := ctx.dram.insert name initialData }
+
+  for (name, type) in klr.inputs do
+    let hbmTensor ← match type.dtype with
+      | .float32 => pure (Array.replicate type.shape.count (Value.float 1.0))
+      | _ => panic! s!"Unsupported input dtype: {repr type}"
+    ctx := { ctx with dram := ctx.dram.insert name hbmTensor }
+
+  match (interpFunction klr).run ctx with
+  | .ok _ s => (.ok (), s)
+  | .error err s => (throw err, s)
