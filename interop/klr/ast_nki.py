@@ -92,6 +92,14 @@ class Expr_binOp(NamedTuple):
   left : "Expr"
   right : "Expr"
 
+class Expr_conj(NamedTuple):
+  left : "Expr"
+  right : "Expr"
+
+class Expr_disj(NamedTuple):
+  left : "Expr"
+  right : "Expr"
+
 class Expr_ifExp(NamedTuple):
   test : "Expr"
   tru : "Expr"
@@ -102,7 +110,7 @@ class Expr_call(NamedTuple):
   args : list["Expr"]
   keywords : list["Keyword"]
 
-Expr_ = Expr_call | Expr_ifExp | Expr_binOp | Expr_access | Expr_tuple | Expr_var | Expr_value
+Expr_ = Expr_call | Expr_ifExp | Expr_disj | Expr_conj | Expr_binOp | Expr_access | Expr_tuple | Expr_var | Expr_value
 
 class Expr(NamedTuple):
   expr : "Expr_"
@@ -206,6 +214,7 @@ class Fun(NamedTuple):
   name : str
   file : str
   line : int
+  source : str
   body : list["Stmt"]
   args : list["Param"]
 

@@ -183,8 +183,24 @@ bool NKI_Expr__ser(FILE *out, struct NKI_Expr_ *x) {
     if (!NKI_Expr_ser(out, x->binOp.right))
       return false;
     break;
+  case NKI_Expr_conj:
+    if (!cbor_encode_tag(out, 4, 5, 2))
+      return false;
+    if (!NKI_Expr_ser(out, x->conj.left))
+      return false;
+    if (!NKI_Expr_ser(out, x->conj.right))
+      return false;
+    break;
+  case NKI_Expr_disj:
+    if (!cbor_encode_tag(out, 4, 6, 2))
+      return false;
+    if (!NKI_Expr_ser(out, x->disj.left))
+      return false;
+    if (!NKI_Expr_ser(out, x->disj.right))
+      return false;
+    break;
   case NKI_Expr_ifExp:
-    if (!cbor_encode_tag(out, 4, 5, 3))
+    if (!cbor_encode_tag(out, 4, 7, 3))
       return false;
     if (!NKI_Expr_ser(out, x->ifExp.test))
       return false;
@@ -194,7 +210,7 @@ bool NKI_Expr__ser(FILE *out, struct NKI_Expr_ *x) {
       return false;
     break;
   case NKI_Expr_call:
-    if (!cbor_encode_tag(out, 4, 6, 3))
+    if (!cbor_encode_tag(out, 4, 8, 3))
       return false;
     if (!NKI_Expr_ser(out, x->call.f))
       return false;
@@ -426,13 +442,15 @@ bool NKI_Param_ser(FILE *out, struct NKI_Param *x) {
 }
 
 bool NKI_Fun_ser(FILE *out, struct NKI_Fun *x) {
-  if (!cbor_encode_tag(out, 13, 0, 5))
+  if (!cbor_encode_tag(out, 13, 0, 6))
     return false;
   if (!String_ser(out, x->name))
     return false;
   if (!String_ser(out, x->file))
     return false;
   if (!cbor_encode_uint(out, x->line))
+    return false;
+  if (!String_ser(out, x->source))
     return false;
   if (!NKI_Stmt_List_ser(out, x->body))
     return false;
@@ -790,6 +808,24 @@ bool NKI_Expr__des(FILE *in, struct region *region, struct NKI_Expr_ **x) {
     (*x)->tag = NKI_Expr_binOp;
     break;
   case 5:
+    if (l != 2)
+      return false;
+    if (!NKI_Expr_des(in, region, &(*x)->conj.left))
+      return false;
+    if (!NKI_Expr_des(in, region, &(*x)->conj.right))
+      return false;
+    (*x)->tag = NKI_Expr_conj;
+    break;
+  case 6:
+    if (l != 2)
+      return false;
+    if (!NKI_Expr_des(in, region, &(*x)->disj.left))
+      return false;
+    if (!NKI_Expr_des(in, region, &(*x)->disj.right))
+      return false;
+    (*x)->tag = NKI_Expr_disj;
+    break;
+  case 7:
     if (l != 3)
       return false;
     if (!NKI_Expr_des(in, region, &(*x)->ifExp.test))
@@ -800,7 +836,7 @@ bool NKI_Expr__des(FILE *in, struct region *region, struct NKI_Expr_ **x) {
       return false;
     (*x)->tag = NKI_Expr_ifExp;
     break;
-  case 6:
+  case 8:
     if (l != 3)
       return false;
     if (!NKI_Expr_des(in, region, &(*x)->call.f))
@@ -1104,7 +1140,7 @@ bool NKI_Fun_des(FILE *in, struct region *region, struct NKI_Fun **x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 13 || c != 0 || l != 5)
+  if (t != 13 || c != 0 || l != 6)
     return false;
   *x = region_alloc(region, sizeof(**x));
   if (!String_des(in, region, &(*x)->name))
@@ -1112,6 +1148,8 @@ bool NKI_Fun_des(FILE *in, struct region *region, struct NKI_Fun **x) {
   if (!String_des(in, region, &(*x)->file))
     return false;
   if (!Nat_des(in, region, &(*x)->line))
+    return false;
+  if (!String_des(in, region, &(*x)->source))
     return false;
   if (!NKI_Stmt_List_des(in, region, &(*x)->body))
     return false;

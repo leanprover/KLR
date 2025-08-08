@@ -537,6 +537,44 @@ PyObject *NKI_Expr__topy(struct NKI_Expr_ *x) {
     return res;
     break;
   }
+  case NKI_Expr_conj: {
+    PyObject *tup = PyTuple_New(2);
+    if (!tup)
+      return NULL;
+    {
+      PyObject *obj = NKI_Expr_topy(x->conj.left);
+      if (!obj || PyTuple_SetItem(tup, 0, obj) == -1)
+        return NULL;
+    }
+    {
+      PyObject *obj = NKI_Expr_topy(x->conj.right);
+      if (!obj || PyTuple_SetItem(tup, 1, obj) == -1)
+        return NULL;
+    }
+    PyObject *res = construct("Expr_conj", tup);
+    Py_DECREF(tup);
+    return res;
+    break;
+  }
+  case NKI_Expr_disj: {
+    PyObject *tup = PyTuple_New(2);
+    if (!tup)
+      return NULL;
+    {
+      PyObject *obj = NKI_Expr_topy(x->disj.left);
+      if (!obj || PyTuple_SetItem(tup, 0, obj) == -1)
+        return NULL;
+    }
+    {
+      PyObject *obj = NKI_Expr_topy(x->disj.right);
+      if (!obj || PyTuple_SetItem(tup, 1, obj) == -1)
+        return NULL;
+    }
+    PyObject *res = construct("Expr_disj", tup);
+    Py_DECREF(tup);
+    return res;
+    break;
+  }
   case NKI_Expr_ifExp: {
     PyObject *tup = PyTuple_New(3);
     if (!tup)
@@ -1022,7 +1060,7 @@ PyObject *NKI_Param_topy(struct NKI_Param *x) {
 }
 
 PyObject *NKI_Fun_topy(struct NKI_Fun *x) {
-  PyObject *tup = PyTuple_New(5);
+  PyObject *tup = PyTuple_New(6);
   if (!tup)
     return NULL;
   {
@@ -1041,13 +1079,18 @@ PyObject *NKI_Fun_topy(struct NKI_Fun *x) {
       return NULL;
   }
   {
-    PyObject *obj = NKI_Stmt_List_topy(x->body);
+    PyObject *obj = String_topy(x->source);
     if (!obj || PyTuple_SetItem(tup, 3, obj) == -1)
       return NULL;
   }
   {
-    PyObject *obj = NKI_Param_List_topy(x->args);
+    PyObject *obj = NKI_Stmt_List_topy(x->body);
     if (!obj || PyTuple_SetItem(tup, 4, obj) == -1)
+      return NULL;
+  }
+  {
+    PyObject *obj = NKI_Param_List_topy(x->args);
+    if (!obj || PyTuple_SetItem(tup, 5, obj) == -1)
       return NULL;
   }
   PyObject *res = construct("Fun", tup);

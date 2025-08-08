@@ -2543,19 +2543,10 @@ Ptr<Stmt> Stmt_des(FILE *in) {
   case 2: {
     if (l != 3)
       throw std::runtime_error("Wrong number of elements");
-    Ptr<StmtStoreWrapper> x = ptr<StmtStoreWrapper>();
-    x->dst = Access_des(in);
-    x->op = Operator_des(in);
-    x->args = List_Value_des(in);
-    return x;
-    break;
-  }
-  case 3: {
-    if (l != 2)
-      throw std::runtime_error("Wrong number of elements");
     Ptr<StmtOperWrapper> x = ptr<StmtOperWrapper>();
     x->op = Operator_des(in);
     x->name = Option_String_des(in);
+    x->pos = Pos_des(in);
     return x;
     break;
   }

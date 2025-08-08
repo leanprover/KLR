@@ -78,6 +78,8 @@ enum NKI_Expr_Tag {
   NKI_Expr_tuple,
   NKI_Expr_access,
   NKI_Expr_binOp,
+  NKI_Expr_conj,
+  NKI_Expr_disj,
   NKI_Expr_ifExp,
   NKI_Expr_call,
 };
@@ -99,6 +101,14 @@ struct NKI_Expr_binOp {
   struct NKI_Expr *left;
   struct NKI_Expr *right;
 };
+struct NKI_Expr_conj {
+  struct NKI_Expr *left;
+  struct NKI_Expr *right;
+};
+struct NKI_Expr_disj {
+  struct NKI_Expr *left;
+  struct NKI_Expr *right;
+};
 struct NKI_Expr_ifExp {
   struct NKI_Expr *test;
   struct NKI_Expr *tru;
@@ -117,6 +127,8 @@ struct NKI_Expr_ {
     struct NKI_Expr_tuple tuple;
     struct NKI_Expr_access access;
     struct NKI_Expr_binOp binOp;
+    struct NKI_Expr_conj conj;
+    struct NKI_Expr_disj disj;
     struct NKI_Expr_ifExp ifExp;
     struct NKI_Expr_call call;
   };
@@ -271,6 +283,7 @@ struct NKI_Fun {
   char *name;
   char *file;
   u32 line;
+  char *source;
   struct NKI_Stmt_List *body;
   struct NKI_Param_List *args;
 };
