@@ -1955,22 +1955,14 @@ bool Core_Stmt_ser(FILE *out, struct Core_Stmt *x) {
     if (!Core_Expr_ser(out, x->assign.e))
       return false;
     break;
-  case Core_Stmt_store:
-    if (!cbor_encode_tag(out, 104, 2, 3))
-      return false;
-    if (!Core_Access_ser(out, x->store.dst))
-      return false;
-    if (!Core_Operator_ser(out, x->store.op))
-      return false;
-    if (!Core_Value_List_ser(out, x->store.args))
-      return false;
-    break;
   case Core_Stmt_oper:
-    if (!cbor_encode_tag(out, 104, 3, 2))
+    if (!cbor_encode_tag(out, 104, 2, 3))
       return false;
     if (!Core_Operator_ser(out, x->oper.op))
       return false;
     if (!String_Option_ser(out, x->oper.name))
+      return false;
+    if (!Core_Pos_ser(out, x->oper.pos))
       return false;
     break;
   default:
@@ -4687,20 +4679,11 @@ bool Core_Stmt_des(FILE *in, struct region *region, struct Core_Stmt **x) {
   case 2:
     if (l != 3)
       return false;
-    if (!Core_Access_des(in, region, &(*x)->store.dst))
-      return false;
-    if (!Core_Operator_des(in, region, &(*x)->store.op))
-      return false;
-    if (!Core_Value_List_des(in, region, &(*x)->store.args))
-      return false;
-    (*x)->tag = Core_Stmt_store;
-    break;
-  case 3:
-    if (l != 2)
-      return false;
     if (!Core_Operator_des(in, region, &(*x)->oper.op))
       return false;
     if (!String_Option_des(in, region, &(*x)->oper.name))
+      return false;
+    if (!Core_Pos_des(in, region, &(*x)->oper.pos))
       return false;
     (*x)->tag = Core_Stmt_oper;
     break;

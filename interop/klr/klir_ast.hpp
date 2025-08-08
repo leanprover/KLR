@@ -1101,7 +1101,6 @@ struct Stmt {
   enum class Tag {
     ret = 1,
     assign,
-    store,
     oper,
   };
   Tag tag;
@@ -1119,16 +1118,10 @@ struct StmtAssignWrapper final : Stmt {
   StmtAssignWrapper() : Stmt(Tag::assign) {}
 };
 
-struct StmtStoreWrapper final : Stmt {
-  Ptr<Access> dst;
-  Ptr<Operator> op;
-  List<Ptr<Value>> args;
-  StmtStoreWrapper() : Stmt(Tag::store) {}
-};
-
 struct StmtOperWrapper final : Stmt {
   Ptr<Operator> op;
   Option<String> name;
+  Ptr<Pos> pos;
   StmtOperWrapper() : Stmt(Tag::oper) {}
 };
 

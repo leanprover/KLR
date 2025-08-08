@@ -1016,7 +1016,6 @@ struct Core_Expr {
 enum Core_Stmt_Tag {
   Core_Stmt_ret = 1,
   Core_Stmt_assign,
-  Core_Stmt_store,
   Core_Stmt_oper,
 };
 struct Core_Stmt_ret {
@@ -1026,21 +1025,16 @@ struct Core_Stmt_assign {
   char *x;
   struct Core_Expr *e;
 };
-struct Core_Stmt_store {
-  struct Core_Access *dst;
-  struct Core_Operator *op;
-  struct Core_Value_List *args;
-};
 struct Core_Stmt_oper {
   struct Core_Operator *op;
   char *name;
+  struct Core_Pos *pos;
 };
 struct Core_Stmt {
   enum Core_Stmt_Tag tag;
   union {
     struct Core_Stmt_ret ret;
     struct Core_Stmt_assign assign;
-    struct Core_Stmt_store store;
     struct Core_Stmt_oper oper;
   };
 };
