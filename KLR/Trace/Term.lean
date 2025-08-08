@@ -505,10 +505,14 @@ nki ndarray
   (shape : Shape)
   (dtype : Dtype)
   (buffer : Option Memory := none)
-  (name : Option String := none) := do
+  (name : Option String := none)
+  (address : Option (Nat × Nat)) := do
     let memory := buffer.getD .sbuf
     let (parSize, freeSize) := Address.defaultSize shape dtype
-    let address := { memory, parSize, freeSize : Address }
+    let (parOffset, freeOffset) := match address with
+    | some (par, free) => (some par, some free)
+    | none => (none, none)
+    let address := { memory, parSize, freeSize, parOffset, freeOffset : Address }
     let name := name.getD "tensor"
     let tensor <- TensorName.make name dtype shape address
     return .expr (.value $ .access (.simple tensor)) (.tensor dtype shape)
