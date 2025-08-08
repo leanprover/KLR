@@ -1,0 +1,381 @@
+# PEG grammar for Python
+
+
+
+# ========================= START OF THE GRAMMAR =========================
+
+# General grammatical elements and rules:
+#
+# * Strings with double quotes (") denote SOFT KEYWORDS
+# * Strings with single quotes (') denote KEYWORDS
+# * Upper case names (NAME) denote tokens in the Grammar/Tokens file
+# * Rule names starting with "invalid_" are used for specialized syntax errors
+#     - These rules are NOT used in the first pass of the parser.
+#     - Only if the first pass fails to parse, a second pass including the invalid
+#       rules will be executed.
+#     - If the parser fails in the second phase with a generic syntax error, the
+#       location of the generic failure of the first pass will be used (this avoids
+#       reporting incorrect locations due to the invalid rules).
+#     - The order of the alternatives involving invalid rules matter
+#       (like any rule in PEG).
+#
+# Grammar Syntax (see PEP 617 for more information):
+#
+# rule_name: expression
+#   Optionally, a type can be included right after the rule name, which
+#   specifies the return type of the C or Python function corresponding to the
+#   rule:
+# rule_name[return_type]: expression
+#   If the return type is omitted, then a void * is returned in C and an Any in
+#   Python.
+# e1 e2
+#   Match e1, then match e2.
+# e1 | e2
+#   Match e1 or e2.
+#   The first alternative can also appear on the line after the rule name for
+#   formatting purposes. In that case, a | must be used before the first
+#   alternative, like so:
+#       rule_name[return_type]:
+#            | first_alt
+#            | second_alt
+# ( e )
+#   Match e (allows also to use other operators in the group like '(e)*')
+# [ e ] or e?
+#   Optionally match e.
+# e*
+#   Match zero or more occurrences of e.
+# e+
+#   Match one or more occurrences of e.
+# s.e+
+#   Match one or more occurrences of e, separated by s. The generated parse tree
+#   does not include the separator. This is otherwise identical to (e (s e)*).
+# &e
+#   Succeed if e can be parsed, without consuming any input.
+# !e
+#   Fail if e can be parsed, without consuming any input.
+# ~
+#   Commit to the current alternative, even if it fails to parse.
+# &&e
+#   Eager parse e. The parser will not backtrack and will immediately
+#   fail with SyntaxError if e cannot be parsed.
+#
+
+# STARTING RULES
+# ==============
+
+file: [statements] ENDMARKER 
+
+# GENERAL STATEMENTS
+# ==================
+
+statements: statement+ 
+
+statement: compound_stmt | simple_stmts 
+
+statement_newline:
+    | compound_stmt NEWLINE 
+    | simple_stmts
+    | NEWLINE 
+    | ENDMARKER 
+
+simple_stmts:
+    | ';'.simple_stmt+ [';'] NEWLINE 
+
+# NOTE: assignment MUST precede expression, else parsing a simple assignment
+# will throw a SyntaxError.
+simple_stmt:
+    | assignment
+    | expressions 
+    | return_stmt
+    | import_stmt
+    | 'pass' 
+    | assert_stmt
+    | 'break' 
+    | 'continue' 
+
+compound_stmt:
+    | function_def
+    | if_stmt
+    | for_stmt
+    | while_stmt
+
+# SIMPLE STATEMENTS
+# =================
+
+pattern: # this is already done for you
+
+# NOTE: annotated_rhs may start with 'yield'; yield_expr must start with 'yield'
+assignment:
+    | pattern [':' type] '=' expressions
+
+augassign:
+    | '+=' 
+    | '-=' 
+    | '*=' 
+    | '@=' 
+    | '/=' 
+    | '%=' 
+    | '&=' 
+    | '|=' 
+    | '^=' 
+    | '<<=' 
+    | '>>=' 
+    | '**=' 
+    | '//=' 
+
+return_stmt:
+    | 'return' [expressions] 
+
+assert_stmt: 'assert' expression
+
+import_stmt:
+    | import_name
+    | import_from
+
+# Import statements
+# -----------------
+
+import_name: 'import' dotted_as_name
+import_from:
+    | 'from' dotted_name 'import' import_from_as_name
+import_from_as_name:
+    | NAME ['as' NAME ] 
+dotted_as_name:
+    | dotted_name ['as' NAME ] 
+dotted_name:
+    | dotted_name '.' NAME 
+    | NAME
+
+# COMPOUND STATEMENTS
+# ===================
+
+# Common elements
+# ---------------
+
+block:
+    | NEWLINE INDENT statements DEDENT 
+    | simple_stmts
+
+decorators: ('@' expression NEWLINE )+ 
+
+# Function definitions
+# --------------------
+
+function_def:
+    | decorators function_def_raw 
+    | function_def_raw
+
+function_def_raw:
+    | 'def' NAME [type_params] '(' [params] ')' ['->' type ] ':' block 
+
+# Function parameters
+# -------------------
+
+params:
+    | parameters
+
+parameters:
+    | param_no_default* param_with_default*
+
+# One parameter.  This *includes* a following comma and type comment.
+#
+# There are three styles:
+# - No default
+# - With default
+# - Maybe with default
+#
+# There are two alternative forms of each, to deal with type comments:
+# - Ends in a comma followed by an optional type comment
+# - No comma, optional type comment, must be followed by close paren
+# The latter form is for a final parameter without trailing comma.
+#
+
+param_no_default:
+    | param ','
+    | param &')' 
+param_with_default:
+    | param default ','
+    | param default &')' 
+param: NAME annotation? 
+annotation: ':' type
+default: '=' expression
+
+# If statement
+# ------------
+
+if_stmt:
+    | 'if' expression ':' block elif_stmt 
+    | 'if' expression ':' block [else_block] 
+elif_stmt:
+    | 'elif' expression ':' block elif_stmt 
+    | 'elif' expression ':' block [else_block] 
+else_block:
+    | 'else' ':' block 
+
+# While statement
+# ---------------
+
+while_stmt:
+    | 'while' expression ':' block [else_block] 
+
+# For statement
+# -------------
+
+for_stmt:
+    | 'for' pattern 'in' ~ expressions ':' block
+
+# Type parameter declaration
+# --------------------------
+
+type_params:
+    | '[' type_param_seq ']' 
+
+type_param_seq: ','.NAME+ [','] 
+
+# EXPRESSIONS
+# -----------
+
+expressions:
+    | expression (',' expression )+ [','] 
+    | expression ',' 
+    | expression
+
+expression:
+    | disjunction 'if' disjunction 'else' expression 
+    | disjunction
+
+disjunction:
+    | conjunction ('or' conjunction )+ 
+    | conjunction
+
+conjunction:
+    | inversion ('and' inversion )+ 
+    | inversion
+
+inversion:
+    | 'not' inversion
+    | comparison
+
+# Comparison operators
+# --------------------
+
+comparison:
+    | bitwise_or compare_op_bitwise_or_pair+ 
+    | bitwise_or
+
+compare_op_bitwise_or_pair:
+    | eq_bitwise_or
+    | noteq_bitwise_or
+    | lte_bitwise_or
+    | lt_bitwise_or
+    | gte_bitwise_or
+    | gt_bitwise_or
+
+eq_bitwise_or: '==' bitwise_or 
+noteq_bitwise_or:
+    | ('!=' ) bitwise_or 
+lte_bitwise_or: '<=' bitwise_or 
+lt_bitwise_or: '<' bitwise_or 
+gte_bitwise_or: '>=' bitwise_or 
+gt_bitwise_or: '>' bitwise_or 
+
+# Bitwise operators
+# -----------------
+
+bitwise_or:
+    | bitwise_or '|' bitwise_xor 
+    | bitwise_xor
+
+bitwise_xor:
+    | bitwise_xor '^' bitwise_and 
+    | bitwise_and
+
+bitwise_and:
+    | bitwise_and '&' shift_expr 
+    | shift_expr
+
+shift_expr:
+    | shift_expr '<<' sum 
+    | shift_expr '>>' sum 
+    | sum
+
+# Arithmetic operators
+# --------------------
+
+sum:
+    | sum '+' term 
+    | sum '-' term 
+    | term
+
+term:
+    | term '*' factor 
+    | term '/' factor 
+    | term '//' factor 
+    | term '%' factor 
+    | term '@' factor 
+    | factor
+
+factor:
+    | '+' factor 
+    | '-' factor 
+    | '~' factor 
+    | power
+
+power:
+    | primary '**' factor 
+    | primary
+
+# Primary elements
+# ----------------
+
+# Primary elements are things like "obj.something.something", "obj[something]", "obj(something)", "obj" ...
+
+primary:
+    | primary '.' NAME 
+    | primary '[' ','.type+ [','] ']' '(' [arguments] ')' 
+    | primary '(' [arguments] ')' 
+    | primary '[' slices ']' 
+    | atom
+
+slices:
+    | slice !',' 
+    | ','.(slice | expression)+ [','] 
+
+slice:
+    | [expression] ':' [expression] [':' [expression] ] 
+    | expression 
+
+atom:
+    | NAME
+    | 'True' 
+    | 'False' 
+    | 'None' 
+    | strings
+    | NUMBER
+    | tuple
+    | list
+    | '...' 
+
+# LITERALS
+# ========
+
+string: STRING 
+strings: string+ 
+
+list:
+    | '[' [expressions] ']' 
+
+tuple:
+    | '(' [expression ',' [expressions]  ] ')' 
+
+# FUNCTION CALL ARGUMENTS
+# =======================
+
+arguments:
+    | ','.arg+ [','] &')' 
+
+arg:
+    | NAME '=' expression 
+    | expression
+
+# ========================= END OF THE GRAMMAR ===========================
