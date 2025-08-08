@@ -14,10 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -/
 
-import KLR.NKI.Annotations
-import KLR.NKI.Basic
-import KLR.NKI.Patterns
-import KLR.NKI.Pretty
-import KLR.NKI.Simplify
-import KLR.NKI.SimplifyOperators
-import KLR.NKI.Typed
+import KLR.NKI.Typed.Python.Basic
+import KLR.NKI.Typed.Python.PrettyPrint
+import KLR.NKI.Typed.Python.Tokenizer
+import KLR.NKI.Typed.Python.Parser
+import KLR.NKI.Typed.Python.Test

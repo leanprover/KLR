@@ -1,0 +1,226 @@
+# PEG grammar for Python
+
+
+
+# ========================= START OF THE GRAMMAR =========================
+
+# General grammatical elements and rules:
+#
+# * Strings with double quotes (") denote SOFT KEYWORDS
+# * Strings with single quotes (') denote KEYWORDS
+# * Upper case names (NAME) denote tokens in the Grammar/Tokens file
+# * Rule names starting with "invalid_" are used for specialized syntax errors
+#     - These rules are NOT used in the first pass of the parser.
+#     - Only if the first pass fails to parse, a second pass including the invalid
+#       rules will be executed.
+#     - If the parser fails in the second phase with a generic syntax error, the
+#       location of the generic failure of the first pass will be used (this avoids
+#       reporting incorrect locations due to the invalid rules).
+#     - The order of the alternatives involving invalid rules matter
+#       (like any rule in PEG).
+#
+# Grammar Syntax (see PEP 617 for more information):
+#
+# rule_name: expression
+#   Optionally, a type can be included right after the rule name, which
+#   specifies the return type of the C or Python function corresponding to the
+#   rule:
+# rule_name[return_type]: expression
+#   If the return type is omitted, then a void * is returned in C and an Any in
+#   Python.
+# e1 e2
+#   Match e1, then match e2.
+# e1 | e2
+#   Match e1 or e2.
+#   The first alternative can also appear on the line after the rule name for
+#   formatting purposes. In that case, a | must be used before the first
+#   alternative, like so:
+#       rule_name[return_type]:
+#            | first_alt
+#            | second_alt
+# ( e )
+#   Match e (allows also to use other operators in the group like '(e)*')
+# [ e ] or e?
+#   Optionally match e.
+# e*
+#   Match zero or more occurrences of e.
+# e+
+#   Match one or more occurrences of e.
+# s.e+
+#   Match one or more occurrences of e, separated by s. The generated parse tree
+#   does not include the separator. This is otherwise identical to (e (s e)*).
+# &e
+#   Succeed if e can be parsed, without consuming any input.
+# !e
+#   Fail if e can be parsed, without consuming any input.
+# ~
+#   Commit to the current alternative, even if it fails to parse.
+# &&e
+#   Eager parse e. The parser will not backtrack and will immediately
+#   fail with SyntaxError if e cannot be parsed.
+#
+
+# STARTING RULES
+# ==============
+
+file: [statements] ENDMARKER 
+
+# GENERAL STATEMENTS
+# ==================
+
+statements: statement+ 
+
+statement: compound_stmt | simple_stmts 
+
+simple_stmts:
+    | simple_stmt !';' NEWLINE  # Not needed, there for speedup
+    | ';'.simple_stmt+ [';'] NEWLINE 
+
+# NOTE: assignment MUST precede expression, else parsing a simple assignment
+# will throw a SyntaxError.
+simple_stmt:
+    | assignment
+    | star_expressions
+    | return_stmt
+    | import_stmt
+    | 'pass' 
+    | assert_stmt
+    | 'break' 
+    | 'continue' 
+
+compound_stmt:
+    | function_def
+    | if_stmt
+    | for_stmt
+    | while_stmt
+
+# SIMPLE STATEMENTS
+# =================
+
+# NOTE: annotated_rhs may start with 'yield'; yield_expr must start with 'yield'
+assignment:
+    | pattern [':' : type] '=' star_expressions
+    | NAME augassign ~ expression
+
+annotated_rhs: star_expressions
+
+augassign:
+    | '+=' 
+    | '-=' 
+    | '*=' 
+    | '@=' 
+    | '/=' 
+    | '%=' 
+    | '**=' 
+    | '//=' 
+
+return_stmt:
+    | 'return' [expression]
+
+assert_stmt: 'assert' expression
+
+import_stmt:
+    | import_name
+    | import_from
+
+# Import statements
+# -----------------
+
+import_name: 'import' dotted_as_name
+# note below: the ('.' | '...') is necessary because '...' is tokenized as ELLIPSIS
+import_from:
+    | 'from' dotted_name 'import' import_from_as_name
+import_from_as_name:
+    | NAME ['as' NAME ] 
+dotted_as_name:
+    | dotted_name ['as' NAME ] 
+dotted_name:
+    | dotted_name '.' NAME 
+    | NAME
+
+# COMPOUND STATEMENTS
+# ===================
+
+# Common elements
+# ---------------
+
+block:
+    | NEWLINE INDENT statements DEDENT 
+    | simple_stmts
+
+decorators: ('@' expression NEWLINE )+ 
+
+# Function definitions
+# --------------------
+
+function_def:
+    | decorators function_def_raw 
+    | function_def_raw
+
+function_def_raw:
+    | 'def' NAME [type_params] '(' [params] ')' ['->' expression ] ':' block 
+
+# Function parameters
+# -------------------
+
+params:
+    | param*
+
+param_no_default:
+    | param default?
+param: NAME annotation? 
+annotation: ':' type
+default: '=' expression
+
+# If statement
+# ------------
+
+if_stmt:
+    | 'if' expression ':' block elif_stmt 
+    | 'if' expression ':' block [else_block] 
+elif_stmt:
+    | 'elif' expression ':' block elif_stmt 
+    | 'elif' expression ':' block [else_block] 
+else_block:
+    | 'else' ':' block 
+
+# While statement
+# ---------------
+
+while_stmt:
+    | 'while' expression ':' block
+
+# For statement
+# -------------
+
+for_stmt:
+    | 'for' star_targets 'in' ~ star_expressions ':' block
+
+# Type parameter declaration
+# --------------------------
+
+type_params:
+    | '[' type_param_seq ']' 
+
+type_param_seq: ','.type_param+ [','] 
+
+type_param:
+    | NAME
+
+# EXPRESSIONS
+# -----------
+
+expressions: # already implemented for you
+
+
+# PATTERNS
+# --------
+
+pattern: # already implemented for you
+
+# TYPES
+# -----
+
+type: # already implemented for you
+
+# ========================= END OF THE GRAMMAR ===========================
