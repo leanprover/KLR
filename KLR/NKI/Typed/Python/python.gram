@@ -72,12 +72,6 @@ statements: statement+
 
 statement: compound_stmt | simple_stmts 
 
-statement_newline:
-    | compound_stmt NEWLINE 
-    | simple_stmts
-    | NEWLINE 
-    | ENDMARKER 
-
 simple_stmts:
     | ';'.simple_stmt+ [';'] NEWLINE 
 
@@ -216,7 +210,7 @@ else_block:
 # ---------------
 
 while_stmt:
-    | 'while' expression ':' block [else_block] 
+    | 'while' expression ':' block
 
 # For statement
 # -------------

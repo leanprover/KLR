@@ -60,6 +60,59 @@ instance : Add Pos where
   }
 
 /-!
+# Parser Architecture
+
+The parser is designed to make termination proof simple while
+maintaining a reasonable level of performance.
+
+We break it down into two passes:
+- The first pass checks blocks delimited by the following delimiters, this gets us
+  the rough syntax of everything but expressions
+  - Delimiter:   Delimiting tokens:
+  - brackets          [ ... ]
+  - parens            ( ... )
+  - braces            { ... }
+  - def-header        def ... :
+  - for-header        for ... in ... :
+  - while header      while ... :
+  - if header         if ... :
+  - if else           ... if ... else ...
+  - else              else :
+  - elif-header       elif ... :
+  - assign            ... = ...
+  - aug-assign        ... ?= ...
+  - rarrow            ... -> ...
+  - newline indent    NEWLINE INDENT ... DEDENT
+  - newline no dedent ... NEWLINE ...
+
+- The second pass parses expressions using a pratt parsers
+-/
+
+structure SourceInfo where
+  pos : Pos
+
+inductive Syntax
+  | unlabelled (toks : Array Token)
+  | commaListNoParen (info : SourceInfo) (contents : Array Syntax)
+  | parens   (info : SourceInfo) (trailing : Bool) (contents : Array Syntax)
+  | brackets (info : SourceInfo) (contents : Array Syntax)
+  | braces   (info : SourceInfo) (contents : Array Syntax)
+  | defHeader   (info : SourceInfo) (contents : Array Syntax)
+  | forHeader   (info : SourceInfo) (contents : Array Syntax)
+  | whileHeader (info : SourceInfo) (contents : Array Syntax)
+  | ifHeader    (info : SourceInfo) (contents : Array Syntax)
+  | elifHeader  (info : SourceInfo) (contents : Array Syntax)
+  | elseHeader  (info : SourceInfo)
+  | assign (info : SourceInfo) (lhs rhs : Array Syntax)
+  | augAssign (info : SourceInfo) (op : BinOp) (lhs rhs : Array Syntax)
+  | rarrow (info : SourceInfo) (lhs rhs : Array Syntax)
+  | block (info : SourceInfo) (contents : Array Syntax)
+  | linebreak (info : SourceInfo) (lhs : Array Syntax) (rhs : Option (Array Syntax))
+  | simpleStmts (info : SourceInfo) (contents : Array Syntax)
+  | decorator (info : SourceInfo) (contents : Array Syntax)
+
+
+/-!
 # Setup of parser types
 -/
 
