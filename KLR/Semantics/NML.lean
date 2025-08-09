@@ -10,6 +10,32 @@ import KLR.Semantics.Memory
 import KLR.Semantics.SmallStep
 import TensorLib.Iterator
 
+-- TODO: Saturday
+
+-- Finish the refactor
+-- * Don't worry about pure properties since the new uwp machinery can handle that.
+
+-- - Expr properties:
+--    - ExprLift     (Lift steps on arguments)
+-- - Stmt properties
+--    - StmtLift     (Stmt step → Stmt step)
+--    - ExprLift     (Expr step → Expr step)
+-- - Proof rules
+--    - ewp/uwps
+--    - ewp and uwp lifting for the above 3 cases
+
+-- All cases of the semantics should be covered a lifting lemma, an ewp, or a uwp.
+
+
+-- TODO: Sunday
+
+-- Clear all sorry's, copy out the Iris dependency
+-- Generate more examples
+-- Project should be mergable at this point
+
+-- TODO: Wednesday
+
+
 def Dtype.Interp {DataT : Type _} : KLR.Core.Dtype → Type
 | .uint64   => UInt64
 | .uint32   => UInt32
@@ -81,39 +107,69 @@ inductive Value
 | uptr     (i : ChipIndex)
 /-- [ iptr ] A raw reference to a location inside a chip's memory -/
 | iptr     (i : Nat × Nat)
-/-- [ iter ] A reference to an iterator value.
+/-- [ iref ] A reference to an iterator value.
 We give all of our iterators explicit names so that proof rules can represent
 relationships between them. -/
 | iref     (i : Nat)
 /-- [ lidx ] A logical index into a tensor. -/
 | lidx     (l : List Int)
 
+
 /-- Locals: A context mapping variable names to values. -/
 def Locals := String → Option (Value DataT)
-def Locals.Emp : Locals DataT := fun _ => .none
-def Locals.Bind (s : @Locals DataT) (x : String) (v : Value DataT) : Locals DataT :=
+def Locals.emp : Locals DataT := fun _ => .none
+def Locals.bind (s : Locals DataT) (x : String) (v : Value DataT) : Locals DataT :=
   fun x' => if x = x' then .some v else s x'
 
 /-- A structure that contains a TensorLib iterator.
 The iterator may be finished, in which case its carrier is .none. -/
 structure Iterator where
-  I : Type _
+  I : Type
   [instIIter : TensorLib.Iterator I (Value DataT)]
   car : I
 
--- @[instance] Iterator.instIIter
+instance {i : Iterator DataT} : TensorLib.Iterator i.I (Value DataT) := Iterator.instIIter _
 
+def Iterator.peek (i : Iterator DataT) : Value DataT := i.instIIter.peek i.car
 
-
-
+def Iterator.advance (i : Iterator DataT) : Option (Iterator DataT) :=
+  i.instIIter.next i.car |>.bind fun ii => .some <| Iterator.mk i.I ii
 
 /-- Iterators: A context mapping iterator identifiers to values. -/
-def Iterators := Nat → Iterator DataT
+def Iterators := Nat → Option (Iterator DataT)
+def Iterators.emp : Iterators DataT := fun _ => .none
+def Iterators.bind (s : Iterators DataT) (x : Nat) (v : Option (Iterator DataT)) : Iterators DataT :=
+  fun x' => if x = x' then v else s x'
 
+structure LocalContext where
+  loc : Locals DataT
+  it : Iterators DataT
 
+/-- Get a variable in a local context. -/
+@[simp] def LocalContext.getv (lc : LocalContext DataT) (x : String) : Option (Value DataT) :=
+  lc.loc x
 
+/-- Bind a variable in a local context. Only valid for contexts that are not ignored. -/
+@[simp] def LocalContext.bindv (lc : LocalContext DataT) (x : String) (v : Value DataT) : LocalContext DataT where
+  loc := lc.loc.bind _ x v
+  it := lc.it
 
+/-- Peek the next value in an iterator from the local context. Only valid if the context is not ignored -/
+@[simp] def LocalContext.peeki (lc : LocalContext DataT) (n : Nat) : Option (Value DataT) :=
+  lc.it n |>.bind (·.peek)
 
+/-- Advance an iterator in the local context. -/
+@[simp] def LocalContext.nexti (lc : LocalContext DataT) (n : Nat) : LocalContext DataT where
+  loc := lc.loc
+  it :=
+    match (lc.it n) with
+    | .none => lc.it
+    | .some i => lc.it.bind DataT n i.advance
+
+/-- Bind a variable in a local context. Only valid for contexts that are not ignored. -/
+@[simp] def LocalContext.bindi (lc : LocalContext DataT) (n : Nat) (i : Iterator DataT) : LocalContext DataT where
+  loc := lc.loc
+  it := lc.it.bind _ n i
 
 /-- NML expressions.
 Expressions are allowed to read and update the program state.
@@ -140,317 +196,367 @@ in the sense that it does not perform any layout calculations. -/
 | ix            (ptr : Expr) (index : Expr)
 
 
-
-
-
-
-
-
-
-/-
-
-/-- NML statements. -/
+/-- NML statements.
+Statements can read and write both the state and the local context. -/
 inductive Stmt where
-| ret          (_ : @Expr DataT)
-| assign       (_ : Option String) (_ : @Expr DataT)
--- Used for lexical scoping
-| blockC       (l : List Stmt)
-| block        (l : List (Stmt × Locals DataT))
-| loop         (I : Type _) [Iterator I (@Value DataT)] (_ : String) (_ : Option I) (body : List Stmt)
+/-- [ ret ] Return statement. Early returns are permitted. -/
+| ret          (e : Expr DataT)
+/-- [ assign ] Let-binding statement. -/
+| assign       (x : Option String) (e : Expr DataT)
+/-- [ mkiter ] Register an iterator variable in the current scope. The iterator variable must be fresh.
+As of now, all iterators must be known statically. In principle, i can be changed to use a new "iterator expression"
+that allows iterators to depend on eg. the local bindings. I am expressing it this way (rather than having
+iterators be values) to avoid difficult cases such as iterators of iterators. -/
+| mkiter       (n : Nat) (i : Iterator DataT)
+/-- [ frame ] (Internal) Evaluate a list of statements with a given local context. -/
+| frame        (p : List Stmt) (ctx : LocalContext DataT)
+/-- [ loop ] Looping construct. The argument should evaluate to a iterator variable. -/
+| loop         (x : String) (it : Expr DataT) (body : List Stmt)
+/-- [ setp ] Set a single memory location -/
 | setp         (chip index val : @Expr DataT)
-| ret_assert   (_ : @Expr DataT) (_ : @State DataT → Prop)
+-- | ret_assert   (_ : @Expr DataT) (_ : @State DataT → Prop)
 
-def Expr.is_value? : Expr DataT → Prop | .val _ => True | _ => False
-
-abbrev Expr.pure? : @Expr DataT → Prop
-| .val _ | .var _ => True
-| _ => False
-
-def Value.as_handle? : @Value DataT → Option TensorHandle | .ptr t => .some t | _ => .none
-
-
-def Locals.extend (inner outer : @Locals DataT) : @Locals DataT :=
-  fun x =>
-    match inner x with
-    | .some v => .some v
-    | .none => match outer x with | .some v => v | .none => .none
-
-notation "[" x " ↣ " v "]ₗ" l => @Locals.bind _ l x v
-
-/-- Task: a Stmt that needs to be executed in particular local context. -/
-structure Task where
-  stmt : Stmt DataT
-  env : Locals DataT
-
-/-- Bind a new variable in a Task-/
-def Task.bind (T : Task DataT) (x : String) (v : Value DataT) : Task DataT :=
-  { T with env := T.env.bind DataT x v }
-
-def Task.ofPair (p : Stmt DataT × Locals DataT) : Task DataT := ⟨p.1, p.2⟩
-def Task.toPair (p :Task DataT) : Stmt DataT × Locals DataT  := ⟨p.1, p.2⟩
-
-
--- #check ["x" ↣ .unit]ₗ ["x" ↣ .unit]ₗ (Locals.Emp DataT)
+def Value.ExpectInt : Expr DataT → Option Int | .val (.int z) => some z | _ => none
 
 /-- A NML Program during execution. Namely, one of
-- A list of tasks to complete,
-- A completed execution, with its return value. -/
+- A list of statements, and a context to execute them in, or
+- A completed execution, its return value. -/
 inductive ExecState where
-| run   (_ : List (Task DataT))
-| done  (_ : Value DataT)
+| run   (p : List (Stmt DataT)) (ctx : LocalContext DataT)
+| done  (v : Value DataT)
 
-/-- Expressions semantics -/
-inductive ExprStep : @Expr DataT → @Locals DataT → @State DataT → @Expr DataT → @State DataT → Prop where
--- /- [value] -/
--- | value :
---     v' = v →
---     ExprStep (.val v') loc st v st
-/-- [variable] -/
-| var :
-    loc x = .some v →
-    ExprStep (.var x) loc st (.val v) st
-| sbuf_alloc :
-    ⟨dst_index, memory'⟩ = ChipMemory.freshSBUFStore st.memory →
-    ExprStep (.alloc Memory.sbuf) loc st (.val (.uptr dst_index)) (State.mk memory')
-| readp :
-    Store.get st.memory (⟨c, x⟩ : ChipCellIndex) = some v' →
-    ExprStep (.readp (.val <| .uptr c) (.val <| .iptr x)) loc st (.val <| .data v) st
+@[simp] def ExprStep (e : Expr DataT) (ctx : LocalContext DataT) (s : State DataT) : Option (Expr DataT × State DataT) :=
+  match e with
+  /- Var step: Look the variable up in the local context. -/
+  | .var x =>
+      ctx.getv _ x |>.bind fun v =>
+      some ⟨.val v, s⟩
+
+  /- Data unop -/
+  | .dunop (.val <| .data d) f =>
+      some (.val <| .data <| f d, s)
+  | .dunop ed f =>
+      ExprStep ed ctx s |>.bind fun ⟨ed', s'⟩ =>
+      some (.dunop ed' f, s')
+
+  /- Allocation (currently: sbuf only) -/
+  | .alloc .sbuf =>
+      let ⟨dst, memory'⟩ := ChipMemory.freshSBUFStore s.memory
+      some ⟨.val <| .uptr dst, .mk memory'⟩
+
+  /- Read point from memory -/
+  | .readp (.val <| .uptr c) (.val <| .iptr i) =>
+      s.memory.get ⟨c, i⟩ |>.bind fun vd =>
+      some ⟨.val <| .data vd, s⟩
+  | .readp (.val <| .uptr c) ei =>
+      ExprStep ei ctx s |>.bind fun ⟨ei', s'⟩ =>
+      some ⟨.readp (.val <| .uptr c) ei', s'⟩
+  | .readp ec ei =>
+      ExprStep ec ctx s |>.bind fun ⟨ec', s'⟩ =>
+      some ⟨.readp ec' ei, s'⟩
+
+  /- Logical index expressions (currently: static indices only) -/
+  | .idx e => List.mapM (Value.ExpectInt DataT) e |>.bind (.some ⟨.val <| .lidx ·, s⟩)
+
+  /- Chip expressions -/
+  | .chip (.val <| .ptr t) => some ⟨.val <| .uptr t.index, s⟩
+  | .chip e =>
+      ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
+      some ⟨.chip e', s'⟩
+
+  /- Index expressions -/
+  | .ix (.val <| .ptr t) (.val <| .lidx li) =>
+      match li with
+      | [] => none
+      | pn :: fns =>
+        if fns.length ≠ t.shape.freeDims.length then none else
+        let p := t.layout.par pn
+        let f := t.layout.free fns
+        some ⟨.val <| .iptr ⟨p.toNat, f.toNat⟩, s⟩
+  | .ix (.val <| .ptr t) ei =>
+      ExprStep ei ctx s |>.bind fun ⟨ei', s'⟩ =>
+      some ⟨.ix (.val <| .ptr t) ei', s'⟩
+  | .ix ep ei =>
+      ExprStep ep ctx s |>.bind fun ⟨ep', s'⟩ =>
+      some ⟨.ix ep' ei, s'⟩
+  | _ => none
+
+@[simp] def NML.toVal (e : ExecState DataT) : Option (Value DataT) :=
+  match e with | .done v => .some v | _ => .none
+
+@[simp] def NML.step (e : ExecState DataT × State DataT) : Option (ExecState DataT × State DataT) :=
+  match e with
+  | ⟨.done _, _⟩
+  | ⟨.run [] _, _⟩ => none
+  | ⟨.run (p :: ps) ctx, s⟩ =>
+      match p with
+      /- Return -/
+      | .ret (.val v) =>
+          some ⟨.done v, s⟩
+      | .ret e =>
+          ExprStep _ e ctx s |>.bind fun ⟨e', s'⟩ =>
+          some ⟨.run (.ret e' :: ps) ctx, s'⟩
+
+      /- Assignment -/
+      | .assign (.some x) (.val v) =>
+          some ⟨.run ps (ctx.bindv _ x v), s⟩
+      | .assign (.some x) e =>
+          ExprStep _ e ctx s |>.bind fun ⟨e', s'⟩ =>
+          some ⟨.run ((.assign (.some x) e') :: ps) ctx, s'⟩
+
+      /- Sequencing -/
+      | .assign .none (.val _) =>
+          some ⟨.run ps ctx, s⟩
+      | .assign .none e =>
+          ExprStep _ e ctx s |>.bind fun ⟨e', s'⟩ =>
+          some ⟨.run ((.assign none e') :: ps) ctx, s'⟩
+
+      /- Register a new static iterator -/
+      | .mkiter n it =>
+          some ⟨.run ps (ctx.bindi _ n it), s⟩
+
+      /- Evaluation within a frame -/
+      | .frame [] _ =>
+          some ⟨.run ps ctx, s⟩
+      | .frame fps fctx =>
+          NML.step ⟨(.run fps fctx), s⟩ |>.bind fun ⟨x, s'⟩ =>
+          match x with
+          | .done v => some ⟨.done v, s'⟩
+          | .run fps' fctx' => some ⟨.run (.frame fps' fctx' :: ps) ctx, s'⟩
+
+      /- Loop -/
+      | .loop x (.val <| .iref i) b =>
+          match ctx.peeki _ i with
+          | .none => .some ⟨.run ps ctx, s⟩
+          | .some itv => .some ⟨.run (.frame b (ctx.bindv _ x itv):: .loop x (.val <| .iref i) b :: ps) ctx, s⟩
+      | .loop x e b =>
+          ExprStep _ e ctx s |>.bind fun ⟨e', s'⟩ =>
+          some ⟨.run (.loop x e' b :: ps) ctx, s'⟩
+
+      /- Set point -/
+      | .setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v) =>
+          some ⟨.run ps ctx, { s with memory := ChipMemory.set s.memory ⟨i, x⟩ (some v) }⟩
+      | .setp (.val <| .uptr i) (.val <| .iptr x) e  =>
+          ExprStep _ e ctx s |>.bind fun ⟨e', s'⟩ =>
+          some ⟨.run (.setp (.val <| .uptr i) (.val <| .iptr x) e' :: ps) ctx, s'⟩
+      | .setp (.val <| .uptr i) e ev  =>
+          ExprStep _ e ctx s |>.bind fun ⟨e', s'⟩ =>
+          some ⟨.run (.setp (.val <| .uptr i) e' ev :: ps) ctx, s'⟩
+      | .setp e ei ev  =>
+          ExprStep _ e ctx s |>.bind fun ⟨e', s'⟩ =>
+          some ⟨.run (.setp e' ei ev :: ps) ctx, s'⟩
 
 
-/- [Non-sized, full, load] Load a HBM tile to a SBUF tile. Return a pointer to the new tile. Similar to nki.load.
-For now, only support trivial indexing.
-  - Evaluate the location expression to a tensor pointer in hbm
-  - Copy the hbm tensor data to a new unbounded tile in sbuf
-  - Return the tensor pointer, modified to point at the new sbuf tile -/
--- | load_full :
---     AffineMap.is_trivial asn →
---     ExprStep e loc st (.ptr tensor) st' →
---     -- The source tensor must have index in HBM (can be generalized), and be allocated
---     tensor.index = ChipIndex.hbmIndex src_index →
---     ChipMemory.get_store st'.memory tensor.index = some src_store →
---     -- The destination tensor is a fresh tensor in SBUF, with updated state.
---     ⟨dst_index, memory''⟩ = ChipMemory.freshSBUFStore st'.memory →
---     ExprStep (.load asn e) loc st
---       -- Return value: The input tensor, but with its chip index updated to be the fresh tensor.
---       -- All other metadata is the same.
---       (.ptr {tensor with index := dst_index })
---       -- Return state: Update the SBUF state at the fresh index to contain the source store.
---       (State.mk <| ChipMemory.set_store memory'' dst_index (some src_store))
-/- [Allocation] Allocate fresh SBUF tensor -/
-
-/-
-/- [Non-sized, full, store] Store a SBUF tile to HBM. Similar to nki.store. -/
-| store_full :
-    AffineMap.is_trivial asn →
-    ExprStep e1 loc s0 (.ptr sbuf_tensor) s1 →
-    sbuf_tensor.address.memory = KLR.Core.Memory.sbuf →
-    (H : DualMemory.in_memory s2.memory.sbuf sbuf_tensor.index) →
-    ExprStep e2 loc s1 (.ptr hbm_tensor) s2 →
-    hbm_tensor.address.memory = KLR.Core.Memory.hbm →
-    hbm_tensor.hbm_index? = .some raw_index →
-    (_ : i < s2.memory.hbm.size) →
-    ExprStep (.store e1 asn e2) loc s0 .unit
-      { s2 with memory.hbm[i] :=
-          ⟨ fun (p, f) =>
-              let L := (s2.memory.sbuf.get_store sbuf_tensor.index H)
-              L.get (p + sbuf_tensor.address.partitionOffset.getD 0,
-                     f + sbuf_tensor.address.freeOffset.getD 0)⟩ }
--- -- /-- [unary scalar] Idealized pure function application to a tensor, in-place.
--- -- Returns the address of the tensor. -/
--- | unary_scalar :
---     ExprStep e l0 s0 (.ptr tensor) s1 →
---     tensor.upd_store? DataT s1.memory (lift_encoding_to_store DataT f) = .some s2 →
---     ExprStep (.unary_scalar e f) l0 s0 (.ptr tensor) { s1 with memory := s2 }
--/
-
-theorem expr_step_det : ExprStep DataT e loc s vl sl → ExprStep DataT e loc s vr sr → vl = vr ∧ sl = sr := by
-  induction e <;> sorry
-/-
-  induction e
-  · rintro ⟨rfl⟩ ⟨rfl⟩; exact ⟨rfl, rfl⟩
-  · rintro ⟨H1⟩ ⟨H2⟩
-    obtain ⟨rfl⟩ : some vl = some vr := by rename_i H1 H2; exact H1 ▸ H2
-    exact ⟨rfl, rfl⟩
-  · rename_i _ e IH
-    rintro H1 H2
-    apply IH <;> clear IH
-    · sorry
-    · sorry
-  · sorry
-  · sorry
--/
-
-
-inductive step : ExecState DataT × State DataT → ExecState DataT × State DataT → Prop where
-/-- [ Return Value ] -/
-| retV :
-    -- ExprStep DataT e loc s (.val v) s' →
-    step (.run <| .cons ⟨.ret e, loc⟩ ps, s) (.done v, s')
-/-- [ Return Expression ] -/
-| retE :
-    ExprStep DataT e loc s e'  s' →
-    step (.run <| .cons ⟨.ret e, loc⟩ ps, s)  (.run <| .cons ⟨.ret e', loc⟩ ps, s')
-/-- [ Assignment Value ] Expression evaluates first, with effects. -/
-| asnV :
-    step (.run <| .cons ⟨.assign (.some x) (.val v), loc⟩ p, s) (.run <| p.map (.bind _ · x v), s)
-/-- [ Assignment Expression] Expression evaluates first, with effects. -/
-| asnE :
-    ExprStep DataT e loc s e'  s' →
-    step (.run <| .cons ⟨.assign (.some x) e, loc⟩ p, s)  (.run <| .cons ⟨.assign (.some x) e', loc⟩ p, s')
-/-- [ Sequencing Value ] -/
-| seqV :
-    step (.run <| .cons ⟨.assign .none (.val v), loc⟩ p, s) (.run p, s)
-/-- [ Sequencing Expression ] -/
-| seqE :
-    ExprStep DataT e loc s e' s' →
-    step (.run <| .cons ⟨.assign .none e, loc⟩ p, s)  (.run <| .cons ⟨.assign .none e', loc⟩ p, s')
-/-- [ Set at point; chip ] -/
-| setpEChip :
-    ExprStep DataT e loc s e' s' →
-    step (.run <| .cons ⟨.setp e e2 e3, loc⟩ p, s)  (.run <| .cons ⟨.setp e' e2 e3, loc⟩ p, s')
-/-- [ Set at point; index ] for when the location has already stepped to an iptr -/
-| setpEIndex :
-    ExprStep DataT e loc s e' s' →
-    step (.run <| .cons ⟨.setp (.val <| .uptr i) e  e3, loc⟩ p, s)
-         (.run <| .cons ⟨.setp (.val <| .uptr i) e' e3, loc⟩ p, s')
-/-- [ Set at point; value ] for when the location has already stepped to an iptr -/
-| setpEVal:
-    ExprStep DataT e loc s e' s' →
-    step (.run <| .cons ⟨.setp (.val <| .uptr i) (.val <| .iptr x) e  , loc⟩ p, s)
-         (.run <| .cons ⟨.setp (.val <| .uptr i) (.val <| .iptr x) e' , loc⟩ p, s')
-/-- [ Set at point; update] for when all arguments are fully evaluated -/
-| setp:
-    step (.run <| .cons ⟨.setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v) , loc⟩ p, s)
-         (.run p, { s with memory := ChipMemory.set s.memory ⟨i, x⟩ (some v)})
-/-- To step a block constructor, first you need to update the local context inside the block -/
-| blockC :
-  step (.run <| .cons ⟨.blockC b, lo⟩ p, s) (.run <| .cons ⟨.block (b.map (⟨·, lo⟩)), Locals.Emp DataT⟩ p, s)
-/-- Blocks only step when their surrounding scope is empty. -/
-| blockS :
-    step
-      (.run <| b.map (Task.ofPair _), s)
-      (.run <| b', s') →
-    step
-      (.run <| .cons ⟨.block b, Locals.Emp DataT⟩ p, s)
-      (.run <| .cons ⟨.block <| b'.map (Task.toPair _), Locals.Emp DataT⟩ p, s')
-/-- Block is finished -/
-| blockV :
-    step (.run <| b.map (Task.ofPair _), s) (.done v, s') →
-    step (.run <| .cons ⟨.block b, Locals.Emp DataT⟩ p, s) (.run <| p, s')
-/-- [ Loop termination ] -/
-| loop_exit {I : Type _} [Iterator I (@Value DataT)] :
-    step (.run <| .cons ⟨.loop I _ .none _, _⟩ p, s) (.run p, s)
-/-- [ Loop enter body ] -/
-| loop_nter {I : Type _} [Iterator I (@Value DataT)] (i : I) :
-    step
-      (.run <| .cons ⟨.loop I x (.some i) b, loc⟩ p, s)
-      (.run <|
-          .cons ⟨.blockC b, loc.bind _ x (TensorLib.Iterator.peek i)⟩ <|
-          .cons ⟨.loop I x (Iterator.next (@Value DataT) i) b, loc⟩ <|
-          p, s)
-/-- [ghost return] Returns, but gets stuck if `P` does not hold of the current state.
- is erasable when `P` is always true. -/
-| ret_assert {P : State DataT → Prop} :
-    P s →
-    step (.run <| .cons ⟨.ret_assert e P, loc⟩ ps, s) (.done v, s')
-
-@[simp] def to_val : ExecState DataT → Option (Value DataT)
-| .done v => .some v
-| _ => .none
-
-instance NMLSemantics : SmallStep (ExecState DataT) (Value DataT) (State DataT) where
-  Step := step DataT
-  toVal := to_val DataT
-  toVal_isSome_isStuck{c c'} := by
-    rintro _ _ H
-    cases c
-    · cases H
-    cases H
-    rintro H <;> cases H
+instance NML.Semantics : SmallStep (ExecState DataT) (Value DataT) (State DataT) where
+  Step e1 e2 := NML.step DataT e1 = .some e2
+  toVal := NML.toVal DataT
+  toVal_isSome_isStuck {c _} _ _ := by cases c <;> simp
 
 instance : Det (ExecState DataT) (Value DataT) (State DataT)  where
-  step_det {c c'} := by sorry
-    /-
-    rintro ⟨⟩ ⟨⟩ ⟨⟩ <;> try rfl
-    · rename_i He1 _ _ He2
-      rcases expr_step_det _ He1 He2 with ⟨H1, H2⟩
-      subst H1; subst H2; rfl
-    · sorry
-    · congr
-      rename_i He1 _ _ He2
-      rcases expr_step_det _ He1 He2 with ⟨H1, H2⟩
-      exact H2.symm
-    · sorry
-    · congr
-      rename_i He1 _ _ He2
-      rcases expr_step_det _ He1 He2 with ⟨H1, H2⟩
-      exact H2.symm
-    · sorry
-    · sorry
-    · sorry
-    · sorry
-    · sorry
-    · sorry
-    · sorry
-    · sorry
-    · sorry
-    -/
-  step_progress := sorry
+  step_det {c c'} := by
+    simp only [Step]
+    intro H _ H'
+    obtain ⟨rfl⟩ := H' ▸ H
+    rfl
 
 
-end NML
 
-def PureExprStep {DataT : Type _} (p p' : NML.Expr DataT) (PL : NML.Locals DataT → Prop) : Prop :=
-  ∀ s : NML.State DataT, ∀ l, PL l → NML.ExprStep DataT p l s p' s
+section properties
+
+open NML
+variable {DataT : Type _}
+
+/-! NML program properties
+
+All steps in the operational semantics are one of the following:
+- An ExprStep that lifts other ExprSteps
+- A Step that lifts ExprSteps
+- A Step that lifts Steps
+- A step of pure reduction
+
+The last case will have bespoke proof rules, however the proof rules for all other
+cases can be handled generically. Formally, these cases correspond to TODO,
+TODO, and TODO, and they are proven below. -/
 
 
--- TODO: Generalize: Assignment of a _pure expression_ to a variable
--- is a pure step which adds the pure variable to the local context
+/-- An expression with a hole lifts ExprSteps in that hole. -/
+def EELift (ek : Expr DataT → Expr DataT) : Prop := ∀ {e e' s s' loc},
+    ExprStep DataT e loc s = some (e', s') →
+    ExprStep DataT (ek e) loc s = some (ek e', s')
+
+syntax "solveEELift" : tactic
+macro_rules
+  | `(tactic|solveEELift) =>
+  `(tactic|
+      intro e _ _ _ _;
+      cases e with
+      | val _ => simp [ExprStep]
+      | _ => simp only [ExprStep]; intro H; rw [H]; simp)
+
+def EELift.dunop_arg : EELift (.dunop (DataT := DataT) · f) := by
+  solveEELift
+
+def EELift.readp_i : EELift (.readp (DataT := DataT) (.val <| .uptr c) ·) := by
+  solveEELift
+
+def EELift.readp_c : EELift (.readp (DataT := DataT) · ei) := by
+  solveEELift
+
+def EELift.ix_ptr : EELift (.ix (DataT := DataT) · elidx) := by
+  solveEELift
+
+def EELift.ix_lidx : EELift (.ix (DataT := DataT) (.val <| .ptr t) ·) := by
+  solveEELift
+
+
+
+
+
+/-
+
+Reductions
+  /- Var step: Look the variable up in the local context. -/
+  | .var x =>
+      ctx.getv _ x |>.bind fun v =>
+      some ⟨.val v, s⟩
+  /- Data unop -/
+  | .dunop (.val <| .data d) f =>
+      some (.val <| .data <| f d, s)
+
+  /- Allocation (currently: sbuf only) -/
+  | .alloc .sbuf =>
+      let ⟨dst, memory'⟩ := ChipMemory.freshSBUFStore s.memory
+      some ⟨.val <| .uptr dst, .mk memory'⟩
+  /- Read point from memory -/
+  | .readp (.val <| .uptr c) (.val <| .iptr i) =>
+      s.memory.get ⟨c, i⟩ |>.bind fun vd =>
+      some ⟨.val <| .data vd, s⟩
+  /- Logical index expressions (currently: static indices only) -/
+  | .idx e => List.mapM (Value.ExpectInt DataT) e |>.bind (.some ⟨.val <| .lidx ·, s⟩)
+  /- Chip expressions -/
+  | .chip e =>
+      ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
+      some ⟨.chip e', s'⟩
+  /- Index expressions -/
+  | .ix (.val <| .ptr t) (.val <| .lidx li) =>
+      match li with
+      | [] => none
+      | pn :: fns =>
+        if fns.length ≠ t.shape.freeDims.length then none else
+        let p := t.layout.par pn
+        let f := t.layout.free fns
+        some ⟨.val <| .iptr ⟨p.toNat, f.toNat⟩, s⟩
+  | .chip (.val <| .ptr t) => some ⟨.val <| .uptr t.index, s⟩
+-/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/-
+
+/- ## Pure Expression steps -/
+
+/-- PureExprStep. An expression can be stepped regardless of its state.
+Any restriction on the local context can be encoded using the PL predicate. -/
+def PureExprStep {DataT : Type _} (p p' : NML.Expr DataT) (PL : LocalContext DataT → Prop) : Prop :=
+  ∀ s : NML.State DataT, ∀ l, PL l → NML.ExprStep DataT p l s = some ⟨p', s⟩
+
+@[simp] def ValPurePL (x : String) (v : NML.Value DataT) : LocalContext DataT → Prop :=
+  fun lc => lc.loc x = some v
+
+theorem VarPureE {x : String} {v : NML.Value DataT} :
+    PureExprStep (.var x) (.val v) (ValPurePL _ x v) := by
+  intro σ l H; simp_all
+
+/- ## Pure steps -/
+
 /-- Assignment of a value to none is Pure -/
-theorem SeqPure {v : NML.Value DataT}:
-      SmallStep.PureStep (NML.ExecState.run <| ⟨.assign .none (.val v), loc⟩ :: p') (.run p') :=
-    fun _ => NML.step.seqV
+theorem SeqPure : SmallStep.PureStep (NML.ExecState.run (.assign .none (.val v) :: p') loc) (.run p' loc) :=
+  fun _ => by simp [Step]
 
-theorem AssignPure {v : NML.Value DataT} :
-    SmallStep.PureStep
-      (NML.ExecState.run <| ⟨.assign (.some s) (.val v), loc⟩ :: p')
-      (.run <| p'.map (.bind _ · s v)) :=
-  fun _ => NML.step.asnV
+theorem AssignPure : SmallStep.PureStep (NML.ExecState.run (.assign (.some s) (.val v) :: p') loc)
+    (.run p' (loc.bindv _ s v)) :=
+  fun _ => by simp [Step]
 
 theorem RetPure {v : NML.Value DataT} :
-    SmallStep.PureStep (NML.ExecState.run <| ⟨.ret (.val v), loc⟩ :: p') (.done v) :=
-  fun _ => NML.step.retV
+    SmallStep.PureStep (NML.ExecState.run (.ret (.val v) :: p') loc) (.done v) :=
+  fun _ => by simp [Step]
 
-theorem LoopExitPure [TensorLib.Iterator I (NML.Value DataT)] :
-    SmallStep.PureStep (NML.ExecState.run <| ⟨NML.Stmt.loop (DataT := DataT) I s .none body, loc⟩ :: p) (.run p) :=
-  fun _ => NML.step.loop_exit
+-- theorem LoopExitPure [TensorLib.Iterator I (NML.Value DataT)] :
+--     SmallStep.PureStep (NML.ExecState.run <| ⟨NML.Stmt.loop (DataT := DataT) I s .none body, loc⟩ :: p) (.run p) :=
+--   fun _ => NML.step.loop_exit
 
-theorem LoopNterPure [TensorLib.Iterator I (NML.Value DataT)] :
-    SmallStep.PureStep (State := @NML.State DataT) (Val := @NML.Value DataT)
-      (NML.ExecState.run <| .cons ⟨.loop I x (.some i) b, loc⟩ p)
-      (NML.ExecState.run <|
-          .cons ⟨.blockC b, loc.bind _ x (TensorLib.Iterator.peek i)⟩ <|
-          .cons ⟨.loop I x (TensorLib.Iterator.next (@NML.Value DataT) i) b, loc⟩ <| p) :=
-    fun _ => NML.step.loop_nter _
+-- theorem LoopNterPure [TensorLib.Iterator I (NML.Value DataT)] :
+--     SmallStep.PureStep (State := @NML.State DataT) (Val := @NML.Value DataT)
+--       (NML.ExecState.run <| .cons ⟨.loop I x (.some i) b, loc⟩ p)
+--       (NML.ExecState.run <|
+--           .cons ⟨.blockC b, loc.bind _ x (TensorLib.Iterator.peek i)⟩ <|
+--           .cons ⟨.loop I x (TensorLib.Iterator.next (@NML.Value DataT) i) b, loc⟩ <| p) :=
+--     fun _ => NML.step.loop_nter _
 
 -- TODO: Make this less ad-hoc and
 theorem AssignPureExpr (H : PureExprStep e1 e2 PL) (Hl : PL loc):
     SmallStep.PureStep
-      (NML.ExecState.run <| ⟨.assign (.some s) e1, loc⟩ :: p')
-      (NML.ExecState.run <| ⟨.assign (.some s) e2, loc⟩ :: p') := by
+      (NML.ExecState.run (.assign (.some s) e1 :: p') loc)
+      (NML.ExecState.run (.assign (.some s) e2 :: p') loc) := by
   intro σ
-  apply NML.step.asnE
-  apply H σ
-  exact Hl
+  simp [Step, NML.step, ExecState.run]
+  cases e1 <;> try simp only [NML.step]; rw [H σ _ Hl]; rfl
+  simp [PureExprStep] at H
+  apply H σ _ Hl |>.elim
+
 
 theorem RetPureExpr (H : PureExprStep e1 e2 PL) (Hl : PL loc):
     SmallStep.PureStep
-      (NML.ExecState.run <| ⟨.ret e1, loc⟩ :: p')
-      (NML.ExecState.run <| ⟨.ret e2, loc⟩ :: p') := by
+      (NML.ExecState.run (.ret e1 :: p') loc)
+      (NML.ExecState.run (.ret e2 :: p') loc) := by
   intro σ
-  apply NML.step.retE
-  apply H σ
-  exact Hl
+  simp [Step, NML.step, ExecState.run]
+  cases e1 <;> try simp only [NML.step]; rw [H σ _ Hl]; rfl
+  simp [PureExprStep] at H
+  apply H σ _ Hl |>.elim
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/-
+
+
+
+
+
+
+
 
 theorem SetpEChipPureExpr (H : PureExprStep e e' PL) (Hl : PL loc) :
     SmallStep.PureStep
@@ -479,13 +585,6 @@ theorem StepEChipPureVal (H : PureExprStep e e' PL) (Hl : PL loc) :
   apply H σ
   apply Hl
 
-@[simp] def ValPurePL (x : String) (v : NML.Value DataT) : @NML.Locals DataT → Prop :=
-  fun loc => loc x = some v
-
-theorem VarPureE {x : String} {v : NML.Value DataT} :
-    PureExprStep (.var x) (.val v) (ValPurePL x v) := by
-  intro σ l
-  exact NML.ExprStep.var
 
 -- #check (AssignPureExpr VarPureE _)
 
@@ -525,6 +624,7 @@ theorem LiftEIndexSetp : ExprLift (DataT := DataT) (NML.Stmt.setp (.val <| .uptr
 theorem LiftEValSetp : ExprLift (DataT := DataT) (NML.Stmt.setp (.val <| .uptr i) (.val <| .iptr x) ·) := by
   intro e e' s s' l ps He
   exact NML.step.setpEVal He
+-/
 
 structure AffineIter where
   start     : Int
@@ -542,3 +642,4 @@ instance instIterAffineIter {DataT : Type _} : TensorLib.Iterator AffineIter (NM
   size r  := r.num
   reset r := ⟨r.start, r.start, r.start_num, r.start_num, r.step⟩
 -/
+end properties

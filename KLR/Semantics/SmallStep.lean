@@ -31,7 +31,7 @@ or Steps to exactly one State. We also force that the semantics can't take stutt
 there is exactly one way that the program can progress at each point. -/
 class Det (Prog : Type _) (Val State : outParam (Type _)) : Type _ extends SmallStep Prog Val State where
   step_det {c c'} : Step c c' → ∀ c'', Step c c'' → c'' = c'
-  step_progress {c c'} : Step c c' → c ≠ c'
+  -- step_progress {c c'} : Step c c' → c ≠ c'
 export Det (step_det)
 
 
@@ -470,3 +470,18 @@ theorem Safe_of_PRel {c : Prog × State} {Φf : Val → Val → Prop} :
     exact (H.1 Hn' Hp's').elim
 
 end equivlimit
+
+section pfunc
+
+/-! Defining deterministic small step semantics using partial functions -/
+
+variable {Prog : Type _} {Val State : outParam (Type _)}
+variable (stepF : Prog × State → Option (Prog × State))
+
+@[simp] def PFuncStep (c c' : Prog × State) : Prop := stepF c = .some c'
+
+theorem PFuncStep_det {c c'} :
+    PFuncStep stepF c c' → ∀ c'', PFuncStep stepF c c'' → c'' = c' := by
+  simp [PFuncStep]; rintro H p σ; rw [H]; rintro ⟨H⟩; rfl
+
+end pfunc
