@@ -27,15 +27,12 @@ namespace KLR.Trace
 -- Limits come from:
 -- https://awsdocs-neuron.readthedocs-hosted.com/en/latest/general/nki/nki_arch_guides.html
 def keywords : List (Name × Term) :=
-  let ptr s memory size :=
-    (Lean.Name.mkStr1 s, Term.pointer { memory, parSize := size.1, freeSize := size.2 })
-  let const s := const_var (.mkStr1 s)
-  let int s := const_int (.mkStr1 s)
-  [ int "arch" 2
-  , ptr "hbm"  .hbm  (0xffffffff, 0xffffffff) -- TODO: size of HBM?
-  , ptr "sbuf" .sbuf (128, 0x30000)
-  , ptr "psum" .psum (128, 0x4000)
-  , const "range"
+  let ptr name memory parSize freeSize :=
+    (name, Term.pointer { memory, parSize, freeSize })
+  [ const_int `arch 2
+  , ptr `hbm  .hbm  0xffffffff 0xffffffff -- TODO: size of HBM?
+  , ptr `sbuf .sbuf 128 0x30000
+  , ptr `psum .psum 128 0x4000
   ]
 
 def globalEnv := keywords ++ NKIEnv ++ NumpyEnv
