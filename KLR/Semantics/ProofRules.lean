@@ -911,7 +911,7 @@ theorem dwpR (u : uwpR DataT) (Hx : u.steps ≤ Rx) :
     ⊢ dwp Lm Rm Lx Rx pl u.prog Φ :=
   (wand_entails <| dwpR' u Hx)
 
-@[simp] def uwpPureL {p p' : Prog DataT} (H : SPure p p' H') (HH' : H') : uwpL DataT where
+@[simp] def SPure.uwpL {p p' : Prog DataT} (H : SPure p p' H') (HH' : H') : uwpL DataT where
   pre   := iprop(True)
   post  := iprop(True)
   prog  := p
@@ -928,7 +928,7 @@ theorem dwpR (u : uwpR DataT) (Hx : u.steps ≤ Rx) :
       iintro Hσ
       iexact Hσ
 
-@[simp] def uwpPureR {p p' : Prog DataT} (H : SPure p p' H') (HH' : H') : uwpR DataT where
+@[simp] def SPure.uwpR {p p' : Prog DataT} (H : SPure p p' H') (HH' : H') : uwpR DataT where
   pre   := iprop(True)
   post  := iprop(True)
   prog  := p
@@ -1009,11 +1009,9 @@ structure ewpR (DataT : Type _) extends ewp DataT where
   prog' := .run (p e.expr' :: ps) loc
   steps := 1
 
-/-
-
 /-- Lift an `ewpL` to a `uwpL` provided the context is `ExprLift` -/
-@[simp] def liftEL (e : ewpL DataT) {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) {ps : List (NML.Task DataT)}
-     {loc : NML.Locals DataT} (Hloc : e.locP loc := by simp) : uwpL DataT where
+@[simp] def liftEL (e : ewpL DataT) {p : Expr DataT → Stmt DataT} (Hp : EPLift p) {ps : List (NML.Stmt DataT)}
+     {loc : NML.LocalContext DataT} (Hloc : e.locP loc := by simp) : uwpL DataT where
   touwp := liftE e.toewp p ps loc
   spec  := by
     apply Entails.trans e.spec ?_
@@ -1024,16 +1022,12 @@ structure ewpR (DataT : Type _) extends ewp DataT where
     iexists Hσₗ'
     isplit r
     · ipure_intro
-      exact stepN_1_iff_step.mpr (Hp e.expr e.expr' σₗ Hσₗ' loc ps (Hstep Hloc))
+      refine stepN_1_iff_step.mpr (Hp <| Hstep Hloc)
     · iexact Hupd
 
-@[simp] def ExprLift.liftL  {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) (e : ewpL DataT) {ps : List (NML.Task DataT)}
-     {loc : NML.Locals DataT} (Hloc : e.locP loc := by simp) : uwpL DataT :=
-  liftEL e Hp (Hloc := Hloc) (ps := ps)
-
 /-- Lift an `ewpR` to a `uwpR` provided the context is `ExprLift` -/
-@[simp] def liftER (e : ewpR DataT) {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) {ps : List (NML.Task DataT)}
-    {loc : NML.Locals DataT} (Hloc : e.locP loc := by simp) : uwpR DataT where
+@[simp] def liftER (e : ewpR DataT) {p : Expr DataT → Stmt DataT} (Hp : EPLift p) {ps : List (NML.Stmt DataT)}
+    {loc : NML.LocalContext DataT} (Hloc : e.locP loc := by simp) : uwpR DataT where
   touwp := liftE e.toewp p ps loc
   spec  := by
     apply Entails.trans e.spec ?_
@@ -1044,96 +1038,133 @@ structure ewpR (DataT : Type _) extends ewp DataT where
     iexists Hσᵣ'
     isplit r
     · ipure_intro
-      exact stepN_1_iff_step.mpr (Hp e.expr e.expr' σᵣ Hσᵣ' loc ps (Hstep Hloc))
+      exact stepN_1_iff_step.mpr (Hp <| Hstep Hloc)
     · iexact Hupd
 
-@[simp] def ExprLift.liftR {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) (e : ewpR DataT) {ps : List (NML.Task DataT)}
-     {loc : NML.Locals DataT} (Hloc : e.locP loc := by simp) : uwpR DataT :=
+@[simp] def EPLift.uwpL {p : Expr DataT → Stmt DataT} (Hp : EPLift p) (e : ewpL DataT) {ps : List (NML.Stmt DataT)}
+     {loc : NML.LocalContext DataT} (Hloc : e.locP loc := by simp) : uwpL DataT :=
+  liftEL e Hp (Hloc := Hloc) (ps := ps)
+
+@[simp] def EPLift.uwpR {p : Expr DataT → Stmt DataT} (Hp : EPLift p) (e : ewpR DataT) {ps : List (NML.Stmt DataT)}
+     {loc : NML.LocalContext DataT} (Hloc : e.locP loc := by simp) : uwpR DataT :=
   liftER e Hp (Hloc := Hloc) (ps := ps)
 
-@[simp] def ewpVarL {s : String} (v : Value DataT) : ewpL DataT where
+@[deprecated "Use EPure.ewpL instead. " (since:="2025/08/09") ]
+def ewpVarL {s : String} (v : Value DataT) : ewpL DataT where
   pre   := iprop(True)
   post  := iprop(True)
   expr  := .var s
-  locP  := (· s = some v)
+  locP  := (·.getv _ s = some v)
   expr' := .val v
   spec  := by
     iintro σₗ σᵣ %_ Hσ loc
     iexists σₗ
     isplit r
     · ipure_intro
-      exact ExprStep.var
+      intro H; simp only [ExprStep]; rw [H]; simp
     · refine .trans ?_ BIUpdate.intro
       refine .trans ?_ sep_true.mpr
       iintro Hσ
       iexact Hσ
+attribute [simp] ewpVarL
 
-@[simp] def ewpVarR {s : String} (v : Value DataT) : ewpR DataT where
+@[deprecated "Use EPure.ewpR instead. " (since:="2025/08/09") ]
+def ewpVarR {s : String} (v : Value DataT) : ewpR DataT where
   pre   := iprop(True)
   post  := iprop(True)
   expr  := .var s
-  locP  := (· s = some v)
+  locP  := (·.getv _ s = some v)
   expr' := .val v
   spec  := by
     iintro σₗ σᵣ - Hσ loc
     iexists σᵣ
     isplit r
     · ipure_intro
-      exact ExprStep.var
+      intro H; simp only [ExprStep]; rw [H]; simp
     · refine .trans ?_ BIUpdate.intro
       refine .trans ?_ sep_true.mpr
       iintro Hσ
       iexact Hσ
--/
+attribute [simp] ewpVarR
 
 
+@[simp] def EPure.ewpL (E : EPure (DataT := DataT) e e' HP) : ewpL DataT where
+  pre   := iprop(True)
+  post  := iprop(True)
+  expr  := e
+  expr' := e'
+  locP  := HP
+  spec  := by
+    iintro σₗ σᵣ - Hσ loc
+    iexists σₗ
+    isplit r
+    · ipure_intro
+      intro H
+      apply E
+      apply H
+    · refine .trans ?_ BIUpdate.intro
+      refine .trans ?_ sep_true.mpr
+      iintro Hσ
+      iexact Hσ
+
+@[simp] def EPure.ewpR (E : EPure (DataT := DataT) e e' HP) : ewpR DataT where
+  pre   := iprop(True)
+  post  := iprop(True)
+  expr  := e
+  expr' := e'
+  locP  := HP
+  spec  := by
+    iintro σₗ σᵣ - Hσ loc
+    iexists σᵣ
+    isplit r
+    · ipure_intro
+      intro H
+      apply E
+      apply H
+    · refine .trans ?_ BIUpdate.intro
+      refine .trans ?_ sep_true.mpr
+      iintro Hσ
+      iexact Hσ
 
 
+@[simp] def EELift.ewpL {p : Expr DataT → Expr DataT} (EL : EELift p) (E : ewpL DataT) : ewpL DataT where
+  pre   := E.pre
+  post  := E.post
+  expr  := p E.expr
+  expr' := p E.expr'
+  locP  := E.locP
+  spec  := by
+    apply Entails.trans E.spec ?_
+    iintro Hspec σₗ σᵣ Hpre Hσ loc
+    ispecialize Hspec σₗ σᵣ Hpre Hσ loc
+    icases Hspec with ⟨σₗ', %Hstep, Hupd⟩
+    iexists σₗ'
+    isplit r
+    · ipure_intro
+      intro H
+      apply EL
+      apply Hstep
+      apply H
+    · iexact Hupd
 
+@[simp] def EELift.ewpR {p : Expr DataT → Expr DataT} (EL : EELift p) (E : ewpR DataT) : ewpR DataT where
+  pre   := E.pre
+  post  := E.post
+  expr  := p E.expr
+  expr' := p E.expr'
+  locP  := E.locP
+  spec  := by
+    apply Entails.trans E.spec ?_
+    iintro Hspec σₗ σᵣ Hpre Hσ loc
+    ispecialize Hspec σₗ σᵣ Hpre Hσ loc
+    icases Hspec with ⟨σₗ', %Hstep, Hupd⟩
+    iexists σₗ'
+    isplit r
+    · ipure_intro
+      intro H
+      apply EL
+      apply Hstep
+      apply H
+    · iexact Hupd
 
 end ewp
-
-
-/-
-def UWP.Frame (u : UWP DataT) (P : PROP DataT) : UWP DataT where
-  pre   := iprop(u.pre  ∗ P)
-  post  := iprop(u.post ∗ P)
-  prog  := u.prog
-  steps := u.steps
-
-theorem UWP.leftSpec_frame {u : @UWP DataT} :
-    u.LeftSpec ⊢ (u.Frame P).LeftSpec := by
-  simp only [Frame, LeftSpec]
-  istart
-  iintro Hspec σₗ σᵣ ⟨Hu, HP⟩ Hσ prog' σₗ' Hstep
-  ispecialize Hspec σₗ σᵣ Hu Hσ prog' σₗ' Hstep
-  istop
-  have L1 : P ∗ |==> (state_interp σₗ' σᵣ ∗ u.post) ⊢ |==> (state_interp σₗ' σᵣ ∗ u.post ∗ P) := by
-    apply Entails.trans BI.sep_comm.mp
-    apply Entails.trans BIUpdate.frame_r _
-    refine BIUpdate.mono BI.sep_assoc_l
-  apply Entails.trans _ L1; clear L1
-  istart
-  iintro ⟨HP, Hwp⟩
-  isplit l [HP]
-  · iexact HP
-  · iexact Hwp
-
-theorem UWP.rightSpec_frame {u : @UWP DataT} :
-    u.RightSpec ⊢ (u.Frame P).RightSpec := by
-  simp only [Frame, RightSpec]
-  istart
-  iintro Hspec σₗ σᵣ ⟨Hu, HP⟩ Hσ prog' σᵣ' Hstep
-  ispecialize Hspec σₗ σᵣ Hu Hσ prog' σᵣ' Hstep
-  istop
-  have L1 : P ∗ |==> (state_interp σₗ σᵣ' ∗ u.post) ⊢ |==> (state_interp σₗ σᵣ' ∗ u.post ∗ P) := by
-    apply Entails.trans BI.sep_comm.mp
-    apply Entails.trans BIUpdate.frame_r _
-    refine BIUpdate.mono BI.sep_assoc_l
-  apply Entails.trans _ L1; clear L1
-  istart
-  iintro ⟨HP, Hwp⟩
-  isplit l [HP]
-  · iexact HP
-  · iexact Hwp
--/
