@@ -168,6 +168,7 @@ theorem wpPureSync {Φ : Value DataT → Value DataT → @PROP DataT}
   -- Conclude
   exact sep_symm
 
+/-
 
 -- NB. Keeping this code in the repo as an example for writing basic proof rules.
 open ChipMemory in
@@ -245,7 +246,7 @@ def wpAffineLoopRelSync {p1 p2 : List (NML.Stmt DataT)} {pc1 pc2 : List (NML.Tas
         (.run <| ⟨.loop AffineIter br (.some i) p2, locr⟩ :: pc2)
         Φ := by
   sorry
-
+-/
 end basicrules
 
 
@@ -386,7 +387,7 @@ theorem dwpPureR (Hstep : SmallStep.PureStep p2 p2') (Hx : 0 < Rx := by omega) :
 
 
 
-
+/-
 -- NB. Keeping this code in the repo as an example for writing basic proof rules.
 open ChipIndex in
 /-- `dwp` for a single allocation step on the left. This is a little bit simpler
@@ -517,6 +518,7 @@ theorem dwpAllocR (Hx : 1 < Rx := by omega) :
       · exact SR
   · iexact H
 
+
 theorem dwpSetpL {v : DataT} (Hx : 0 < Lx := by omega) :
     ⊢ ((⟨i, x⟩ ↦ₗ some v) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx (.run <| p1) p2 Φ) -∗
        (⟨i, x⟩ ↦ₗ mv) -∗
@@ -615,6 +617,7 @@ theorem dwpSetpR' {v : DataT} (Hx : 0 < Rx := by omega) :
   iintro H1 ⟨H2, H3⟩
   iapply H1 with [H3]
   iexact H2
+
 
 -- TODO: This is only used for an example right now, a less ad-hoc solution for
 -- ExprSteps that use state is necessary.
@@ -738,6 +741,9 @@ theorem wp_gen_loc (R : Locals DataT → Locals DataT → Prop) :
   iintro H HR
   ispecialize H _ _ HR
   iexact H
+
+
+-/
 
 end dwp
 
@@ -907,6 +913,7 @@ theorem dwpR' (u : uwpR DataT) (Hx : u.steps ≤ Rx) :
       iintro Hσ
       iexact Hσ
 
+/-
 -- TODO: Update example 10
 def uwpSetpL {i : ChipIndex} {x : Nat × Nat} {mv : Option DataT} {v : DataT} {loc : Locals DataT}
     {p1 : List (NML.Task DataT)} : uwpL DataT where
@@ -917,7 +924,7 @@ def uwpSetpL {i : ChipIndex} {x : Nat × Nat} {mv : Option DataT} {v : DataT} {l
   steps := 1
   spec  := by
     sorry
-
+-/
 
 
 
@@ -974,27 +981,28 @@ structure ewp (DataT : Type _) where
   expr  : NML.Expr DataT
   -- Using a predicate on locations instead of a single location becase
   -- we do not have separating conjunction over them.
-  locP  : NML.Locals DataT → Prop
+  locP  : NML.LocalContext DataT → Prop
   expr' : NML.Expr DataT
 
 /-- An `ewp` that uses its resources to take steps on the left. -/
 structure ewpL (DataT : Type _) extends ewp DataT where
   spec : ⊢ iprop(∀ σₗ σᵣ, pre -∗ state_interp σₗ σᵣ -∗
-    (∀ loc, ∃ σₗ', ⌜locP loc → ExprStep DataT expr loc σₗ expr' σₗ'⌝ ∗ |==> (state_interp σₗ' σᵣ ∗ post)))
+    (∀ loc, ∃ σₗ', ⌜locP loc → ExprStep DataT expr loc σₗ = .some (expr', σₗ')⌝ ∗ |==> (state_interp σₗ' σᵣ ∗ post)))
 
 /-- An `ewp` that uses its resources to take steps on the left. -/
 structure ewpR (DataT : Type _) extends ewp DataT where
   spec : ⊢ iprop(∀ σₗ σᵣ, pre -∗ state_interp σₗ σᵣ -∗
-    (∀ loc, ∃ σᵣ', ⌜locP loc → ExprStep DataT expr loc σᵣ expr' σᵣ'⌝ ∗ |==> (state_interp σₗ σᵣ' ∗ post)))
+    (∀ loc, ∃ σᵣ', ⌜locP loc → ExprStep DataT expr loc σᵣ = .some (expr', σᵣ')⌝ ∗ |==> (state_interp σₗ σᵣ' ∗ post)))
 
-@[simp] def liftE (e : ewp DataT) (p : Expr DataT → Stmt DataT) (ps : List (NML.Task DataT)) (loc : NML.Locals DataT) : uwp DataT where
+@[simp] def liftE (e : ewp DataT) (p : Expr DataT → Stmt DataT)
+    (ps : List (NML.Stmt DataT)) (loc : NML.LocalContext DataT) : uwp DataT where
   pre   := e.pre
   post  := e.post
-  prog  := .run <| ⟨p e.expr,  loc⟩ :: ps
-  prog' := .run <| ⟨p e.expr', loc⟩ :: ps
+  prog  := .run (p e.expr :: ps) loc
+  prog' := .run (p e.expr' :: ps) loc
   steps := 1
 
-
+/-
 
 /-- Lift an `ewpL` to a `uwpL` provided the context is `ExprLift` -/
 @[simp] def liftEL (e : ewpL DataT) {p : Expr DataT → Stmt DataT} (Hp : ExprLift p) {ps : List (NML.Task DataT)}
@@ -1069,7 +1077,7 @@ structure ewpR (DataT : Type _) extends ewp DataT where
       refine .trans ?_ sep_true.mpr
       iintro Hσ
       iexact Hσ
-
+-/
 
 
 
