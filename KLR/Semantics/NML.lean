@@ -370,9 +370,10 @@ variable {DataT : Type _}
 
 All steps in the operational semantics are one of the following:
 - An ExprStep that lifts other ExprSteps
+- ExprStep that doesn't lift and is pure
 - A Step that lifts ExprSteps
-- A Step that lifts Steps
-- A step of pure reduction
+- A pure step
+- An impure step of reduction
 
 The last case will have bespoke proof rules, however the proof rules for all other
 cases can be handled generically. Formally, these cases correspond to TODO,
@@ -393,36 +394,102 @@ macro_rules
       | val _ => simp [ExprStep]
       | _ => simp only [ExprStep]; intro H; rw [H]; simp)
 
-def EELift.dunop_arg : EELift (.dunop (DataT := DataT) · f) := by
+theorem EELift.dunop_arg : EELift (.dunop (DataT := DataT) · f) := by
   solveEELift
 
-def EELift.readp_i : EELift (.readp (DataT := DataT) (.val <| .uptr c) ·) := by
+theorem  EELift.readp_i : EELift (.readp (DataT := DataT) (.val <| .uptr c) ·) := by
   solveEELift
 
-def EELift.readp_c : EELift (.readp (DataT := DataT) · ei) := by
+theorem EELift.readp_c : EELift (.readp (DataT := DataT) · ei) := by
   solveEELift
 
-def EELift.ix_ptr : EELift (.ix (DataT := DataT) · elidx) := by
+theorem EELift.chip_c : EELift (.chip (DataT := DataT) ·) := by
   solveEELift
 
-def EELift.ix_lidx : EELift (.ix (DataT := DataT) (.val <| .ptr t) ·) := by
+theorem EELift.ix_ptr : EELift (.ix (DataT := DataT) · elidx) := by
   solveEELift
 
+theorem EELift.ix_lidx : EELift (.ix (DataT := DataT) (.val <| .ptr t) ·) := by
+  solveEELift
+
+/-- A pure step of expression reduction given some pure assumption -/
+def EPure (e e' : Expr DataT) (HP : LocalContext DataT → Prop) : Prop :=
+  ∀ s loc, HP loc → ExprStep DataT e loc s = some (e', s)
+
+/-- A LocalContext binds a given variable to a value -/
+@[simp] def LCBindP (x : String) (v : Value DataT) : LocalContext DataT → Prop :=
+  fun lc => lc.loc x = some v
+
+/-- The trivial constraint on a LocalContext -/
+@[simp] def LCTrueP : LocalContext DataT → Prop := fun _ => True
+
+/-- Expect a list of exprs to be all values -/
+@[simp] def LCIntList (le : List (Expr DataT)) : LocalContext DataT → Prop :=
+  fun _ => List.all le (Value.ExpectInt DataT · |>.isSome)
+
+/-- Expect a tensor to have the shape for a logical index -/
+@[simp] def LCTShape (t : TensorHandle) (lf : List Int): LocalContext DataT → Prop :=
+  fun _ => lf.length = t.shape.freeDims.length
+
+@[simp] abbrev Expr.asIntV : Expr DataT → Int | (.val <| .int z) => z | _ => 0
+
+theorem EPure.var : EPure (.var x) (.val v) (LCBindP x v) := by
+  intro _ _ HP; simp [ExprStep]
+  rw [HP]
+  simp
+
+theorem EPure.dunop : EPure (.dunop (.val <| .data d) f) (.val <| .data <| f d) LCTrueP := by
+  intro _ _ HP; simp [ExprStep]
+
+theorem EPure.idx : EPure (.idx e) (.val <| .lidx <| e.map Expr.asIntV) (LCIntList e) := by
+  rename_i DataT
+  intro _ _ HP
+  obtain ⟨lz, rfl⟩ : ∃ lz : List Int, e = lz.map (fun z => .val <| .int z) := by
+    exists e.map Expr.asIntV
+    simp
+    conv=> lhs; rw [← List.map_id' e]
+    simp at HP
+    refine List.map_eq_map_iff.mpr (fun z He => ?_)
+    have HP := HP z He
+    cases z <;> simp [Value.ExpectInt] at HP
+    rename_i v
+    cases v  <;> simp [Value.ExpectInt] at HP
+    simp
+  clear HP
+  rw [List.map_map]
+  have Hinv : (Expr.asIntV (DataT := DataT) ∘ fun z => Expr.val (Value.int z)) = id := by rfl
+  rw [Hinv, List.map_id]
+  simp [ExprStep]
+  induction lz with | nil => simp | cons h t => ?_
+  rename_i IH
+  -- simp [List.mapM_cons]
+  -- induction e with | nil => simp at HP ⊢ | cons h t => ?_
+  -- rename_i IH
+  -- simp only [LCIntList, List.all_cons, Bool.and_eq_true, List.all_eq_true] at HP
+  -- obtain ⟨HP1, HP2⟩ := HP
+  -- cases Hh : (Value.ExpectInt DataT h) with | none => simp [Hh] at HP1 | some hv => ?_
+  -- simp
+  -- refine Option.bind_eq_some_iff.mpr ?_
+  -- exists (h.asIntV :: List.map Expr.asIntV t)
+  -- refine ⟨?_, rfl⟩
+  -- simp_all
+
+  sorry
 
 
+theorem EPure.chip : EPure (.chip (DataT := DataT) <| .val <| .ptr t) (.val <| .uptr t.index) LCTrueP := by
+  intro _ _ HP; simp [ExprStep]
+
+theorem EPure.ix :
+  EPure (.ix (.val <| .ptr t) (.val <| .lidx (lp :: lf)))
+        (.val <| .iptr ⟨Int.toNat <| t.layout.par lp, Int.toNat <| t.layout.free lf⟩)
+        (LCTShape t lf) (DataT := DataT) := by
+  intro _ _ HP; simp [ExprStep]
+  rw [HP]
 
 
 /-
-
-Reductions
-  /- Var step: Look the variable up in the local context. -/
-  | .var x =>
-      ctx.getv _ x |>.bind fun v =>
-      some ⟨.val v, s⟩
-  /- Data unop -/
-  | .dunop (.val <| .data d) f =>
-      some (.val <| .data <| f d, s)
-
+Remaining expressions
   /- Allocation (currently: sbuf only) -/
   | .alloc .sbuf =>
       let ⟨dst, memory'⟩ := ChipMemory.freshSBUFStore s.memory
@@ -431,36 +498,106 @@ Reductions
   | .readp (.val <| .uptr c) (.val <| .iptr i) =>
       s.memory.get ⟨c, i⟩ |>.bind fun vd =>
       some ⟨.val <| .data vd, s⟩
-  /- Logical index expressions (currently: static indices only) -/
-  | .idx e => List.mapM (Value.ExpectInt DataT) e |>.bind (.some ⟨.val <| .lidx ·, s⟩)
-  /- Chip expressions -/
-  | .chip e =>
-      ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
-      some ⟨.chip e', s'⟩
-  /- Index expressions -/
-  | .ix (.val <| .ptr t) (.val <| .lidx li) =>
-      match li with
-      | [] => none
-      | pn :: fns =>
-        if fns.length ≠ t.shape.freeDims.length then none else
-        let p := t.layout.par pn
-        let f := t.layout.free fns
-        some ⟨.val <| .iptr ⟨p.toNat, f.toNat⟩, s⟩
-  | .chip (.val <| .ptr t) => some ⟨.val <| .uptr t.index, s⟩
 -/
 
 
 
 
 
+/-- A statement lifts expression steps to head steps -/
+def EPLift (sk : Expr DataT → Stmt DataT) : Prop := ∀ {e e' s s' ps loc},
+    ExprStep DataT e loc s = some (e', s') →
+    Step ⟨ExecState.run (sk e :: ps) loc, s⟩ ⟨ExecState.run (sk e':: ps) loc, s'⟩
 
+syntax "solveEPLift" : tactic
+macro_rules
+  | `(tactic|solveEPLift) =>
+  `(tactic|
+    intro e _ _ _ _ _;
+    cases e with
+    | val _ => simp [ExprStep]
+    | _ => simp only [Step, step]; intro H; rw [H]; simp)
 
+def EPLift.ret_arg : EPLift (.ret (DataT := DataT) ·) := by
+  solveEPLift
 
+def EPLift.seq_arg : EPLift (.assign (DataT := DataT) none ·) := by
+  solveEPLift
 
+def EPLift.assign_arg : EPLift (.assign (DataT := DataT) (some x) ·) := by
+  solveEPLift
 
+def EPLift.loop_iter : EPLift (.loop (DataT := DataT) x · b) := by
+  solveEPLift
 
+def EPLift.setp_chip : EPLift (.setp (DataT := DataT) · ei ev) := by
+  solveEPLift
 
+def EPLift.setp_ix : EPLift (.setp (DataT := DataT) (.val <| .uptr i) · ev) := by
+  solveEPLift
 
+def EPLift.setp_val : EPLift (.setp (DataT := DataT) (.val <| .uptr i) (.val <| .iptr x) ·) := by
+  solveEPLift
+
+-- Pure head steps
+-- Do not depend on state but can change the local bindings
+-- This is most of them actually!
+
+/-- A pure step of program reduction -/
+def SPure (e e' : ExecState DataT) (HP : Prop) : Prop :=
+  ∀ s, HP → Step ⟨e, s⟩ ⟨e', s⟩
+
+theorem SPure.ret : SPure (.run ((.ret <| .val v) :: ps) loc) (.done v) True := by
+  intro s _; simp [Step]
+
+theorem SPure.assign : SPure (.run ((.assign (.some x) <| .val v) :: ps) loc) (.run ps (loc.bindv _ x v)) True := by
+  intro s _; simp [Step]
+
+theorem SPure.seq : SPure (.run ((.assign .none <| .val v) :: ps) loc) (.run ps loc) True := by
+  intro s _; simp [Step]
+
+theorem SPure.mkiter : SPure (.run (.mkiter n it :: ps) loc) (.run ps (loc.bindi _ n it)) True := by
+  intro s _; simp [Step]
+
+theorem SPure.frameEmp : SPure (.run (.frame [] ctx :: ps) loc) (.run ps loc) True := by
+  intro s _; simp [Step]
+
+@[simp] abbrev PLoopExit (ctx : LocalContext DataT) (n : Nat) : Prop := ctx.peeki _ n = none
+
+theorem SPure.loopExit : SPure
+    (.run (.loop x (.val <| .iref i) b :: ps) loc)
+    (.run ps loc) (PLoopExit loc i) := by
+  intro s H; simp only [Step, step]; rw [H]
+
+@[simp] abbrev PLoopContinue (ctx : LocalContext DataT) (n : Nat) (v : Value DataT) : Prop :=
+  ctx.peeki _ n = some v
+
+theorem SPure.loopContinue : SPure
+    (.run (.loop x (.val <| .iref i) b :: ps) loc)
+    (.run (.frame b (loc.bindv _ x v) :: .loop x (.val <| .iref i) b :: ps) loc)
+    (PLoopContinue loc i v) := by
+  intro s H; simp only [Step, step]; rw [H]
+
+-- Lifted head steps
+-- This is basically only frame
+
+/-
+@[simp] def NML.step (e : ExecState DataT × State DataT) : Option (ExecState DataT × State DataT) :=
+  match e with
+  | ⟨.run (p :: ps) ctx, s⟩ =>
+      match p with
+
+      /- Evaluation within a frame -/
+      | .frame fps fctx =>
+          NML.step ⟨(.run fps fctx), s⟩ |>.bind fun ⟨x, s'⟩ =>
+          match x with
+          | .done v => some ⟨.done v, s'⟩
+          | .run fps' fctx' => some ⟨.run (.frame fps' fctx' :: ps) ctx, s'⟩
+
+      /- Set point -/
+      | .setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v) =>
+          some ⟨.run ps ctx, { s with memory := ChipMemory.set s.memory ⟨i, x⟩ (some v) }⟩
+-/
 
 
 
@@ -474,8 +611,6 @@ Any restriction on the local context can be encoded using the PL predicate. -/
 def PureExprStep {DataT : Type _} (p p' : NML.Expr DataT) (PL : LocalContext DataT → Prop) : Prop :=
   ∀ s : NML.State DataT, ∀ l, PL l → NML.ExprStep DataT p l s = some ⟨p', s⟩
 
-@[simp] def ValPurePL (x : String) (v : NML.Value DataT) : LocalContext DataT → Prop :=
-  fun lc => lc.loc x = some v
 
 theorem VarPureE {x : String} {v : NML.Value DataT} :
     PureExprStep (.var x) (.val v) (ValPurePL _ x v) := by
