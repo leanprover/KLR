@@ -102,7 +102,8 @@ struct Core_AccessPattern {
   struct Core_TensorName *tensor;
   u32 parNum;
   struct Core_APPair_List *freePattern;
-  u32 offset;
+  u32 parOffset;
+  u32 freeOffset;
 };
 
 enum Core_Access_Tag {

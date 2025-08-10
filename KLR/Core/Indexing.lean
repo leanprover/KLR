@@ -254,6 +254,7 @@ structure IndexSpan where
   num : Nat
   step_nz : step ≠ 0
   get_nonneg : ∀ i : Int, 0 ≤ i → i < num → 0 ≤ start + step * i
+  deriving Repr
 
 namespace IndexSpan
 
@@ -593,7 +594,7 @@ def patternInterpPar (p : AccessPattern) : IndexSpan :=
 def patternInterpFree (p : AccessPattern) : LayoutMap p.freeDim := fun l =>
   let coeff_sum : Int := (p.freePattern.map APPair.step).sum
   Layout.mk
-    (p.offset + coeff_sum * l.offset).toNat
+    (p.freeOffset + coeff_sum * l.offset).toNat
     (l.steps.map (coeff_sum * ·))
     (p.freePattern.map APPair.num)
     (by rw [List.length_map]; exact l.steps_dim)
@@ -635,7 +636,7 @@ def CompileIndex.freePairs (t : TensorName) (parNum : Nat) (l : Layout d) : Acce
   tensor := t
   parNum := parNum
   freePattern := List.zipWith APPair.mk l.steps l.nums
-  offset := l.offset
+  freeOffset := l.offset
 
 def Layout.rowMajorForm (s : Shape) : Layout s.freeDim where
   offset := 0

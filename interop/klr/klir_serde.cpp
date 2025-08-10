@@ -399,13 +399,14 @@ Ptr<AccessPattern> AccessPattern_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 119 || c != 0 || l != 4)
+  if (t != 119 || c != 0 || l != 5)
     throw std::runtime_error("Invalid Tag");
   Ptr<AccessPattern> x = ptr<AccessPattern>();
   x->tensor = TensorName_des(in);
   x->parNum = Nat_des(in);
   x->freePattern = List_APPair_des(in);
-  x->offset = Nat_des(in);
+  x->parOffset = Nat_des(in);
+  x->freeOffset = Nat_des(in);
   return x;
 }
 

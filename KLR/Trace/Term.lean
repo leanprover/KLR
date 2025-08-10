@@ -146,7 +146,7 @@ def termOp : BinOp -> Term -> Term -> Trace Term
   | .mul, .expr (.value v) _, .tuple l  => return .tuple (<- mulseq l v)
   -- mgrid
   | .add, .expr (.value (.int i)) _, .mgItem a b
-  | .add, .mgItem a b, .expr (.value (.int i)) _ => return .mgItem (a+i) b
+  | .add, .mgItem a b, .expr (.value (.int i)) _ => return .mgItem (a+i) (b+i)
   -- expressions
   | op, .expr l _, .expr r _ => exprOp op l r
   | a, b, c => throw s!"unsupported operator {repr a} {repr b} {repr c}"

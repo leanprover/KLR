@@ -208,7 +208,7 @@ bool Core_APPair_ser(FILE *out, struct Core_APPair *x) {
 }
 
 bool Core_AccessPattern_ser(FILE *out, struct Core_AccessPattern *x) {
-  if (!cbor_encode_tag(out, 119, 0, 4))
+  if (!cbor_encode_tag(out, 119, 0, 5))
     return false;
   if (!Core_TensorName_ser(out, x->tensor))
     return false;
@@ -216,7 +216,9 @@ bool Core_AccessPattern_ser(FILE *out, struct Core_AccessPattern *x) {
     return false;
   if (!Core_APPair_List_ser(out, x->freePattern))
     return false;
-  if (!cbor_encode_uint(out, x->offset))
+  if (!cbor_encode_uint(out, x->parOffset))
+    return false;
+  if (!cbor_encode_uint(out, x->freeOffset))
     return false;
   return true;
 }
@@ -2388,7 +2390,7 @@ bool Core_AccessPattern_des(FILE *in, struct region *region,
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 119 || c != 0 || l != 4)
+  if (t != 119 || c != 0 || l != 5)
     return false;
   *x = region_alloc(region, sizeof(**x));
   if (!Core_TensorName_des(in, region, &(*x)->tensor))
@@ -2397,7 +2399,9 @@ bool Core_AccessPattern_des(FILE *in, struct region *region,
     return false;
   if (!Core_APPair_List_des(in, region, &(*x)->freePattern))
     return false;
-  if (!Nat_des(in, region, &(*x)->offset))
+  if (!Nat_des(in, region, &(*x)->parOffset))
+    return false;
+  if (!Nat_des(in, region, &(*x)->freeOffset))
     return false;
   return true;
 }

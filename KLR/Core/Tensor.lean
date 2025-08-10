@@ -400,7 +400,8 @@ structure AccessPattern where
   tensor : TensorName
   parNum : Nat
   freePattern : List APPair
-  offset : Nat := 0
+  parOffset : Nat := 0
+  freeOffset : Nat := 0
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 namespace AccessPattern
@@ -410,10 +411,10 @@ def shape (ap : AccessPattern) : Shape :=
 
 -- Partitions are not counted in bytes or elements; I'll call them logical "rows".
 def partitionRowOffset (ap : AccessPattern) : Nat :=
-  ap.tensor.address.parOffset.getD 0
+  ap.tensor.address.parOffset.getD 0 + ap.parOffset
 
 def freeByteOffset (ap : AccessPattern) : Nat :=
-  ap.tensor.address.freeOffset.getD 0 + ap.offset
+  ap.tensor.address.freeOffset.getD 0 + ap.freeOffset
 
 -- We can't find documentation that the free offset must be aligned by dtype size, but we think
 -- it's probably the case. It certainly makes calculating indexes easier so we're going with it

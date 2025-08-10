@@ -110,7 +110,8 @@ struct AccessPattern final {
   Ptr<TensorName> tensor;
   Nat parNum;
   List<Ptr<APPair>> freePattern;
-  Nat offset;
+  Nat parOffset;
+  Nat freeOffset;
 };
 
 struct Access {

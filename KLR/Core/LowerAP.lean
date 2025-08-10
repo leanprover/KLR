@@ -29,11 +29,17 @@ def Access.lowerAccessPattern (a : Access) : KLR.Err AccessPattern := do
   -- Note that because accesses are values, we have are forced to assume that all tensors are
   -- laid out in row major form.
   let layout := Layout.rowMajorForm (← a.shape)
-  -- The par dimension of the access must start at zero and have step 1
-  let ap := a.interpPar
-  if ap.start ≠ 0 then .error "Cannot lower AccessPatterns with nonzero starting location. " else
-  if ap.step ≠ 1  then .error "Cannot lower AccessPatterns with step not equal to 1. " else
-  return CompileIndex.freePairs a.tensor ap.num layout
+  let ap1 := a.interpPar
+  if ap1.start != 0 &&
+     ap1.start != 32 &&
+     ap1.start != 64 &&
+     ap1.start != 96
+  then throw "Cannot lower AccessPatterns with partition start of {ap1.start}."
+  if ap1.step != 1
+  then throw "Cannot lower AccessPattern with partition step size not equal to 1."
+
+  let ap := CompileIndex.freePairs a.tensor ap1.num layout
+  return { ap with parOffset := ap1.start }
 
 def Value.lowerAccessPatterns : Value → KLR.Err Value
 | .access a => do return .access <| .pattern (← a.lowerAccessPattern)
