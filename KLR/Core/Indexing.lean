@@ -225,6 +225,7 @@ def Access.freeDim : Access → Nat
 | .simple s => s.freeDim
 | .basic b => b.freeDim
 | .pattern p => p.freeDim
+| .birPattern _ => 0  -- TODO: should not occur
 
 /-- The slice [0, s) -/
 def Slice.full (s : Nat) : Slice := ⟨0, s, 1, Int.zero_ne_one.symm⟩
@@ -257,6 +258,15 @@ structure IndexSpan where
   deriving Repr
 
 namespace IndexSpan
+
+instance : Inhabited IndexSpan where
+  default := {
+    start := 0
+    step := 1
+    num := 0
+    step_nz := Int.one_ne_zero
+    get_nonneg := by intros; simp; trivial
+  }
 
 /-- Get an index from the sequence without doing any bounds checks -/
 @[simp] def get! (s : IndexSpan) (i : Int) : Int := s.start + s.step * i
@@ -604,11 +614,13 @@ def Access.interpPar : Access → IndexSpan
 | .simple s => simpleInterpPar s
 | .basic b => basicInterpPar b
 | .pattern p => patternInterpPar p
+| .birPattern _ => panic! "bir pattern in indexing" -- TODO
 
 def Access.interpFree : (a : Access) → LayoutMap a.freeDim
 | .simple s => simpleInterpFree s
 | .basic b => basicInterpFree b
 | .pattern p => patternInterpFree p
+| .birPattern _ => fun x => x -- TODO
 
 /-
 Execution of the compsed indexing

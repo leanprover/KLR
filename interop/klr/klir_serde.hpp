@@ -36,7 +36,6 @@ Ptr<APPair> APPair_des(FILE *in);
 Ptr<AccessPattern> AccessPattern_des(FILE *in);
 Ptr<Access> Access_des(FILE *in);
 Ptr<TensorHbm> TensorHbm_des(FILE *in);
-ParQuadrant ParQuadrant_des(FILE *in);
 Ptr<TensorSram> TensorSram_des(FILE *in);
 Ptr<TensorRef> TensorRef_des(FILE *in);
 Engine Engine_des(FILE *in);

@@ -200,7 +200,6 @@ def klrAST: MetaM (List LeanType) := do
     `KLR.Core.AccessPattern,
     `KLR.Core.Access,
     `KLR.Core.TensorHbm,
-    `KLR.Core.ParQuadrant,
     `KLR.Core.TensorSram,
     `KLR.Core.TensorRef,
     -- Core.Operators (Parameters)
