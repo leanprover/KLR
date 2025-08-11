@@ -1284,7 +1284,14 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *inter
           return false;
         }
         k->grid = (uint8_t) grid_val;
-      } else {
+      } else if(strncmp(s, "schedule", 8) == 0) {
+        k->python_kernel->scheduleEdges = const_exprs(&st, val);
+        if (!k->python_kernel->scheduleEdges) {
+          PyErr_Format(PyExc_ValueError, "%S is not a supported NKI type", key);
+          return false;
+        }
+     }
+      else {
         PyErr_Format(PyExc_ValueError, "Unexpected internal keyword argument: %S", s);
         return false;
       }
