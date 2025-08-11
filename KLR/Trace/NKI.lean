@@ -112,18 +112,18 @@ def value : Value -> Trace Term
   | .int i     => return .expr (.value $ .int i)    .int
   | .float f   => return .expr (.value $ .float f)  .float
   | .string s  => return .string s
-  | .tensor s dty => do
+  | .tensor s dty (some name) => do
       let shape <- Core.Shape.fromList s
-      let name <- genName "t".toName
       let dtype <- fromNKI? (.expr (.value $ .var dty) .none)
       let addr : Core.Address := {
         memory := .hbm
         parSize := shape.parDim
         freeSize := shape.freeElements * dtype.size
       }
-      let tensor <- Core.TensorName.make name.toString dtype shape (some addr)
+      let tensor <- Core.TensorName.make name dtype shape (some addr)
       return .expr (.value $ .access $ .simple tensor) (.tensor dtype shape)
-
+  | .tensor _ _ none =>
+      throw "internal error: tensor argument does not have a name"
 
 /-
 Expressions
@@ -285,19 +285,27 @@ private def globals (k : Kernel) : Trace Unit := do
     if not (s.globals.contains name) then
       extend_global name (<- expr' g.value.expr)
 
+private def processArgs (args : List Arg) : List Value × List Keyword := Id.run do
+  let mut inputs : List Value := []
+  let mut kws : List Keyword := []
+  for ⟨ name, e ⟩ in args do
+    match e with
+    | ⟨ .value (.tensor s d _), pos ⟩ =>
+      let t := .tensor s d name
+      inputs := t :: inputs
+      let e' := ⟨ .value t, pos ⟩
+      kws := .mk name e' :: kws
+    | _ => kws := .mk name e :: kws
+  return (inputs.reverse, kws.reverse)
 
 def traceKernel (k : Kernel) : Trace Core.Kernel := do
   globals k
   match k.funs.find? fun f => f.name == k.entry with
   | none => throw s!"function {k.entry} not found"
   | some f => do
-      let args := k.args.map fun arg => Keyword.mk arg.name arg.value
+      let (inputs, args) := processArgs k.args
       let res <- fnCall (.source f) [] args
-      let inputs := args.filter fun kw =>
-        match kw with
-        | ⟨_, ⟨.value (.tensor ..), _⟩⟩ => true
-        | _ => false
-      let inputs <- inputs.mapM fun ⟨ _, e ⟩ => expr e
+      let inputs <- inputs.mapM value
       let inputs := Core.tensors inputs
       let outputs := Core.tensors res
       return {

@@ -57,7 +57,7 @@ private def value : Python.Const -> Simplify Value
   | .float f => return .float f
   | .string s => return .string s
   | .ellipsis => throw "invalid use of ellipsis"
-  | .tensor s dty => return .tensor s dty
+  | .tensor s dty => return .tensor s dty none
 
 /-
 # Operator Simplification
