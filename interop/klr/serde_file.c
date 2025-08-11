@@ -11,8 +11,31 @@ Authors: Paul Govereau, Sean McLaughlin
 #include "region.h"
 #include "serde_file.h"
 #include "serde_python_core.h"
-#include "serde_nki.h"
-#include "serde_klir.h"
+
+// struct NKI_Kernel;
+static bool NKI_Kernel_ser(FILE *out, struct NKI_Kernel *k) {
+  (void)out;
+  (void)k;
+  return false;
+}
+static bool Core_Kernel_ser(FILE *out, struct Core_Kernel *k) {
+  (void)out;
+  (void)k;
+  return false;
+}
+static bool NKI_Kernel_des(FILE *in, struct region *r, struct NKI_Kernel **k) {
+  (void)in;
+  (void)r;
+  (void)k;
+  return false;
+}
+static bool Core_Kernel_des(FILE *in, struct region *r,
+                            struct Core_Kernel **k) {
+  (void)in;
+  (void)r;
+  (void)k;
+  return false;
+}
 
 bool Serde_KLRFile_ser(FILE *out, struct Serde_KLRFile *x) {
   if (!cbor_encode_tag(out, 217, 247, 3))

@@ -237,7 +237,22 @@ def generateFileH : MetaM Unit := do
   genH (<- C.fileAST)
 
 def generateFileC : MetaM Unit := do
-  IO.println <| C.headerC ["serde_file.h", "serde_python_core.h", "serde_nki.h", "serde_klir.h"]
+  IO.println <| C.headerC ["serde_file.h", "serde_python_core.h"]
+  IO.println r"
+  //struct NKI_Kernel;
+  static bool NKI_Kernel_ser(FILE *out, struct NKI_Kernel *k) {
+    (void)out; (void)k; return false;
+  }
+  static bool Core_Kernel_ser(FILE *out, struct Core_Kernel *k) {
+    (void)out; (void)k; return false;
+  }
+  static bool NKI_Kernel_des(FILE *in, struct region *r, struct NKI_Kernel **k) {
+    (void)in; (void)r; (void)k; return false;
+  }
+  static bool Core_Kernel_des(FILE *in, struct region *r, struct Core_Kernel **k) {
+    (void)in; (void)r; (void)k; return false;
+  }
+  "
   genC (<- C.fileAST)
 
 def generatePythonH : MetaM Unit := do
