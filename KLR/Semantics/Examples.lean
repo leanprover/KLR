@@ -350,10 +350,10 @@ example : ⊢ wp (DataT := DataT) K s s (ΦPure ΦBothLoc) := by
 
   wp_desync
   -- TODO: Make the value be infered by unification
-  uwp_left  EPLift.uwpL EPLift.ret_arg <| EPure.ewpL <| EPure.var (v := (.uptr (.sbufUnboundedIndex ℓₗ)))
+  uwp_left  EPLift.uwpL EPLift.ret_arg <| EPure.ewpL <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓₗ)
   -- TODO: Automatically reintroduce the entire context, or better yet, use iapply instead of .trans
   iintro ⟨Hℓₗ, Hℓᵣ⟩
-  uwp_right EPLift.uwpR EPLift.ret_arg <| EPure.ewpR <| EPure.var (v := (.uptr (.sbufUnboundedIndex ℓᵣ)))
+  uwp_right EPLift.uwpR EPLift.ret_arg <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ)
   iintro ⟨Hℓₗ, Hℓᵣ⟩
   uwp_left  SPure.uwpL .ret trivial
   iintro ⟨Hℓₗ, Hℓᵣ⟩
@@ -372,12 +372,9 @@ end example11
 
 
 
--- Sequencing
-
--- Lift impure expr steps
 -- Big list of example ideas:
--- Assign and read variable
--- Done states adequacy with state
+-- dwpSetpR/L to uwp to test impure steps
+-- Lift impure expr steps (reading)
 -- Done states adequacy with locals
 -- Done states with different values
 -- Returns
@@ -388,10 +385,11 @@ end example11
 -- Loop continue
 
 -- Open questions:
--- Composition
+-- Composition (seq rule for frame steps)
 -- Monotonicity of K
 -- Improved surface syntax
 -- Better timeout on the tactics
+-- ret_assert and adequacy
 
 
 

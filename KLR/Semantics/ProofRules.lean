@@ -572,6 +572,8 @@ theorem dwpSetpL {v : DataT} (Hx : 0 < Lx := by omega) :
   refine ⟨_, ⟨stepN_1_iff_step.mpr step.setp, SL⟩⟩
 -/
 
+
+-- TODO: Turn this into a uwp
 theorem dwpSetpL {v : DataT} (Hx : 0 < Lx := by omega) :
     ((⟨i, x⟩ ↦ₗ mv) ∗ ((⟨i, x⟩ ↦ₗ some v) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx (.run p1 loc) p2 Φ))
     ⊢ (dwp Lm Rm Lx Rx (.run (.setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v) :: p1) loc) p2 Φ) := by
@@ -613,6 +615,7 @@ theorem dwpSetpL {v : DataT} (Hx : 0 < Lx := by omega) :
   simp only [Step, NML.step]
   congr
 
+-- TODO: Turn this into a uwp
 theorem dwpSetpR {v : DataT} (Hx : 0 < Rx := by omega) :
     ((⟨i, x⟩ ↦ᵣ mv) ∗ ((⟨i, x⟩ ↦ᵣ some v) -∗ dwp Lm (Rm - 1) Lx (Rx - 1) p1 (.run p2 loc) Φ))
     ⊢ (dwp Lm Rm Lx Rx p1 (.run (.setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v) :: p2) loc) Φ) := by
@@ -653,7 +656,6 @@ theorem dwpSetpR {v : DataT} (Hx : 0 < Rx := by omega) :
   refine ⟨_, ⟨stepN_1_iff_step.mpr ?_, SR⟩⟩
   simp only [Step, NML.step]
   congr
-
 
 
 
@@ -965,6 +967,28 @@ def uwpSetpL {i : ChipIndex} {x : Nat × Nat} {mv : Option DataT} {v : DataT} {l
     sorry
 -/
 
+/- Maybe I just use a dwp for this one too? Seems to not fit very gracefully into a uwp
+
+@[simp] def uwpFrameLP (s : ExecState DataT) :=
+  ∃ (p : List (Stmt DataT)) (ctx : LocalContext DataT), s = .run p ctx
+
+@[simp] def uwpFrameLP.lift {s : ExecState DataT} (H : uwpFrameLP s)
+    (pout : List (Stmt DataT)) (ctxout : LocalContext DataT) : ExecState DataT :=
+  match s with
+  | .run pin ctxin => .run (.frame pin ctxin :: pout) ctxout
+  | .done _ => by simp at H
+
+@[simp] def uwpFrameL (U : uwpL DataT) (HU : uwpFrameLP U.prog := by simp)
+    {ps : List (Stmt DataT)} {ctx : LocalContext DataT} : uwpL DataT where
+  pre    := U.pre
+  post   := U.post
+  prog   := HU.lift ps ctx
+  prog'  := sorry
+  steps  := 1
+  spec   := by
+    sorry
+-/
+
 end uwp
 
 section ewp
@@ -1178,10 +1202,6 @@ attribute [simp] ewpVarR
 
 /-
 Remaining expressions
-  /- Allocation (currently: sbuf only) -/
-  | .alloc .sbuf =>
-      let ⟨dst, memory'⟩ := ChipMemory.freshSBUFStore s.memory
-      some ⟨.val <| .uptr dst, .mk memory'⟩
   /- Read point from memory -/
   | .readp (.val <| .uptr c) (.val <| .iptr i) =>
       s.memory.get ⟨c, i⟩ |>.bind fun vd =>
