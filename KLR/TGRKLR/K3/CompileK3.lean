@@ -1,45 +1,13 @@
-import KLR.TGR.AST
 import Lean
 import TensorLib.Tensor
+import Util.Gensym
+import KLR.TGR.AST
 import KLR.TGRKLR.Operators
+import KLR.TGRKLR.K3.AST
 
 namespace KLR.TGRKLR.K3
 
 open KLR.TGR(TensorTy)
-
-abbrev Var := String
-
-structure TensorK3 where
-  name : Var
-  shape : TensorTy
-deriving Inhabited, Repr, BEq
-inductive ScalarK3
-  | float (f : Float32)
-  | int (f : Nat)
-  | vector (name : Var) (size : Nat) (dtype : TensorLib.Dtype)
-deriving Inhabited, Repr, BEq
-instance : ToString TensorK3 where
-  toString t :=
-    s!"%{t.name}<{t.shape.shape.val.toString}>"
-instance : ToString ScalarK3 where
-  toString
-    | .float f => s!"{f}"
-    | .int i => s!"{i}"
-    | .vector name size dtype=> s!"{name}<{size}x{dtype}>"
-abbrev OperatorK3 := KLR.TGRKLR.Operator TensorK3 ScalarK3
-
-structure FunctionK3 where
-  name : String
-  inputs : List TensorK3
-  outputs : List TensorK3
-  statements : List OperatorK3
-
-instance : ToString FunctionK3 where
-  toString f :=
-    let inputs := f.inputs.map ToString.toString |> ",".intercalate
-    let outputs := f.outputs.map ToString.toString |> ",".intercalate
-    let body := f.statements.map ToString.toString |> "\n\t".intercalate
-    s!"def {f.name}({inputs}) -> {outputs} :\n\t{body}"
 
 structure Ctx where
   /- the type of each variable in the input program -/
@@ -48,23 +16,22 @@ structure Ctx where
   symEnv : List (KLR.TGR.Var × TensorK3) := default
   /- The set of KLR variables that have been added to the symEnv
   bu that don't have an operator that assigns to them yet -/
-  freeVars : List KLR.TGR.Var := []
+  freeVars : List KLR.TGR.Var := default
   args : List TensorK3 := default
-  /- A counter for making fresh variable names -/
-  gensymEnv : Nat := 0
+  gensymEnv : GensymEnv := default
 deriving Inhabited, Repr
 
 instance : ToString Ctx where
   toString ctx :=
-    s!"Ctx ( typeEnv := {ctx.typeEnv}, symEnv := {repr ctx.symEnv}, freeVars := {ctx.freeVars}, gensymEnv := {ctx.gensymEnv} )"
+    s!"Ctx ( typeEnv := {ctx.typeEnv}, symEnv := {repr ctx.symEnv}, freeVars := {ctx.freeVars})"
 
 abbrev Compile T := EStateM String Ctx T
 
-def gensym : Compile String := do
-  let ctx ← get
-  let sym := ctx.gensymEnv
-  set { ctx with gensymEnv := ctx.gensymEnv + 1 }
-  pure s!"{sym}"
+def gensym (suggestion : String) : Compile String := do
+  let (name, env) := (← get).gensymEnv.gensym suggestion
+  modify fun ctx => { ctx with gensymEnv := env }
+  return name
+
 def lookupTy (n : KLR.TGR.Var) : Compile KLR.TGR.TensorTy := do
   match (← get).typeEnv.lookup n with | some ty => pure ty | none => throw s!"Type for {n} not found."
 
@@ -75,7 +42,7 @@ def lower (v : KLR.TGR.Var) : Compile TensorK3 := do
     set { ctx with freeVars := ctx.freeVars.erase v }
     pure tensor
   | none, false => do
-    let tensor := {name := ← gensym, shape := (← lookupTy v)}
+    let tensor := {name := ← gensym v, shape := (← lookupTy v)}
     let ctx ← get
     set { ctx with symEnv := (v, tensor) :: ctx.symEnv }
     pure tensor
@@ -89,7 +56,7 @@ def fetch (v : KLR.TGR.Var) : Compile TensorK3 := do
   match (← get).symEnv.lookup v with
   | some tensor => pure tensor
   | none => do
-    let tensor := {name := ← gensym, shape := (← lookupTy v)}
+    let tensor := {name := ← gensym v, shape := (← lookupTy v)}
     let ctx ← get
     set { ctx with freeVars := ctx.freeVars ++ [v], symEnv := (v, tensor) :: ctx.symEnv }
     pure tensor
@@ -246,7 +213,7 @@ def compileReduction (f : KLR.TGR.Function) (op : KLR.TGR.BinaryOp) (a : KLR.TGR
       | some (.assign _ (.full value _) _) => pure value
       | _ => throw s!"Initial value for reduction {init} not found."
     let reducedShape := (← lookupTy a).shape.val.take (ndim - 1)
-    let intermediate := {name := ← gensym, shape := ⟨⟨reducedShape⟩, (← lookupTy a).dtype⟩}
+    let intermediate := {name := ← gensym "reductionIntermediate", shape := ⟨⟨reducedShape⟩, (← lookupTy a).dtype⟩}
     /- TODO: is there a way to incorporate the inital value into the TensorReduce instruction? -/
     pure [
       /- perform reduction -/
@@ -349,21 +316,26 @@ partial def compileFunction (p : KLR.TGR.Function) : Compile FunctionK3 := do
 
   let mut statements := []
   let table := makeTable p.statements
-  repeat do
-    let freeVar := (← get).freeVars.head?
-    match freeVar with
-    | none => break
-    | some v => do
-      let compiled ← compileRules.findSomeM? (fun rule => do
-        --dbg_trace s!"Trying variable {v} with rule {rule.repr}"
-        match ← rule.impl p table v with
-        | .some ops =>
-          pure ops
-        | .none => pure .none)
-      match compiled with
-      | .some ops => do
-        statements := ops ++ statements
-      | .none => throw s!"No rule found that matches variable {v}"
+  for statement in p.statements.reverse do
+    match statement with
+    | .assign target _ _ => do
+      if (← get).freeVars.contains target then do
+        let compiled ← compileRules.findSomeM? (fun rule => do
+          --dbg_trace s!"Trying variable {v} with rule {rule.repr}"
+          match ← rule.impl p table target with
+          | .some ops =>
+            pure ops
+          | .none => pure .none)
+        match compiled with
+        | .some ops => do
+          statements := ops ++ statements
+        | .none => throw s!"No rule found that matches variable {target}"
+      else
+        pure ()
+    | _ => pure ()
+
+  if !(← get).freeVars.isEmpty then
+    throw s!"Not all free variables were assigned: {(← get).freeVars}"
 
   return {
     name := p.name,
@@ -378,10 +350,21 @@ def makeContext (f : KLR.TGR.Function) : Ctx :=
     | _ => .none)
   { typeEnv := typeEnv }
 
+def assertValidProgramOrder (f : FunctionK3) : Compile FunctionK3 := do
+  let mut seen := f.inputs
+  for statement in f.statements do
+    for dep in dependencies statement do
+      if !(seen.contains dep) then
+        throw s!"Invalid program order: {dep} is used in {statement} but not seen yet."
+    seen := (targets statement) ++ seen
+  pure f
+
 def compile (f : KLR.TGR.Function) : (Except String FunctionK3) × Ctx :=
-  let compiled := compileFunction f
+  let compiled := compileFunction f >>= assertValidProgramOrder
   match compiled.run (makeContext f) with
-  | .ok ops s => (.ok ops, s)
+  | .ok func s =>
+    dbg_trace s!"Compiled function {f.name} with {func.statements.length} operators"
+    (.ok func, s)
   | .error err s => (throw err, s)
 
 

@@ -230,7 +230,7 @@ instance : ToString Operator where
     | .arange start stop step shape => s!"arange({start}, {stop}, {step}, shape={shape})"
     | .concat tensors dim => s!"concat({", ".intercalate tensors}, dim={dim})"
     | .select cond a b => s!"select({cond}, {a}, {b})"
-    | .full v shape => s!"full({repr v}, shape={shape})"
+    | .full v shape => s!"full({v.shape}x{v.dtype}, shape={shape})"
     | .transpose a dims => s!"transpose({a}, dims={dims})"
     | .reshape a shape => s!"reshape({a}, shape={shape})"
     | .broadcast a shape => s!"broadcast({a}, shape={shape})"
@@ -252,13 +252,12 @@ instance : ToString Function where
   toString f :=
     let inputsStr := f.inputs.map toString |> ", ".intercalate
     let outputsStr := f.outputs.map toString |> ", ".intercalate
-    let statementsStr := f.statements.map toString |> "\n".intercalate
-    s!"def {f.name}({inputsStr}) -> ({outputsStr}):\n{statementsStr}"
+    let statementsStr := f.statements.map toString |> "\n\t".intercalate
+    s!"def {f.name}({inputsStr}) -> ({outputsStr}):\n\t{statementsStr}"
 
 instance : ToString Program where
   toString p :=
-    let functionsStr := p.functions.map toString |> "\n".intercalate
-    s!"# Program\n" ++ functionsStr
+    p.functions.map toString |> "\n".intercalate
 
 /- Human readable name for the operator. -/
 def opName : Operator → String

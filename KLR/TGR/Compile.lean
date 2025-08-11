@@ -13,13 +13,12 @@ import TensorLib.Slice
 import TensorLib.Tensor
 import TensorLib.Bytes
 import TensorLib.ByteArray
+import Util.Gensym
 
 open TensorLib (Dtype Shape Tensor)
 
 /- This module compiles a StableHLO program into an TGR program. -/
 namespace KLR.TGR.Compile
-
-abbrev SymbolEnv := List (String × Nat)
 
 /- Context for the compilation process, to be stored in a state monad. -/
 structure Ctx where
@@ -27,7 +26,7 @@ structure Ctx where
   program : Program
   /- the log of messages generated during compilation (for debugging) -/
   log : List String
-  gensymEnv : SymbolEnv
+  gensymEnv : GensymEnv
 deriving Inhabited, Repr
 
 /- Compilation requires tracking state and also potentially returning errors. -/
@@ -44,18 +43,11 @@ def addFunction (func : Function) : Compile Unit := do
 
 /-
 Generate a fresh variable name based on a given name.
-
-TODO: This does not actually guarantee that the name is unique, since it
-only checks the gensymEnv. We also need to check against all existing
-variables in the program.
 -/
-def gensym (name : String) : Compile Var := do
-  let ctx ← get
-  let idx := match ctx.gensymEnv.find? (fun ⟨ n, _ ⟩ => n == name) with
-    | some (_, i) => i + 1
-    | none => 0
-  modify (fun ctx => { ctx with gensymEnv := (name, idx) :: ctx.gensymEnv })
-  pure s!"{name}_{idx}"
+def gensym (suggestion : String) : Compile String := do
+  let (name, env) := (← get).gensymEnv.gensym suggestion
+  modify fun ctx => { ctx with gensymEnv := env }
+  return name
 
 /- Permute `l` according to the indices in `permutation`. -/
 def permute {T : Type} (l : List T) (permutation : List Nat) : Option (List T) :=

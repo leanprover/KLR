@@ -1,6 +1,6 @@
 import TensorLib.Tensor
 import KLR.TGRKLR.Operators
-import KLR.TGRKLR.CompileK2
+import KLR.TGRKLR.K2.AST
 
 namespace KLR.TGRKLR.K2.Interp
 
@@ -14,31 +14,9 @@ inductive Value where
   | address (parOffset : Nat) (freeOffset : Nat)
 deriving Inhabited, Repr, BEq
 
-instance : ToString Value where
-  toString
-    | .none => "none"
-    | .int n => s!"int({n})"
-    | .float f => s!"float({f})"
-    | .address parOffset freeOffset =>
-      s!"address({parOffset},{freeOffset})"
-
-
-def parQuadrantToNat : Core.ParQuadrant → Nat
-  | .par0 => 0
-  | .par32 => 32
-  | .par64 => 64
-  | .par96 => 96
-
 structure Partition where
   (data : Vector Value 100)
 deriving Repr, Inhabited, BEq
-
-instance : ToString (Vector Value N) where
-  toString v :=
-    let values := v.toList.map (fun x => toString x)
-    s!"[{String.intercalate ", " values}]"
-instance : ToString Partition where
-  toString p := s!"Partition({p.data})"
 
 structure Ctx where
   dram : Std.HashMap Var (Array Value)
@@ -48,6 +26,26 @@ structure Ctx where
   peState : Array (Array Value)
   log : List String
 deriving Repr, Inhabited, BEq
+
+abbrev Interp T := EStateM String Ctx T
+
+def log (msg : String) : Interp Unit := do
+  modify fun ctx => { ctx with log := ctx.log ++ [msg] }
+
+instance : ToString Value where
+  toString
+    | .none => "none"
+    | .int n => s!"int({n})"
+    | .float f => s!"float({f})"
+    | .address parOffset freeOffset =>
+      s!"address({parOffset},{freeOffset})"
+
+instance : ToString (Vector Value N) where
+  toString v :=
+    let values := v.toList.map (fun x => toString x)
+    s!"[{String.intercalate ", " values}]"
+instance : ToString Partition where
+  toString p := s!"Partition({p.data})"
 
 instance : ToString Ctx where
   toString ctx :=
@@ -59,10 +57,11 @@ instance : ToString Ctx where
     let logStr := ctx.log |>.intersperse "\n"
     s!"Dram:\n{dramStr}\n\nSbuf:\n{sbufStr}\n\nPsum:\n{psumStr}\n\nRegs: [{regsStr}]\n\nPE State:\n{peStateStr}\n\nLog:\n{logStr}"
 
-abbrev Interp T := EStateM String Ctx T
-
-def log (msg : String) : Interp Unit := do
-  modify fun ctx => { ctx with log := ctx.log ++ [msg] }
+def parQuadrantToNat : Core.ParQuadrant → Nat
+  | .par0 => 0
+  | .par32 => 32
+  | .par64 => 64
+  | .par96 => 96
 
 def accessToIndices (pattern : List Core.APPair) : Array Nat :=
   let rec helper (acc : Array Nat) (pattern : List Core.APPair) :=
@@ -77,7 +76,11 @@ def accessToIndices (pattern : List Core.APPair) : Array Nat :=
 
 def dramAccess (offset : Nat) (pattern : List Core.APPair) (data : Array Value) : Array Value :=
   let indices := accessToIndices pattern
-  indices.map (fun i => data[i + offset]!)
+  let values := indices.map (fun i => data[i + offset]!)
+  if values.any fun x => x == .none then
+    panic! s!"Dram access uninitialized data at offset {offset} with pattern {repr pattern} ({data})"
+  else
+    values
 
 def dramWrite
   (dest : Var) (destOffset : Nat) (destPattern : List Core.APPair)
@@ -94,7 +97,7 @@ def dramWrite
 
 def sbufWrite (dest : TensorK2) (data : Array Value) : Interp Unit := do
   if data.isEmpty then
-    dbg_trace "sbufWrite: Data is empty"
+    --dbg_trace "sbufWrite: Data is empty"
     throw "sbufWrite: Data cannot be empty"
   let ⟨_name, _dtype, memory, parQuadrant, parDim, freeOffset, freePattern⟩ := dest
   let accessIndices := accessToIndices freePattern
@@ -132,7 +135,7 @@ def sbufRead (src : TensorK2) : Interp (Array Value) := do
       let index := freeOffset + accessIndex
       if index >= 4096 then
         throw s!"Index out of bounds in sbufRead: {index} >= 4096"
-      dbg_trace s!"Reading from sbuf[{row}][{index}]"
+      --dbg_trace s!"Reading from sbuf[{row}][{index}]"
       values := values.push (mem[row]!.data[index]!)
   pure values
 
@@ -232,7 +235,7 @@ def interpOp (op : OperatorK2) : Interp Unit := do
           throw s!"Expected parOffset to be 0 in tensorScalar, but got {parOffset}"
         let vec := { name := "", dtype := src.dtype, memory := .sbuf, parQuadrant := .par0, parDim, freeOffset, freePattern := [⟨1, 1⟩] }
         let vecValues ← sbufRead vec
-        dbg_trace s!"TensorScalar operation with variablevalues: {vecValues} and srcValues: {srcValues}"
+        --dbg_trace s!"TensorScalar operation with variablevalues: {vecValues} and srcValues: {srcValues}"
         let result ← srcValues.zip vecValues |>.mapM fun (row, scalar) =>
           match scalar with
           | .float scalar => row.mapM (fun value =>
@@ -240,11 +243,11 @@ def interpOp (op : OperatorK2) : Interp Unit := do
             | .float v => pure $ Value.float (op v scalar)
             | x => throw s!"Expected float in tensorScalar, but got {repr x}")
           | x => throw s!"Expected float in tensorScalar, but got {repr x}"
-        dbg_trace s!"TensorScalar operation with variable result: {result}"
+        --dbg_trace s!"TensorScalar operation with variable result: {result}"
         flatten result
       | x => throw s!"Expected address in tensorScalar, but got {repr x}"
     | _ => throw s!"Unsupported immediate type in tensorScalar: {repr imm0}"
-    dbg_trace s!"TensorScalar operation result: {destValues}"
+    --dbg_trace s!"TensorScalar operation result: {destValues}"
     sbufWrite dst destValues
   | .tensorReduce ⟨dst, src, op, _opDim, _negated⟩ =>
     let parDim := src.parDim
@@ -278,15 +281,24 @@ def interpOp (op : OperatorK2) : Interp Unit := do
       for k in List.range kSize do
         let mut sum := 0.0
         for j in List.range jSize do
+          dbg_trace s!"Multiplying moving[{i}][{j}] with stationary[{j}][{k}] (sum: {sum})"
           sum ← match (moving[i]![j]!, stationary[k]![j]!) with
             | (.float a, .float b) => pure (a * b + sum)
             | _ => throw s!"Expected float values in matMul, but got {repr moving[i]![j]!} and {repr stationary[j]![k]!}"
         dest := dest.set! i (dest[i]!.set! k (.float sum))
     let destValues ← flatten dest
     sbufWrite dst destValues
+  | .memSet ⟨dst, value, _⟩ =>
+    let parDim := dst.parDim
+    let freeDim := accessToIndices dst.freePattern |>.size
+    let fillValue ← match value with
+      | .float f => pure (.float f)
+      | _ => throw s!"Unsupported value type in memSet: {repr value}"
+    let destValues := Array.replicate (parDim * freeDim) fillValue
+    sbufWrite dst destValues
   | .copy ⟨dst, src, _⟩ =>
     let srcValues ← sbufRead src
-    dbg_trace s!"Copying values from {src} to {dst}: {srcValues}"
+    --dbg_trace s!"Copying values from {src} to {dst}: {srcValues}"
     sbufWrite dst srcValues
   | _ => throw s!"Unsupported operator: {repr op}"
 
@@ -294,7 +306,7 @@ partial def interpStatement (statement : StatementK2) : Interp Unit := do
   log s!"--- Statement ---\n{toString statement}"--\n{toString (← get)}"
   dbg_trace s!"--- Statement ---\n{toString statement}"--\n{toString (← get)}"
   match statement with
-  | .comment s => pure ()
+  | .comment _ => pure ()
   | .op op => interpOp op
   | .loop var start stop step body =>
     let mut counter := start
@@ -312,7 +324,7 @@ partial def interpStatement (statement : StatementK2) : Interp Unit := do
       | .int n => pure n.toNat
       | _ => throw "Expected integer offset for load"
     let sourceValues := (← get).dram[srcName]! |> dramAccess srcOffset srcPattern
-    dbg_trace sourceValues
+    --dbg_trace sourceValues
     sbufWrite dst sourceValues
   | .store ⟨dstName, dstOffset, dstPattern⟩ src =>
     let srcValues ← sbufRead src
@@ -337,20 +349,19 @@ partial def interpStatement (statement : StatementK2) : Interp Unit := do
       { ctx with regs := ctx.regs.set! reg (.address (parQuadrantToNat parOffset) freeOffset) }
 
 def interpFunction (f : FunctionK2) : Interp Unit := do
-  let _ ← f.statements.mapIdxM (fun i stmt => do
+  let _ ← f.statements.mapM (fun stmt => do
     interpStatement stmt)
   pure ()
-
 
 def interp (klr : FunctionK2) : (Except String Unit) × Ctx := Id.run do
   let mut ctx := default
   for (name, type) in klr.tensors do
-    let initialData := Array.replicate type.shape.count (Value.float 0.0)
+    let initialData := Array.replicate type.shape.count (.none)
     ctx := { ctx with dram := ctx.dram.insert name initialData }
 
   for (name, type) in klr.inputs do
     let hbmTensor ← match type.dtype with
-      | .float32 => pure (Array.replicate type.shape.count (Value.float 1.0))
+      | .float32 => pure (Array.replicate type.shape.count (Value.float 2.0))
       | _ => panic! s!"Unsupported input dtype: {repr type}"
     ctx := { ctx with dram := ctx.dram.insert name hbmTensor }
 

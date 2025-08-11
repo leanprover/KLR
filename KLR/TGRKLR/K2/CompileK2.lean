@@ -1,120 +1,20 @@
 import Lean
 import TensorLib.Tensor
+import Util.Gensym
 import KLR.TGRKLR.Operators
-import KLR.TGRKLR.CompileK3
+import KLR.TGRKLR.K3.CompileK3
+import KLR.TGRKLR.K2.AST
 
 namespace KLR.TGRKLR.K2
 
 open KLR.TGR(TensorTy)
 
-abbrev Var := String
-
-structure HbmTensor where
-  name : String
-deriving Inhabited, Repr, BEq
-instance : ToString HbmTensor where
-  toString t := s!"HbmTensor({t.name})"
-
-
-abbrev TensorK2 := KLR.Core.TensorSram
-instance : ToString TensorK2 where
-  toString t :=
-    s!"TensorK2(name: {t.name}, dtype: {repr t.dtype}, parQuadrant: {repr t.parQuadrant}, parDim: {t.parDim}, freeOffset: {t.freeOffset}, freePattern: {repr t.freePattern})"
-
-abbrev Reg := Nat
-inductive ScalarOp where
-  | mult
-  | add
-deriving Inhabited, Repr, BEq
-inductive ScalarK2
-  | float (f : Float32)
-  | int (f : Nat)
-  | var (var : Reg)
-  | expr (op : ScalarOp) (a b : ScalarK2)
-deriving Inhabited, Repr, BEq
-def toStringScalarK2 : ScalarK2 → String
-  | .float f => s!"{f}"
-  | .int i => s!"{i}"
-  | .var var => s!"%{var}"
-  | .expr op a b =>
-    let opStr := match op with
-      | .mult => "*"
-      | .add => "+"
-    s!"({toStringScalarK2 a} {opStr} {toStringScalarK2 b})"
-instance : ToString ScalarK2 := ⟨toStringScalarK2⟩
-
-abbrev OperatorK2 := KLR.TGRKLR.Operator TensorK2 ScalarK2
-
-mutual
-  inductive HbmLocation where
-  | mk (name : String) (offset : ScalarK2) (pattern : List Core.APPair)
-
-  inductive StatementK2 where
-    | comment (s : String)
-    | op (op : OperatorK2)
-    | loop (var : Reg) (start : Nat) (stop : Nat) (step : Nat) (body : List StatementK2)
-    | ifzero (var : Reg) (consequent alternate : List StatementK2)
-    | load (dst : TensorK2) (src : HbmLocation)
-    | store (dst : HbmLocation) (src : TensorK2)
-    | dramToDram (dst : HbmLocation) (src : HbmLocation)
-    | move (reg : Reg) (expr : ScalarK2)
-    | moveAddress (reg : Reg) (parOffset : Core.ParQuadrant) (freeOffset : Nat)
-end
---namespace HbmLocation
---  partial def name (loc : HbmLocation) : String :=
---    loc.name
---  partial def offset (loc : HbmLocation) : ScalarK2 :=
---    loc.offset
---end HbmLocation
-
 def dtypeSize (_dtypeSize : Nat) : Nat :=
   1
 
-instance : ToString HbmLocation where
-  toString
-  | .mk name offset pattern => s!"HbmLocation({name}, {offset}, [{repr pattern}])"
-
-def toStringStatementK2 (s : StatementK2) : String :=
-  match s with
-  | .comment s => s!"# {s}"
-  | .op op => s!"{op}"
-  | .loop var start stop step body =>
-    let body := body.map toStringStatementK2 |> "\n\t".intercalate
-    s!"for {var} in [{start}, {stop}, {step}]:\n\t{body}\n"
-  | .ifzero var consequent alternate =>
-    let consequentBody := consequent.map toStringStatementK2 |> "\n\t".intercalate
-    let alternateBody := alternate.map toStringStatementK2 |> "\n\t".intercalate
-    s!"if {var} == 0:\n\t{consequentBody}\nelse:\n\t{alternateBody}\n"
-  | .load dst src => s!"{dst} <- {src}"
-  | .store dst src => s!"{dst} <- {src}"
-  | .dramToDram dst src =>
-    s!"dramToDram {dst} <- {src}"
-  | .move reg expr => s!"%{reg} = {expr}"
-  | .moveAddress reg parOffset freeOffset => s!"%{reg} = {repr parOffset} + {freeOffset}"
-instance : ToString StatementK2 := ⟨toStringStatementK2⟩
-
-structure FunctionK2 where
-  name : String
-  tensors : List (Var × TensorTy)
-  inputs : List (Var × TensorTy)
-  outputs : List Var
-  statements : List StatementK2
-
-instance : ToString FunctionK2 where
-  toString f :=
-    let inputs := f.inputs.map (fun (name, shape) => s!"{name}({shape})") |> ",".intercalate
-    let outputs := f.outputs.map ToString.toString |> ",".intercalate
-    let body := f.statements.map ToString.toString |> "\n\t".intercalate
-    let tensors := f.tensors.map (fun (name, shape) => s!"{name}({shape})") |> ",".intercalate
-    s!"def {f.name}({inputs}) -> {outputs} :\n\t{tensors}\n\t{body}"
-
-structure ProgramK2 where
-  functions : List FunctionK2
-
 structure Ctx where
   lowerEnv : List (K3.Var × HbmTensor)
-  /- A counter for making fresh variable names -/
-  gensymEnv : Nat := 0
+  gensymEnv : GensymEnv := default
 deriving Inhabited, Repr
 
 instance : ToString Ctx where
@@ -123,11 +23,11 @@ instance : ToString Ctx where
 
 abbrev Compile T := EStateM String Ctx T
 
-def gensym : Compile String := do
-  let ctx ← get
-  let sym := ctx.gensymEnv
-  set { ctx with gensymEnv := ctx.gensymEnv + 1 }
-  pure s!"{sym}"
+def gensym (suggestion : String) : Compile String := do
+  let (name, env) := (← get).gensymEnv.gensym suggestion
+  modify fun ctx => { ctx with gensymEnv := env }
+  return name
+
 def fetch (v : K3.Var) : Compile HbmTensor := do
   match (← get).lowerEnv.lookup v with | some ty => pure ty | none => throw s!"HbmTensor for {v} not found."
 
@@ -220,6 +120,7 @@ def makeSingleTensorLoop
   let srcTileSize := srcTilePartitionSize * srcTileFreeSize
   let destTileSize := destTilePartitionSize * destTileFreeSize
   let iterations := srcTensor.shape.shape.count / srcTileSize
+  let dtypeSize := dtypeSize srcTensor.shape.dtype.itemsize
 
   let sourceHbmTensor ← fetch srcTensor.name
   let destHbmTensor ← fetch destTensor.name
@@ -228,10 +129,10 @@ def makeSingleTensorLoop
 
   let loopReg := 0
   let loop := [
-    .loop loopReg 0 iterations srcTileSize (
-      [.load sourceSbuf ⟨sourceHbmTensor.name, .expr .mult (.var loopReg) (.int srcTileSize), [⟨1,srcTileSize⟩]⟩] ++
+    .loop loopReg 0 srcTensor.shape.shape.count destTileSize (
+      [.load sourceSbuf ⟨sourceHbmTensor.name, .expr .mult (.var loopReg) (.int dtypeSize), [⟨1,srcTileSize⟩]⟩] ++
       (← body destSbuf sourceSbuf) ++
-      [.store ⟨destHbmTensor.name, .expr .mult (.var loopReg) (.int destTileSize), [⟨1,destTileSize⟩]⟩ destSbuf])
+      [.store ⟨destHbmTensor.name, .expr .mult (.var loopReg) (.int dtypeSize), [⟨1,destTileSize⟩]⟩ destSbuf])
   ]
   /- If the source tensor doesn't fit neatly into the provided tile size, we need to add
   an idditional set of instructions at the end of the loop to process the remaining elements -/
@@ -259,6 +160,7 @@ def makeDoubleTensorLoop
   let bTileSize := bTilePartitionSize * bTileFreeSize
   let destTileSize := destTilePartitionSize * destTileFreeSize
   let iterations := aTensor.shape.shape.count / aTileSize
+  let dtypeSize := dtypeSize aTensor.shape.dtype.itemsize
 
   let aHbmTensor ← fetch aTensor.name
   let bHbmTensor ← fetch bTensor.name
@@ -269,11 +171,11 @@ def makeDoubleTensorLoop
 
   let loopReg := 0
   let loop := [
-    .loop loopReg 0 iterations aTileSize (
-      [.load aSbuf ⟨aHbmTensor.name, .expr .mult (.var loopReg) (.int aTileSize), [⟨1,aTileSize⟩]⟩] ++
-      [.load bSbuf ⟨bHbmTensor.name, .expr .mult (.var loopReg) (.int bTileSize), [⟨1,bTileSize⟩]⟩] ++
+    .loop loopReg 0 aTensor.shape.shape.count aTileSize (
+      [.load aSbuf ⟨aHbmTensor.name, .expr .mult (.var loopReg) (.int dtypeSize), [⟨1,aTileSize⟩]⟩] ++
+      [.load bSbuf ⟨bHbmTensor.name, .expr .mult (.var loopReg) (.int dtypeSize), [⟨1,bTileSize⟩]⟩] ++
       (← body aSbuf bSbuf destSbuf) ++
-      [.store ⟨destHbmTensor.name, .expr .mult (.var loopReg) (.int destTileSize), [⟨1,destTileSize⟩]⟩ destSbuf])
+      [.store ⟨destHbmTensor.name, .expr .mult (.var loopReg) (.int dtypeSize), [⟨1,destTileSize⟩]⟩ destSbuf])
   ]
   /- If the source tensor doesn't fit neatly into the provided tile size, we need to add
   an idditional set of instructions at the end of the loop to process the remaining elements -/
@@ -298,6 +200,31 @@ def makeDoubleTensorLoop
   else
     pure []
   pure (loop ++ epilogue)
+
+def compileTensorReduce
+  (srcTensor destTensor : K3.TensorK3) (op : AluOp) (opDim : TensorSubDim) (negated : Bool) : Compile (List StatementK2) := do
+  dbg_trace s!"compileTensorReduce: src={srcTensor}, dest={destTensor}, op={op}"
+  let srcTensorLeadingSize := srcTensor.shape.shape.val.take (srcTensor.shape.shape.ndim - 1) |> List.foldl (· * ·) 1
+  let srcTensorFreeSize := srcTensor.shape.shape.val.getLast!
+  let dtypeSize := dtypeSize srcTensor.shape.dtype.itemsize
+
+  if srcTensorLeadingSize != destTensor.shape.shape.count then
+    throw s!"compileTensorReduce: Source tensor {srcTensor.name} has a leading dimension size ({srcTensorLeadingSize}) that does not match the destination tensor size ({destTensor.shape.shape.count})."
+
+  let parDim := 2
+  let sourceHbmTensor ← fetch srcTensor.name
+  let destHbmTensor ← fetch destTensor.name
+  let sourceSbuf := makeSimpleTile 0 parDim srcTensorFreeSize srcTensor.shape.dtype
+  let destSbuf := makeSimpleTile srcTensorFreeSize parDim 1 destTensor.shape.dtype
+
+  let loopReg := 0
+  let loop := [
+    .loop loopReg 0 srcTensorLeadingSize parDim
+      [.load sourceSbuf ⟨sourceHbmTensor.name, .expr .mult (.var loopReg) (.int (dtypeSize * srcTensorFreeSize)), [⟨1,parDim * srcTensorFreeSize⟩]⟩,
+      .op (.tensorReduce ⟨destSbuf, sourceSbuf, op, opDim, negated⟩),
+      .store ⟨destHbmTensor.name, .expr .mult (.var loopReg) (.int dtypeSize), [⟨1,parDim⟩]⟩ destSbuf]
+  ]
+  pure loop
 
 /-
 Multiples a tensor of shape (B, I, J) with a tensor of shape (B, K, J) and stores the result in a tensor of shape (B, I, K).
@@ -375,7 +302,7 @@ def compileMatMul
   let bHbmTensor ← fetch bTensor.name
   let destHbmTensor ← fetch destTensor.name
 
-  let tileSize := 128
+  let tileSize := 2
 
   let bReg := 0
   let iReg := 1
@@ -395,6 +322,7 @@ def compileMatMul
     .loop bReg 0 batchSize 1 [
       .loop iReg 0 iTiles 1 [
         .loop kReg 0 kTiles 1 [
+          .op (.memSet ⟨destSbuf, .float 0, 0⟩),
           .loop jReg 0 jTiles 1 [
             -- bReg * i * j + iReg * j * tileSize + jReg * tileSize
             .move xOffsetReg
@@ -535,6 +463,8 @@ def compileTranspose (dst src : K3.TensorK3) (dims : List Nat) : Compile (List S
   let goalShapeSqueezed := goalShape.filter (fun d => d != 1) -- [12,2000,64]
 
   if dimsSqueezed.length == 3 then
+    let sourceHbmTensor ← fetch src.name
+    let destHbmTensor ← fetch dst.name
     let (x, y, z) := (shapeSqueezed[0]!, shapeSqueezed[1]!, shapeSqueezed[2]!)
     let (xReg, yReg, zReg) := (0, 1, 2)
     let destAccessExpr :=
@@ -549,8 +479,8 @@ def compileTranspose (dst src : K3.TensorK3) (dims : List Nat) : Compile (List S
         .loop yReg 0 y 1 [
           .loop zReg 0 z 1 [
             .dramToDram
-              ⟨dst.name, destAccessExpr, [⟨1,1⟩]⟩
-              ⟨src.name,
+              ⟨destHbmTensor.name, destAccessExpr, [⟨1,1⟩]⟩
+              ⟨sourceHbmTensor.name,
                 .expr .add
                   (.expr .mult (.var xReg) (.int (y * z)))
                   (.expr .add
@@ -603,9 +533,7 @@ def compileStatement (s : K3.OperatorK3) : Compile (List StatementK2) := do
   | .tensorReduce ⟨dst, src, op, opDim, negated⟩ =>
     if opDim != .X then
       throw s!"Unsupported reduction dimension {repr opDim} in {repr s}"
-    makeSingleTensorLoop src dst tileSize tileSize tileSize 1 fun sbufDestination sbufSource => do pure [
-      .op (.tensorReduce ⟨sbufDestination, sbufSource, op, opDim, negated⟩),
-    ]
+    compileTensorReduce src dst op opDim negated
   | .reshapeP ⟨dst, src⟩ =>
     makeSingleTensorLoop src dst tileSize tileSize tileSize tileSize fun sbufDestination sbufSource => do pure [
       .op (.copy ⟨sbufDestination, sbufSource, .none⟩),
@@ -618,12 +546,12 @@ def compileFunction (f : K3.FunctionK3) : Compile FunctionK2 := do
   let mut tensors := []
   for op in f.statements do
     for target in targets op do
-      let hbmTensor := ⟨← gensym⟩
+      let hbmTensor := ⟨← gensym target.name⟩
       modify fun ctx =>
         { ctx with lowerEnv := (target.name, hbmTensor) :: ctx.lowerEnv }
       tensors := (hbmTensor.name, target.shape) :: tensors
   for input in f.inputs do
-    let hbmTensor := ⟨← gensym⟩
+    let hbmTensor := ⟨← gensym input.name⟩
     modify fun ctx =>
       { ctx with lowerEnv := (input.name, hbmTensor) :: ctx.lowerEnv }
 

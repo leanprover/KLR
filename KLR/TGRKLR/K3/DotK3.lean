@@ -1,4 +1,4 @@
-import KLR.TGRKLR.CompileK3
+import KLR.TGRKLR.K3.AST
 import SHerLOC.Analysis.Graph
 
 open StableHLO.Analysis (Graph Edge Vertex)
