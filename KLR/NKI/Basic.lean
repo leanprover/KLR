@@ -45,7 +45,7 @@ inductive Value where
   | int (value : Int)
   | float (value : Float)
   | string (value : String)
-  | tensor (shape : List Nat) (dtype : String)  -- TODO use Core Dtype
+  | tensor (shape : List Nat) (dtype : String) (name : Option String)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 -- Note: land, lor do not short-circuit (see conj, disj below)
