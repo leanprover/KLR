@@ -66,6 +66,7 @@ where
        (name : TSyntax `ident)
        (items : TSyntaxArray `KLR.Util.item)
        (dcs : TSyntax `Lean.Parser.Command.optDeriving) : CommandElabM Unit := do
+    let mut cmds : List (TSyntax `command) := []
     let mut unsortedValues : List (TSyntax `Lean.Parser.Command.ctor × TSyntax `num) := []
     let mut ctors : Array (TSyntax `Lean.Parser.Command.ctor) := #[]
     let mut numValues : Array Nat := #[]
@@ -101,9 +102,7 @@ where
           $[ $ctors ]*
         $dcs:optDeriving
       )
-    -- SM: Leave this in
-    -- dbg_trace (<- liftTermElabM <| ppCommand cmd)
-    elabCommand cmd
+    cmds := cmd :: cmds
     let typeName := name.raw.getId
     let toUInt8Name := mkIdent (.str typeName "toUInt8")
     let mut cases : Array (TSyntax `Lean.Parser.Term.matchAltExpr) := #[]
@@ -116,11 +115,19 @@ where
       terms := terms.push c
       let case <- `(matchAltExpr| | $c => $n:num)
       cases := cases.push case
+    /-
+    private here is annoying; if the enum is marked `private`, without the private here I get
+
+        invalid field 'toUInt8', the environment does not contain '_private.Util.Enum.0.KLR.Util.Test.Foo.toUInt8'
+
+    Seems like the `private` is being encoded into the namespace?
+    This seems to work, so I'm leaving it in as a kludge until we know better.
+    -/
     let toUInt8 <- `(
       private def $toUInt8Name:ident (x : $name) : UInt8 := match x with
         $cases:matchAlt*
     )
-    elabCommand toUInt8
+    cmds := toUInt8 :: cmds
     let fromUInt8Name := mkIdent (.str typeName "fromUInt8")
     let mut cases1 : Array (TSyntax `Lean.Parser.Term.matchAltExpr) := #[]
     for (c, n) in values do
@@ -130,21 +137,19 @@ where
     let other <- `(matchAltExpr| | n => throw ("Unexpected numeric code " ++ $(Lean.quote typeName.toString) ++ s!": {n} = {u8ToHex n}"))
     cases1 := cases1.push other
     let fromUInt8 <- `(
-      private def $fromUInt8Name:ident (x : UInt8) : Except String $name := match x with
+      def $fromUInt8Name:ident (x : UInt8) : Except String $name := match x with
         $cases1:matchAlt*
     )
-    elabCommand fromUInt8
+    cmds := fromUInt8 :: cmds
     let valuesFunName := mkIdent (.str typeName "values")
     let valuesFun <- `(
       def $valuesFunName : List $name := [ $terms,* ]
     )
-    -- SM: Leave this in as an example
-    -- dbg_trace (<- liftTermElabM <| ppCommand valuesFun)
-    elabCommand valuesFun
+    cmds := valuesFun :: cmds
     let instances <- `(
       deriving instance BEq, DecidableEq, FromJson, FromSexp, Inhabited, Repr, ToJson, ToSexp for $name
     )
-    elabCommand instances
+    cmds := instances :: cmds
     let fromUInt8!Name : Lean.Ident := mkIdent (.str typeName "fromUInt8!")
     let n : Lean.Ident := Lean.mkIdent (.str .anonymous "n")
     let app : Lean.Term := Syntax.mkApp fromUInt8Name #[n]
@@ -153,38 +158,38 @@ where
       | .ok v => v
       | .error msg => panic msg
     )
-    elabCommand fromUInt8!
+    cmds := fromUInt8! :: cmds
     let enumInstance <- `(
       instance : Enum $name where
         toUInt8 := $toUInt8Name
         fromUInt8 := $fromUInt8Name
     )
-    elabCommand enumInstance
+    cmds := enumInstance :: cmds
     let ltInstance <- `(
       instance : LT $name where
-        lt a b := a.toUInt8 < b.toUInt8
+        lt a b := $toUInt8Name a < $toUInt8Name b
     )
-    elabCommand ltInstance
+    cmds := ltInstance :: cmds
     let ltDecidableInstance <- `(
       instance (a b : $name) : Decidable (a < b) :=
-        UInt8.decLt a.toUInt8 b.toUInt8
+        UInt8.decLt ($toUInt8Name a) ($toUInt8Name b)
     )
-    elabCommand ltDecidableInstance
+    cmds := ltDecidableInstance :: cmds
     let leInstance <- `(
       instance : LE $name where
-        le a b := a.toUInt8 <= b.toUInt8
+        le a b := $toUInt8Name a <= $toUInt8Name b
     )
-    elabCommand leInstance
+    cmds := leInstance :: cmds
     let leDecidableInstance <- `(
       instance (a b : $name) : Decidable (a <= b) :=
-        UInt8.decLe a.toUInt8 b.toUInt8
+        UInt8.decLe ($toUInt8Name a) ($toUInt8Name b)
     )
-    elabCommand leDecidableInstance
+    cmds := leDecidableInstance :: cmds
     let toStringInstance <- `(
       instance : ToString $name where
         toString x := ((reprStr x).splitOn ".").reverse.head!
     )
-    elabCommand toStringInstance
+    cmds := toStringInstance :: cmds
     let mut cases2 : Array (TSyntax `Lean.Parser.Term.matchAltExpr) := #[]
     for (c, _) in values do
       let c := mkIdent (c.raw.getIdAt 3)
@@ -198,9 +203,13 @@ where
       def $fromStringName (s : String) : Option $name := match s with
         $cases2:matchAlt*
     )
-    elabCommand fromString
+    cmds := fromString :: cmds
+    for cmd in cmds.reverse do
+      -- SM: Leave this in
+      -- dbg_trace (<- liftTermElabM <| ppCommand cmd)
+      elabCommand cmd
 
-section Test
+namespace Test
 
 /-- Docstring -/
 @[export foo]
