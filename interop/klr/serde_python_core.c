@@ -510,7 +510,7 @@ bool Python_Fun_ser(FILE *out, struct Python_Fun *x) {
 }
 
 bool Python_Kernel_ser(FILE *out, struct Python_Kernel *x) {
-  if (!cbor_encode_tag(out, 14, 0, 6))
+  if (!cbor_encode_tag(out, 14, 0, 7))
     return false;
   if (!String_ser(out, x->entry))
     return false;
@@ -519,6 +519,8 @@ bool Python_Kernel_ser(FILE *out, struct Python_Kernel *x) {
   if (!Python_Expr_List_ser(out, x->args))
     return false;
   if (!Python_Keyword_List_ser(out, x->kwargs))
+    return false;
+  if (!Python_Expr_List_ser(out, x->scheduleEdges))
     return false;
   if (!Python_Keyword_List_ser(out, x->globals))
     return false;
@@ -1233,7 +1235,7 @@ bool Python_Kernel_des(FILE *in, struct region *region,
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 14 || c != 0 || l != 6)
+  if (t != 14 || c != 0 || l != 7)
     return false;
   *x = region_alloc(region, sizeof(**x));
   if (!String_des(in, region, &(*x)->entry))
@@ -1243,6 +1245,8 @@ bool Python_Kernel_des(FILE *in, struct region *region,
   if (!Python_Expr_List_des(in, region, &(*x)->args))
     return false;
   if (!Python_Keyword_List_des(in, region, &(*x)->kwargs))
+    return false;
+  if (!Python_Expr_List_des(in, region, &(*x)->scheduleEdges))
     return false;
   if (!Python_Keyword_List_des(in, region, &(*x)->globals))
     return false;
