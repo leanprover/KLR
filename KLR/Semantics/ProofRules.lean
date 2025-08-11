@@ -387,19 +387,15 @@ theorem dwpPureR (Hstep : SPure p2 p2' HP) (H : HP) (Hx : 0 < Rx := by omega) :
 
 
 
-
-
-
-
-/-
--- NB. Keeping this code in the repo as an example for writing basic proof rules.
 open ChipIndex in
 /-- `dwp` for a single allocation step on the left. This is a little bit simpler
 than the `uwp` version since it quantifies over the generated location. -/
 theorem dwpAllocL (Hx : 1 < Lx := by omega) :
-    ⊢ (∀ ℓₗ, (ℓₗ [S]⇉ₗ∅) -∗
-        dwp (Lm - 2) Rm (Lx - 2) Rx (.run <| p1'.map (.bind DataT · x (.uptr <| sbufUnboundedIndex ℓₗ))) p2 Φ) -∗
-      dwp Lm Rm Lx Rx (.run <| ⟨.assign (.some x) (.alloc Memory.sbuf), locₗ⟩ :: p1') p2 Φ := by
+    (∀ ℓₗ, (ℓₗ [S]⇉ₗ∅) -∗
+         dwp (Lm - 2) Rm (Lx - 2) Rx (.run p1' (loc.bindv DataT x (.uptr <| sbufUnboundedIndex ℓₗ))) p2 Φ)
+    ⊢ dwp Lm Rm Lx Rx (.run (.assign (.some x) (.alloc Memory.sbuf) :: p1') loc) p2 Φ := by
+  sorry
+  /-
   -- Unfold the dwp in the conclusion
   iintro Hdwp
   conv => rhs; unfold dwp
@@ -455,7 +451,18 @@ theorem dwpAllocL (Hx : 1 < Lx := by omega) :
     rw [Hℓ₁]
     exact step.asnV
   · iexact H
+-/
 
+open ChipIndex in
+/-- `dwp` for a single allocation step on the left. This is a little bit simpler
+than the `uwp` version since it quantifies over the generated location. -/
+theorem dwpAllocR (Hx : 1 < Rx := by omega) :
+    (∀ ℓᵣ, (ℓᵣ [S]⇉ₗ∅) -∗
+         dwp Lm (Rm - 2) Lx (Rx - 2) p1 (.run p2' (loc.bindv DataT x (.uptr <| sbufUnboundedIndex ℓᵣ))) Φ)
+    ⊢ dwp Lm Rm Lx Rx p1 (.run (.assign (.some x) (.alloc Memory.sbuf) :: p2') loc) Φ := by
+  sorry
+
+/-
 
 open ChipIndex in
 theorem dwpAllocR (Hx : 1 < Rx := by omega) :
@@ -1166,5 +1173,26 @@ attribute [simp] ewpVarR
       apply Hstep
       apply H
     · iexact Hupd
+
+
+
+/-
+Remaining expressions
+  /- Allocation (currently: sbuf only) -/
+  | .alloc .sbuf =>
+      let ⟨dst, memory'⟩ := ChipMemory.freshSBUFStore s.memory
+      some ⟨.val <| .uptr dst, .mk memory'⟩
+  /- Read point from memory -/
+  | .readp (.val <| .uptr c) (.val <| .iptr i) =>
+      s.memory.get ⟨c, i⟩ |>.bind fun vd =>
+      some ⟨.val <| .data vd, s⟩
+-/
+
+
+
+
+
+
+
 
 end ewp

@@ -25,11 +25,11 @@ macro "wp_desync" : tactic =>
 macro "wp_resync" : tactic =>
   `(tactic| refine Entails.trans ?_ <| wand_entails <| wpResync)
 
-macro "dwp_left_pure " t:term : tactic =>
-  `(tactic| apply Entails.trans ?_ <| wand_entails <| dwpPureL $t (Hx := by simp))
-
-macro "dwp_right_pure " t:term : tactic =>
-  `(tactic| apply Entails.trans ?_ <| wand_entails <| dwpPureR $t (Hx := by simp))
+-- macro "dwp_left_pure " t:term : tactic =>
+--   `(tactic| apply Entails.trans ?_ <| wand_entails <| dwpPureL $t (Hx := by simp))
+--
+-- macro "dwp_right_pure " t:term : tactic =>
+--   `(tactic| apply Entails.trans ?_ <| wand_entails <| dwpPureR $t (Hx := by simp))
 
 theorem tac_uwp_elim_triv_both {P Q : @PROP DataT} (H : P ⊢ Q) : P ⊢ emp ∗ (emp -∗ Q) := by
   apply H.trans
@@ -55,7 +55,7 @@ theorem tac_uwp_elim_triv_post {P Q : @PROP DataT} (H : P ⊢ R -∗ Q) : P ⊢ 
   iexact H
 
 macro "uwp_left " u:term : tactic => `(tactic|
-  apply Entails.trans ?_ (dwpL' $u ?_) <;>
+  apply Entails.trans ?_ (dwpL $u ?_) <;>
   simp <;>
   (first
    | apply tac_uwp_elim_triv_both
@@ -65,10 +65,31 @@ macro "uwp_left " u:term : tactic => `(tactic|
   istart)
 
 macro "uwp_right " u:term : tactic => `(tactic|
-  apply Entails.trans ?_ (dwpR' $u (by simp)) <;>
+  apply Entails.trans ?_ (dwpR $u (by simp)) <;>
   simp <;>
   (first
    | apply tac_uwp_elim_triv_both
    | apply tac_uwp_elim_triv_pre
-   | apply tac_uwp_elim_triv_post) <;>
+   | apply tac_uwp_elim_triv_post
+   | skip) <;>
+  istart)
+
+macro "dwp_left " u:term : tactic => `(tactic|
+  apply Entails.trans ?_ $u <;>
+  simp <;>
+  (first
+   | apply tac_uwp_elim_triv_both
+   | apply tac_uwp_elim_triv_pre
+   | apply tac_uwp_elim_triv_post
+   | skip) <;>
+  istart)
+
+macro "dwp_right " u:term : tactic => `(tactic|
+  apply Entails.trans ?_ $u <;>
+  simp <;>
+  (first
+   | apply tac_uwp_elim_triv_both
+   | apply tac_uwp_elim_triv_pre
+   | apply tac_uwp_elim_triv_post
+   | skip) <;>
   istart)

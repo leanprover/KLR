@@ -145,6 +145,10 @@ structure LocalContext where
   loc : Locals DataT
   it : Iterators DataT
 
+def LocalContext.emp : LocalContext DataT where
+  loc := .emp DataT
+  it  := .emp DataT
+
 /-- Get a variable in a local context. -/
 @[simp] def LocalContext.getv (lc : LocalContext DataT) (x : String) : Option (Value DataT) :=
   lc.loc x
@@ -488,17 +492,6 @@ theorem EPure.ix :
   rw [HP]
 
 
-/-
-Remaining expressions
-  /- Allocation (currently: sbuf only) -/
-  | .alloc .sbuf =>
-      let ⟨dst, memory'⟩ := ChipMemory.freshSBUFStore s.memory
-      some ⟨.val <| .uptr dst, .mk memory'⟩
-  /- Read point from memory -/
-  | .readp (.val <| .uptr c) (.val <| .iptr i) =>
-      s.memory.get ⟨c, i⟩ |>.bind fun vd =>
-      some ⟨.val <| .data vd, s⟩
--/
 
 
 

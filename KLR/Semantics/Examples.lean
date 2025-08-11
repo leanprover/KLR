@@ -14,51 +14,393 @@ import KLR.Semantics.Tactics
 section weakestpre
 open Iris.BI.BIBase KLR.Core Iris NML Iris.BI
 
+set_option grind.warning false
 variable {DataT : Type _}
+attribute [simp] Locals.bind
+
+@[simp] def ΦInt (Φ : Int → Int → Prop) (v1 v2 : Value DataT) : Prop :=
+  ∃ z1 z2, v1 = .int z1 ∧ v2 = .int z2 ∧ Φ z1 z2
+@[simp] def ΦPure (Φ : Value DataT → Value DataT → Prop) : Value DataT → Value DataT → @PROP DataT :=
+  (iprop(⌜Φ · ·⌝))
+@[simp] def ΦTriv (_ _ : Value DataT) : Prop := True
+
+namespace example0
+/-! Example: Done states are related-/
+
+abbrev K : LeibnizO Nat := ⟨1⟩
+@[simp] def sL : ExecState DataT := .done <| .int 4
+@[simp] def sR : ExecState DataT := .done <| .int 5
+
+theorem example0 : ⊢ wp (DataT := DataT) K sL sR (ΦPure <| ΦInt (· < ·)) := by
+  simp [sL, sR]
+  wp_sync_val
+  unfold ΦPure ΦInt
+  ipure_intro
+  grind
+
+/-- Applying the NML Adequacy theorem to example0 -/
+example (σ₁ σ₂ : State DataT) : SmallStep.PRel (sL, σ₁) (sR, σ₂) (ΦInt (· < ·)) := by
+  apply wp_adequacy (K := ⟨1⟩)
+  refine .trans ?_ example0
+  exact true_intro.trans true_emp.mp
+
+end example0
+
+namespace example1
+/-! Example: Desync, step left and right, and return -/
+
+abbrev K : LeibnizO Nat := ⟨1⟩
+@[simp] def sL : ExecState DataT := .run [.ret <| .val <| .int 4] (.emp DataT)
+@[simp] def sR : ExecState DataT := .run [.ret <| .val <| .int 4] (.emp DataT)
+
+example : ⊢ wp (DataT := DataT) K sL sR (ΦPure <| ΦInt (· = ·)) := by
+  istart
+  wp_desync
+  uwp_left  SPure.uwpL .ret trivial
+  uwp_right SPure.uwpR .ret trivial
+  wp_resync
+  wp_sync_val
+  unfold ΦPure ΦInt
+  ipure_intro
+  grind
+
+end example1
+
+namespace example2
+/-! Example: Proving safety of a program -/
+
+abbrev K : LeibnizO Nat := ⟨1⟩
+@[simp] def s : ExecState DataT := .run [.ret <| .val <| .int 4] (.emp DataT)
+
+theorem example2 : ⊢ wp (DataT := DataT) K s s (ΦPure ΦTriv) := by
+  istart
+  wp_desync
+  uwp_left  SPure.uwpL .ret trivial
+  uwp_right SPure.uwpR .ret trivial
+  wp_resync
+  wp_sync_val
+  unfold ΦPure ΦTriv
+  ipure_intro
+  grind
+
+example (σ : State DataT) : SmallStep.Safe (s, σ) := by
+  apply SmallStep.Safe_of_PRel (Φf := ΦTriv)
+  apply wp_adequacy (K := ⟨1⟩)
+  refine .trans ?_ example2
+  exact true_intro.trans true_emp.mp
+
+end example2
+
+namespace example3
+/-! Example: Step value assignment -/
+
+abbrev K : LeibnizO Nat := ⟨2⟩
+@[simp] def sL : ExecState DataT := .run [
+    .assign (.some "x") (.val .unit),
+    .ret <| (.val .unit)
+  ] (.emp DataT)
+@[simp] def sR : ExecState DataT := .run [
+    .ret <| (.val .unit)
+  ] (.emp DataT)
+
+example : ⊢ wp (DataT := DataT) K sL sR (ΦPure ΦTriv) := by
+  istart
+  wp_desync
+  uwp_left  SPure.uwpL .assign trivial
+  uwp_left  SPure.uwpL .ret trivial
+  uwp_right SPure.uwpR .ret trivial
+  wp_resync
+  wp_sync_val
+  unfold ΦPure ΦTriv
+  ipure_intro
+  grind
+
+end example3
+
+namespace example4
+/-! Example: Step sequencing assignment -/
+
+abbrev K : LeibnizO Nat := ⟨2⟩
+@[simp] def sL : ExecState DataT := .run [
+    .assign .none (.val .unit),
+    .ret <| (.val .unit)
+  ] (.emp DataT)
+@[simp] def sR : ExecState DataT := .run [
+    .ret <| (.val .unit)
+  ] (.emp DataT)
+
+example : ⊢ wp (DataT := DataT) K sL sR (ΦPure ΦTriv) := by
+  istart
+  wp_desync
+  uwp_left  SPure.uwpL .seq trivial
+  uwp_left  SPure.uwpL .ret trivial
+  uwp_right SPure.uwpR .ret trivial
+  wp_resync
+  wp_sync_val
+  unfold ΦPure ΦTriv
+  ipure_intro
+  grind
+
+end example4
+
+namespace example5
+/-! Example: Step empty assignment -/
+
+abbrev K : LeibnizO Nat := ⟨2⟩
+variable (n : Nat) (i : Iterator DataT)
+
+@[simp] def sL : ExecState DataT := .run [
+    .mkiter n i,
+    .ret <| (.val .unit)
+  ] (.emp DataT)
+@[simp] def sR : ExecState DataT := .run [
+    .ret <| (.val .unit)
+  ] (.emp DataT)
+
+example : ⊢ wp (DataT := DataT) K (sL n i) sR (ΦPure ΦTriv) := by
+  istart
+  wp_desync
+  uwp_left  SPure.uwpL .mkiter trivial
+  uwp_left  SPure.uwpL .ret trivial
+  uwp_right SPure.uwpR .ret trivial
+  wp_resync
+  wp_sync_val
+  unfold ΦPure ΦTriv
+  ipure_intro
+  grind
+
+end example5
+
+
+namespace example6
+/-! Example: Step empty assignment -/
+
+abbrev K : LeibnizO Nat := ⟨2⟩
+variable (c' : LocalContext DataT)
+
+@[simp] def sL : ExecState DataT := .run [
+    .frame [] c',
+    .ret <| (.val .unit)
+  ] (.emp DataT)
+@[simp] def sR : ExecState DataT := .run [
+    .ret <| (.val .unit)
+  ] (.emp DataT)
+
+example : ⊢ wp (DataT := DataT) K (sL c') sR (ΦPure ΦTriv) := by
+  istart
+  wp_desync
+  uwp_left  SPure.uwpL .frameEmp trivial
+  uwp_left  SPure.uwpL .ret trivial
+  uwp_right SPure.uwpR .ret trivial
+  wp_resync
+  wp_sync_val
+  unfold ΦPure ΦTriv
+  ipure_intro
+  grind
+
+end example6
+
+namespace example7
+/-! Example: Loop exit -/
+
+abbrev K : LeibnizO Nat := ⟨2⟩
+variable (n : Nat) (i : Iterator DataT) (b : List (Stmt DataT))
+variable (Hloop : PLoopExit (LocalContext.bindi DataT (LocalContext.emp DataT) n i) n)
+
+@[simp] def sL : ExecState DataT := .run [
+    .loop "x" (.val <| .iref n) b,
+    .ret <| (.val .unit)
+  ] (LocalContext.bindi _ (.emp DataT) n i)
+@[simp] def sR : ExecState DataT := .run [
+    .ret <| (.val .unit)
+  ] (.emp DataT)
+
+example : ⊢ wp (DataT := DataT) K (sL n i b) sR (ΦPure ΦTriv) := by
+  istart
+  wp_desync
+  uwp_left  SPure.uwpL .loopExit Hloop
+  uwp_left  SPure.uwpL .ret trivial
+  uwp_right SPure.uwpR .ret trivial
+  wp_resync
+  wp_sync_val
+  unfold ΦPure ΦTriv
+  ipure_intro
+  grind
+
+end example7
+
+namespace example8
+/-! Example: Lifting pure expr steps -/
+
+abbrev K : LeibnizO Nat := ⟨2⟩
+
+variable (f : DataT → DataT) (d₀ d₁ : DataT) (Hf : f d₀ = d₁)
+
+@[simp] def sL : ExecState DataT := .run [
+    .ret <| (.dunop (.val <| .data d₀) f)
+  ] (.emp DataT)
+@[simp] def sR : ExecState DataT := .run [
+    .ret <| (.val <| .data d₁)
+  ] (.emp DataT)
+
+example : ⊢ wp (DataT := DataT) K (sL f d₀) (sR d₁) (ΦPure (· = ·)) := by
+  istart
+  wp_desync
+  uwp_left EPLift.uwpL EPLift.ret_arg <| EPure.ewpL <| EPure.dunop
+  uwp_left  SPure.uwpL .ret trivial
+  uwp_right SPure.uwpR .ret trivial
+  wp_resync
+  wp_sync_val
+  unfold ΦPure
+  ipure_intro
+  grind
+
+end example8
+
+
+namespace example9
+/-! Example: Variable assignment -/
+
+abbrev K : LeibnizO Nat := ⟨5⟩
+
+variable (d₀ : DataT)
+
+@[simp] def sL : ExecState DataT := .run [
+    .assign (some "x") (.val <| .data d₀),
+    .assign (some "y") (.var "x"),
+    .ret <| (.var "y")
+  ] (.emp DataT)
+@[simp] def sR : ExecState DataT := .run [
+    .ret <| (.val <| .data d₀)
+  ] (.emp DataT)
+
+example : ⊢ wp (DataT := DataT) K (sL d₀) (sR d₀) (ΦPure (· = ·)) := by
+  istart
+  wp_desync
+  uwp_left  SPure.uwpL .assign trivial
+  uwp_left  EPLift.uwpL EPLift.assign_arg <| EPure.ewpL <| EPure.var (v := .data d₀)
+  uwp_left  SPure.uwpL .assign trivial
+  uwp_left  EPLift.uwpL EPLift.ret_arg <| EPure.ewpL <| EPure.var (v := .data d₀)
+  uwp_left  SPure.uwpL .ret trivial
+  uwp_right SPure.uwpR .ret trivial
+  wp_resync
+  wp_sync_val
+  unfold ΦPure
+  ipure_intro
+  grind
+
+end example9
+
+namespace example10
+/-! Example: Variable assignment -/
+
+abbrev K : LeibnizO Nat := ⟨5⟩
+
+variable (d₀ : DataT)
+
+@[simp] def sL : ExecState DataT := .run [
+    .assign (some "x") (.val <| .data d₀),
+    .assign (some "y") (.var "x"),
+    .ret <| (.var "y")
+  ] (.emp DataT)
+@[simp] def sR : ExecState DataT := .run [
+    .ret <| (.val <| .data d₀)
+  ] (.emp DataT)
+
+example : ⊢ wp (DataT := DataT) K (sL d₀) (sR d₀) (ΦPure (· = ·)) := by
+  istart
+  wp_desync
+  uwp_left  SPure.uwpL .assign trivial
+  uwp_left  EPLift.uwpL EPLift.assign_arg <| EPure.ewpL <| EPure.var (v := .data d₀)
+  uwp_left  SPure.uwpL .assign trivial
+  uwp_left  EPLift.uwpL EPLift.ret_arg <| EPure.ewpL <| EPure.var (v := .data d₀)
+  uwp_left  SPure.uwpL .ret trivial
+  uwp_right SPure.uwpR .ret trivial
+  wp_resync
+  wp_sync_val
+  unfold ΦPure
+  ipure_intro
+  grind
+
+end example10
+
+
+namespace example11
+/-! Example: Safety of nonphysical allocation -/
+
+abbrev K : LeibnizO Nat := ⟨5⟩
+
+@[simp] def s : ExecState DataT := .run [
+    .assign (some "ℓ") (.alloc .sbuf),
+    .ret <| (.var "ℓ")
+  ] (.emp DataT)
+
+/- Best we can get with our dwpL/R proof rules: there exists a chip -/
+@[simp] def ΦBothLoc (v1 v2 : Value DataT) : Prop :=
+  ∃ cl cr, v1 = .uptr cl ∧ v2 = .uptr cr
+
+example : ⊢ wp (DataT := DataT) K s s (ΦPure ΦBothLoc) := by
+  istart
+  wp_desync
+  dwp_left dwpAllocL (Hx := by simp) -- FIXME: Why does this not go automatically?
+  iintro ℓₗ Hℓ₁
+  dwp_right dwpAllocR
+  iintro Hℓₗ ℓᵣ Hℓᵣ
+  wp_resync
+
+  wp_desync
+  -- TODO: Make the value be infered by unification
+  uwp_left  EPLift.uwpL EPLift.ret_arg <| EPure.ewpL <| EPure.var (v := (.uptr (.sbufUnboundedIndex ℓₗ)))
+  -- TODO: Automatically reintroduce the entire context, or better yet, use iapply instead of .trans
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  uwp_right EPLift.uwpR EPLift.ret_arg <| EPure.ewpR <| EPure.var (v := (.uptr (.sbufUnboundedIndex ℓᵣ)))
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  uwp_left  SPure.uwpL .ret trivial
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  uwp_right SPure.uwpR .ret trivial
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  wp_resync
+  wp_sync_val
+  iintro -
+  unfold ΦPure
+  ipure_intro
+  exists .sbufUnboundedIndex ℓₗ
+  exists .sbufUnboundedIndex ℓᵣ
+
+end example11
+
+
+
+
+-- Sequencing
+
+-- Lift impure expr steps
+-- Big list of example ideas:
+-- Assign and read variable
+-- Done states adequacy with state
+-- Done states adequacy with locals
+-- Done states with different values
+-- Returns
+-- Returns with different values
+-- (All) Pure steps
+-- Safety
+-- Rule to Step inside frame
+-- Loop continue
+
+-- Open questions:
+-- Composition
+-- Monotonicity of K
+-- Improved surface syntax
+-- Better timeout on the tactics
+
+
+
+
+
+
 
 /-
 
-/-- Example relation: Both programs reutrn integers, and the integer of the left program is less
-than the integer of the right program. -/
-
-def ΦIsIntLePure (v1 v2 : NML.Value DataT) : Prop := ∃ (z1 z2 : Int), v1 = NML.Value.int z1 ∧ v2 = .int z2 ∧ z1 < z2
-def ΦIsIntLe (v1 v2 : NML.Value DataT) : @PROP DataT := iprop(⌜ΦIsIntLePure v1 v2⌝)
-
-/-- Simplest possible example: Two programs in "done" states -/
-theorem example0 : ⊢ (@wp DataT ⟨1⟩ (.done (.int 4)) (.done (.int 5)) ΦIsIntLe) := by
-  apply Entails.trans ?_ (wpValVal (v1 := .int 4) (v2 := .int 5) (by rfl) (by rfl))
-  istart
-  simp only [ΦIsIntLe]
-  ipure_intro; exists 4; exists 5
-
-
-set_option linter.deprecated false in
-/-- Two "return" programs are related if the values they return are -/
-theorem example1 :
-  ⊢ @wp DataT ⟨1⟩
-      (withNoContext [.ret (.val (.int 4))])
-      (withNoContext [.ret (.val (.int 5))])
-      ΦIsIntLe := by
-  istart
-  wp_sync_pure RetPure, RetPure
-  wp_sync_val
-  simp only [ΦIsIntLe]
-  ipure_intro
-  exists 4
-  exists 5
-
-/-- A proof that both programs
-    - Are safe,
-    - Are equiterminating,
-    - Step to values related by ΦIsIntLePure if they (both) terminate -/
-theorem example1_full (σ₁ σ₂ : State DataT) :
-  (NMLSemantics DataT).PRel
-    ((.run [⟨.ret (.val (.int 4)), fun _ => .none⟩]), σ₁)
-    ((.run [⟨.ret (.val (.int 5)), fun _ => .none⟩]), σ₂)
-    ΦIsIntLePure := by
-  apply wp_adequacy (K := ⟨1⟩)
-  istart; iintro H; iclear H; istop
-  exact example1
 
 /-! Example 2: Allocation
 This is one of the simplest state-transforming ste
