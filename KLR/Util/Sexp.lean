@@ -92,6 +92,9 @@ instance [ToSexp a] : ToSexp (List a) where
 instance [ToSexp a] : ToSexp (Array a) where
   toSexp e := toSexp e.toList
 
+instance [ToSexp a] : ToSexp (Vector a n) where
+  toSexp e := toSexp e.toList
+
 instance [ToSexp a] [ToSexp b] : ToSexp (a × b) where
   toSexp p := list [toSexp p.1, toSexp p.2]
 
@@ -190,6 +193,20 @@ instance [FromSexp a] : FromSexp (List a) where
   fromSexp?
   | atom a => throw s!"can't parse list from atom: {a}"
   | list es => es.mapM (@fromSexp? a _)
+
+instance [FromSexp a] : FromSexp (Vector a n) where
+  fromSexp?
+  | atom a => throw s!"can't parse list from atom: {a}"
+  | list es => do
+    let len := es.length
+    if len != n then throw s!"Wrong size list ({len}) for Vector of size {n}" else
+    let es' := es.toArray
+    let arr <- es'.mapM (@fromSexp? a _)
+    if H : arr.size = n then
+      return ⟨ arr, H ⟩
+    else
+      -- We can prove this if necessary, but it clutters the code when nothing else is verified.
+      throw "impossible: wrong size"
 
 instance [FromSexp a] : FromSexp (Array a) where
   fromSexp? e := (@fromSexp? (List a) _ e).map fun a => a.toArray
