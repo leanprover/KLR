@@ -62,7 +62,8 @@ instance : ToString HbmTensor where
 
 instance : ToString TensorK2 where
   toString t :=
-    s!"TensorK2(name: {t.name}, dtype: {repr t.dtype}, memory: {repr t.memory}, parQuadrant: {repr t.parQuadrant}, parDim: {t.parDim}, freeOffset: {t.freeOffset}, freePattern: {repr t.freePattern})"
+    let nameStr := if t.name.isEmpty then "" else s!"name: {t.name}, "
+    s!"{t.memory}Tile[{t.dtype}]({nameStr}parShape: [{t.parQuadrant}:{t.parQuadrant}+{t.parDim}], freeShape: {t.freeOffset}+{repr t.freePattern})"
 
 def toStringScalarK2 : ScalarK2 → String
   | .float f => s!"{f}"
@@ -77,37 +78,9 @@ instance : ToString ScalarK2 := ⟨toStringScalarK2⟩
 
 instance : ToString HbmLocation where
   toString
-  | .mk name offset pattern => s!"HbmLocation({name}, {offset}, [{repr pattern}])"
-
-def toStringStatementK2 (s : StatementK2) : String :=
-  match s with
-  | .comment s => s!"# {s}"
-  | .op op => s!"{op}"
-  | .loop var start stop step body =>
-    let body := body.map toStringStatementK2 |> "\n\t".intercalate
-    s!"for {var} in [{start}, {stop}, {step}]:\n\t{body}\n"
-  | .ifzero var consequent alternate =>
-    let consequentBody := consequent.map toStringStatementK2 |> "\n\t".intercalate
-    let alternateBody := alternate.map toStringStatementK2 |> "\n\t".intercalate
-    s!"if {var} == 0:\n\t{consequentBody}\nelse:\n\t{alternateBody}\n"
-  | .load dst src => s!"{dst} <- {src}"
-  | .store dst src => s!"{dst} <- {src}"
-  | .dramToDram dst src =>
-    s!"dramToDram {dst} <- {src}"
-  | .move reg expr => s!"%{reg} = {expr}"
-  | .moveAddress reg parOffset freeOffset => s!"%{reg} = {repr parOffset} + {freeOffset}"
-instance : ToString StatementK2 := ⟨toStringStatementK2⟩
+  | .mk name offset pattern => s!"HbmLoc(at: {name}[{offset}], pattern: {repr pattern})"
 
 open Std.Format
-
-instance : ToString FunctionK2 where
-  toString f :=
-    let inputs := f.inputs.map (fun (name, shape) => s!"{name}({shape})") |> ",".intercalate
-    let outputs := f.outputs.map ToString.toString |> ",".intercalate
-    let body := f.statements.map ToString.toString |> "\n\t".intercalate
-    let tensors := f.tensors.map (fun (name, shape) => s!"{name}({shape})") |> ",".intercalate
-    s!"def {f.name}({inputs}) -> {outputs} :\n\t{tensors}\n\t{body}"
-
 
 def formatStatementk2 (s : StatementK2) : Std.Format :=
   match s with
@@ -127,9 +100,15 @@ def formatStatementk2 (s : StatementK2) : Std.Format :=
   | .move reg expr => f! "%{reg} = {expr}"
   | .moveAddress reg parOffset freeOffset => f! "%{reg} = {repr parOffset} + {freeOffset}"
 
+instance : ToString StatementK2 where
+  toString s := formatStatementk2 s |>.pretty
+
 def formatFunctionK2 (f : FunctionK2) : Std.Format :=
   let tensors := joinSep (f.tensors.map (fun (name, shape) => f!"{name}({shape})")) ","
   let inputs := joinSep (f.inputs.map (fun (name, shape) => f!"{name}({shape})")) ","
   let outputs := joinSep (f.outputs.map ToString.toString) ","
   let body := joinSep (f.statements.map formatStatementk2) line
   f!"def {f.name}({inputs}) -> {outputs} :" ++ indentD tensors ++ line ++ indentD body
+
+instance : ToString FunctionK2 where
+  toString f := formatFunctionK2 f |>.pretty

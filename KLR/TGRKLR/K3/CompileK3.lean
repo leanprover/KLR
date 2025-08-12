@@ -39,6 +39,7 @@ def lower (v : KLR.TGR.Var) : Compile TensorK3 := do
   let ctx ← get
   match ctx.symEnv.lookup v, ctx.freeVars.count v != 0 with
   | some tensor, true =>
+    dbg_trace s!"Lowering variable {v}"
     set { ctx with freeVars := ctx.freeVars.erase v }
     pure tensor
   | none, false => do
@@ -58,6 +59,7 @@ def fetch (v : KLR.TGR.Var) : Compile TensorK3 := do
   | none => do
     let tensor := {name := ← gensym v, shape := (← lookupTy v)}
     let ctx ← get
+    dbg_trace s!"Fetching variable {v}"
     set { ctx with freeVars := ctx.freeVars ++ [v], symEnv := (v, tensor) :: ctx.symEnv }
     pure tensor
 
@@ -232,7 +234,8 @@ def mkTensorScalar (dst : TensorK3) (src : TensorK3) (imm : ScalarK3) (op : AluO
 
 /- Assuming a is the vector and b is the tensor-/
 def tryMakeBroadcastedTensorScalar (dst : KLR.TGR.Var) (vector : KLR.TGR.Var) (tensor : KLR.TGR.Var) (op : KLR.TGR.BinaryOp) : Compile (Option (List OperatorK3)) := do
-  --dbg_trace s!"Trying to make broadcasted tensor scalar for {vector} and {tensor} with op {op}"
+  dbg_trace s!"Trying to make broadcasted tensor scalar for {vector} and {tensor} with op {op}"
+  dbg_trace s!"Shapes: {← lookupTy vector} and {← lookupTy tensor}"
   let natProd l := l.foldl (init := 1) (fun acc x => acc * x)
   let vectorTy ← lookupTy vector
   let tensorTy ← lookupTy tensor
@@ -246,7 +249,26 @@ def tryMakeBroadcastedTensorScalar (dst : KLR.TGR.Var) (vector : KLR.TGR.Var) (t
       ]
     else
       pure .none
-  | _, _ => pure .none
+  | _, _ =>
+    pure .none
+
+/- Assuming a is the vector and b is the tensor-/
+def tryMakeBroadcastedBias (dst : KLR.TGR.Var) (tensor : KLR.TGR.Var) (bias : KLR.TGR.Var) : Compile (Option (List OperatorK3)) := do
+  dbg_trace s!"Trying to make broadcasted bias for {tensor} and {bias}"
+  dbg_trace s!"Shapes: {← lookupTy tensor} and {← lookupTy bias}"
+  let tensorTy ← lookupTy tensor
+  let biasTy ← lookupTy bias
+  match tensorTy.shape.val.reverse, biasTy.shape.val.reverse with
+  | tensorHead :: tensorTail, biasHead :: biasTail =>
+    if tensorHead == biasHead && tensorTail.length == biasTail.length && biasTail.all (. == 1) then
+      let vec := ← fetch bias
+      pure $ .some [
+        .activate ⟨← lower dst, ← fetch tensor, .Idle, .copy, .float 1.0, .vector vec.name vec.shape.shape.count vec.shape.dtype, .float 0⟩
+      ]
+    else
+      pure .none
+  | _, _ =>
+    pure .none
 
 /- TODO: this shoudl be in utils
 Permute `l` according to the indices in `permutation`. -/
@@ -257,9 +279,7 @@ def compileTranspose (dst : KLR.TGR.Var) (src : KLR.TGR.Var) (dims : List Nat) :
   let srcTy ← lookupTy src
   let srcShape := srcTy.shape.val
   let dstShape := permute srcShape dims |>.get!
-  if srcShape == dstShape.reverse then
-    pure [Operator.transpose ⟨← lower dst, ← fetch src⟩]
-  else if srcShape == dstShape then
+  if srcShape == dstShape then
     pure [.identityP ⟨← lower dst, ← fetch src⟩]
   else
     pure [.transposeP ⟨← lower dst, ← fetch src, dims⟩]
@@ -275,9 +295,12 @@ def compileRules := [
   -- max by constant
   [Rule| .binaryOp .max <.full n _> a ->  [.tensorScalar ⟨← lower dst, ← fetch a, .float (← floatOfScalarArray n), .max, .float 0, .bypass, .none⟩]],
   [Rule| .binaryOp .max a <.full n _> ->  [.tensorScalar ⟨← lower dst, ← fetch a, .float (← floatOfScalarArray n), .max, .float 0, .bypass, .none⟩]],
-  -- broadcast+binop
+  -- broadcast+binop (for broadcast in parallel dimension)
   [Rule| .binaryOp op <.broadcast a _> b -/> (← tryMakeBroadcastedTensorScalar dst a b op)],
   [Rule| .binaryOp op a <.broadcast b _> -/> (← tryMakeBroadcastedTensorScalar dst b a op)],
+
+  -- broadcast+binop (for broadcast in free dimension)
+  [Rule| .binaryOp .add a <.broadcast b _> -/> (← tryMakeBroadcastedBias dst a b)],
 
   -- binops
   [Rule| .binaryOp op a b -> [.tensorTensor ⟨← lower dst, ← fetch a, ← fetch b, aluOpOfBinOp op⟩]],
@@ -319,6 +342,7 @@ partial def compileFunction (p : KLR.TGR.Function) : Compile FunctionK3 := do
   for statement in p.statements.reverse do
     match statement with
     | .assign target _ _ => do
+      dbg_trace s!"Compiling statement {target}"
       if (← get).freeVars.contains target then do
         let compiled ← compileRules.findSomeM? (fun rule => do
           --dbg_trace s!"Trying variable {v} with rule {rule.repr}"

@@ -59,6 +59,23 @@ inductive Dtype where
     | .uint8 | .uint16 | .uint32 | .uint64 => true
     | _ => false
   deriving BEq, Inhabited, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+instance : ToString Dtype where
+  toString
+    | .bfloat16 => "bfloat16"
+    | .float8e3 => "float8e3"
+    | .float8e4 => "float8e4"
+    | .float8e5 => "float8e5"
+    | .float16 => "f16"
+    | .float32 => "f32"
+    | .float32r => "float32r"
+    | .int8 => "i8"
+    | .int16 => "i16"
+    | .int32 => "i32"
+    | .int64 => "i64"
+    | .uint8 => "u8"
+    | .uint16 => "u16"
+    | .uint32 => "u32"
+    | .uint64 => "u64"
 
 /-
 A tensor shape is a list of the sizes of each dimension of the tensor. By
@@ -488,12 +505,23 @@ abbrev Reg := Nat
 inductive ParQuadrant where
   | par0 | par32 | par64 | par96
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+instance : ToString ParQuadrant where
+  toString
+    | .par0 => "Par0"
+    | .par32 => "Par32"
+    | .par64 => "Par64"
+    | .par96 => "Par96"
 
 @[serde tag = 1010]
 inductive SramMemory where
   | sbuf
   | psum
 deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+instance : ToString SramMemory where
+  toString
+    | .sbuf => "Sbuf"
+    | .psum => "Psum"
+
 /-
 A structure representing the layout of a tensor in SRam. This maps very closely
 to the way that the ISA expects tensor accesses to be expressed. Specifically,
