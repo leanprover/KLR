@@ -114,6 +114,12 @@ struct AccessPattern final {
   Nat freeOffset;
 };
 
+struct BirAccessPattern final {
+  Ptr<TensorName> tensor;
+  Nat offset;
+  List<Ptr<APPair>> pattern;
+};
+
 struct Access {
   enum class Tag {
     simple = 1,

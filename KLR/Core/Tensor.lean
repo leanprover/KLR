@@ -453,9 +453,10 @@ def shape (bap : BirAccessPattern) : Shape :=
   | ⟨ _, parNum ⟩ :: rest => .mk parNum $ rest.map fun pair => pair.num
 
 def fromAccessPattern (ap : AccessPattern) : BirAccessPattern :=
+  let free := ap.shape.freeElements
   { tensor := ap.tensor
-    offset := ap.shape.freeElements * ap.parOffset + ap.freeOffset
-    pattern := ⟨ 1, ap.parNum ⟩ :: ap.freePattern
+    offset := free * ap.parOffset + ap.freeOffset
+    pattern := ⟨ free, ap.parNum ⟩ :: ap.freePattern
   }
 
 end BirAccessPattern
