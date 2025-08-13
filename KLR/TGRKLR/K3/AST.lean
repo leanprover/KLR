@@ -1,7 +1,7 @@
 import KLR.TGR.AST
+import KLR.TGRKLR.Operators
 import Lean
 import TensorLib.Tensor
-import KLR.TGRKLR.Operators
 
 namespace KLR.TGRKLR.K3
 
@@ -9,11 +9,14 @@ open KLR.TGR(TensorTy)
 
 abbrev Var := String
 
+/- A tensor in K3 has a name, shape, and datatype -/
 structure TensorK3 where
   name : Var
-  shape : TensorTy
+  type : TensorTy
 deriving Inhabited, Repr, BEq
 
+/- A scalar in K3 can be a float, int, or vector, where a vector is a named
+variable with a size and datatype. -/
 inductive ScalarK3
   | float (f : Float32)
   | int (f : Nat)
@@ -22,15 +25,19 @@ deriving Inhabited, Repr, BEq
 
 abbrev OperatorK3 := KLR.TGRKLR.Operator TensorK3 ScalarK3
 
+/- K3 functions take a list of arguments as input and have a list of outputs.
+The input arguments can be referred to by name, and it is assumed that by the
+end of the instruction stream the named output tensors will have been written to. -/
 structure FunctionK3 where
   name : String
   inputs : List TensorK3
   outputs : List TensorK3
   statements : List OperatorK3
+deriving Inhabited, Repr, BEq
 
 instance : ToString TensorK3 where
   toString t :=
-    s!"%{t.name}<{t.shape.shape.val.toString}>"
+    s!"%{t.name}<{t.type.shape.val.toString}>"
 
 instance : ToString ScalarK3 where
   toString

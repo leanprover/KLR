@@ -1,9 +1,9 @@
+import KLR.Core
+import KLR.TGR.AST
+import KLR.TGRKLR.Common
+import KLR.TGRKLR.Operators
 import Lean
 import TensorLib.Tensor
-import KLR.TGR.AST
-import KLR.TGRKLR.Operators
-import KLR.TGRKLR.Common
-import KLR.Core
 
 namespace KLR.TGRKLR.K1
 
@@ -47,7 +47,7 @@ inductive StatementK1 where
 | store (dst : HbmLocationK1) (src : TensorK1)
 | dramToDram (dst : HbmLocationK1) (src : HbmLocationK1)
 | move (reg : Reg) (op : RegOp)
-deriving Repr, BEq
+deriving Inhabited, Repr, BEq
 
 structure ProgramK1 where
   name : String
@@ -55,6 +55,7 @@ structure ProgramK1 where
   inputs : List (Var × TensorTy)
   outputs : List Var
   statements : List StatementK1
+deriving Inhabited, Repr, BEq
 
 instance : ToString HbmTensor where
   toString t := s!"HbmTensor({t.name})"

@@ -1,9 +1,9 @@
+import KLR.TGRKLR.K2.AST
+import KLR.TGRKLR.K3.CompileK3
+import KLR.TGRKLR.Operators
 import Lean
 import TensorLib.Tensor
 import Util.Gensym
-import KLR.TGRKLR.Operators
-import KLR.TGRKLR.K3.CompileK3
-import KLR.TGRKLR.K2.AST
 
 namespace KLR.TGRKLR.K2
 

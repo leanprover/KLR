@@ -1,6 +1,6 @@
-import TensorLib.Tensor
-import KLR.TGRKLR.Operators
 import KLR.TGRKLR.K1.AST
+import KLR.TGRKLR.Operators
+import TensorLib.Tensor
 
 namespace KLR.TGRKLR.K1.Interp
 

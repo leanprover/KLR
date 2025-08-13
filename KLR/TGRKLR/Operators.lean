@@ -37,31 +37,15 @@ inductive Engine where
   | act | dma | dve | pe | pool | sp
   deriving BEq, Repr
 
+/- Registers shouldn't be exposed in the Operator interface, they should be an
+implementation detail of one of the lower level languages like K1. However, some
+of these instructions take registers in weird ways we haven't fully investigated yet,
+so for now we use Nat as a placeholder.
+-/
 def Reg := Nat
 deriving BEq, Inhabited, Repr, Nonempty, FromCBOR, ToCBOR, FromJson, ToJson, FromSexp, ToSexp
 instance : ToString Reg where
   toString reg := s!"reg({repr reg})"
-
---@[serde tag = 131]
---inductive Scalar where
---  | register (reg : Reg)
---  | vector (vec : VectorVar)
---  | pointer -- TODO
---  | int (i : Int32)
---  | float (f : Float32)
---  deriving BEq, Repr, Inhabited, Repr, Nonempty, FromCBOR, ToCBOR, FromJson, ToJson, FromSexp, ToSexp
-
-@[serde tag = 132]
-inductive ActivationImm where
-  | register (reg : Reg)
-  | pointer -- : TODO
-  | float (f : Float32)
-  deriving BEq, Repr
-instance : ToString ActivationImm where
-  toString
-    | .register reg => s!"reg{repr reg}"
-    | .pointer => "ptr"
-    | .float f => s!"{f}"
 
 /-
 Used for Iota and AffineSelect, represents something similar to an
@@ -719,6 +703,7 @@ instance {Tensor Scalar : Type} [ToString Tensor] [ToString Scalar] : ToString (
     | .transposeP ⟨dst, src, dims⟩ =>
         s!"{dst} = transposeP({src}, {dims})"
 
+/- The list of tensors used by an operator -/
 def dependencies : Operator Tensor Scalar -> List Tensor
 | .activate ⟨_, src, _, _, _, _, _⟩ => [src]
 | .affineSelect ⟨_, src, _, _, _⟩ => [src]
@@ -757,6 +742,7 @@ def dependencies : Operator Tensor Scalar -> List Tensor
 | .identityP ⟨_, src⟩ => [src]
 | .transposeP ⟨_, src, _⟩ => [src]
 
+/- The list of tensors defined by an operator -/
 def targets : Operator Tensor Scalar -> List Tensor
 | .activate ⟨dst, _, _, _, _, _, _⟩ => [dst]
 | .affineSelect ⟨dst, _, _, _, _⟩ => [dst]
@@ -825,6 +811,7 @@ def name : Operator Tensor Scalar -> String
 | .identityP _ => "identityP"
 | .transposeP _ => "transposeP"
 
+/- The list of scalars used by an operator -/
 def scalarDependencies : Operator Tensor Scalar -> List Scalar
 | .dropout ⟨_, _, _, threshold⟩ => [threshold]
 | .activate ⟨_, _, _, _, scale, bias, imm⟩ => [scale, bias, imm]

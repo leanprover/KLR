@@ -2,6 +2,9 @@ import KLR.Core
 
 namespace KLR.TGRKLR
 
+/- A region of HBM, described as an offset from some named tensor as well as
+an access pattern. The access pattern is in source-order (slowest-first), not
+ISA-order (fastest-first) -/
 structure HbmLocation (Scalar : Type) where
   name : String
   offset : Scalar
