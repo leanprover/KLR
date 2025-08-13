@@ -502,9 +502,13 @@ where
   | _ => false
 
 
+-- Also used in ndarray (below)
+private def tensorName : Option String -> Trace String
+  | none => genTensorName
+  | some n => do checkTensorName n; return n
 
-nki memView (self : Address) (dtype : Dtype) (shape : Shape) (name : String := "tensor") := do
-  let name := (<- genName (.mkStr1 name)).toString
+nki memView (self : Address) (dtype : Dtype) (shape : Shape) (name : Option String := none) := do
+  let name <- tensorName name
   if parWF: shape.parDim <= self.parSize then
     if freeWF: shape.freeElements * dtype.size <= self.freeSize then
       let tensor := ⟨ name, dtype, shape, self, shape.freeElements, parWF, freeWF ⟩
@@ -512,15 +516,6 @@ nki memView (self : Address) (dtype : Dtype) (shape : Shape) (name : String := "
       return .expr (.value (.access (.simple tensor))) ty
     else throw "shape is too large for memory region"
   else throw "partition size is too large for memory region"
-
--- TODO reorganize these
-nki par_dim (t : Term) := do
-  warn "par_dim is deprecated"
-  return t
-
--- TODO nki macro doesn't work if there are no arguments
-def get_nc_version (_ : List Term) (_ : List (String × Term)) : Trace Term := do
-  lookup `arch
 
 nki ndarray
   (shape : Shape)
@@ -534,9 +529,18 @@ nki ndarray
     | some (par, free) => (some par, some free)
     | none => (none, none)
     let address := { memory, parSize, freeSize, parOffset, freeOffset : Address }
-    let name := name.getD "tensor"
+    let name <- tensorName name
     let tensor <- TensorName.make name dtype shape address
     return .expr (.value $ .access (.simple tensor)) (.tensor dtype shape)
+
+-- TODO reorganize these
+nki par_dim (t : Term) := do
+  warn "par_dim is deprecated"
+  return t
+
+-- TODO nki macro doesn't work if there are no arguments
+def get_nc_version (_ : List Term) (_ : List (String × Term)) : Trace Term := do
+  lookup `arch
 
 nki ds (start : Int) (size : Int) := do
   return .mgItem start (start + size)
