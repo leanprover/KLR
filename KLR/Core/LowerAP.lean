@@ -89,6 +89,7 @@ def Operator.lowerAccessPatterns (k : Operator) : KLR.Err Operator :=
   | .tensorTensor       op => do return .tensorTensor       { op with src0 := (← op.src0.lowerAccessPatterns), src1 := (← op.src1.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
   | .tensorTensorScan   op => do return .tensorTensorScan   { op with dst := (← op.dst.lowerAccessPatterns), src0 := (← op.src0.lowerAccessPatterns), src1 := (← op.src1.lowerAccessPatterns), imm0 := (← Operand.lowerAccessPatterns op.imm0) }
   | .transpose          op => do return .transpose          { op with src := (← op.src.lowerAccessPatterns), dst := (<- op.dst.lowerAccessPatterns) }
+  | .sharedIdentityMatrix op => do return .sharedIdentityMatrix {op with dst := (<- op.dst.lowerAccessPatterns)}
   | .activationReduce   op => do
     return .activationReduce { op with
       dst := (<- op.dst.lowerAccessPatterns)
