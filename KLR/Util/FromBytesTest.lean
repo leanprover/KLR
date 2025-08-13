@@ -18,20 +18,22 @@ import Util.FromBytes
 
 namespace KLR.Util
 
+#guard fromBytes (Vector UInt8 4) ⟨ #[0, 1, 0, 2] ⟩ == .ok (Vector.mk #[(0 : UInt8), 1, 0, 2] (by simp), ⟨ #[] ⟩)
+
 private structure Foo where
   x : Int8
   y : Int16
   z : Int32
 deriving BEq, FromBytes, Inhabited, NumBytes
 
-#guard fromBytes ⟨ #[0, 1, 0, 2, 0, 0, 0, 77] ⟩ == .ok (Foo.mk 0x0 0x1 0x2, ⟨ #[77] ⟩)
+#guard fromBytes Foo ⟨ #[0, 1, 0, 2, 0, 0, 0, 77] ⟩ == .ok (Foo.mk 0x0 0x1 0x2, ⟨ #[77] ⟩)
 
 private structure Bar where
   y : Foo
   z : Int32
 deriving BEq, FromBytes, Inhabited, NumBytes
 
-#guard fromBytes ⟨ #[0, 1, 0, 2, 0, 0, 0, 3, 0, 0, 0, 77] ⟩ == .ok (Bar.mk (Foo.mk 0x0 0x1 0x2) 3, ⟨ #[77] ⟩)
+#guard fromBytes Bar ⟨ #[0, 1, 0, 2, 0, 0, 0, 3, 0, 0, 0, 77] ⟩ == .ok (Bar.mk (Foo.mk 0x0 0x1 0x2) 3, ⟨ #[77] ⟩)
 
 /--
 error: deriving FromBytes only works on single structures
