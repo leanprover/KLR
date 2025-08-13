@@ -30,8 +30,8 @@ inductive PExp (τ ν : Type) (T : τ → Type) (N : ν → Type) : Type → Typ
   | star {α : Type} (e : PExp τ ν T N α) : PExp τ ν T N (List α)
   | not {α : Type} (e : PExp τ ν T N α) : PExp τ ν T N Unit
   | action {α β : Type} (e : PExp τ ν T N α) (f : α → β) : PExp τ ν T N β
-  | withPrec {α : Type} (e : PExp τ ν T N α) (p : Option Nat) : PExp τ ν T N α
-  | hasPrec {α : Type} (e : PExp τ ν T N α) (l r : Nat) : PExp τ ν T N α
+  | leadingPrec {α : Type} (p : Nat) (e : PExp τ ν T N α) : PExp τ ν T N α
+  | trailingPrec {α : Type} (l r : Nat) (e : PExp τ ν T N α) : PExp τ ν T N α
   | withPos {α β : Type} (e : PExp τ ν T N α) (f : α → String.Pos → String.Pos → β) : PExp τ ν T N β
   | invalid {α : Type} (e : PExp τ ν T N α) (msg : String) : PExp τ ν T N α
 
@@ -47,7 +47,10 @@ structure Context (τ ν : Type) (T : τ → Type) (N : ν → Type) where
   tkToString : τ → String
   errFormat  : String → String.Pos → String.Pos → String
 
+def maxPrec := 1024
+
 structure State where
+  prec : Nat := maxPrec
   pos : Nat := 0
   err : Option String := none
 
@@ -115,8 +118,19 @@ partial def parse {α} (e : PExp τ ν T N α) (prods : Production τ ν T N) : 
     | some d  => ((f d), s')
     | none => (none, s )
     -- | .except msg => (.except msg   , s )
-  | withPrec _ _ => (none, s.setErr "withPrec not implemented yet")
-  | hasPrec _ _ _ => (none, s.setErr "hasPrec not implemented yet")
+  | leadingPrec prec e =>
+    let savedPrec := s.prec
+    let (r, s') := e.parse prods c {s with prec := prec}
+    match r with
+    | some d => (d, {s' with prec := savedPrec})
+    | none => (none, s)
+  | trailingPrec l r e =>
+    let savedPrec := s.prec
+    if s.prec < savedPrec then (none, s.setErr "low precedence, consider parenthesis") else
+    let (r, s') := e.parse prods c {s with prec := r}
+    match r with
+    | some d => (d, {s' with prec := savedPrec})
+    | none => (none, s)
   | withPos e f =>
     parseWithPos e (fun r s startPos endPos =>
       match r with

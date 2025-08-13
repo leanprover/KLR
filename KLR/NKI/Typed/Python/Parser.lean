@@ -80,13 +80,23 @@ open KLR.Core (Pos)
 open Tokenizer (Token)
 open PegParser (PExp)
 
+instance : Add Pos where
+  add x y := {
+    line := x.line,
+    column := x.column,
+    lineEnd := y.lineEnd.getD y.line,
+    columnEnd := y.columnEnd.getD y.column
+  }
+
 inductive NT
   | file
   | simpleStmt
+  | expression
 
 abbrev NT.denote : NT → Type
   | .file => List Stmt
   | .simpleStmt => Stmt
+  | .expression => Exp
 
 abbrev Parser := PExp Token NT Token.denote NT.denote
 
@@ -100,17 +110,61 @@ def mkPos {α β} (p : Parser α) (f : α → Pos → β) : Parser β :=
     let pos : Pos := {line, column, lineEnd, columnEnd}
     f a pos
 
+def newline : Parser Unit :=
+  .token (⟨.newline, {}, {}⟩ : Token)
+
+def indent : Parser Unit :=
+  .token (⟨.indent, {}, {}⟩ : Token)
+
+def dedent : Parser Unit :=
+  .token (⟨.dedent, {}, {}⟩ : Token)
+
 def tk (s : String) : Parser Unit :=
   .token (⟨.tokenLit s, {}, {}⟩ : Token)
+
+instance : Coe String (Parser Unit) := ⟨tk⟩
 
 def file : Parser (List Stmt) :=
   .star (.prod NT.simpleStmt)
 
 def simpleStmt : Parser Stmt :=
   mkPos fileMap (
-        (.action (tk "pass") fun () => Stmt'.pass)
-    <|> (.action (tk "break") fun () => Stmt'.breakLoop)
+    (.action (.prod .expression) Stmt'.exp)
+    <|> (.action "pass" fun () => Stmt'.pass)
+    <|> (.action "break" fun () => Stmt'.breakLoop)
   ) fun s pos => ⟨pos, s⟩
+
+@[inline] def expression (p : Option Nat := none) : Parser Exp :=
+  match p with
+  | some p => .leadingPrec p <| .prod NT.expression
+  | none => .prod NT.expression
+
+def numLit : Parser Exp' :=
+  (.action (.token ⟨.int 0, {}, {}⟩) fun i => .value (.int i))
+  <|> (.action (.token ⟨.float 0, {}, {}⟩) fun f => .value (.float f))
+
+def strLit : Parser Exp' :=
+  .action (.token ⟨.string "", {}, {}⟩) fun s => .value (.string s)
+
+def name : Parser Exp' :=
+  .action (.token ⟨.ident "", {}, {}⟩) fun s => .var s
+
+def primary : Parser Exp :=
+  (mkPos fileMap (
+    name <|> numLit <|> strLit
+  ) fun e pos => ⟨pos, e⟩)
+  <|> (.action (tk "(" >> expression >> tk ")") (Prod.fst ∘ .snd))
+
+def binOp : Parser BinOp :=
+      .trailingPrec 90 91 (.action "*" fun () => .mul)
+  <|> .trailingPrec 85 86 (.action "+" fun () => .add)
+
+def exp : Parser Exp :=
+  .action (primary fileMap >> (PExp.star (binOp >> expression)))
+  fun (hd, tl) =>
+    tl.foldl (fun x (op, y) =>
+      ⟨x.pos + y.pos, .binOp op x y⟩
+    ) hd
 
 end
 
@@ -118,6 +172,7 @@ def prods (fileMap : FileMap) : PegParser.Production Token NT Token.denote NT.de
   match n with
   | .file => file
   | .simpleStmt => simpleStmt fileMap
+  | .expression => exp fileMap
 
 def run (input : String) (fileName : String) (fileMap : FileMap := input.toFileMap) : Except String Prog := do
   let tks ← Tokenizer.run input fileName fileMap
@@ -143,7 +198,8 @@ def run (input : String) (fileName : String) (fileMap : FileMap := input.toFileM
   let stmts ← PExp.run p .file c
   .ok { file := fileName, stmts }
 
-#eval run "pass" "<input>"
+#eval run "(i + 0) * 1" "<input>"
+#eval (run "'i'" "<input>").map Lean.toJson
 -- set_option grind.warning false
 
 -- /-- Clears all hypotheses it can, except those provided after a minus sign. Example:
