@@ -520,11 +520,11 @@ bool Python_Kernel_ser(FILE *out, struct Python_Kernel *x) {
     return false;
   if (!Python_Keyword_List_ser(out, x->kwargs))
     return false;
-  if (!Python_Expr_List_ser(out, x->scheduleEdges))
-    return false;
   if (!Python_Keyword_List_ser(out, x->globals))
     return false;
-  if (!String_List_ser(out, x->undefinedSymbols))
+  if (!cbor_encode_uint(out, x->grid))
+    return false;
+  if (!Python_Expr_List_ser(out, x->scheduleEdges))
     return false;
   return true;
 }
@@ -1246,11 +1246,11 @@ bool Python_Kernel_des(FILE *in, struct region *region,
     return false;
   if (!Python_Keyword_List_des(in, region, &(*x)->kwargs))
     return false;
-  if (!Python_Expr_List_des(in, region, &(*x)->scheduleEdges))
-    return false;
   if (!Python_Keyword_List_des(in, region, &(*x)->globals))
     return false;
-  if (!String_List_des(in, region, &(*x)->undefinedSymbols))
+  if (!Nat_des(in, region, &(*x)->grid))
+    return false;
+  if (!Python_Expr_List_des(in, region, &(*x)->scheduleEdges))
     return false;
   return true;
 }

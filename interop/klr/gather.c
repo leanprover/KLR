@@ -1191,9 +1191,10 @@ bool gather(struct kernel *k) {
     python->entry = py_fun_name(&st, k->f);
     python->funcs = st.funs;
     python->args = NULL; // filled in by specialize
-    python->globals = st.globals;
     python->kwargs = NULL; // filled in by specialize
-    python->undefinedSymbols = NULL; // TODO
+    python->globals = st.globals;
+    python->grid = 0; // filled in by specialize
+    python->scheduleEdges = NULL; // filled in by specialize
 
     k->python_region = st.region;
     k->python_kernel = python;
@@ -1266,8 +1267,9 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *inter
     Py_ssize_t pos = 0;
     PyObject *key, *val; 
     while(PyDict_Next(internal_kws, &pos, &key, &val)) {
-      char *s = py_strdup(&st, key);
-      if (!s)
+      Py_ssize_t sz = 0;
+      const char *s = PyUnicode_AsUTF8AndSize(key, &sz);
+      if (!s || sz <= 0)
         return false;
       if(strncmp(s, "grid", 4) == 0) {
         if (!PyLong_Check(val)) {
@@ -1279,7 +1281,7 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *inter
           PyErr_SetString(PyExc_ValueError, "grid must be between 0-8");
           return false;
         }
-        k->grid = (uint8_t) grid_val;
+        k->python_kernel->grid = (u32)grid_val;
       } else if(strncmp(s, "schedule", 8) == 0) {
         k->python_kernel->scheduleEdges = const_exprs(&st, val);
         if (!k->python_kernel->scheduleEdges) {
