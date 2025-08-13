@@ -60,7 +60,7 @@ def KLR.Core.Operator.semantics : KLR.Core.Operator → Err (@NML.Stmt DataT)
       -- a programmer has given a specific index into the HBM to set the memory of.
       match v.dims with
       -- For right now, only model contiguous memsets
-      | [⟨1, n⟩] => imm |>.bind (fun x => .ok <| .set_phys_hbm_area v.address n x)
+      -- | [⟨1, n⟩] => imm |>.bind (fun x => .ok <| .set_phys_hbm_area v.address n x)
       | _ => .error "Semantics not defined"
   | .psum _     => .error "Semantics not defined"
   | .register _ => .error "Semantics not defined"
@@ -74,11 +74,12 @@ def KLR.Core.Operator.semantics : KLR.Core.Operator → Err (@NML.Stmt DataT)
 | tensorTensor       _ => .error "Semantics not defined"
 | tensorTensorScan   _ => .error "Semantics not defined"
 | transpose          _ => .error "Semantics not defined"
+|                    _ => .error "Semantics not defined"
 
 def KLR.Core.Stmt.semantics : KLR.Core.Stmt → Err (@NML.Stmt DataT)
 | .ret v => @v.semantics DataT float_interp |>.bind (.ok <| .ret <| .val ·)
 | .assign x e => @e.semantics DataT float_interp |>.bind (.ok <| .assign (some x) ·)
-| .oper op => @KLR.Core.Operator.semantics DataT float_interp op
+-- | .oper op => @KLR.Core.Operator.semantics DataT float_interp op
 | _ => .error "Semantics not defined"
 
 -- Default AffineMap (row major form)
@@ -109,8 +110,8 @@ def KLR.Core.Address.toInputOutputPointer (i : Nat) (n : KLR.Core.TensorName) : 
   | _, _ => .error "Input tensors must not have memory location specified"
 
 
-def BindingsToLocals : List (String × @NML.Value DataT) → @NML.Locals DataT :=
-  List.foldl (fun ℓ ⟨s, v⟩ => ℓ.bind _ s v) (NML.nolocals DataT)
+def BindingsToLocals : List (String × @NML.Value DataT) → @NML.LocalContext DataT :=
+  List.foldl (fun ℓ ⟨s, v⟩ => ℓ.bindv _ s v) (NML.LocalContext.emp DataT)
 
 /-- Transform a KLR kernel into its NML program interpretation.
 To perform this transformation, you must provide a datatype to interpret floats into,
@@ -119,4 +120,4 @@ def KLR.Core.Kernel.semantics (k : KLR.Core.Kernel) : Err (@NML.ExecState DataT)
   List.mapM (KLR.Core.Stmt.semantics (DataT := DataT) (float_interp := float_interp)) k.body |>.bind fun p =>
   -- Set up pointers to HBM for each of the input tensors
   List.mapIdxM (@KLR.Core.Address.toInputOutputPointer DataT) (k.inputs ++ k.outputs) |>.bind fun L =>
-  .ok <| .run <| p.map (⟨·, BindingsToLocals L⟩)
+  .ok <| .run p (BindingsToLocals L)

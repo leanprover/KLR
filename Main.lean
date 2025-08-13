@@ -276,15 +276,20 @@ def evalKLR (p : Parsed) : IO UInt32 := do
   return 0
 
 def modelKLR (p : Parsed) : IO UInt32 := do
-  let file := p.positionalArg! "file" |>.as! String
-  let arr <- IO.FS.readBinFile file
-  let contents <- KLR.File.parseBytes arr .cbor
-  IO.println <| "→ to JSON"
-  let L := Lean.toJson contents
-  IO.println L
-  IO.println <| "→ from JSON"
-  let K : KLR.Core.Kernel ← Lean.FromJson.fromJson? L
-  IO.println <| "done"
+  /- Load the Python file and perform simplifications -/
+  let kernel : KLR.Python.Kernel <- gatherTmp p
+  IO.println s!"[Kernel] \n{Lean.toJson kernel}"
+  let (kernel, warnings) := kernel.inferArguments
+  warnings.forM IO.eprintln
+  let kernel : KLR.NKI.Kernel <- KLR.NKI.simplify kernel
+  let (kernel, w) <- KLR.NKI.simplifyOperators kernel
+  w.forM IO.println
+  let kernel <- KLR.NKI.annotate kernel
+  let kernel <- KLR.NKI.simplifyPatterns kernel
+  match NKI.model kernel with
+  | .error s => throw <| .userError s
+  | .ok m =>
+  IO.println s!"[NML] \n{NKI.pprint m}}"
   return 0
 
 def equivKLR (p : Parsed) : IO UInt32 := do
@@ -366,7 +371,8 @@ def modelKLRCmd:= `[Cli|
     o, outfile : String; "Name of output file"
 
   ARGS:
-    file : String; "KLR format input file"
+    moduleFileName : String; "File of the Python module with the kernel function"
+    kernelFunctionName : String; "Name of the kernel function"
 ]
 
 
@@ -378,8 +384,9 @@ def equivKLRCmd:= `[Cli|
     o, outfile : String; "Name of output file"
 
   ARGS:
-    fileL : String; "KLR format first input file"
-    fileR : String; "KLR format second input file"
+    moduleFileName : String; "File of the Python module with the kernel function"
+    kernelFunctionNameL : String; "Name of the left kernel function"
+    kernelFunctionNameR : String; "Name of the right kernel function"
 ]
 
 
@@ -392,9 +399,7 @@ def klrCmd : Cmd := `[Cli|
     evalKLRCmd;
     gatherCmd;
     infoCmd;
-    nkiToKLRCmd;
     traceCmd;
-    typecheckCmd;
     modelKLRCmd;
     equivKLRCmd
 ]

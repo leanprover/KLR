@@ -9,6 +9,7 @@ import KLR.Semantics.Memory
 import KLR.Semantics.NML
 import KLR.Semantics.Float
 import KLR.Semantics.KLR
+import KLR.Semantics.NKI
 import KLR.Semantics.Logic
 import KLR.Semantics.ProofRules
 import KLR.Semantics.Examples
