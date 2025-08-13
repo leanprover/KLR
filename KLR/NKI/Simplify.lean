@@ -389,6 +389,7 @@ private def kernel (py : Python.Kernel) : Simplify Kernel := do
     funs    := funs
     args    := <- args main_fun.args py.args py.kwargs
     globals := <- kwargs py.globals
+    grid    := py.grid
   }
 
 -- TODO: capture warnings, make sure to call finalize

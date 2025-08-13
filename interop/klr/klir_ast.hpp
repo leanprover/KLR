@@ -1138,6 +1138,13 @@ struct Kernel final {
   List<Ptr<Stmt>> body;
 };
 
+struct LncKernel final {
+  String name;
+  List<Ptr<TensorName>> inputs;
+  List<Ptr<TensorName>> outputs;
+  List<List<Ptr<Stmt>>> bodies;
+};
+
 struct KLRFile final {
   Nat major;
   Nat minor;
@@ -1152,7 +1159,8 @@ struct Contents {
   enum class Tag {
     python = 1,
     nki,
-    klir,
+    kernel,
+    lnc,
     hlo,
   };
   Tag tag;
@@ -1169,9 +1177,14 @@ struct ContentsNkiWrapper final : Contents {
   ContentsNkiWrapper() : Contents(Tag::nki) {}
 };
 
-struct ContentsKlirWrapper final : Contents {
+struct ContentsKernelWrapper final : Contents {
   Ptr<Kernel> kernel;
-  ContentsKlirWrapper() : Contents(Tag::klir) {}
+  ContentsKernelWrapper() : Contents(Tag::kernel) {}
+};
+
+struct ContentsLncWrapper final : Contents {
+  Ptr<LncKernel> kernel;
+  ContentsLncWrapper() : Contents(Tag::lnc) {}
 };
 
 struct ContentsHloWrapper final : Contents {

@@ -126,6 +126,13 @@ def Stmt.lowerAccessPatterns : Stmt → KLR.Err Stmt
   | .oper op name pos => return .oper (<- op.lowerAccessPatterns) name pos
   | s => return s
 
-def lowerAccessPatterns (k : Kernel) : KLR.Err Kernel := do
+def Kernel.lowerAccessPatterns (k : Kernel) : KLR.Err Kernel := do
   let body' ← k.body.mapM Stmt.lowerAccessPatterns
   return { k with body := body'}
+
+def lowerAccessPatterns (k : LncKernel) : KLR.Err LncKernel := do
+  let mut bodies := []
+  for body in k.bodies do
+    let body' ← body.mapM Stmt.lowerAccessPatterns
+    bodies := body' :: bodies
+  return { k with bodies := bodies.reverse }

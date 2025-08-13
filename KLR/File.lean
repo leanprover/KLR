@@ -60,7 +60,8 @@ once the design is finalized
 inductive Contents where
   | python (kernel : Python.Kernel)
   | nki (kernel : KLR.NKI.Kernel)
-  | klir (kernel : KLR.Core.Kernel)
+  | kernel (kernel : KLR.Core.Kernel)
+  | lnc (kernel : KLR.Core.LncKernel)
   | hlo (name : String)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
@@ -114,12 +115,17 @@ instance : FromContents NKI.Kernel where
                | _ => throw "expecting NKI Kernel"
 
 instance : FromContents Core.Kernel where
-  fromContents | .klir k => return k
+  fromContents | .kernel k => return k
+               | _ => throw "expecting KLIR Kernel"
+
+instance : FromContents Core.LncKernel where
+  fromContents | .lnc k => return k
                | _ => throw "expecting KLIR Kernel"
 
 instance : Coe Python.Kernel Contents := ⟨ .python ⟩
 instance : Coe NKI.Kernel Contents := ⟨ .nki ⟩
-instance : Coe Core.Kernel Contents := ⟨ .klir ⟩
+instance : Coe Core.Kernel Contents := ⟨ .kernel ⟩
+instance : Coe Core.LncKernel Contents := ⟨ .lnc ⟩
 
 /--
 Read the bytes in `arr` as `format` and return a Lean value. The format can be

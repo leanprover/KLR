@@ -37,5 +37,27 @@ def keywords : List (Name × Term) :=
 
 def globalEnv := keywords ++ NKIEnv ++ NumpyEnv
 
-def runNKIKernel (k : KLR.NKI.Kernel) : Err (String × KLR.Core.Kernel) :=
-  tracer globalEnv (traceKernel k)
+def runNkiKernel (k : KLR.NKI.Kernel) (pid : Nat := 1) : Err (String × KLR.Core.Kernel) := do
+  let pid := Term.expr (.value (.int pid)) .int
+  let env := (nl "program_id", pid) :: globalEnv
+  tracer env (traceKernel k)
+
+-- TODO: probably the messages are identical, but they might not be
+-- TODO: check that inputs and outputs are the same
+def runLncKernels (k : KLR.NKI.Kernel) : Err (String × KLR.Core.LncKernel) := do
+  let (m0, k0) <- runNkiKernel k 0
+  let kernel : Core.LncKernel := {
+    name := k0.name
+    inputs := k0.inputs
+    outputs := k0.outputs
+    bodies := []
+  }
+  let mut msgs := [m0]
+  let mut bodies := [k0.body]
+  for i in [1:k.grid.max 1] do
+    let (msg, k) <- runNkiKernel k i
+    msgs := msg :: msgs
+    bodies := k.body :: bodies
+  let msg := "\n".intercalate msgs.reverse
+  let kernel := { kernel with bodies := bodies.reverse }
+  return (msg, kernel)

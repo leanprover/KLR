@@ -96,6 +96,14 @@ structure Kernel where
   body : List Stmt
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
+@[serde tag = 106]
+structure LncKernel where
+  name : String
+  inputs : List TensorName
+  outputs : List TensorName
+  bodies : List (List Stmt)
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
 -- Utilities
 
 class Tensors (a : Type) where

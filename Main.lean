@@ -194,8 +194,10 @@ def info (p : Parsed) : IO UInt32 := do
     IO.println s!"Globals: {gs}"
   | .hlo name =>
     IO.println s!"HLO Call Site {name}"
-  | .klir kernel =>
-    IO.println s!"AST summary for KLIR kernel {kernel.name}"
+  | .kernel kernel =>
+    IO.println s!"AST summary for NKI-IR kernel {kernel.name}"
+  | .lnc kernel =>
+    IO.println s!"AST summary for NKI-IR LNC kernel {kernel.name}"
   return 0
 
 def compile (p : Parsed) : IO UInt32 := do
@@ -222,7 +224,7 @@ private def evalKlrTensors
   : IO (List (String × TensorLib.Tensor)) := do
   let kernel : KLR.NKI.Kernel <- gatherTmp p
   --let (k, warnings1) := kernel.inferArguments
-  let (warnings, klr) <- KLR.Trace.runNKIKernel kernel
+  let (warnings, klr) <- KLR.Trace.runNkiKernel kernel
   dbg_trace s!"klr-inputs: {repr klr.inputs}"
   --if !warnings1.isEmpty then IO.eprintln warnings1
   if !warnings.isEmpty then IO.eprintln warnings

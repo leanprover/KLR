@@ -246,10 +246,16 @@ def generateFileC : MetaM Unit := do
   static bool Core_Kernel_ser(FILE *out, struct Core_Kernel *k) {
     (void)out; (void)k; return false;
   }
+  static bool Core_LncKernel_ser(FILE *out, struct Core_LncKernel *k) {
+    (void)out; (void)k; return false;
+  }
   static bool NKI_Kernel_des(FILE *in, struct region *r, struct NKI_Kernel **k) {
     (void)in; (void)r; (void)k; return false;
   }
   static bool Core_Kernel_des(FILE *in, struct region *r, struct Core_Kernel **k) {
+    (void)in; (void)r; (void)k; return false;
+  }
+  static bool Core_LncKernel_des(FILE *in, struct region *r, struct Core_LncKernel **k) {
     (void)in; (void)r; (void)k; return false;
   }
   "

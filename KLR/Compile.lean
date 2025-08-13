@@ -25,7 +25,7 @@ def eprintln [ToString a] (debug : Bool) (x : a) : IO Unit := do
   if debug then IO.eprintln x
 
 -- TODO: preserve warnings and errors
-def compilePython (kernel : Python.Kernel) : IO Core.Kernel := do
+def compilePython (kernel : Python.Kernel) : IO Core.LncKernel := do
   let (kernel, warnings) := kernel.inferArguments
   warnings.forM IO.eprintln
   let kernel : KLR.NKI.Kernel <- KLR.NKI.simplify kernel
@@ -37,11 +37,11 @@ def compilePython (kernel : Python.Kernel) : IO Core.Kernel := do
   -- TODO use debug flags?
   --IO.println (Std.Format.pretty (Std.format kernel))
   --IO.println (reprStr kernel)
-  let (warnings, kernel) <- KLR.Trace.runNKIKernel kernel
+  let (warnings, kernels) <- KLR.Trace.runLncKernels kernel
   if !warnings.isEmpty then
     IO.eprintln warnings
-  let kernel <- Core.lowerAccessPatterns kernel
-  return kernel
+  let kernels <- Core.lowerAccessPatterns kernels
+  return kernels
 
 structure TensorInfo where
   name : String

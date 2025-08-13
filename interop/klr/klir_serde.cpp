@@ -2555,6 +2555,20 @@ Ptr<Kernel> Kernel_des(FILE *in) {
   return x;
 }
 
+Ptr<LncKernel> LncKernel_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 106 || c != 0 || l != 4)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<LncKernel> x = ptr<LncKernel>();
+  x->name = String_des(in);
+  x->inputs = List_TensorName_des(in);
+  x->outputs = List_TensorName_des(in);
+  x->bodies = List_List_des(in);
+  return x;
+}
+
 List<Ptr<Index>> List_Index_des(FILE *in) {
   u64 size = 0;
   if (!deserialize_array_start(in, &size))
@@ -2712,6 +2726,19 @@ List<Ptr<Stmt>> List_Stmt_des(FILE *in) {
   return l;
 }
 
+List<List<Ptr<Stmt>>> List_List_des(FILE *in) {
+  u64 size = 0;
+  if (!deserialize_array_start(in, &size))
+    throw std::runtime_error("expecting List");
+
+  List<List<Ptr<Stmt>>> l;
+  while (size-- > 0) {
+    List<Ptr<Stmt>> b = List_Stmt_des(in);
+    l.push_back(b);
+  }
+  return l;
+}
+
 Ptr<KLRFile> KLRFile_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
@@ -2762,12 +2789,20 @@ Ptr<Contents> Contents_des(FILE *in) {
   case 2: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
-    Ptr<ContentsKlirWrapper> x = ptr<ContentsKlirWrapper>();
+    Ptr<ContentsKernelWrapper> x = ptr<ContentsKernelWrapper>();
     x->kernel = Kernel_des(in);
     return x;
     break;
   }
   case 3: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<ContentsLncWrapper> x = ptr<ContentsLncWrapper>();
+    x->kernel = LncKernel_des(in);
+    return x;
+    break;
+  }
+  case 4: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<ContentsHloWrapper> x = ptr<ContentsHloWrapper>();
