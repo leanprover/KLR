@@ -51,18 +51,16 @@ def lowerScalar (s : K3.ScalarK3) : Compile ScalarK2 := do
   | .int n => pure $ .int n
   | .vector .. => throw s!"Vector scalars not supported in KLR.TGRKLR.K2, got {s}."
 
-def makeSimpleTile (freeOffset partitionSize freeSize : Nat) (dtype : TensorLib.Dtype) : TensorK2 :=
+def makeSimpleTile (name : Var) (partitionSize freeSize : Nat) (dtype : TensorLib.Dtype) : TensorK2 :=
   {
-    name := "",
+    name,
     dtype,
     memory := .sbuf,
-    parQuadrant := .par0,
     parDim := partitionSize,
-    freeOffset := freeOffset,
     freePattern := [⟨1, freeSize⟩]
   }
-def makeSimplePsumTile (freeOffset partitionSize freeSize : Nat) (dtype : TensorLib.Dtype) : TensorK2 :=
-  {makeSimpleTile freeOffset partitionSize freeSize dtype with memory := .psum}
+def makeSimplePsumTile (name : Var) (partitionSize freeSize : Nat) (dtype : TensorLib.Dtype) : TensorK2 :=
+  {makeSimpleTile name partitionSize freeSize dtype with memory := .psum}
 
 def compileTensorScalar
   (dest src : K3.TensorK3)
@@ -84,32 +82,31 @@ def compileTensorScalar
   let sourceHbmTensor ← fetch src.name
   let destHbmTensor ← fetch dest.name
 
-  let sourceSbuf := makeSimpleTile 0 partitionSize freeSize src.shape.dtype
-  let destSbufOffset := freeSize * dtypeSize
-  let destSbuf := makeSimpleTile destSbufOffset partitionSize freeSize dest.shape.dtype
-  let vectorOffset := (freeSize + 1) * dtypeSize
-  let vector := makeSimpleTile vectorOffset partitionSize 1 src.shape.dtype
+  let sourceSbuf := makeSimpleTile sourceHbmTensor.name partitionSize freeSize src.shape.dtype
+  let destSbuf := makeSimpleTile destHbmTensor.name partitionSize freeSize dest.shape.dtype
+  let vecTileName ← gensym "vector"
+  let vector := makeSimpleTile vecTileName partitionSize 1 src.shape.dtype
 
-  let loopReg := 0
+  let loopVar := "i"
 
   let (imm0, statements) := match imm0 with
     | .float f => (.float f, [])
     | .int n => (.int n, [])
     | .vector name _size _dtype =>
-      let reg := 1
-      (.var reg,
+      let vecVar := "vec"
+      (.var vecVar,
       [
-        .load vector ⟨name, .expr .mult (.var loopReg) (.int dtypeSize), [⟨1,partitionSize⟩]⟩,
-        .moveAddress reg .par0 vectorOffset
+        .load vector ⟨name, .expr .mult (.var loopVar) (.int dtypeSize), [⟨1,partitionSize⟩]⟩,
+        .assign vecVar (.address vecTileName)
       ])
   let imm1 ← lowerScalar imm1
 
   let loop := [
-    StatementK2.loop loopReg 0 srcLeadingDimensionsSize partitionSize (
-      [StatementK2.load sourceSbuf ⟨sourceHbmTensor.name, .expr .mult (.var loopReg) (.int (dtypeSize * freeSize)), [⟨1,tileSize⟩]⟩] ++
+    StatementK2.loop loopVar 0 srcLeadingDimensionsSize partitionSize (
+      [StatementK2.load sourceSbuf ⟨sourceHbmTensor.name, .expr .mult (.var loopVar) (.int (dtypeSize * freeSize)), [⟨1,tileSize⟩]⟩] ++
       statements ++
       [StatementK2.op (.tensorScalar ⟨destSbuf, sourceSbuf, imm0, op0, imm1, op1, reverse⟩)] ++
-      [StatementK2.store ⟨destHbmTensor.name, .expr .mult (.var loopReg) (.int (dtypeSize * freeSize)), [⟨1,tileSize⟩]⟩ destSbuf])
+      [StatementK2.store ⟨destHbmTensor.name, .expr .mult (.var loopVar) (.int (dtypeSize * freeSize)), [⟨1,tileSize⟩]⟩ destSbuf])
   ]
   pure loop
 
@@ -125,15 +122,15 @@ def makeSingleTensorLoop
 
   let sourceHbmTensor ← fetch srcTensor.name
   let destHbmTensor ← fetch destTensor.name
-  let sourceSbuf := makeSimpleTile 0 tilePartitionSize tileFreeSize srcTensor.shape.dtype
-  let destSbuf := makeSimpleTile tileFreeSize tilePartitionSize tileFreeSize destTensor.shape.dtype
+  let sourceSbuf := makeSimpleTile sourceHbmTensor.name tilePartitionSize tileFreeSize srcTensor.shape.dtype
+  let destSbuf := makeSimpleTile destHbmTensor.name tilePartitionSize tileFreeSize destTensor.shape.dtype
 
-  let loopReg := 0
+  let loopVar := "i"
   let loop := [
-    .loop loopReg 0 srcTensor.shape.shape.count tileSize (
-      [.load sourceSbuf ⟨sourceHbmTensor.name, .expr .mult (.var loopReg) (.int dtypeSize), [⟨1,tileSize⟩]⟩] ++
+    .loop loopVar 0 srcTensor.shape.shape.count tileSize (
+      [.load sourceSbuf ⟨sourceHbmTensor.name, .expr .mult (.var loopVar) (.int dtypeSize), [⟨1,tileSize⟩]⟩] ++
       (← body destSbuf sourceSbuf) ++
-      [.store ⟨destHbmTensor.name, .expr .mult (.var loopReg) (.int dtypeSize), [⟨1,tileSize⟩]⟩ destSbuf])
+      [.store ⟨destHbmTensor.name, .expr .mult (.var loopVar) (.int dtypeSize), [⟨1,tileSize⟩]⟩ destSbuf])
   ]
   pure loop
 
@@ -151,57 +148,19 @@ def makeDoubleTensorLoop
   let aHbmTensor ← fetch aTensor.name
   let bHbmTensor ← fetch bTensor.name
   let destHbmTensor ← fetch destTensor.name
-  let aSbuf := makeSimpleTile 0 tilePartitionSize tileFreeSize aTensor.shape.dtype
-  let bSbuf := makeSimpleTile tileFreeSize tilePartitionSize tileFreeSize bTensor.shape.dtype
-  let destSbuf := makeSimpleTile (tileFreeSize + tileFreeSize) tilePartitionSize tileFreeSize destTensor.shape.dtype
+  let aSbuf := makeSimpleTile aHbmTensor.name tilePartitionSize tileFreeSize aTensor.shape.dtype
+  let bSbuf := makeSimpleTile bHbmTensor.name tilePartitionSize tileFreeSize bTensor.shape.dtype
+  let destSbuf := makeSimpleTile destHbmTensor.name tilePartitionSize tileFreeSize destTensor.shape.dtype
 
-  let loopReg := 0
+  let loopVar := "i"
   let loop := [
-    .loop loopReg 0 aTensor.shape.shape.count tileSize (
-      [.load aSbuf ⟨aHbmTensor.name, .expr .mult (.var loopReg) (.int dtypeSize), [⟨1,tileSize⟩]⟩] ++
-      [.load bSbuf ⟨bHbmTensor.name, .expr .mult (.var loopReg) (.int dtypeSize), [⟨1,tileSize⟩]⟩] ++
+    .loop loopVar 0 aTensor.shape.shape.count tileSize (
+      [.load aSbuf ⟨aHbmTensor.name, .expr .mult (.var loopVar) (.int dtypeSize), [⟨1,tileSize⟩]⟩] ++
+      [.load bSbuf ⟨bHbmTensor.name, .expr .mult (.var loopVar) (.int dtypeSize), [⟨1,tileSize⟩]⟩] ++
       (← body aSbuf bSbuf destSbuf) ++
-      [.store ⟨destHbmTensor.name, .expr .mult (.var loopReg) (.int dtypeSize), [⟨1,destTileSize⟩]⟩ destSbuf])
+      [.store ⟨destHbmTensor.name, .expr .mult (.var loopVar) (.int dtypeSize), [⟨1,destTileSize⟩]⟩ destSbuf])
   ]
   pure loop
-
-def compileActivate
-  (dest src : K3.TensorK3) (accumulatorCmd  : AccumCmd) (activationFunc : ActivationFunc) (scale : K3.ScalarK3) (bias : K3.ScalarK3) (imm : K3.ScalarK3)
-  : Compile (List StatementK2) := do
-  let leadingSize := src.shape.shape.val.take (src.shape.shape.ndim - 1) |> List.foldl (· * ·) 1
-  let freeSize := src.shape.shape.val.getLast!
-  let dtypeSize := dtypeSize src.shape.dtype.itemsize
-
-  if leadingSize != dest.shape.shape.count then
-    throw s!"compileTensorReduce: Source tensor {src.name} has a leading dimension size ({leadingSize}) that does not match the destination tensor size ({dest.shape.shape.count})."
-
-  let parDim := 2
-  let sourceHbmTensor ← fetch src.name
-  let destHbmTensor ← fetch dest.name
-  let sourceSbuf := makeSimpleTile 0 parDim freeSize src.shape.dtype
-  let destSbuf := makeSimpleTile freeSize parDim 1 dest.shape.dtype
-  let vectorOffset := freeSize + 1
-  let vector := makeSimpleTile vectorOffset parDim 1 src.shape.dtype
-
-  let loopReg := 0
-  let (bias, statements) := match bias with
-    | .float f => (.float f, [])
-    | .int n => (.int n, [])
-    | .vector name _size _dtype =>
-      let reg := 1
-      (.var reg,
-      [
-        StatementK2.load vector ⟨name, .expr .mult (.var loopReg) (.int dtypeSize), [⟨1,freeSize⟩]⟩,
-        .moveAddress reg .par0 vectorOffset
-      ])
-
-  pure [
-    .loop loopReg 0 leadingSize parDim
-      ([StatementK2.load sourceSbuf ⟨sourceHbmTensor.name, .expr .mult (.var loopReg) (.int (dtypeSize * freeSize)), [⟨1,parDim * freeSize⟩]⟩] ++
-      statements ++
-      [.op (.tensorReduce ⟨destSbuf, sourceSbuf, op, opDim, negated⟩),
-      .store ⟨destHbmTensor.name, .expr .mult (.var loopReg) (.int dtypeSize), [⟨1,parDim⟩]⟩ destSbuf])
-  ]
 
 def compileTensorReduce
   (srcTensor destTensor : K3.TensorK3) (op : AluOp) (opDim : TensorSubDim) (negated : Bool) : Compile (List StatementK2) := do
@@ -216,15 +175,15 @@ def compileTensorReduce
   let parDim := 2
   let sourceHbmTensor ← fetch srcTensor.name
   let destHbmTensor ← fetch destTensor.name
-  let sourceSbuf := makeSimpleTile 0 parDim srcTensorFreeSize srcTensor.shape.dtype
-  let destSbuf := makeSimpleTile srcTensorFreeSize parDim 1 destTensor.shape.dtype
+  let sourceSbuf := makeSimpleTile sourceHbmTensor.name parDim srcTensorFreeSize srcTensor.shape.dtype
+  let destSbuf := makeSimpleTile destHbmTensor.name parDim 1 destTensor.shape.dtype
 
-  let loopReg := 0
+  let loopVar := "i"
   let loop := [
-    .loop loopReg 0 srcTensorLeadingSize parDim
-      [.load sourceSbuf ⟨sourceHbmTensor.name, .expr .mult (.var loopReg) (.int (dtypeSize * srcTensorFreeSize)), [⟨1,parDim * srcTensorFreeSize⟩]⟩,
+    .loop loopVar 0 srcTensorLeadingSize parDim
+      [.load sourceSbuf ⟨sourceHbmTensor.name, .expr .mult (.var loopVar) (.int (dtypeSize * srcTensorFreeSize)), [⟨1,parDim * srcTensorFreeSize⟩]⟩,
       .op (.tensorReduce ⟨destSbuf, sourceSbuf, op, opDim, negated⟩),
-      .store ⟨destHbmTensor.name, .expr .mult (.var loopReg) (.int dtypeSize), [⟨1,parDim⟩]⟩ destSbuf]
+      .store ⟨destHbmTensor.name, .expr .mult (.var loopVar) (.int dtypeSize), [⟨1,parDim⟩]⟩ destSbuf]
   ]
   pure loop
 
@@ -309,73 +268,73 @@ def compileMatMul
   if iSize % tileSize != 0 || jSize % tileSize != 0 || kSize % tileSize != 0 then
     throw s!"compileMatMul: One or more tensor sizes are not multiples of the tile size {tileSize}: iSize={iSize}, jSize={jSize}, kSize={kSize}."
 
-  let bReg := 0
-  let iReg := 1
-  let kReg := 2
-  let jReg := 3
-  let xOffsetReg := 4
-  let yOffsetReg := 5
-  let destOffsetReg := 6
+  let bVar := "b"
+  let iVar := "i"
+  let kVar := "k"
+  let jVar := "j"
+  let xOffsetVar := "xOffset"
+  let yOffsetVar := "yOffset"
+  let destOffsetVar := "destOffset"
   let iTiles := iSize / tileSize
   let jTiles := jSize / tileSize
   let kTiles := kSize / tileSize
 
-  let aSbuf := makeSimpleTile 0 tileSize tileSize aTensor.shape.dtype
-  let bSbuf := makeSimpleTile tileSize tileSize tileSize bTensor.shape.dtype
-  let destSbuf := makeSimpleTile (tileSize * 2) tileSize tileSize destTensor.shape.dtype
+  let aSbuf := makeSimpleTile aHbmTensor.name tileSize tileSize aTensor.shape.dtype
+  let bSbuf := makeSimpleTile bHbmTensor.name tileSize tileSize bTensor.shape.dtype
+  let destSbuf := makeSimpleTile destHbmTensor.name tileSize tileSize destTensor.shape.dtype
   pure [
-    .loop bReg 0 batchSize 1 [
-      .loop iReg 0 iTiles 1 [
-        .loop kReg 0 kTiles 1 [
+    .loop bVar 0 batchSize 1 [
+      .loop iVar 0 iTiles 1 [
+        .loop kVar 0 kTiles 1 [
           .op (.memSet ⟨destSbuf, .float 0, 0⟩),
-          .loop jReg 0 jTiles 1 [
-            -- bReg * i * j + iReg * j * tileSize + jReg * tileSize
-            .move xOffsetReg
+          .loop jVar 0 jTiles 1 [
+            -- bVar * i * j + iVar * j * tileSize + jVar * tileSize
+            .assign xOffsetVar
               (.expr .add
                (.expr .mult
-                (.var bReg)
+                (.var bVar)
                 (.int (iSize * jSize)))
                (.expr .add
                 (.expr .mult
-                  (.var iReg)
+                  (.var iVar)
                   (.int (jSize * tileSize)))
                 (.expr .mult
-                  (.var jReg)
+                  (.var jVar)
                   (.int tileSize)))),
-            -- bReg * k * j + kReg * j * tileSize + jReg * tileSize
-            .move yOffsetReg
+            -- bVar * k * j + kVar * j * tileSize + jVar * tileSize
+            .assign yOffsetVar
               (.expr .add
                (.expr .mult
-                (.var bReg)
+                (.var bVar)
                 (.int (kSize * jSize)))
                (.expr .add
                 (.expr .mult
-                  (.var kReg)
+                  (.var kVar)
                   (.int (jSize * tileSize)))
                 (.expr .mult
-                  (.var jReg)
+                  (.var jVar)
                   (.int tileSize)))),
-            -- bReg * i * k + iReg * k * tileSize + kReg * tileSize
-            .move destOffsetReg
-              (.expr .add
-               (.expr .mult
-                (.var bReg)
-                (.int (iSize * kSize)))
-               (.expr .add
-                (.expr .mult
-                  (.var iReg)
-                  (.int (kSize * tileSize)))
-                (.expr .mult
-                  (.var kReg)
-                  (.int tileSize)))),
-            .load aSbuf ⟨aHbmTensor.name, .var xOffsetReg, [⟨jSize,tileSize⟩,⟨1,tileSize⟩]⟩,
-            .load bSbuf ⟨bHbmTensor.name, .var yOffsetReg, [⟨jSize,tileSize⟩,⟨1,tileSize⟩]⟩,
+            .load aSbuf ⟨aHbmTensor.name, .var xOffsetVar, [⟨jSize,tileSize⟩,⟨1,tileSize⟩]⟩,
+            .load bSbuf ⟨bHbmTensor.name, .var yOffsetVar, [⟨jSize,tileSize⟩,⟨1,tileSize⟩]⟩,
             .op (.loadStationary ⟨aSbuf, false⟩),
-            .ifzero (jReg)
+            .ifzero (jVar)
               [.op (.matMul ⟨destSbuf, bSbuf, .first⟩)]
               [.op (.matMul ⟨destSbuf, bSbuf, .middle⟩)],
           ],
-          .store ⟨destHbmTensor.name, .var destOffsetReg, [⟨kSize,tileSize⟩,⟨1,tileSize⟩]⟩ destSbuf
+          -- bVar * i * k + iVar * k * tileSize + kVar * tileSize
+          .assign destOffsetVar
+            (.expr .add
+              (.expr .mult
+              (.var bVar)
+              (.int (iSize * kSize)))
+              (.expr .add
+              (.expr .mult
+                (.var iVar)
+                (.int (kSize * tileSize)))
+              (.expr .mult
+                (.var kVar)
+                (.int tileSize)))),
+          .store ⟨destHbmTensor.name, .var destOffsetVar, [⟨kSize,tileSize⟩,⟨1,tileSize⟩]⟩ destSbuf
         ]
       ]
     ]
@@ -392,8 +351,8 @@ def compile120Transpose (srcTensor destTensor : K3.TensorK3) (shape : List Nat):
 
   let sourceHbmTensor ← fetch srcTensor.name
   let destHbmTensor ← fetch destTensor.name
-  let sourceSbuf := makeSimpleTile 0 tileDim tileDim srcTensor.shape.dtype
-  let destSbuf := makeSimpleTile tileDim tileDim tileDim destTensor.shape.dtype
+  let sourceSbuf := makeSimpleTile sourceHbmTensor.name tileDim tileDim srcTensor.shape.dtype
+  let destSbuf := makeSimpleTile destHbmTensor.name tileDim tileDim destTensor.shape.dtype
 
   let x := shape[0]!
   let y := shape[1]! * shape[2]!
@@ -403,14 +362,14 @@ def compile120Transpose (srcTensor destTensor : K3.TensorK3) (shape : List Nat):
   if y % tileDim != 0 then
     throw s!"compile120transpose: Source tensor {srcTensor.name} has a shape ({y}) that is not a multiple of the tile size {tileDim}."
 
-  let row := 0
-  let col := 1
+  let rowVar := "row"
+  let colVar := "col"
   let loop := [
-    .loop row 0 x tileDim (
-      [.loop col 0 y tileDim [
-        .load sourceSbuf ⟨sourceHbmTensor.name, .expr .add (.expr .mult (.var row) (.int x)) (.var col), [⟨1,tileDim⟩]⟩,
+    .loop rowVar 0 x tileDim (
+      [.loop colVar 0 y tileDim [
+        .load sourceSbuf ⟨sourceHbmTensor.name, .expr .add (.expr .mult (.var rowVar) (.int x)) (.var colVar), [⟨1,tileDim⟩]⟩,
         .op (.transpose ⟨destSbuf, sourceSbuf⟩),
-        .store ⟨destHbmTensor.name, .expr .add (.expr .mult (.var col) (.int x)) (.var row), [⟨1,tileDim⟩]⟩ destSbuf,
+        .store ⟨destHbmTensor.name, .expr .add (.expr .mult (.var colVar) (.int x)) (.var rowVar), [⟨1,tileDim⟩]⟩ destSbuf,
         ]
       ]
     )
@@ -421,8 +380,8 @@ def compile201Transpose (srcTensor destTensor : K3.TensorK3) (shape : List Nat):
 
   let sourceHbmTensor ← fetch srcTensor.name
   let destHbmTensor ← fetch destTensor.name
-  let sourceSbuf := makeSimpleTile 0 tileDim tileDim srcTensor.shape.dtype
-  let destSbuf := makeSimpleTile tileDim tileDim tileDim destTensor.shape.dtype
+  let sourceSbuf := makeSimpleTile sourceHbmTensor.name tileDim tileDim srcTensor.shape.dtype
+  let destSbuf := makeSimpleTile destHbmTensor.name tileDim tileDim destTensor.shape.dtype
 
   let x := shape[0]! * shape[1]!
   let y := shape[2]!
@@ -430,14 +389,14 @@ def compile201Transpose (srcTensor destTensor : K3.TensorK3) (shape : List Nat):
   if x % tileDim != 0 || y % tileDim != 0 then
     throw s!"compile201transpose: Source tensor {srcTensor.name} has a shape that is not a multiple of the tile size {tileDim}."
 
-  let row := 0
-  let col := 1
+  let rowVar := "row"
+  let colVar := "col"
   let loop := [
-    .loop row 0 x tileDim (
-      [.loop col 0 y tileDim [
-        .load sourceSbuf ⟨sourceHbmTensor.name, .expr .add (.expr .mult (.var row) (.int x)) (.var col), [⟨1,tileDim⟩]⟩,
+    .loop rowVar 0 x tileDim (
+      [.loop colVar 0 y tileDim [
+        .load sourceSbuf ⟨sourceHbmTensor.name, .expr .add (.expr .mult (.var rowVar) (.int x)) (.var colVar), [⟨1,tileDim⟩]⟩,
         .op (.transpose ⟨destSbuf, sourceSbuf⟩),
-        .store ⟨destHbmTensor.name, .expr .add (.expr .mult (.var col) (.int x)) (.var row), [⟨1,tileDim⟩]⟩ destSbuf,
+        .store ⟨destHbmTensor.name, .expr .add (.expr .mult (.var colVar) (.int x)) (.var rowVar), [⟨1,tileDim⟩]⟩ destSbuf,
         ]
       ]
     )
@@ -466,14 +425,14 @@ def compileTranspose (dst src : K3.TensorK3) (dims : List Nat) : Compile (List S
   let goalShapeSqueezed := goalShape.filter (fun d => d != 1) -- [12,2000,64]
 
   match dimsSqueezed with
-  | [] => sorry -- noop
+  | [] => panic! s!"No dimensions to transpose for {src.name} to {dst.name}."
   | [0] => makeCopy dst src
   | [0, 1] => makeCopy dst src
   | [1, 0] =>
     let sourceHbmTensor ← fetch src.name
     let destHbmTensor ← fetch dst.name
     let (x, y) := (shapeSqueezed[0]!, shapeSqueezed[1]!)
-    let (xReg, yReg) := (0, 1)
+    let (xReg, yReg) := ("x", "y")
     return [
       .loop xReg 0 x 1 [
         .loop yReg 0 y 1 [
@@ -496,7 +455,7 @@ def compileTranspose (dst src : K3.TensorK3) (dims : List Nat) : Compile (List S
     let sourceHbmTensor ← fetch src.name
     let destHbmTensor ← fetch dst.name
     let (x, y, z) := (shapeSqueezed[0]!, shapeSqueezed[1]!, shapeSqueezed[2]!)
-    let (xReg, yReg, zReg) := (0, 1, 2)
+    let (xReg, yReg, zReg) := ("x", "y", "z")
     let destAccessExpr :=
       let (aReg, bReg, cReg) := permute [xReg, yReg, zReg] dimsSqueezed |>.get! |> fun x => (x[0]!, x[1]!, x[2]!)
       let (a, b, c) := permute [x, y, z] dimsSqueezed |>.get! |> fun x => (x[0]!, x[1]!, x[2]!)
@@ -558,10 +517,10 @@ def compileStatement (s : K3.OperatorK3) : Compile (List StatementK2) := do
   | .transposeP ⟨dst, src, dims⟩ => compileTranspose dst src dims
   | .matmulP ⟨dst, a, b⟩ => compileMatMul dst a b
   | .identityP ⟨dst, src⟩ => makeCopy dst src
-  | _ => panic s!"compileStatment: Unsupported operator {repr s}"
+  | _ => panic s!"compileStatement: Unsupported operator {repr s}"
   pure $ (.comment s!"{s}") :: statements
 
-def compileFunction (f : K3.FunctionK3) : Compile FunctionK2 := do
+def compileProgram (f : K3.FunctionK3) : Compile ProgramK2 := do
   let mut tensors := []
   for op in f.statements do
     for target in targets op do
@@ -585,8 +544,8 @@ def compileFunction (f : K3.FunctionK3) : Compile FunctionK2 := do
     statements := statements
   }
 
-def compile (f : K3.FunctionK3) : (Except String FunctionK2) × Ctx :=
-  let compiled := compileFunction f
+def compile (f : K3.FunctionK3) : (Except String ProgramK2) × Ctx :=
+  let compiled := compileProgram f
   match compiled.run default with
   | .ok ops s => (.ok ops, s)
   | .error err s => (throw err, s)

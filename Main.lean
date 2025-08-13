@@ -21,10 +21,13 @@ import TensorLib.Tensor
 import SHerLOC
 import KLR.TGR
 import SHerLOC.Analysis.Graph
-import KLR.TGRKLR.CompileK3
-import KLR.TGRKLR.CompileK2
-import KLR.TGRKLR.DotK3
-import KLR.TGRKLR.InterpK2
+import KLR.TGRKLR.K3.CompileK3
+import KLR.TGRKLR.K2.CompileK2
+import KLR.TGRKLR.K2.AST
+import KLR.TGRKLR.K3.DotK3
+import KLR.TGRKLR.K1.CompileK1
+import KLR.TGRKLR.K1.AST
+import KLR.TGRKLR.K1.InterpK1
 
 open Cli
 open KLR
@@ -342,23 +345,37 @@ def hloToKLR (p : Parsed) : IO UInt32 := do
       --IO.println (toString s.program)
       let headFunction := s.program.functions.head!
       writeContent "tgr.txt" p (toString s.program)
+      writeContent "tgr.dot" p s!"{KLR.TGR.Graph.graph headFunction}"
+      writeContent "py" p (KLR.TGR.Py.compile s.program)
+      -- compile TGR to K3
       let klr3 := KLR.TGRKLR.K3.compile headFunction
       match klr3 with
       | (.ok func, _) =>
         writeContent "k3.txt" p s!"{func}"
         writeContent "k3.dot" p (KLR.TGRKLR.K3.graph func |> toString)
+        -- compile K3 to K2
+        dbg_trace s!"Compiling K3 to K2"
         let klr2 := KLR.TGRKLR.K2.compile func
         match klr2 with
         | (.ok func, _) =>
-          writeContent "k2.txt" p s!"{func}"
-          match KLR.TGRKLR.K2.Interp.interp func with
-          | (.ok (), ctx) =>
-            writeContent "k2.result" p s!"{ctx}"
-            return 0
+          writeContent "k2.txt" p s!"{KLR.TGRKLR.K2.formatProgramK2 func}"
+          -- compile K2 to K1
+          dbg_trace s!"Compiling K2 to K1"
+          match KLR.TGRKLR.K1.compile func with
+          | (.ok func, _) =>
+            writeContent "k1.txt" p s!"{KLR.TGRKLR.K1.formatProgramK1 func}"
+            -- interpret K1
+            match KLR.TGRKLR.K1.Interp.interp func with
+            | (.ok (), ctx) =>
+              writeContent "k1.result" p s!"{ctx}"
+            | (.error e, ctx) =>
+              IO.eprintln s!"Error interpreting K1: {e}"
+              writeContent "k1.err" p s!"{ctx}"
+            return 1
           | (.error e, ctx) =>
-            IO.eprintln s!"Error interpreting K2: {e}"
-            writeContent "k2.err" p s!"{ctx}"
-          return 1
+            IO.eprintln s!"Error compiling K2 to K1: {e}"
+            IO.eprintln s!"{repr ctx}"
+            return 0
         | (.error e, ctx) =>
           IO.eprintln s!"Error compiling HLO to K2: {e}"
           IO.eprintln s!"{repr ctx}"

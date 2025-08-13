@@ -390,6 +390,9 @@ structure APPair where
   num : Nat := 1
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
+def accessSize (pairs : List APPair) : Nat :=
+  pairs.foldl (fun acc p => acc * p.num) 1
+
 /--
 Complete access patterns
 
