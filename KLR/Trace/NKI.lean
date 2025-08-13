@@ -281,6 +281,7 @@ over anything found during parsing.
 -/
 
 private def shouldKeep : Name -> Bool
+  | .str `neuronxcc.nki._pre_prod_kernels _ => true
   | .str `neuronxcc _ => false
   | .str `numpy _ => false
   | .str n _ => shouldKeep n

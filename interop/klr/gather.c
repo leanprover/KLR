@@ -163,12 +163,8 @@ static void add_work(struct state *st, PyObject *f) {
   if (!name)
     return;
 
-  // skip nki functions (for now)
-  // TODO: remove once we have our own namespace
-  if (strncmp("nki.", name, 4) == 0)
-    return;
-
-  if (strncmp("neuronxcc.nki.", name, 14) == 0)
+  // skip numpy (for performance)
+  if (strncmp("numpy.", name, 6) == 0)
     return;
 
   if (have_fun(st, name))
