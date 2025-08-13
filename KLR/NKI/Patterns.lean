@@ -132,12 +132,7 @@ private def func (f : Fun) : Simpat Fun :=
   return { f with body := <- stmts f.body }
 
 private def kernel (k : Kernel) : Simpat Kernel := do
-  return {
-    entry   := k.entry
-    funs    := <- k.funs.mapM func
-    args    := k.args
-    globals := k.globals
-  }
+  return { k with funs := <- k.funs.mapM func }
 
 -- TODO: capture warnings, make sure to call finalize
 def simplifyPatterns (k : Kernel) : Err Kernel :=

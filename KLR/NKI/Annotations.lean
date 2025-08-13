@@ -148,6 +148,7 @@ private def kernel (k : Kernel) : Ann Kernel := do
     funs    := <- k.funs.mapM func
     args    := <- k.args.mapM arg
     globals := <- k.globals.mapM arg
+    grid    := k.grid
   }
 
 -- TODO: capture warnings, make sure to call finalize

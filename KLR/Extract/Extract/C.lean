@@ -269,6 +269,7 @@ def klrAST: MetaM (List LeanType) := do
     `KLR.Core.Expr,
     `KLR.Core.Stmt,
     `KLR.Core.Kernel,
+    `KLR.Core.LncKernel,
    ]
 
 private def header (isH : Bool) (includes : List String := []) : String :=

@@ -584,9 +584,6 @@ This indirection is necessary because the builtin implementations take terms
 and live in the Trace monad, which contains an environment of terms.
 -/
 
-private def nisa : String -> Name := .str `neuronxcc.nki.isa
-private def nl : String -> Name := .str `neuronxcc.nki.language
-
 def builtinEnv : List (Name × BuiltinFn) :=
   (memViewName, memView) ::
   (nl "par_dim", par_dim) ::

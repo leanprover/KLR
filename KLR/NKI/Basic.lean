@@ -172,4 +172,5 @@ structure Kernel where
   funs : List Fun
   args : List Arg
   globals : List Arg
+  grid : Nat
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
