@@ -146,7 +146,15 @@ where
 
 def run (prods : Production τ ν T N) (start : ν) (c : Context τ ν T N) : Except String (N start) :=
   match (prods start).parse prods c {} with
-  | (some d, _) => .ok d
+  | (some d, s) =>
+    if h : s.pos < c.input.size then
+      let last := c.input[s.pos]
+        let startPos := c.tkStartPos last
+        let endPos := c.tkEndPos last
+      let msg := c.errFormat "unexpected end of input" startPos endPos
+      .error msg
+    else
+      .ok d
   | (none, s) =>
     let msg := s.err.getD (
       match c.input[s.pos]? with

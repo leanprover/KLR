@@ -36,123 +36,62 @@ inductive TokenKind
   | float (value : Float)
   | string (value : String)
   | ident (name : Ident)
+  | tokenLit (s : String)
 
-  -- Keywords
-  -- https://docs.python.org/3/reference/lexical_analysis.html#keywords
-  | False | await | else | import | pass
-  | None | break | except | in | raise
-  | True | class | finally | is | return
-  | and | continue | for | lambda | try
-  | as | def | from | nonlocal | while
-  | assert | del | global | not | with
-  | async | elif | if | or | yield
+  -- -- Keywords
+  -- -- https://docs.python.org/3/reference/lexical_analysis.html#keywords
+  -- | False | await | else | import | pass
+  -- | None | break | except | in | raise
+  -- | True | class | finally | is | return
+  -- | and | continue | for | lambda | try
+  -- | as | def | from | nonlocal | while
+  -- | assert | del | global | not | with
+  -- | async | elif | if | or | yield
 
-  -- Operators
-  -- https://docs.python.org/3/reference/lexical_analysis.html#operators
-  | plus | minus | star | dstar | slash | dslash | percent | at /- @ is also a delimiter -/
-  | lshift | rshift | amp | pipe | caret | tilde | colonassign
-  | lt | gt | le | ge | eq | ne
+  -- -- Operators
+  -- -- https://docs.python.org/3/reference/lexical_analysis.html#operators
+  -- | plus | minus | star | dstar | slash | dslash | percent | at /- @ is also a delimiter -/
+  -- | lshift | rshift | amp | pipe | caret | tilde | colonassign
+  -- | lt | gt | le | ge | eq | ne
 
-  -- Delimiters
-  -- https://docs.python.org/3/reference/lexical_analysis.html#delimiters
-  | lparen | rparen | lbracket | rbracket | lbrace | rbrace
-  | comma | colon | bang | dot | semicolon | assign
-  | rarrow | plusassign | minusassign | starassign | slashassign | dslashassign | percentassign
-  | atassign | ampassign | pipeassign | caretassign | rshiftassign | lshiftassign | dstarassign
-  | ellipsis
+  -- -- Delimiters
+  -- -- https://docs.python.org/3/reference/lexical_analysis.html#delimiters
+  -- | lparen | rparen | lbracket | rbracket | lbrace | rbrace
+  -- | comma | colon | bang | dot | semicolon | assign
+  -- | rarrow | plusassign | minusassign | starassign | slashassign | dslashassign | percentassign
+  -- | atassign | ampassign | pipeassign | caretassign | rshiftassign | lshiftassign | dstarassign
+  -- | ellipsis
 
   -- Special
   | newline | indent | dedent
-deriving BEq, Repr, Inhabited
+deriving Repr, Inhabited
+
+/--
+Manual derivation to help with a proof in the parser
+-/
+@[simp]
+def TokenKind.beq : TokenKind → TokenKind → Bool
+  | .int x, .int y
+  | .float x, .float y
+  | .string x, .string y
+  | .ident x, .ident y
+  | .tokenLit x, .tokenLit y => x == y
+  | .newline, .newline
+  | .indent, .indent
+  | .dedent, .dedent => true
+  | _, _ => false
+
+instance : BEq TokenKind := ⟨TokenKind.beq⟩
+
+scoped macro "tk" s:str : term =>
+  `(TokenKind.tokenLit $s)
 
 def TokenKind.toString : TokenKind → String
   | .int    value  => s!"{value}"
   | .float  value  => s!"{value}"
   | .string value  => s!"`{value}`"
   | .ident  name   => name
-  | .False         => "False"
-  | .await         => "await"
-  | .else          => "else"
-  | .import        => "import"
-  | .pass          => "pass"
-  | .None          => "None"
-  | .break         => "break"
-  | .except        => "except"
-  | .in            => "in"
-  | .raise         => "raise"
-  | .True          => "True"
-  | .class         => "class"
-  | .finally       => "finally"
-  | .is            => "is"
-  | .return        => "return"
-  | .and           => "and"
-  | .continue      => "continue"
-  | .for           => "for"
-  | .lambda        => "lambda"
-  | .try           => "try"
-  | .as            => "as"
-  | .def           => "def"
-  | .from          => "from"
-  | .nonlocal      => "nonlocal"
-  | .while         => "while"
-  | .assert        => "assert"
-  | .del           => "del"
-  | .global        => "global"
-  | .not           => "not"
-  | .with          => "with"
-  | .async         => "async"
-  | .elif          => "elif"
-  | .if            => "if"
-  | .or            => "or"
-  | .yield         => "yield"
-  | .plus          => "+"
-  | .minus         => "-"
-  | .star          => "*"
-  | .dstar         => "**"
-  | .slash         => "/"
-  | .dslash        => "//"
-  | .percent       => "%"
-  | .at            => "@"
-  | .lshift        => "<<"
-  | .rshift        => ">>"
-  | .amp           => "&"
-  | .pipe          => "|"
-  | .caret         => "^"
-  | .tilde         => "~"
-  | .colonassign   => ":="
-  | .lt            => "<"
-  | .gt            => ">"
-  | .le            => "<="
-  | .ge            => ">="
-  | .eq            => "=="
-  | .ne            => "!="
-  | .lparen        => "("
-  | .rparen        => ")"
-  | .lbracket      => "["
-  | .rbracket      => "]"
-  | .lbrace        => "{"
-  | .rbrace        => "}"
-  | .comma         => ","
-  | .colon         => ":"
-  | .bang          => "!"
-  | .dot           => "."
-  | .semicolon     => ";"
-  | .assign        => "="
-  | .rarrow        => "->"
-  | .plusassign    => "+="
-  | .minusassign   => "-="
-  | .starassign    => "*="
-  | .slashassign   => "/="
-  | .dslashassign  => "//="
-  | .percentassign => "%="
-  | .atassign      => "@="
-  | .ampassign     => "&="
-  | .pipeassign    => "|="
-  | .caretassign   => "^="
-  | .rshiftassign  => ">>="
-  | .lshiftassign  => "<<="
-  | .dstarassign   => "**="
-  | .ellipsis      => "..."
+  | .tokenLit s    => s
   | .newline       => "NEWLINE"
   | .indent        => "INDENT"
   | .dedent        => "DEDENT"
@@ -210,9 +149,9 @@ def indentLevel (startPos endPos : String.Pos) : TokenizerM Nat := do
 def getInput : TokenizerM String :=
   return (← read).input
 
-def pushToken (tk : TokenKind) (startPos endPos : String.Pos) : TokenizerM Unit := do
+def pushToken (t : TokenKind) (startPos endPos : String.Pos) : TokenizerM Unit := do
   let s ← get
-  set {s with tokens := s.tokens.push ⟨tk, startPos, endPos⟩}
+  set {s with tokens := s.tokens.push ⟨t, startPos, endPos⟩}
 
 def getLineJoin : TokenizerM Bool := do
   pure (← get).lineJoin
@@ -340,16 +279,16 @@ def checkIndent (startPos : String.Pos) : TokenizerM (PosGt startPos ⊕ PosGe s
   throw s!"unmatched {brace}" startPos endPos
 
 @[inline] def bracesMatch : TokenKind → TokenKind → Bool
-  | .lparen  , .rparen
-  | .lbrace  , .rbrace
-  | .lbracket, .rbracket => true
-  | _        , _         => false
+  | tk"(", tk")"
+  | tk"[", tk"]"
+  | tk"{", tk"}" => true
+  | _    , _     => false
 
 def checkBraces (brace : TokenKind) (startPos endPos : String.Pos) : TokenizerM Unit := do
   match brace with
-  | .lparen | .lbrace | .lbracket =>
+  | tk"(" | tk"{" | tk"[" =>
     pushBrace brace; setLineJoin true
-  | .rparen | .rbrace | .rbracket =>
+  | tk")" | tk"}" | tk"]" =>
     match ← popBrace with
     | some left =>
       if bracesMatch left brace then
@@ -360,63 +299,67 @@ def checkBraces (brace : TokenKind) (startPos endPos : String.Pos) : TokenizerM 
       throwUnmatchedBrace brace startPos endPos
   | _ => return
 
+def opsAndDelimsLit : List {s : String // s.utf8ByteSize > 0} := [
+  ⟨"...", by simp_str_size⟩,
+  ⟨"<<=", by simp_str_size⟩,
+  ⟨">>=", by simp_str_size⟩,
+  ⟨"**=", by simp_str_size⟩,
+  ⟨"//=", by simp_str_size⟩,
+  ⟨"->", by simp_str_size⟩,
+  ⟨"*=", by simp_str_size⟩,
+  ⟨"/=", by simp_str_size⟩,
+  ⟨"%=", by simp_str_size⟩,
+  ⟨"+=", by simp_str_size⟩,
+  ⟨"-=", by simp_str_size⟩,
+  ⟨"@=", by simp_str_size⟩,
+  ⟨"&=", by simp_str_size⟩,
+  ⟨"|=", by simp_str_size⟩,
+  ⟨"^=", by simp_str_size⟩,
+  ⟨":=", by simp_str_size⟩,
+  ⟨"<<", by simp_str_size⟩,
+  ⟨">>", by simp_str_size⟩,
+  ⟨"**", by simp_str_size⟩,
+  ⟨"//", by simp_str_size⟩,
+  ⟨"==", by simp_str_size⟩,
+  ⟨"!=", by simp_str_size⟩,
+  ⟨"<=", by simp_str_size⟩,
+  ⟨">=", by simp_str_size⟩,
+  ⟨"<", by simp_str_size⟩,
+  ⟨">", by simp_str_size⟩,
+  ⟨"+", by simp_str_size⟩,
+  ⟨"-", by simp_str_size⟩,
+  ⟨"*", by simp_str_size⟩,
+  ⟨"/", by simp_str_size⟩,
+  ⟨"%", by simp_str_size⟩,
+  ⟨"&", by simp_str_size⟩,
+  ⟨"|", by simp_str_size⟩,
+  ⟨"^", by simp_str_size⟩,
+  ⟨"~", by simp_str_size⟩,
+  ⟨"(", by simp_str_size⟩,
+  ⟨")", by simp_str_size⟩,
+  ⟨"[", by simp_str_size⟩,
+  ⟨"]", by simp_str_size⟩,
+  ⟨"{", by simp_str_size⟩,
+  ⟨"}", by simp_str_size⟩,
+  ⟨",", by simp_str_size⟩,
+  ⟨":", by simp_str_size⟩,
+  ⟨"@", by simp_str_size⟩,
+  ⟨"!", by simp_str_size⟩,
+  ⟨".", by simp_str_size⟩,
+  ⟨";", by simp_str_size⟩,
+  ⟨"=", by simp_str_size⟩,
+]
+
 def operatorAndDelimiter (startPos : String.Pos) : TokenizerM (TkResult startPos) := do
   let input ← getInput
   let subStr := input.extract startPos (startPos + ⟨3⟩)
   let res : Option (TokenKind × PosGt startPos) :=
-         if subStr.startsWith "..." then some (.ellipsis,      ⟨startPos + "...", String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "<<=" then some (.lshiftassign,  ⟨startPos + "<<=", String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith ">>=" then some (.rshiftassign,  ⟨startPos + ">>=", String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "**=" then some (.dstarassign,   ⟨startPos + "**=", String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "//=" then some (.dslashassign,  ⟨startPos + "//=", String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "->"  then some (.rarrow,        ⟨startPos + "->" , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "*="  then some (.starassign,    ⟨startPos + "*=" , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "/="  then some (.slashassign,   ⟨startPos + "/=" , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "%="  then some (.percentassign, ⟨startPos + "%=" , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "+="  then some (.plusassign,    ⟨startPos + "+=" , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "-="  then some (.minusassign,   ⟨startPos + "-=" , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "@="  then some (.atassign,      ⟨startPos + "@=" , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "&="  then some (.ampassign,     ⟨startPos + "&=" , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "|="  then some (.pipeassign,    ⟨startPos + "|=" , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "^="  then some (.caretassign,   ⟨startPos + "^=" , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith ":="  then some (.colonassign,   ⟨startPos + ":=" , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "<<"  then some (.lshift,        ⟨startPos + "<<" , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith ">>"  then some (.rshift,        ⟨startPos + ">>" , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "**"  then some (.dstar,         ⟨startPos + "**" , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "//"  then some (.dslash,        ⟨startPos + "//" , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "=="  then some (.eq,            ⟨startPos + "==" , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "!="  then some (.ne,            ⟨startPos + "!=" , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "<="  then some (.le,            ⟨startPos + "<=" , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith ">="  then some (.ge,            ⟨startPos + ">=" , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "<"   then some (.lt,            ⟨startPos + "<"  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith ">"   then some (.gt,            ⟨startPos + ">"  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "+"   then some (.plus,          ⟨startPos + "+"  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "-"   then some (.minus,         ⟨startPos + "-"  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "*"   then some (.star,          ⟨startPos + "*"  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "/"   then some (.slash,         ⟨startPos + "/"  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "%"   then some (.percent,       ⟨startPos + "%"  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "&"   then some (.amp,           ⟨startPos + "&"  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "|"   then some (.pipe,          ⟨startPos + "|"  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "^"   then some (.caret,         ⟨startPos + "^"  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "~"   then some (.tilde,         ⟨startPos + "~"  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "("   then some (.lparen,        ⟨startPos + "("  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith ")"   then some (.rparen,        ⟨startPos + ")"  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "["   then some (.lbracket,      ⟨startPos + "["  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "]"   then some (.rbracket,      ⟨startPos + "]"  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "{"   then some (.lbrace,        ⟨startPos + "{"  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "}"   then some (.rbrace,        ⟨startPos + "}"  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith ","   then some (.comma,         ⟨startPos + ","  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith ":"   then some (.colon,         ⟨startPos + ":"  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "@"   then some (.at,            ⟨startPos + "@"  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "!"   then some (.bang,          ⟨startPos + "!"  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "."   then some (.dot,           ⟨startPos + "."  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith ";"   then some (.semicolon,     ⟨startPos + ";"  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else if subStr.startsWith "="   then some (.assign,        ⟨startPos + "="  , String.add_gt startPos _ (by simp_str_size)⟩)
-    else none
+    (opsAndDelimsLit.find? (fun s => subStr.startsWith s.val)).map
+      (fun ⟨s, h⟩ => (.tokenLit s, ⟨startPos + s, String.add_gt startPos _ h⟩))
   match res with
-  | some (tk, endPos) =>
-    checkBraces tk startPos endPos
-    pushToken tk startPos endPos
+  | some (t, endPos) =>
+    checkBraces t startPos endPos
+    pushToken t startPos endPos
     pure <| .success endPos
   | none => pure .failure
 
@@ -429,7 +372,7 @@ def decodeStrEscape (startPos : String.Pos) (s : String) : TokenizerM (String ×
     if h : input.atEnd startPos then throw "unterminated string literal" startPos startPos else
     let curr := input.get' startPos h
     let endPos := PosGe.next' startPos h
-    -- TODO: This behavior is different from the Python spec
+    -- TODO: This is a subset of what's allowed from the Python spec
     match curr with
     | '\\'
     | '\"'
@@ -582,42 +525,43 @@ def checkNumLitEnd (startPos endPos : String.Pos) : TokenizerM Unit := do
   if isIdRest curr then
     throw "invalid numeric literal" startPos endPos
 
-def identKind : String → TokenKind
-  | "False"    => .False
-  | "await"    => .await
-  | "else"     => .else
-  | "import"   => .import
-  | "pass"     => .pass
-  | "None"     => .None
-  | "break"    => .break
-  | "except"   => .except
-  | "in"       => .in
-  | "raise"    => .raise
-  | "True"     => .True
-  | "class"    => .class
-  | "finally"  => .finally
-  | "is"       => .is
-  | "return"   => .return
-  | "and"      => .and
-  | "continue" => .continue
-  | "for"      => .for
-  | "lambda"   => .lambda
-  | "try"      => .try
-  | "as"       => .as
-  | "def"      => .def
-  | "from"     => .from
-  | "nonlocal" => .nonlocal
-  | "while"    => .while
-  | "assert"   => .assert
-  | "del"      => .del
-  | "global"   => .global
-  | "not"      => .not
-  | "with"     => .with
-  | "async"    => .async
-  | "elif"     => .elif
-  | "if"       => .if
-  | "or"       => .or
-  | "yield"    => .yield
+def identKind (s : String) : TokenKind :=
+  match s with
+  | "False"
+  | "await"
+  | "else"
+  | "import"
+  | "pass"
+  | "None"
+  | "break"
+  | "except"
+  | "in"
+  | "raise"
+  | "True"
+  | "class"
+  | "finally"
+  | "is"
+  | "return"
+  | "and"
+  | "continue"
+  | "for"
+  | "lambda"
+  | "try"
+  | "as"
+  | "def"
+  | "from"
+  | "nonlocal"
+  | "while"
+  | "assert"
+  | "del"
+  | "global"
+  | "not"
+  | "with"
+  | "async"
+  | "elif"
+  | "if"
+  | "or"
+  | "yield"    => .tokenLit s
   | id         => .ident id
 
 def tokenizeLine (startPos : String.Pos) : TokenizerM (PosGe startPos) := do
@@ -655,9 +599,9 @@ def tokenizeLine (startPos : String.Pos) : TokenizerM (PosGe startPos) := do
       let endPos ← go next
       pure ⟨endPos.val, endPos.next_ge⟩
     else if curr.isDigit then -- numeric literal
-      let (tk, endPos) ← finishNum next curr
+      let (t, endPos) ← finishNum next curr
       checkNumLitEnd startPos endPos
-      pushToken tk startPos endPos
+      pushToken t startPos endPos
       cont endPos
     else if curr == '\'' || curr == '\"' then
       let (str, endPos) ← finishStr next curr

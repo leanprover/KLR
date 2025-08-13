@@ -35,9 +35,12 @@ def formatErrorPos {m} [Monad m] [HasFileInfo m] (pre : String) (msg : String) (
   let fileName ← HasFileInfo.fileName
   return s!"{pre} {fileName}:{pos.line}:{pos.column}-{pos.lineEnd}:{pos.columnEnd}: {msg}"
 
+def formatErrorPure (fileName : String) (fileMap : FileMap) (pre : String) (msg : String) (startPos endPos : String.Pos) : String :=
+  let { line, column } := fileMap.toPosition startPos
+  let { line := lineEnd, column := columnEnd } := fileMap.toPosition endPos
+  s!"{pre} {fileName}:{line}:{column}-{lineEnd}:{columnEnd}: {msg}"
+
 def formatError {m} [Monad m] [HasFileInfo m] (pre : String) (msg : String) (startPos endPos : String.Pos) : m String := do
   let fileName ← HasFileInfo.fileName
   let fileMap  ← HasFileInfo.fileMap
-  let { line, column } := fileMap.toPosition startPos
-  let { line := lineEnd, column := columnEnd } := fileMap.toPosition endPos
-  return s!"{pre} {fileName}:{line}:{column}-{lineEnd}:{columnEnd}: {msg}"
+  return formatErrorPure fileName fileMap pre msg startPos endPos

@@ -51,47 +51,13 @@ def TokenKind.data (t : TokenKind) : t.denote :=
   | .float f => f
   | .string s => s
   | .ident id => id
-  | .False | .await | .else | .import | .pass
-  | .None | .break | .except | .in | .raise
-  | .True | .class | .finally | is | .return
-  | .and | .continue | .for | .lambda | .try
-  | .as | .def | .from | .nonlocal | .while
-  | .assert | .del | .global | .not | .with
-  | .async | .elif | .if | .or | .yield
-  | .plus | .minus | .star | .dstar | .slash | dslash | .percent | .at
-  | .lshift | .rshift | .amp | .pipe | .caret | .tilde | .colonassign
-  | .lt | .gt | .le | .ge | .eq | .ne
-  | .lparen | .rparen | .lbracket | .rbracket | .lbrace | .rbrace
-  | .comma | .colon | .bang | .dot | .semicolon | .assign
-  | .rarrow | .plusassign | .minusassign | .starassign | .slashassign | .dslashassign | .percentassign
-  | .atassign | .ampassign | .pipeassign | .caretassign | .rshiftassign | .lshiftassign | .dstarassign
-  | .ellipsis
-  | .newline | .indent | .dedent => ()
+  | .tokenLit _ | .newline | .indent | .dedent => ()
 
-theorem TokenKind.denote_sound : ∀ (t1 t2 : TokenKind), t1.kindEq t2 → t1.denote = t2.denote := by
+theorem TokenKind.kindEq_sound : ∀ (t1 t2 : TokenKind), t1.kindEq t2 → t1.denote = t2.denote := by
   intro t1 t2 heq
-  match t1 with
-  | int _ =>
-    cases t2
-    case int => simp
-    all_goals contradiction
-  | float _ =>
-    cases t2
-    case float => simp
-    all_goals contradiction
-  | string _ =>
-    cases t2
-    case string => simp
-    all_goals contradiction
-  | ident _ =>
-    cases t2
-    case ident => simp
-    all_goals contradiction
-  | t1 =>
-    cases t1 == t2
-    · simp
-      sorry
-    · sorry
+  simp_all [kindEq, BEq.beq, denote]
+  split at heq
+  <;> aesop
 
 def Token.kindEq (t1 t2 : Token) : Bool :=
   t1.kind.kindEq t2.kind
@@ -102,12 +68,82 @@ abbrev Token.denote (t : Token) : Type :=
 def Token.data (t : Token) : t.denote :=
   t.kind.data
 
-theorem Token.denote_sound (t1 t2 : Token) (h : t1.kindEq t2) : t1.denote = t2.denote :=
-  TokenKind.denote_sound t1.kind t2.kind h
+theorem Token.kindEq_sound (t1 t2 : Token) (h : t1.kindEq t2) : t1.denote = t2.denote :=
+  TokenKind.kindEq_sound t1.kind t2.kind h
 
 end Tokenizer
 
+namespace Parser
 
+open Lean (FileMap)
+open KLR.Core (Pos)
+open Tokenizer (Token)
+open PegParser (PExp)
+
+inductive NT
+  | file
+  | simpleStmt
+
+abbrev NT.denote : NT → Type
+  | .file => List Stmt
+  | .simpleStmt => Stmt
+
+abbrev Parser := PExp Token NT Token.denote NT.denote
+
+section
+variable (fileMap : FileMap)
+
+def mkPos {α β} (p : Parser α) (f : α → Pos → β) : Parser β :=
+  .withPos p fun a sp ep =>
+    let { line, column } := fileMap.toPosition sp
+    let { line := lineEnd, column := columnEnd } := fileMap.toPosition ep
+    let pos : Pos := {line, column, lineEnd, columnEnd}
+    f a pos
+
+def tk (s : String) : Parser Unit :=
+  .token (⟨.tokenLit s, {}, {}⟩ : Token)
+
+def file : Parser (List Stmt) :=
+  .star (.prod NT.simpleStmt)
+
+def simpleStmt : Parser Stmt :=
+  mkPos fileMap (
+        (.action (tk "pass") fun () => Stmt'.pass)
+    <|> (.action (tk "break") fun () => Stmt'.breakLoop)
+  ) fun s pos => ⟨pos, s⟩
+
+end
+
+def prods (fileMap : FileMap) : PegParser.Production Token NT Token.denote NT.denote := fun n =>
+  match n with
+  | .file => file
+  | .simpleStmt => simpleStmt fileMap
+
+def run (input : String) (fileName : String) (fileMap : FileMap := input.toFileMap) : Except String Prog := do
+  let tks ← Tokenizer.run input fileName fileMap
+  let c : PegParser.Context Token NT Token.denote NT.denote := {
+    input := tks,
+    tkEq := Token.kindEq,
+    tkEq_sound := Token.kindEq_sound,
+    tkData := Token.data,
+    tkStartPos := Token.pos,
+    tkEndPos := Token.endPos,
+    tkToString tk :=
+      match tk.kind with
+      | .int _ | .float _ => "numeric literal"
+      | .ident _ => "identifier"
+      | .string _ => "string literal"
+      | .tokenLit s => s
+      | .newline => "newline"
+      | .dedent => "dedent"
+      | .indent => "indent",
+    errFormat msg startPos endPos := formatErrorPure fileName fileMap "Syntax Error" msg startPos endPos
+  }
+  let p := prods fileMap
+  let stmts ← PExp.run p .file c
+  .ok { file := fileName, stmts }
+
+#eval run "pass" "<input>"
 -- set_option grind.warning false
 
 -- /-- Clears all hypotheses it can, except those provided after a minus sign. Example:
