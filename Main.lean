@@ -59,6 +59,89 @@ From Lean, we will take a filename and a kernel name, and muck with
 the PYTHONPATH accordingly.
 -/
 
+structure FileNameParts where
+  private mk::
+  dirs : List String
+  fileNameNoExt : String
+  ext : Option String
+  deriving BEq, Inhabited, Repr
+
+namespace FileNameParts
+
+def fileName (parts : FileNameParts) : String := match parts.ext with
+| none => parts.fileNameNoExt
+| some ext => parts.fileNameNoExt ++ "." ++ ext
+
+def make (file : String) : FileNameParts :=
+  let (dirs, file) := match (file.splitOn "/").reverse with
+  | [] => impossible file
+  | [f] => ([], f)
+  | f :: dirs => (dirs.reverse, f)
+  let (file, ext) := match (file.splitOn ".").reverse with
+  | [] => impossible file
+  | [f] => (f, none)
+  | ext :: fs => (String.intercalate "." fs.reverse, some ext)
+  FileNameParts.mk dirs file ext
+
+def dir (parts : FileNameParts) : String := String.intercalate "/" parts.dirs
+
+def pathToFile (parts : FileNameParts) : String :=
+  String.intercalate "." (parts.dirs ++ [parts.fileNameNoExt] ++ parts.ext.toList)
+
+#guard FileNameParts.make "foo" == FileNameParts.mk [] "foo" none
+#guard FileNameParts.make "foo/bar" == FileNameParts.mk ["foo"] "bar" none
+#guard FileNameParts.make "a/b/c.bar" == FileNameParts.mk ["a", "b"] "c" (some "bar")
+#guard (FileNameParts.make "a.b.c.bar").pathToFile == "a.b.c.bar"
+#guard (FileNameParts.make "a/b/c.bar").dir == "a/b"
+
+end FileNameParts
+
+/-
+If we are in a python environment with a pip installed version of klr-lang,
+then we should have a program called klr-gather on the path; this script is
+installed in the python bin directory as part of the wheel installation. If we
+don't find the program on the PATH, then we try to use ./bin/gather, which will
+work for local developers using "lake exe klr".
+-/
+def gatherRun (moduleFileName kernelFunctionName outputFileName: String)
+              (klrPythonModuleDir : Option String) (debug : Bool) : IO Unit := do
+  let dbg := eprintln debug
+  let pypath <- IO.getEnv "PYTHONPATH"
+  let pypath := pypath.getD ""
+  let parts := FileNameParts.make moduleFileName
+  dbg $ "parts: " ++ repr parts
+  let gather := FilePath.mk "klr-gather"
+  let localBin := (<- IO.currentDir).join "bin"
+  -- The directory of the kernel file must be on PYTHONPATH
+  let pypath := match parts.dirs with
+  | [] => pypath
+  | _ => pypath ++ ":" ++ parts.dir
+  -- The klr directory must also be there. A better implementation would check to see if it's on
+  -- the path already without adding `interop`
+  let klrDir := klrPythonModuleDir.getD "interop" -- interop is the project default
+  let pypath := pypath ++ ":" ++ klrDir
+  dbg $ "pypath: " ++ pypath
+
+  let gatherArg := #[ parts.fileNameNoExt, kernelFunctionName, outputFileName ]
+  let path <- IO.getEnv "PATH"
+  let paths := path.get!.splitOn ":"
+  let paths := paths.map FilePath.mk ++ [localBin]
+  for p in paths do
+    let exe := p.join gather
+    dbg $ "exe: " ++ exe.toString
+    if <- exe.pathExists then
+      let output <- IO.Process.output {
+        cmd := exe.toString
+        args := gatherArg
+        env := #[ ("PYTHONPATH", some pypath) ]
+      }
+      if output.exitCode != 0 then
+        IO.println output.stderr
+        IO.throwServerError "error gathering kernel"
+      dbg $ "stderr: " ++ output.stderr
+      return ()
+  IO.throwServerError "could not execute gather program"
+
 def gatherTmp [KLR.File.FromContents a] (p : Parsed) : IO a := do
   let debug := p.hasFlag "debug"
   let file := p.positionalArg! "moduleFileName" |>.as! String
