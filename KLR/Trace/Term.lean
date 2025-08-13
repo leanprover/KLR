@@ -146,7 +146,7 @@ def termOp : BinOp -> Term -> Term -> Trace Term
   | .mul, .expr (.value v) _, .tuple l  => return .tuple (<- mulseq l v)
   -- mgrid
   | .add, .expr (.value (.int i)) _, .mgItem a b
-  | .add, .mgItem a b, .expr (.value (.int i)) _ => return .mgItem (a+i) b
+  | .add, .mgItem a b, .expr (.value (.int i)) _ => return .mgItem (a+i) (b+i)
   -- expressions
   | op, .expr l _, .expr r _ => exprOp op l r
   | a, b, c => throw s!"unsupported operator {repr a} {repr b} {repr c}"
@@ -501,14 +501,22 @@ nki par_dim (t : Term) := do
   warn "par_dim is deprecated"
   return t
 
+-- TODO nki macro doesn't work if there are no arguments
+def get_nc_version (_ : List Term) (_ : List (String × Term)) : Trace Term := do
+  lookup `arch
+
 nki ndarray
   (shape : Shape)
   (dtype : Dtype)
   (buffer : Option Memory := none)
-  (name : Option String := none) := do
+  (name : Option String := none)
+  (address : Option (Nat × Nat) := none) := do
     let memory := buffer.getD .sbuf
     let (parSize, freeSize) := Address.defaultSize shape dtype
-    let address := { memory, parSize, freeSize : Address }
+    let (parOffset, freeOffset) := match address with
+    | some (par, free) => (some par, some free)
+    | none => (none, none)
+    let address := { memory, parSize, freeSize, parOffset, freeOffset : Address }
     let name := name.getD "tensor"
     let tensor <- TensorName.make name dtype shape address
     return .expr (.value $ .access (.simple tensor)) (.tensor dtype shape)
@@ -543,12 +551,14 @@ This indirection is necessary because the builtin implementations take terms
 and live in the Trace monad, which contains an environment of terms.
 -/
 
+private def nisa : String -> Name := .str `neuronxcc.nki.isa
 private def nl : String -> Name := .str `neuronxcc.nki.language
 
 def builtinEnv : List (Name × BuiltinFn) :=
   (memViewName, memView) ::
   (nl "par_dim", par_dim) ::
   (nl "ndarray", ndarray) ::
+  (nisa "get_nc_version", get_nc_version) ::
   ( `len, python_len) ::
   ( `min, python_min) ::
   Isa.builtins

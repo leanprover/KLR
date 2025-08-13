@@ -21,11 +21,9 @@ import Util.Sexp
 
 open KLR.Util.Hex(encode)
 open KLR.Util(FromSexp ToSexp)
-open Lean(FromJson Json Syntax TSyntax TSyntaxArray ToJson mkIdent fromJson? toJson)
-open Lean.Elab.Command(CommandElab CommandElabM elabCommand liftTermElabM)
+open Lean(FromJson Json Macro MacroM Syntax TSyntax TSyntaxArray ToJson mkIdent fromJson? toJson)
 open Lean.Parser.Command(declModifiers)
 open Lean.Parser.Term(matchAltExpr)
-open Lean.PrettyPrinter(ppCommand ppExpr ppTerm)
 open TensorLib(get!)
 
 namespace KLR.Util
@@ -57,15 +55,20 @@ syntax item := Lean.Parser.Command.ctor (":=" num)?
 syntax items := manyIndent(item)
 syntax (name := enumcmd) declModifiers "enum" ident "where" item* optDeriving : command
 
-@[command_elab enumcmd]
-def elabEnum : CommandElab
+@[macro enumcmd]
+def elabEnum : Macro := fun stx => do match stx with
 | `($modifiers:declModifiers enum $name:ident where $items:item* $dcs:optDeriving) => doit modifiers name items dcs
-| _ => throwError "invalid enum syntax"
+| _ => Macro.throwUnsupported
 where
   doit (modifiers : TSyntax `Lean.Parser.Command.declModifiers)
        (name : TSyntax `ident)
        (items : TSyntaxArray `KLR.Util.item)
-       (dcs : TSyntax `Lean.Parser.Command.optDeriving) : CommandElabM Unit := do
+       (dcs : TSyntax `Lean.Parser.Command.optDeriving) : MacroM (TSyntax `command) := do
+    let priv := ((modifiers.raw.getArg 2).getArg 0).getArg 0
+    let isPrivate : Bool := match priv.getAtomVal with
+    | "private" => true
+    | _ => false
+    let mut cmds : List (TSyntax `command) := []
     let mut unsortedValues : List (TSyntax `Lean.Parser.Command.ctor × TSyntax `num) := []
     let mut ctors : Array (TSyntax `Lean.Parser.Command.ctor) := #[]
     let mut numValues : Array Nat := #[]
@@ -88,12 +91,12 @@ where
         unsortedValues := (id, Syntax.mkNumLit (toString current)) :: unsortedValues
         current := current + 1
         ctors := ctors.push id
-      | e => throwError s!"invalid enum item {e}"
+      | e => throw (.error Syntax.missing s!"invalid enum item {e}")
     let values := unsortedValues.mergeSort fun (_, n1) (_, n2) => n1.getNat <= n2.getNat
     let nums := (values.map fun (_, n) => n.getNat)
     match hasDuplicate nums with
     | some k =>
-      throwError s!"Duplicate numeric values: {k}"
+      throw (.error Syntax.missing s!"Duplicate numeric values: {k}")
     | none =>
     let cmd <-
       `(
@@ -101,9 +104,7 @@ where
           $[ $ctors ]*
         $dcs:optDeriving
       )
-    -- SM: Leave this in
-    -- dbg_trace (<- liftTermElabM <| ppCommand cmd)
-    elabCommand cmd
+    cmds := cmd :: cmds
     let typeName := name.raw.getId
     let toUInt8Name := mkIdent (.str typeName "toUInt8")
     let mut cases : Array (TSyntax `Lean.Parser.Term.matchAltExpr) := #[]
@@ -114,13 +115,17 @@ where
       --     Command.ctor [] "|" (Command.declModifiers [] [] [] [] [] []) `r (Command.optDeclSig [] []))
       let c := mkIdent (c.raw.getIdAt 3)
       terms := terms.push c
-      let case <- `(matchAltExpr| | $c => $n:num)
+      let case <- `(matchAltExpr| | .$c => $n:num)
       cases := cases.push case
-    let toUInt8 <- `(
-      private def $toUInt8Name:ident (x : $name) : UInt8 := match x with
+    -- TODO: Improve duplication
+    let toUInt8 <- if isPrivate then `(
+       private def $toUInt8Name:ident (x : $name) : UInt8 := match x with
+        $cases:matchAlt*
+    ) else `(
+       def $toUInt8Name:ident (x : $name) : UInt8 := match x with
         $cases:matchAlt*
     )
-    elabCommand toUInt8
+    cmds := toUInt8 :: cmds
     let fromUInt8Name := mkIdent (.str typeName "fromUInt8")
     let mut cases1 : Array (TSyntax `Lean.Parser.Term.matchAltExpr) := #[]
     for (c, n) in values do
@@ -129,22 +134,24 @@ where
       cases1 := cases1.push case
     let other <- `(matchAltExpr| | n => throw ("Unexpected numeric code " ++ $(Lean.quote typeName.toString) ++ s!": {n} = {u8ToHex n}"))
     cases1 := cases1.push other
-    let fromUInt8 <- `(
-      private def $fromUInt8Name:ident (x : UInt8) : Except String $name := match x with
-        $cases1:matchAlt*
-    )
-    elabCommand fromUInt8
+    -- TODO: Improve duplication
+    let fromUInt8 <- if isPrivate then
+     `(
+        private def $fromUInt8Name:ident (x : UInt8) : Except String $name := match x with
+          $cases1:matchAlt*
+      )
+      else
+     `(
+        def $fromUInt8Name:ident (x : UInt8) : Except String $name := match x with
+          $cases1:matchAlt*
+      )
     let valuesFunName := mkIdent (.str typeName "values")
     let valuesFun <- `(
       def $valuesFunName : List $name := [ $terms,* ]
     )
-    -- SM: Leave this in as an example
-    -- dbg_trace (<- liftTermElabM <| ppCommand valuesFun)
-    elabCommand valuesFun
     let instances <- `(
       deriving instance BEq, DecidableEq, FromJson, FromSexp, Inhabited, Repr, ToJson, ToSexp for $name
     )
-    elabCommand instances
     let fromUInt8!Name : Lean.Ident := mkIdent (.str typeName "fromUInt8!")
     let n : Lean.Ident := Lean.mkIdent (.str .anonymous "n")
     let app : Lean.Term := Syntax.mkApp fromUInt8Name #[n]
@@ -153,38 +160,31 @@ where
       | .ok v => v
       | .error msg => panic msg
     )
-    elabCommand fromUInt8!
     let enumInstance <- `(
       instance : Enum $name where
         toUInt8 := $toUInt8Name
         fromUInt8 := $fromUInt8Name
     )
-    elabCommand enumInstance
     let ltInstance <- `(
       instance : LT $name where
-        lt a b := a.toUInt8 < b.toUInt8
+        lt a b := $toUInt8Name a < $toUInt8Name b
     )
-    elabCommand ltInstance
     let ltDecidableInstance <- `(
       instance (a b : $name) : Decidable (a < b) :=
-        UInt8.decLt a.toUInt8 b.toUInt8
+        UInt8.decLt ($toUInt8Name a) ($toUInt8Name b)
     )
-    elabCommand ltDecidableInstance
     let leInstance <- `(
       instance : LE $name where
-        le a b := a.toUInt8 <= b.toUInt8
+        le a b := $toUInt8Name a <= $toUInt8Name b
     )
-    elabCommand leInstance
     let leDecidableInstance <- `(
       instance (a b : $name) : Decidable (a <= b) :=
-        UInt8.decLe a.toUInt8 b.toUInt8
+        UInt8.decLe ($toUInt8Name a) ($toUInt8Name b)
     )
-    elabCommand leDecidableInstance
     let toStringInstance <- `(
       instance : ToString $name where
         toString x := ((reprStr x).splitOn ".").reverse.head!
     )
-    elabCommand toStringInstance
     let mut cases2 : Array (TSyntax `Lean.Parser.Term.matchAltExpr) := #[]
     for (c, _) in values do
       let c := mkIdent (c.raw.getIdAt 3)
@@ -198,9 +198,26 @@ where
       def $fromStringName (s : String) : Option $name := match s with
         $cases2:matchAlt*
     )
-    elabCommand fromString
+    let res <- `(
+      $cmd:command
+      $instances
+      $toUInt8
+      $fromUInt8
+      $fromUInt8!
+      $enumInstance
+      $ltInstance
+      $ltDecidableInstance
+      $leInstance
+      $leDecidableInstance
+      $toStringInstance
+      $fromString
+      $valuesFun
+    )
+    -- SM: Leave this in
+    -- dbg_trace "{res.raw.prettyPrint}"
+    return res
 
-section Test
+namespace Test
 
 /-- Docstring -/
 @[export foo]
@@ -214,6 +231,8 @@ private enum Foo where
   | n
 deriving Repr
 
+#guard Enum.toUInt8 Foo.x == 0
+#guard Foo.toUInt8 .x == 0
 #guard Foo.x.toUInt8 == 0
 #guard Foo.y.toUInt8 == 2
 #guard Foo.n.toUInt8 == 3

@@ -4,7 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 */
 #include "frontend.h"
-#include "topy_nki.h"
 
 // This file defines the frontend Python extension module and the
 // Kernel type contained therein.
@@ -34,8 +33,6 @@ static int kernel_init(struct kernel *self, PyObject *args, PyObject *kwds) {
   self->specialized = false;
   self->python_region = NULL;
   self->python_kernel = NULL;
-  self->nki_region = NULL;
-  self->nki_kernel = NULL;
 
   if (!gather(self)) {
     if (!PyErr_Occurred())
@@ -51,8 +48,6 @@ static void kernel_dealloc(struct kernel *self) {
   Py_XDECREF(self->f); // NULL is OK
   if (self->python_region)
     region_destroy(self->python_region);
-  if (self->nki_region)
-    region_destroy(self->nki_region);
   Py_TYPE(self)->tp_free((PyObject *) self);
 }
 
@@ -121,7 +116,7 @@ static PyObject* kernel_serialize_python(struct kernel *self, PyObject *args) {
 
 // frontend.Kernel.serialize
 static PyObject* kernel_serialize(struct kernel *self, PyObject *args) {
-  if (!self->specialized || !self->nki_kernel) {
+  if (!self->specialized) {
     PyErr_SetString(PyExc_RuntimeError, "specialize must be called before serialize");
     return NULL;
   }
@@ -131,15 +126,17 @@ static PyObject* kernel_serialize(struct kernel *self, PyObject *args) {
     return NULL;
   }
 
-  struct SerResult res = serialize_nki(file, self->nki_kernel);
-  if (!res.ok) {
-    PyErr_SetString(PyExc_RuntimeError, res.err);
-    return NULL;
-  }
+  PyErr_SetString(PyExc_RuntimeError, "serialize not available");
+  return NULL;
+  //struct SerResult res = serialize_nki(file, self->nki_kernel);
+  //if (!res.ok) {
+  //  PyErr_SetString(PyExc_RuntimeError, res.err);
+  //  return NULL;
+  //}
 
-  PyObject *arr = PyByteArray_FromStringAndSize((const char*)res.bytes, res.size);
-  free(res.bytes);
-  return arr;
+  //PyObject *arr = PyByteArray_FromStringAndSize((const char*)res.bytes, res.size);
+  //free(res.bytes);
+  //return arr;
 }
 
 // frontend.version
@@ -148,28 +145,6 @@ static PyObject* version(PyObject *self, PyObject *args) {
   (void)self;
   (void)args;
   return PyLong_FromLong(KLR_VERSION);
-}
-
-// frontend.deserialize
-static PyObject* deserialize(PyObject *self, PyObject *args) {
-  (void)self;
-  PyObject *ba = NULL;
-  if (!PyArg_ParseTuple(args, "Y", &ba)) {
-    // Exception set by ParseTuple
-    return NULL;
-  }
-  ssize_t size = PyByteArray_Size(ba);
-  const u8* buf = (u8*)PyByteArray_AsString(ba);
-  struct DesResult res = deserialize_nki(buf, size);
-  if (!res.ok) {
-    PyErr_SetString(PyExc_RuntimeError, res.err);
-    return NULL;
-  }
-
-  PyObject *obj = NKI_Kernel_topy(res.nki);
-  if (!obj)
-    PyErr_SetString(PyExc_RuntimeError, "Could not construct Python AST");
-  return obj;
 }
 
 // ----------------------------------------------------------------------------
@@ -220,7 +195,6 @@ static PyTypeObject KernelType = {
 
 static PyMethodDef methods[] = {
   {"version", version, METH_NOARGS, "Return NKI Version"},
-  {"deserialize", deserialize, METH_VARARGS, "Deserialize a NKI kernel from a bytearray"},
   {NULL, NULL, 0, NULL}
 };
 

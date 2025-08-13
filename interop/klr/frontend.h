@@ -37,8 +37,6 @@ struct kernel {
   uint8_t grid;
   struct region *python_region;
   struct Python_Kernel *python_kernel;
-  struct region *nki_region;
-  struct NKI_Kernel *nki_kernel;
 };
 
 // peg_parser.c

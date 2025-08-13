@@ -7,7 +7,6 @@ Authors: Paul Govereau, Sean McLaughlin
 #include "region.h"
 #include "cbor.h"
 #include "serde_python_core.h"
-#include "serde_nki.h"
 #include "serde_file.h"
 #include "frontend.h"
 

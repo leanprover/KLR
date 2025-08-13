@@ -110,7 +110,14 @@ struct AccessPattern final {
   Ptr<TensorName> tensor;
   Nat parNum;
   List<Ptr<APPair>> freePattern;
+  Nat parOffset;
+  Nat freeOffset;
+};
+
+struct BirAccessPattern final {
+  Ptr<TensorName> tensor;
   Nat offset;
+  List<Ptr<APPair>> pattern;
 };
 
 struct Access {
@@ -118,6 +125,7 @@ struct Access {
     simple = 1,
     basic,
     pattern,
+    birPattern,
   };
   Tag tag;
   Access(Tag tag) : tag(tag) {}
@@ -138,6 +146,11 @@ struct AccessPatternWrapper final : Access {
   AccessPatternWrapper() : Access(Tag::pattern) {}
 };
 
+struct AccessBirPatternWrapper final : Access {
+  Ptr<BirAccessPattern> access;
+  AccessBirPatternWrapper() : Access(Tag::birPattern) {}
+};
+
 struct TensorHbm final {
   String name;
   Dtype dtype;
@@ -145,20 +158,13 @@ struct TensorHbm final {
   List<Ptr<APPair>> dims;
 };
 
-enum class ParQuadrant {
-  par0 = 1,
-  par32,
-  par64,
-  par96,
-};
-
 struct TensorSram final {
   String name;
   Dtype dtype;
-  ParQuadrant parQuadrant;
-  Nat parDim;
-  Nat freeOffset;
+  Nat parNum;
   List<Ptr<APPair>> freePattern;
+  Nat parOffset;
+  Nat freeOffset;
 };
 
 struct TensorRef {

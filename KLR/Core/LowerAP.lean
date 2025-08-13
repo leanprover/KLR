@@ -24,36 +24,26 @@ namespace KLR.Core
 /-- Function to convert an Access to an AccessPattern.
 Note: This lowering does not work in all cases, for example, if the Access in an AccessBasic whose
 Par dimension takes steps that are not equal to 1. Returns a None in this case. -/
-def Access.lowerAccessPattern (a : Access) : KLR.Err AccessPattern := do
+def Access.lowerAccessPattern (a : Access) : KLR.Err BirAccessPattern := do
   -- The layout of a tensor in memory
   -- Note that because accesses are values, we have are forced to assume that all tensors are
   -- laid out in row major form.
   let layout := Layout.rowMajorForm (← a.shape)
-  -- The par dimension of the access must start at zero and have step 1
-  let ap := a.interpPar
-  if ap.start ≠ 0 then .error "Cannot lower AccessPatterns with nonzero starting location. " else
-  if ap.step ≠ 1  then .error "Cannot lower AccessPatterns with step not equal to 1. " else
-  return CompileIndex.freePairs a.tensor ap.num layout
+  let ap1 := a.interpPar
+  if ap1.start != 0 &&
+     ap1.start != 32 &&
+     ap1.start != 64 &&
+     ap1.start != 96
+  then throw "Cannot lower AccessPatterns with partition start of {ap1.start}."
+  if ap1.step != 1
+  then throw "Cannot lower AccessPattern with partition step size not equal to 1."
 
-def Value.lowerAccessPatterns : Value → KLR.Err Value
-| .access a => do return .access <| .pattern (← a.lowerAccessPattern)
-| x => .ok x
-
-def Keyword.lowerAccessPatterns (k : Keyword) : KLR.Err Keyword := do
-  return { k with value := (← k.value.lowerAccessPatterns) }
-
-
-def Option.lowerAccessPatterns (op : Option Access) : KLR.Err (Option AccessPattern) :=
-  op.mapM Access.lowerAccessPattern
-
-def Expr.lowerAccessPatterns : Expr → KLR.Err Expr
-| .value v => do return .value (← v.lowerAccessPatterns)
-| .call f args kwargs => do
-  let args' ← args.mapM Value.lowerAccessPatterns
-  return .call f args' kwargs
+  let ap := CompileIndex.freePairs a.tensor ap1.num layout
+  let ap := { ap with parOffset := ap1.start }
+  return .fromAccessPattern ap
 
 def TensorRef.lowerAccessPatterns : TensorRef → KLR.Err TensorRef
-| .abstract a => do return .abstract <| .pattern (← a.lowerAccessPattern)
+| .abstract a => do return .abstract <| .birPattern (← a.lowerAccessPattern)
 | x => do return x
 
 def Operand.lowerAccessPatterns : Operand -> KLR.Err Operand

@@ -400,7 +400,8 @@ structure AccessPattern where
   tensor : TensorName
   parNum : Nat
   freePattern : List APPair
-  offset : Nat := 0
+  parOffset : Nat := 0
+  freeOffset : Nat := 0
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 namespace AccessPattern
@@ -410,10 +411,10 @@ def shape (ap : AccessPattern) : Shape :=
 
 -- Partitions are not counted in bytes or elements; I'll call them logical "rows".
 def partitionRowOffset (ap : AccessPattern) : Nat :=
-  ap.tensor.address.parOffset.getD 0
+  ap.tensor.address.parOffset.getD 0 + ap.parOffset
 
 def freeByteOffset (ap : AccessPattern) : Nat :=
-  ap.tensor.address.freeOffset.getD 0 + ap.offset
+  ap.tensor.address.freeOffset.getD 0 + ap.freeOffset
 
 -- We can't find documentation that the free offset must be aligned by dtype size, but we think
 -- it's probably the case. It certainly makes calculating indexes easier so we're going with it
@@ -423,14 +424,52 @@ def freeElementOffset (ap : AccessPattern) : Nat :=
 
 end AccessPattern
 
+/-
+BIR compatible access patterns
+
+These are similar to the AccessPatterns, but the partition and free dimensions
+are combined. In addition, unlike AccessPatterns, the offset is interpreted as
+though the entire tensor is layed out in contiguous row-major form.
+
+After allocation, the physical offset can be computed by (pseudo code):
+
+  freeElements := pattern.tail.freeElements
+  parOffset = floor (offset / freeElements) + address.parOffset
+  freeOffset = offset % freeElements + address.freeOffset
+  physicalOffset = parOffset * parSize + freeOffset * dtype.size
+-/
+@[serde tag = 120]
+structure BirAccessPattern where
+  tensor : TensorName
+  offset : Nat
+  pattern : List APPair
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+namespace BirAccessPattern
+
+def shape (bap : BirAccessPattern) : Shape :=
+  match bap.pattern with
+  | [] => .mk 0 []
+  | ⟨ _, parNum ⟩ :: rest => .mk parNum $ rest.map fun pair => pair.num
+
+def fromAccessPattern (ap : AccessPattern) : BirAccessPattern :=
+  let free := ap.shape.freeElements
+  { tensor := ap.tensor
+    offset := free * ap.parOffset + ap.freeOffset
+    pattern := ⟨ free, ap.parNum ⟩ :: ap.freePattern
+  }
+
+end BirAccessPattern
+
 -- Tensor access: whole tensor (simple), basic indexing, or access pattern
 -- TODO: add advanced indexing (tensor indirect) inductive Access where
 
-@[serde tag = 120]
+@[serde tag = 121]
 inductive Access where
-  | simple  (tensor : TensorName) : Access
-  | basic   (access : AccessBasic) : Access
-  | pattern (access : AccessPattern) : Access
+  | simple  (tensor : TensorName)
+  | basic   (access : AccessBasic)
+  | pattern (access : AccessPattern)
+  | birPattern (access : BirAccessPattern)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 namespace Access
@@ -442,11 +481,13 @@ def tensor : Access -> TensorName
   | simple tensor
   | basic {tensor, ..}
   | pattern {tensor, ..} => tensor
+  | birPattern {tensor, ..} => tensor
 
 def shape : Access -> Err Shape
   | .simple t => return t.shape
   | .basic b => b.shape
   | .pattern ap => return ap.shape
+  | .birPattern bap => return bap.shape
 
 theorem shape.noFail :
   forall (a : Access), Access.shape a ≠ Except.error s := by
@@ -473,7 +514,7 @@ end Access
 /-
 A tensor access pattern in HBM. The address is an offset into HBM.
 -/
-@[serde tag = 121]
+@[serde tag = 122]
 structure TensorHbm where
   name : String
   dtype   : Dtype
@@ -481,13 +522,25 @@ structure TensorHbm where
   dims : List APPair
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
--- register number
-abbrev Reg := Nat
+namespace TensorHbm
 
-@[serde tag = 122]
-inductive ParQuadrant where
-  | par0 | par32 | par64 | par96
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+def fromAccessPattern (ap : AccessPattern) : Err TensorHbm := do
+  let parOffset <-
+    match ap.tensor.address.parOffset with
+    | some n => pure (n + ap.parOffset)
+    | none => throw "Attempt to convert unallocated address"
+  let freeOffset <-
+    match ap.tensor.address.freeOffset with
+    | some n => pure (n + ap.freeOffset)
+    | none => throw "Attempt to convert unallocated address"
+  return {
+     name := ap.tensor.name
+     dtype := ap.tensor.dtype
+     address := parOffset * ap.tensor.shape.freeElements + freeOffset
+     dims := ⟨ 1, ap.parNum ⟩ :: ap.freePattern
+   }
+
+end TensorHbm
 
 /-
 A structure representing the layout of a tensor in SRam. This maps very closely
@@ -510,17 +563,38 @@ parQuadrant─►96│    ┌───────┐│        │
 -/
 @[serde tag = 123]
 structure TensorSram where
-  name    : String
-  dtype   : Dtype
-  -- Which parallel dimension channel this tensor starts at
-  parQuadrant : ParQuadrant
-  -- The size of this tensor in the parallel dimension
-  parDim : Nat
-  -- The offset in the partition channel of this tensor
-  freeOffset : Nat := 0
-  -- The length and stride of each dimension besides the first
+  name : String
+  dtype : Dtype
+  parNum : Nat
   freePattern: List APPair
+  parOffset : Nat := 0
+  freeOffset : Nat := 0
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+namespace TensorSram
+
+def fromAccessPattern (ap : AccessPattern) : Err TensorSram := do
+  let parOffset <-
+    match ap.tensor.address.parOffset with
+    | some n => pure (n + ap.parOffset)
+    | none => throw "Attempt to convert unallocated address"
+  let freeOffset <-
+    match ap.tensor.address.freeOffset with
+    | some n => pure (n + ap.freeOffset)
+    | none => throw "Attempt to convert unallocated address"
+  return {
+     name := ap.tensor.name
+     dtype := ap.tensor.dtype
+     parNum := ap.parNum
+     freePattern := ap.freePattern
+     parOffset
+     freeOffset
+   }
+
+end TensorSram
+
+-- register number
+abbrev Reg := Nat
 
 /-
 The type that is passed to instructions to refer to a tensor in SBUF. We abstract

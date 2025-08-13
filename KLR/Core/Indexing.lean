@@ -225,6 +225,7 @@ def Access.freeDim : Access → Nat
 | .simple s => s.freeDim
 | .basic b => b.freeDim
 | .pattern p => p.freeDim
+| .birPattern _ => 0  -- TODO: should not occur
 
 /-- The slice [0, s) -/
 def Slice.full (s : Nat) : Slice := ⟨0, s, 1, Int.zero_ne_one.symm⟩
@@ -254,8 +255,18 @@ structure IndexSpan where
   num : Nat
   step_nz : step ≠ 0
   get_nonneg : ∀ i : Int, 0 ≤ i → i < num → 0 ≤ start + step * i
+  deriving Repr
 
 namespace IndexSpan
+
+instance : Inhabited IndexSpan where
+  default := {
+    start := 0
+    step := 1
+    num := 0
+    step_nz := Int.one_ne_zero
+    get_nonneg := by intros; simp; trivial
+  }
 
 /-- Get an index from the sequence without doing any bounds checks -/
 @[simp] def get! (s : IndexSpan) (i : Int) : Int := s.start + s.step * i
@@ -593,7 +604,7 @@ def patternInterpPar (p : AccessPattern) : IndexSpan :=
 def patternInterpFree (p : AccessPattern) : LayoutMap p.freeDim := fun l =>
   let coeff_sum : Int := (p.freePattern.map APPair.step).sum
   Layout.mk
-    (p.offset + coeff_sum * l.offset).toNat
+    (p.freeOffset + coeff_sum * l.offset).toNat
     (l.steps.map (coeff_sum * ·))
     (p.freePattern.map APPair.num)
     (by rw [List.length_map]; exact l.steps_dim)
@@ -603,11 +614,13 @@ def Access.interpPar : Access → IndexSpan
 | .simple s => simpleInterpPar s
 | .basic b => basicInterpPar b
 | .pattern p => patternInterpPar p
+| .birPattern _ => panic! "bir pattern in indexing" -- TODO
 
 def Access.interpFree : (a : Access) → LayoutMap a.freeDim
 | .simple s => simpleInterpFree s
 | .basic b => basicInterpFree b
 | .pattern p => patternInterpFree p
+| .birPattern _ => fun x => x -- TODO
 
 /-
 Execution of the compsed indexing
@@ -635,7 +648,7 @@ def CompileIndex.freePairs (t : TensorName) (parNum : Nat) (l : Layout d) : Acce
   tensor := t
   parNum := parNum
   freePattern := List.zipWith APPair.mk l.steps l.nums
-  offset := l.offset
+  freeOffset := l.offset
 
 def Layout.rowMajorForm (s : Shape) : Layout s.freeDim where
   offset := 0

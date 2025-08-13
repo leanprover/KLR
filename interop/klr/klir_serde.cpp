@@ -399,13 +399,27 @@ Ptr<AccessPattern> AccessPattern_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 119 || c != 0 || l != 4)
+  if (t != 119 || c != 0 || l != 5)
     throw std::runtime_error("Invalid Tag");
   Ptr<AccessPattern> x = ptr<AccessPattern>();
   x->tensor = TensorName_des(in);
   x->parNum = Nat_des(in);
   x->freePattern = List_APPair_des(in);
+  x->parOffset = Nat_des(in);
+  x->freeOffset = Nat_des(in);
+  return x;
+}
+
+Ptr<BirAccessPattern> BirAccessPattern_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 120 || c != 0 || l != 3)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<BirAccessPattern> x = ptr<BirAccessPattern>();
+  x->tensor = TensorName_des(in);
   x->offset = Nat_des(in);
+  x->pattern = List_APPair_des(in);
   return x;
 }
 
@@ -413,7 +427,7 @@ Ptr<Access> Access_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 120)
+  if (t != 121)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -440,6 +454,14 @@ Ptr<Access> Access_des(FILE *in) {
     return x;
     break;
   }
+  case 3: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<AccessBirPatternWrapper> x = ptr<AccessBirPatternWrapper>();
+    x->access = BirAccessPattern_des(in);
+    return x;
+    break;
+  }
   default:
     throw std::runtime_error("Invalid value tag");
   }
@@ -449,7 +471,7 @@ Ptr<TensorHbm> TensorHbm_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 121 || c != 0 || l != 4)
+  if (t != 122 || c != 0 || l != 4)
     throw std::runtime_error("Invalid Tag");
   Ptr<TensorHbm> x = ptr<TensorHbm>();
   x->name = String_des(in);
@@ -457,42 +479,6 @@ Ptr<TensorHbm> TensorHbm_des(FILE *in) {
   x->address = Nat_des(in);
   x->dims = List_APPair_des(in);
   return x;
-}
-
-ParQuadrant ParQuadrant_des(FILE *in) {
-  u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not read tag");
-  if (t != 122)
-    throw std::runtime_error("Unexpected type tag");
-  switch (c) {
-  case 0: {
-    if (l != 0)
-      throw std::runtime_error("Wrong number of elements");
-    return ParQuadrant::par0;
-    break;
-  }
-  case 1: {
-    if (l != 0)
-      throw std::runtime_error("Wrong number of elements");
-    return ParQuadrant::par32;
-    break;
-  }
-  case 2: {
-    if (l != 0)
-      throw std::runtime_error("Wrong number of elements");
-    return ParQuadrant::par64;
-    break;
-  }
-  case 3: {
-    if (l != 0)
-      throw std::runtime_error("Wrong number of elements");
-    return ParQuadrant::par96;
-    break;
-  }
-  default:
-    throw std::runtime_error("Invalid value tag");
-  }
 }
 
 Ptr<TensorSram> TensorSram_des(FILE *in) {
@@ -504,10 +490,10 @@ Ptr<TensorSram> TensorSram_des(FILE *in) {
   Ptr<TensorSram> x = ptr<TensorSram>();
   x->name = String_des(in);
   x->dtype = Dtype_des(in);
-  x->parQuadrant = ParQuadrant_des(in);
-  x->parDim = Nat_des(in);
-  x->freeOffset = Nat_des(in);
+  x->parNum = Nat_des(in);
   x->freePattern = List_APPair_des(in);
+  x->parOffset = Nat_des(in);
+  x->freeOffset = Nat_des(in);
   return x;
 }
 

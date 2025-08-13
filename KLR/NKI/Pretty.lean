@@ -39,7 +39,8 @@ instance : ToFormat Value where
   | .int i => format i
   | .float f => format f
   | .string s => .bracket "\"" s "\""
-  | .tensor shape dty => abracket (format shape ++ "," ++ dty)
+  | .tensor shape dty name =>
+    abracket (format shape ++ "," ++ dty ++ "," ++ format name)
 
 instance : ToFormat BinOp where
   format op :=

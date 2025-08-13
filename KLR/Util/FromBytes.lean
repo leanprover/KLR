@@ -109,6 +109,18 @@ instance : FromBytes (BitVec n) where
     let (l, r) := arr.splitAt k
     return (l.toBitVecLE n, r)
 
+instance [FromBytes a] [H : Inhabited a] [NumBytes a] : FromBytes (Vector a n) where
+  fromBytesUnchecked arr := do
+    let mut as := #[]
+    let mut rest := arr
+    for _ in [0:n] do
+      let (v, rest') <- fromBytes a rest
+      as := as.push v
+      rest := rest'
+    if H : as.size = n then
+      return (Vector.mk as H, rest)
+    else throw "impossible: wrong size"
+
 end FromBytes
 
 def mkFromBytesHeader (indVal : InductiveVal) : TermElabM Header := do
