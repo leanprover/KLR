@@ -128,24 +128,24 @@ nki nc_transpose
   match engine with
   | .pe =>
     let N := data.shapePure.freeDims.getLast!
-    let idName := <- Trace.genName
-    let id : TensorRef := .sbuf {
-      name := idName.toString,
-      dtype := data.tensor.dtype,
-      parQuadrant := .par0,
-      parDim := N,
-      freeOffset := 0,
-      freePattern := [{step := 1, num := N}]
-    }
-    Trace.add_stmt $ .oper (.sharedIdentityMatrix {
-      dst := id,
-      N := N,
-      dtype := data.tensor.dtype
-    }) name
+    let idName := `_idMatrix
+    let id : TensorRef := <- match <- lookup_global? idName with
+    | some (.expr (.value (.access acc)) _) => return .abstract acc
+    | some _ => throw "identity has wrong type"
+    | none => throw "identity not defined"
+    let idName := <- match id with
+    | .abstract $ .simple t => .ok t
+    | .abstract $ .basic t => .ok t.tensor
+    | .abstract $ .pattern t => .ok t.tensor
+    | _ => throw "Expected identity matrix to be a ref"
+    let idSlice : TensorRef := .abstract $ .basic $ <- AccessBasic.make idName [
+        .slice $ Slice.make! 0 N 1,
+        .slice $ Slice.make! 0 N 1
+      ]
     Trace.add_stmt $ .oper (.ncMatMul {
-      dst := .abstract dst
-      stationary := id
-      moving := .abstract data
+      dst := .abstract dst,
+      stationary := idSlice,
+      moving := .abstract data,
       isStationaryOneZero := false,
       isMovingZero := false,
       isTranspose := true,

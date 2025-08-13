@@ -285,9 +285,24 @@ private def globals (k : Kernel) : Trace Unit := do
     if not (s.globals.contains name) then
       extend_global name (<- expr' g.value.expr)
 
+private def addId : Trace Unit := do
+  let idName := `_idMatrix
+  let dtype := Core.Dtype.int8
+  let shape := Core.Shape.mk 128 [128]
+  let tensorName <- Core.TensorName.make idName.toString dtype shape none
+  let id : KLR.Core.TensorRef := .abstract (.simple tensorName)
+  let pos : Pos := { line := 0, column := 0 }
+  let initStmt := Core.Stmt.oper (.sharedIdentityMatrix {
+      dst := id,
+      N := 128,
+      dtype := dtype,
+  }) none pos
+  add_stmt (fun _ => initStmt)
+  extend_global idName (.expr (.value (.access (.simple tensorName))) (.tensor dtype shape))
 
 def traceKernel (k : Kernel) : Trace Core.Kernel := do
   globals k
+  addId
   match k.funs.find? fun f => f.name == k.entry with
   | none => throw s!"function {k.entry} not found"
   | some f => do
