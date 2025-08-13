@@ -242,7 +242,7 @@ partial def stmt' (s' : Stmt') : Trace Result := do
         if res == .cont then continue
         if res == .brk then break
         if let .ret t := res then return .ret t
-      return .ret .none
+      return .next
   | .breakLoop => return .brk
   | .continueLoop => return .cont
 end
