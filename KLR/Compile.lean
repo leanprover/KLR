@@ -19,6 +19,7 @@ import KLR.Compile.Pass
 import KLR
 open KLR
 open System(FilePath)
+open Lean (FromJson ToJson)
 
 def eprintln [ToString a] (debug : Bool) (x : a) : IO Unit := do
   if debug then IO.eprintln x
@@ -42,6 +43,18 @@ def compilePython (kernel : Python.Kernel) : IO Core.Kernel := do
   let kernel <- Core.lowerAccessPatterns kernel
   return kernel
 
+structure TensorInfo where
+  name : String
+  dtype : String
+  shape : List Nat
+  deriving ToJson
+
+structure KernelInfo where
+  name : String
+  inputs : List TensorInfo
+  outputs : List TensorInfo
+  deriving ToJson
+
 -- reads srcPythonAstFileName, writes dstKlrFileName, returns kernel info as string of json
 @[export klr_frontend_trace]
 def frontend_trace (srcPythonAstFileName dstKlrFileName : String) : IO String := do
@@ -50,29 +63,20 @@ def frontend_trace (srcPythonAstFileName dstKlrFileName : String) : IO String :=
   let f := FilePath.mk (dstKlrFileName)
   File.writeKLRFile f .cbor kernel
 
-  -- return kernel info as JSON string
-  let inputsJson := kernel.inputs.map fun inp =>
-    Lean.Json.mkObj [
-      ("name", Lean.toJson inp.name),
-      ("dtype", Lean.toJson (reprStr inp.dtype)),
-      ("shape", Lean.toJson inp.shape)
-    ]
-
-  let outputsJson := kernel.outputs.map fun out =>
-    Lean.Json.mkObj [
-      ("name", Lean.toJson out.name),
-      ("dtype", Lean.toJson (reprStr out.dtype)),
-      ("shape", Lean.toJson out.shape)
-    ]
-
-  let finalJson := Lean.Json.mkObj [
-    ("name", Lean.toJson kernel.name),
-    ("inputs", Lean.Json.arr inputsJson.toArray),
-    ("outputs", Lean.Json.arr outputsJson.toArray)
-  ]
-
-  return toString finalJson
-
+  let kernelInfo : KernelInfo := {
+    name := kernel.name,
+    inputs := kernel.inputs.map fun inp => {
+      name := inp.name,
+      dtype := reprStr inp.dtype,
+      shape := inp.shape.toList
+    },
+    outputs := kernel.outputs.map fun out => {
+      name := out.name,
+      dtype := reprStr out.dtype,
+      shape := out.shape.toList
+    },
+  }
+  return toString (Lean.toJson kernelInfo)
 
 -- for testing basic FFI
 @[export klr_frontend_hello]
