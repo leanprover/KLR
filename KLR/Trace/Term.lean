@@ -159,8 +159,9 @@ def termOp : BinOp -> Term -> Term -> Trace Term
   | .mul, .tuple  l,          .expr (.value  v) _
   | .mul, .expr (.value v) _, .tuple l  => return .tuple (<- mulseq l v)
   -- mgrid
-  | .add, .expr (.value (.int i)) _, .mgItem a b
-  | .add, .mgItem a b, .expr (.value (.int i)) _ => return .mgItem (a+i) (b+i)
+  | .add, .expr (.value (.int i)) _, .mgItem a b step
+  | .add, .mgItem a b step, .expr (.value (.int i)) _ => return .mgItem (a+i) (b+i) step
+  | .mul, .mgItem a b step, .expr (.value (.int i)) _ => return .mgItem a b (i*step)
   -- expressions
   | op, .expr l _, .expr r _ => exprOp op l r
   | a, b, c => throw s!"unsupported operator {repr a} {repr b} {repr c}"
@@ -312,8 +313,8 @@ def toIndex (shape : List Nat) (ts : List Term) : Err (List Core.Index) := do
           throw "index out of range of tensor dimension"
         return .slice (<- Core.Slice.make x.toNat y.toNat z) :: (<- toIndex ds ts)
     | .tuple _ | .list  _ => throw "nested tuple/list indexes not supported"
-    | .mgItem s e =>
-        return .slice (<- Core.Slice.make s.toNat e.toNat 1) :: (<- toIndex ds ts)
+    | .mgItem s e step =>
+        return .slice (<- Core.Slice.make s.toNat e.toNat step) :: (<- toIndex ds ts)
     | t => do
         let i : Int <- fromNKI? t
         if i < 0 || i >= d then
@@ -433,9 +434,9 @@ def mgrid (indexes : List Term) : Err Term := do
       if b == none then
         throw "size not specified"
       let b := b.get!
-      if c != none && c != some 1 then
-        throw "step size must be 1"
-      l := l ++ [.mgItem a b]
+      match c with
+      | none => l := l ++ [.mgItem a b 1]
+      | some step => l := l ++ [.mgItem a b step]
     | _ => throw "expecting slice"
   match l with
   | [] => throw "mgrid must have at least 1 dimension"
@@ -539,7 +540,7 @@ nki ndarray
     return .expr (.value $ .access (.simple tensor)) (.tensor dtype shape)
 
 nki ds (start : Int) (size : Int) := do
-  return .mgItem start (start + size)
+  return .mgItem start (start + size) 1
 
 nki python_len (t : Term) := do
   match t with
