@@ -286,10 +286,10 @@ def modelKLR (p : Parsed) : IO UInt32 := do
   w.forM IO.println
   let kernel <- KLR.NKI.annotate kernel
   let kernel <- KLR.NKI.simplifyPatterns kernel
-  match NKI.model kernel with
-  | .error s => throw <| .userError s
-  | .ok m =>
-  IO.println s!"[NML] \n{NKI.pprint m}}"
+  -- match NKI.model kernel with
+  -- | .error s => throw <| .userError s
+  -- | .ok m =>
+  -- IO.println s!"[NML] \n{NKI.pprint m}}"
   return 0
 
 def equivKLR (p : Parsed) : IO UInt32 := do

@@ -199,6 +199,11 @@ in the sense that it does not perform any layout calculations. -/
 /-- [ ix ] Compute the raw location (iptr) of an address given a logical address. -/
 | ix            (ptr : Expr) (index : Expr)
 
+/-- Iterator expressions -/
+inductive IteratorS where
+
+
+
 
 /-- NML statements.
 Statements can read and write both the state and the local context. -/
