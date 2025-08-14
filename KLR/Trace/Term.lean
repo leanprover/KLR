@@ -437,7 +437,10 @@ def mgrid (indexes : List Term) : Err Term := do
         throw "step size must be 1"
       l := l ++ [.mgItem a b]
     | _ => throw "expecting slice"
-  return .tuple l
+  match l with
+  | [] => throw "mgrid must have at least 1 dimension"
+  | [t] => return t
+  | _ => return .tuple l
 
 -- Handle subscript expressions, t[i]
 def access (e : Term) (indexes : List Term) : Err Term := do
@@ -535,6 +538,9 @@ nki ndarray
     let tensor <- TensorName.make name dtype shape address
     return .expr (.value $ .access (.simple tensor)) (.tensor dtype shape)
 
+nki ds (start : Int) (size : Int) := do
+  return .mgItem start (start + size)
+
 nki python_len (t : Term) := do
   match t with
   | .tuple l | .list l => return .expr (.value (.int l.length)) .int
@@ -585,6 +591,7 @@ def builtinEnv : List (Name × BuiltinFn) :=
   (memViewName, memView) ::
   (nl "par_dim", par_dim) ::
   (nl "ndarray", ndarray) ::
+  (nl "ds", ds) ::
   (nisa "get_nc_version", get_nc_version) ::
   ( `len, python_len) ::
   ( `min, python_min) ::
