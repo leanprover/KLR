@@ -43,10 +43,10 @@ int main(int argc, char **argv) {
   cout << "KLR content type : " <<
     static_cast<unsigned>(contents->tag) << endl;
 
-  if (contents->tag != Contents::Tag::klir)
+  if (contents->tag != Contents::Tag::kernel)
     throw runtime_error("Wrong KLIR content type");
 
-  ContentsKlirWrapper *w = static_cast<ContentsKlirWrapper*>(contents.get());
+  ContentsKernelWrapper *w = static_cast<ContentsKernelWrapper*>(contents.get());
   Ptr<Kernel> k = w->kernel;
   cout << "KLR Kernel : " << k << endl;
 

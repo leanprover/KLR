@@ -23,6 +23,11 @@ static bool Core_Kernel_ser(FILE *out, struct Core_Kernel *k) {
   (void)k;
   return false;
 }
+static bool Core_LncKernel_ser(FILE *out, struct Core_LncKernel *k) {
+  (void)out;
+  (void)k;
+  return false;
+}
 static bool NKI_Kernel_des(FILE *in, struct region *r, struct NKI_Kernel **k) {
   (void)in;
   (void)r;
@@ -31,6 +36,13 @@ static bool NKI_Kernel_des(FILE *in, struct region *r, struct NKI_Kernel **k) {
 }
 static bool Core_Kernel_des(FILE *in, struct region *r,
                             struct Core_Kernel **k) {
+  (void)in;
+  (void)r;
+  (void)k;
+  return false;
+}
+static bool Core_LncKernel_des(FILE *in, struct region *r,
+                               struct Core_LncKernel **k) {
   (void)in;
   (void)r;
   (void)k;
@@ -71,14 +83,20 @@ bool File_Contents_ser(FILE *out, struct File_Contents *x) {
     if (!NKI_Kernel_ser(out, x->nki.kernel))
       return false;
     break;
-  case File_Contents_klir:
+  case File_Contents_kernel:
     if (!cbor_encode_tag(out, 236, 2, 1))
       return false;
-    if (!Core_Kernel_ser(out, x->klir.kernel))
+    if (!Core_Kernel_ser(out, x->kernel.kernel))
+      return false;
+    break;
+  case File_Contents_lnc:
+    if (!cbor_encode_tag(out, 236, 3, 1))
+      return false;
+    if (!Core_LncKernel_ser(out, x->lnc.kernel))
       return false;
     break;
   case File_Contents_hlo:
-    if (!cbor_encode_tag(out, 236, 3, 1))
+    if (!cbor_encode_tag(out, 236, 4, 1))
       return false;
     if (!String_ser(out, x->hlo.name))
       return false;
@@ -145,11 +163,18 @@ bool File_Contents_des(FILE *in, struct region *region,
   case 2:
     if (l != 1)
       return false;
-    if (!Core_Kernel_des(in, region, &(*x)->klir.kernel))
+    if (!Core_Kernel_des(in, region, &(*x)->kernel.kernel))
       return false;
-    (*x)->tag = File_Contents_klir;
+    (*x)->tag = File_Contents_kernel;
     break;
   case 3:
+    if (l != 1)
+      return false;
+    if (!Core_LncKernel_des(in, region, &(*x)->lnc.kernel))
+      return false;
+    (*x)->tag = File_Contents_lnc;
+    break;
+  case 4:
     if (l != 1)
       return false;
     if (!String_des(in, region, &(*x)->hlo.name))

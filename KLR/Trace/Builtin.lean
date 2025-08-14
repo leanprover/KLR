@@ -20,7 +20,6 @@ import KLR.Trace.Types
 
 /-
 # Utilities for creating Builtins
-
 -/
 
 namespace KLR.Trace
@@ -30,6 +29,16 @@ open Lean Elab Command Term Meta
 -- Use numeric names to create names that can't be spelled by users
 -- This is mainly used to model object methods (see below)
 private def hidden (str : String) : Name := .num str.toName 0
+
+-- Build names in the nki namespaces
+
+def neuronxcc : Name := .str .anonymous "neuronxcc"
+def nki_ : Name := .str neuronxcc "nki"
+def nki_isa : Name := .str nki_ "isa"
+def nki_lang : Name := .str nki_ "language"
+
+def nl : String -> Name := .str nki_lang
+def nisa : String -> Name := .str nki_isa
 
 /-
 Special names for object methods

@@ -29,15 +29,6 @@ This module defines the builtin constants used by tracing for NKI kernels.
 namespace KLR.Trace
 open KLR.NKI
 
-private def neuronxcc : Name := .str .anonymous "neuronxcc"
-private def nki_ : Name := .str neuronxcc "nki"
-private def nki_isa : Name := .str nki_ "isa"
-private def nki_lang : Name := .str nki_ "language"
-private def nisa_cmd : Name := .str nki_isa "reduce_cmd"
-
-private def nl : String -> Name := .str nki_lang
-private def nisa : String -> Name := .str nki_isa
-
 -- NKI environment, including constants and the names of builtin functions
 -- TODO: these should be defined in Python, not here
 def NKIEnv : List (Name × Term) :=
@@ -45,7 +36,6 @@ def NKIEnv : List (Name × Term) :=
   , module nki_
   , module nki_isa
   , module nki_lang
-  , module nisa_cmd
   , const_int (.str (nl "tile_size") "pmax") 128
   , const_int (.str (nl "tile_size") "gemm_stationary_fmax") 128
   , const_int (.str (nl "tile_size") "gemm_moving_fmax") 512

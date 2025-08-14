@@ -194,12 +194,14 @@ def info (p : Parsed) : IO UInt32 := do
     IO.println s!"Globals: {gs}"
   | .hlo name =>
     IO.println s!"HLO Call Site {name}"
-  | .klir kernel =>
-    IO.println s!"AST summary for KLIR kernel {kernel.name}"
+  | .kernel kernel =>
+    IO.println s!"AST summary for NKI-IR kernel {kernel.name}"
+  | .lnc kernel =>
+    IO.println s!"AST summary for NKI-IR LNC kernel {kernel.name}"
   return 0
 
 -- TODO: preserve warnings and errors
-def compilePython (kernel : Python.Kernel) : IO Core.Kernel := do
+def compilePython (kernel : Python.Kernel) : IO Core.LncKernel := do
   let (kernel, warnings) := kernel.inferArguments
   warnings.forM IO.eprintln
   let kernel : KLR.NKI.Kernel <- KLR.NKI.simplify kernel
@@ -211,11 +213,11 @@ def compilePython (kernel : Python.Kernel) : IO Core.Kernel := do
   -- TODO use debug flags?
   --IO.println (Std.Format.pretty (Std.format kernel))
   --IO.println (reprStr kernel)
-  let (warnings, kernel) <- KLR.Trace.runNKIKernel kernel
+  let (warnings, kernels) <- KLR.Trace.runLncKernels kernel
   if !warnings.isEmpty then
     IO.eprintln warnings
-  let kernel <- Core.lowerAccessPatterns kernel
-  return kernel
+  let kernels <- Core.lowerAccessPatterns kernels
+  return kernels
 
 def compile (p : Parsed) : IO UInt32 := do
   let kernel : KLR.Python.Kernel <- gatherTmp p
@@ -241,7 +243,7 @@ private def evalKlrTensors
   : IO (List (String × TensorLib.Tensor)) := do
   let kernel : KLR.NKI.Kernel <- gatherTmp p
   --let (k, warnings1) := kernel.inferArguments
-  let (warnings, klr) <- KLR.Trace.runNKIKernel kernel
+  let (warnings, klr) <- KLR.Trace.runNkiKernel kernel
   dbg_trace s!"klr-inputs: {repr klr.inputs}"
   --if !warnings1.isEmpty then IO.eprintln warnings1
   if !warnings.isEmpty then IO.eprintln warnings
