@@ -82,6 +82,13 @@ partial def KLR.NKI.Expr.model (s : NKI.Expr) : Err (NML.Expr Float) :=
         | .var vdst, .val (.string sname), .val v, _ =>
           .error s!"TODO: TODO: memset {Lean.toJson dtype}"
         | _, _, _, _ => .error s!"Bad call to memset"
+      | .var (.str (.str .anonymous "sbuf") "view") =>
+        match args with
+        | [_, shape, dst] =>
+          Err.Bind' (KLR.NKI.Expr.model shape) <| fun eshape =>
+          Err.Bind' (KLR.NKI.Expr.model dst) <| fun edst =>
+          .ok <| .view eshape edst
+        | _ => .error "bad sbuf view call"
       | _ => .error s!"call not modeled {Lean.toJson f}"
 
 -- TODO: Add Iterator expression steps to the model.

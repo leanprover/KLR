@@ -92,9 +92,11 @@ inductive Expr (DataT : Type)
 /-- [ var ] Variable reference. -/
 | var           (x : String)
 /-- [ tup ] Tuples
-TODO: Stepping rules for tuples
--/
+TODO: Stepping rules  -/
 | tup           (es : List <| Expr DataT)
+/-- [ view ] Create a new TensorHandle referencing a prior memory location
+TODO: Stepping rules -/
+| view          (eshape edst : Expr DataT)
 /-- [ dunop ] Apply a unary function to a piece of data. -/
 | dunop         (e : Expr DataT) (f : Dunop)
 /-- [ alloc ] Nonphysical tensor allocation.
