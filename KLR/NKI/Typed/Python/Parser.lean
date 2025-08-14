@@ -475,10 +475,55 @@ def run (input : String) (fileName : String) (fileMap : FileMap := input.toFileM
   let stmts ← PExp.run p .file c
   .ok { file := fileName, stmts }
 
+namespace Debug
+
+mutual
+
+def Exp.printTree (e : Exp) : Std.Format :=
+  match e with
+  | { exp, .. } => Exp'.printTree exp
+
+def Exp'.printTree (e : Exp') : Std.Format :=
+  match e with
+  | .binOp op x y =>
+    let (op, _) := op.reprPrec
+    let x := cont ++ nest (Exp.printTree x)
+    let y := last ++ nest (Exp.printTree y)
+    join [s!"({op})", x, y]
+  | .unaryOp op x =>
+    let (op, _) := op.reprPrec
+    let x := last ++ nest (Exp.printTree x)
+    join [s!"({op})", x]
+  | .ifExp cond thn els =>
+    let cond := cont ++ nest (Exp.printTree cond)
+    let thn := cont ++ nest (Exp.printTree thn)
+    let els := last ++ nest (Exp.printTree els)
+    join ["(ite)", cond, thn, els]
+  | _ => e.reprPrec 0
+where
+  nest x := Std.Format.nest 5 x
+  join (l : List Std.Format) := Std.Format.joinSep l "\n"
+  cont := " |---"
+  last := " '---"
+
+end
+
+def Stmt.printExpTree (s : Stmt) : Std.Format :=
+  match s.stmt with
+  | .exp e => Exp.printTree e
+  | _ => "not an expression"
+
+/--
+Print expression trees, used to debug associativity
+-/
+def Prog.printExpTree (p : Prog) : Std.Format :=
+  let es := p.stmts.map Stmt.printExpTree
+  Std.Format.joinSep es "\n"
+
 def input := "
-def foo():
-  a = (1 * 2) * 3
-  pass
+#1 * (1()
 "
 #eval run input "<input>"
-#eval (run input "<input>").map Lean.toJson
+#eval (run input "<input>").map Prog.printExpTree
+
+end Debug
