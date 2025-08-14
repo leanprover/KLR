@@ -61,6 +61,8 @@ inductive Value (DataT : Type _)
 | bool     (b : Bool)
 | int      (i : Int)
 | string   (s : String)
+/-- [ tupV ] Tuple values -/
+| tupV     (v : List <| Value DataT)
 /-- [ data ] An individual unit piece of data.
 This Float does not necessarily behave like a float. Its semantics are given by an
 NMLEnv struct. -/
@@ -89,6 +91,10 @@ inductive Expr (DataT : Type)
 | val           (v : Value DataT)
 /-- [ var ] Variable reference. -/
 | var           (x : String)
+/-- [ tup ] Tuples
+TODO: Stepping rules for tuples
+-/
+| tup           (es : List <| Expr DataT)
 /-- [ dunop ] Apply a unary function to a piece of data. -/
 | dunop         (e : Expr DataT) (f : Dunop)
 /-- [ alloc ] Nonphysical tensor allocation.

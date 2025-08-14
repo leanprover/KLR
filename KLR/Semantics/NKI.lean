@@ -57,7 +57,9 @@ partial def KLR.NKI.Expr.model (s : NKI.Expr) : Err (NML.Expr Float) :=
   match s.expr with
   | .value v => match v.model with | .error s => .error s | .ok e' => .ok <| .val e'
   | .var n => .ok <| .var n.toString
-  | .tuple _ => .error "tuples not modeled"
+  | .tuple e =>
+      Err.Bind' (e.foldlM (fun acc e => Err.Bind' (model e) (.ok <| acc ++ [·])) []) <| fun le =>
+      .ok (.tup le)
   | .access _ _ => .error "access not modeled"
   | .binOp _ _ _ => .error "binop not modeled"
   | .conj _ _ => .error "conj not modeled"
@@ -78,7 +80,7 @@ partial def KLR.NKI.Expr.model (s : NKI.Expr) : Err (NML.Expr Float) :=
         match edst, ename, evalue, edtype  with
         -- TODO: Right now, NKI is parsing dtypes as variables, I will ignore it
         | .var vdst, .val (.string sname), .val v, _ =>
-          .error s!"TODO: OK {Lean.toJson dtype}"
+          .error s!"TODO: TODO: memset {Lean.toJson dtype}"
         | _, _, _, _ => .error s!"Bad call to memset"
       | _ => .error s!"call not modeled {Lean.toJson f}"
 
@@ -145,6 +147,7 @@ def NML.Value.pprint : NML.Value Float → String
 | .int z => s!".int {z}"
 | .data f => s!".data {f}"
 | .iref i => s!".iref {i}"
+| .tupV l => s!".tupV {", ".intercalate (l.map pprint)}"
 | _ => "{NML.Value.pprint: Not implemented}"
 -- | ptr      (p : TensorHandle)
 -- /-- [ uptr ] A raw reference to a chip in memory -/
@@ -161,6 +164,7 @@ def NML.Value.pprint : NML.Value Float → String
 def NML.Expr.pprint : NML.Expr Float → String
 | .val v => s!".val ({v.pprint})"
 | .var x => s!".var \"{x}\""
+| .tup l => s!".tup {", ".intercalate (l.map pprint)}"
 | _ => "{NML.Expr.pprint: Not implemented}"
 -- /-- [ dunop ] Apply a unary function to a piece of data. -/
 -- | dunop         (e : Expr) (f : DataT → DataT)
