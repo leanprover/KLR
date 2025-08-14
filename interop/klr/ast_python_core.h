@@ -289,9 +289,9 @@ struct Python_Kernel {
   struct Python_Fun_List *funcs;
   struct Python_Expr_List *args;
   struct Python_Keyword_List *kwargs;
-  struct Python_Expr_List *scheduleEdges;
   struct Python_Keyword_List *globals;
-  struct String_List *undefinedSymbols;
+  u32 grid;
+  struct Python_Expr_List *scheduleEdges;
 };
 
 struct Python_Expr_List {

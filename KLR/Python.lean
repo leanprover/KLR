@@ -223,9 +223,9 @@ structure Kernel where
   funcs : List Fun
   args : List Expr
   kwargs : List Keyword
-  scheduleEdges : List Expr
   globals : List Keyword
-  undefinedSymbols : List String
+  grid : Nat
+  scheduleEdges : List Expr
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /-
