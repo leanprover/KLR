@@ -223,3 +223,86 @@ def {p.name} : NML.ExecState DataT :=
   .emp
 
 end model"
+
+-- TODO: Erasure and ret_assert
+
+/-- Print out the NML model of a program -/
+def NKI.pprint_relational_goal (pl pr : NMLModel) : String :=
+s!"import KLR.Semantics
+
+namespace model
+open Iris.BI.BIBase KLR.Core Iris NML Iris.BI
+
+/- The type of floating point numbers.
+
+You should restrict this generic type using typeclasses, or instantiate
+it with the type of floats you care about. The proof framework will still
+work without specializing DataT whatsoever. -/
+variable \{DataT : Type _} [NMLEnv DataT]
+
+/-- Stuttering bound. This can be set to any value. -/
+abbrev K : LeibnizO Nat := ⟨sorry⟩
+
+/-- (Pure) relational postcondion. -/
+def Φ : NML.Value DataT → NML.Value DataT → Prop := sorry
+
+/-- State precondition.
+You are free to assume any valid fragmental ownership to begin with.
+See the adequacy theorem.
+-/
+def σI : @PROP DataT := emp -- TODO: Generate these automatically
+
+/-- NML model of {pl.name}. Generated from file {pl.file}. -/
+def sL : NML.ExecState DataT :=
+  .run
+{NKI.pprint_body pl}
+  .emp
+
+/-- NML model of {pr.name}. Generated from file {pr.file}. -/
+def sR : NML.ExecState DataT :=
+  .run
+{NKI.pprint_body pr}
+  .emp
+
+theorem sLsR_equiv : σI ⊢ wp (DataT := DataT) K sL sR (ΦPure Φ) := by
+  -- Equivalence proof
+  sorry
+
+-- From here, sLsR_equiv can be used in conjunction with the adequacy theorem
+-- to conclude that sL and sR are related by PRelS, or if sL = sR = s the
+-- safety theorem will allow you to conclude that s is safe.
+
+end model"
+
+
+
+/-
+namespace example7
+/-! Example: Loop exit -/
+
+abbrev K : LeibnizO Nat := ⟨2⟩
+variable (n : Nat) (i : Iterator DataT) (b : List (Stmt DataT))
+variable (Hloop : PLoopExit (LocalContext.bindi .emp n i) n)
+
+@[simp] def sL : ExecState DataT := .run [
+    .loop "x" (.val <| .iref n) b,
+    .ret <| (.val .unit)
+  ] (LocalContext.bindi .emp n i)
+@[simp] def sR : ExecState DataT := .run [
+    .ret <| (.val .unit)
+  ] .emp
+
+example : ⊢ wp (DataT := DataT) K (sL n i b) sR (ΦPure ΦTriv) := by
+  istart
+  wp_desync
+  uwp_left  SPure.uwpL .loopExit Hloop
+  uwp_left  SPure.uwpL .ret trivial
+  uwp_right SPure.uwpR .ret trivial
+  wp_resync
+  wp_sync_val
+  unfold ΦPure ΦTriv
+  ipure_intro
+  grind
+
+end example7
+-/

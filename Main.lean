@@ -293,6 +293,40 @@ def modelKLR (p : Parsed) : IO UInt32 := do
   return 0
 
 def equivKLR (p : Parsed) : IO UInt32 := do
+  let debug := p.hasFlag "debug"
+  let file := p.positionalArg! "moduleFileName" |>.as! String
+  let kernelL := p.positionalArg! "kernelFunctionNameL" |>.as! String
+  let kernelR := p.positionalArg! "kernelFunctionNameR" |>.as! String
+  let dir := (p.flag? "klr-module-dir").map fun x => x.as! String
+  let kernelL : KLR.Python.Kernel ← IO.FS.withTempFile fun _ tmpName => do
+    gatherRun file kernelL tmpName.toString dir debug
+    KLR.File.readKLRFile tmpName .cbor
+  let kernelR : KLR.Python.Kernel ← IO.FS.withTempFile fun _ tmpName => do
+    gatherRun file kernelR tmpName.toString dir debug
+    KLR.File.readKLRFile tmpName .cbor
+  let (kernelL, warnings) := kernelL.inferArguments
+  warnings.forM IO.eprintln
+  let (kernelR, warnings) := kernelR.inferArguments
+  let kernelL : KLR.NKI.Kernel <- KLR.NKI.simplify kernelL
+  let kernelR : KLR.NKI.Kernel <- KLR.NKI.simplify kernelR
+  let (kernelL, w) <- KLR.NKI.simplifyOperators kernelL
+  w.forM IO.println
+  let (kernelR, w) <- KLR.NKI.simplifyOperators kernelR
+  w.forM IO.println
+  let kernelL <- KLR.NKI.annotate kernelL
+  let kernelR <- KLR.NKI.annotate kernelR
+  let kernelL <- KLR.NKI.simplifyPatterns kernelL
+  let kernelR <- KLR.NKI.simplifyPatterns kernelR
+  match (NKI.model kernelL : Err NMLModel) with
+  | .error s => throw <| (IO.userError s)
+  | .ok mL =>
+  match (NKI.model kernelR : Err NMLModel) with
+  | .error s => throw <| (IO.userError s)
+  | .ok mR =>
+  writeContent "lean" p (NKI.pprint_relational_goal mL mR)
+
+
+
   return 0
 
 -- -- Command configuration
