@@ -155,11 +155,6 @@ actually register the rules.
   | some p => .leadingPrec p <| .prod NT.expression
   | none => .prod NT.expression
 
--- @[inline] def primary (p : Option Nat := none) : Parser Exp :=
---   match p with
---   | some p => .leadingPrec p <| .prod NT.primary
---   | none => .prod NT.primary
-
 def expressions : Parser Exp :=
   (mkPos fileMap (
     .action (
@@ -229,27 +224,139 @@ def primary : Parser Exp :=
         | .access indices => ⟨pos, .access e indices⟩
       ) e
 
-def binOp : Parser BinOp :=
-      .trailingPrec 90 91 (.action "*" fun () => .mul)
-  <|> .trailingPrec 85 86 (.action "+" fun () => .add)
+inductive Assoc | l | r | n
 
-def exp : Parser Exp :=
+def opTable {α} [Inhabited α] (l : List (Nat × Assoc × String × α)) : Parser α :=
+  let ps : List (Parser α) := l.map (fun (prec, assoc, t, op) =>
+    let (l, r) :=
+      match assoc with
+      | .l => (prec, prec + 1)
+      | .r => (prec, prec)
+      | .n => (prec - 1, prec)
+    .trailingPrec l r (.action (tk t) fun () => op)
+  )
+  match ps with
+  | [] => .action .empty fun () => Inhabited.default
+  | hd :: tl => tl.foldl .choice hd
+
+def binOp : Parser BinOp :=
+  opTable [
+    (95, .r, "**", .pow),
+    (90, .l, "*", .mul),
+    (90, .l, "@", .matmul),
+    (90, .l, "/", .div),
+    (90, .l, "//", .floor),
+    (90, .l, "%", .mod),
+    (85, .l, "+", .add),
+    (85, .l, "-", .sub),
+    (80, .l, "<<", .lshift),
+    (80, .l, ">>", .rshift),
+    (75, .l, "&", .bitwiseAnd),
+    (70, .l, "&", .bitwiseXor),
+    (65, .l, "|", .bitwiseOr),
+    (60, .n, ">=", .ge),
+    (60, .n, ">", .gt),
+    (60, .n, "<=", .le),
+    (60, .n, "<", .lt),
+    (60, .n, "!=", .ne),
+    (60, .n, "==", .eq),
+    (50, .l, "and", .land),
+    (45, .l, "or", .lor),
+  ]
+
+def unaryOp : Parser UnaryOp :=
+  opTable [
+    (100, .r, "-", .neg),
+    (100, .r, "+", .pos),
+    (100, .r, "~", .bitwiseNot),
+    (55, .r, "not", .not),
+  ]
+
+def unary : Parser Exp :=
+  (mkPos fileMap (
+    .action (unaryOp >> expression)
+    fun (op, e) => .unaryOp op e
+  ) fun e pos => ⟨pos, e⟩)
+  <|> primary fileMap
+
+def term : Parser Exp :=
   .action (
-    (primary fileMap >> (PExp.star (binOp >> expression)))
+    (unary fileMap >> (PExp.star (binOp >> expression)))
   )
   fun (hd, tl) =>
     tl.foldl (fun x (op, y) =>
       ⟨x.pos + y.pos, .binOp op x y⟩
     ) hd
 
+def exp : Parser Exp :=
+  (mkPos fileMap (
+    .action (
+      term fileMap >> "if" >> term fileMap >> "else" >> expression
+    ) fun (thn, (), cond, (), els) => .ifExp cond thn els
+  ) fun e pos => ⟨pos, e⟩)
+  <|> term fileMap
+
 def file : Parser (List Stmt) :=
   .action (.optional (.prod NT.statements)) (·.getD [])
 
+def augassign : Parser BinOp :=
+  p "+=" .add
+  <|> p "-=" .sub
+  <|> p "*=" .mul
+  <|> p "@=" .matmul
+  <|> p "/=" .div
+  <|> p "%=" .mod
+  <|> p "&=" .bitwiseAnd
+  <|> p "|=" .bitwiseOr
+  <|> p "^=" .bitwiseXor
+  <|> p "<<=" .lshift
+  <|> p ">>=" .rshift
+  <|> p "**=" .pow
+  <|> p "//=" .floor
+where
+  p s op :=
+    .action (tk s) fun () => op
+
+def assignment : Parser Stmt' :=
+  (.action (expressions fileMap >> PExp.optional (":" >> expression) >> "=" >> expressions fileMap)
+  fun (lhs, anno, (), rhs) => .assign lhs (anno.map Prod.snd) rhs)
+  <|> .action (expression >> augassign >> expression)
+      fun (lhs, op, rhs) => .assign lhs none ⟨lhs.pos + rhs.pos, .binOp op lhs rhs⟩
+
+def returnStmt : Parser Stmt' :=
+  mkPos fileMap (
+    .action ("return" >> PExp.optional expression) Prod.snd
+  ) fun e pos => .ret (e.getD ⟨pos, .value .none⟩)
+
+def dottedName : Parser QualifiedIdent :=
+  .action (name >> PExp.star ("." >> name))
+  fun (hd, tl) =>
+    let tl := tl.map Prod.snd
+    let name := tl.getLastD hd
+    let quals :=
+      match tl with
+      | [] => []
+      | tl => hd :: (tl.take (tl.length - 1))
+    (quals, name)
+
+def importStmt : Parser Stmt' :=
+  (.action (
+    "from" >> dottedName >> "import" >> name >> PExp.optional ("as" >> name)
+  ) fun ((), mod, (), imp, as) => .imprtFrom mod imp (as.map Prod.snd))
+  <|> (.action (
+    "import" >> dottedName >> PExp.optional ("as" >> name)
+  ) fun ((), mod, as) => .imprt mod (as.map Prod.snd))
+
 def simpleStmt : Parser Stmt :=
   mkPos fileMap (
-    (.action (.prod .expression) Stmt'.exp)
+    assignment fileMap
+    <|> (.action expression Stmt'.exp)
+    <|> returnStmt fileMap
+    <|> importStmt
     <|> (.action "pass" fun () => Stmt'.pass)
+    <|> (.action ("assert" >> expression) (.assert ·.snd))
     <|> (.action "break" fun () => Stmt'.breakLoop)
+    <|> (.action "continue" fun () => Stmt'.continueLoop)
   ) fun s pos => ⟨pos, s⟩
 
 def simpleStmts : Parser (List Stmt) :=
@@ -276,9 +383,55 @@ def forStmt : Parser Stmt' :=
     "for" >> pattern >> "in" >> expressions fileMap >> ":" >> block fileMap
   ) fun ((), p, (), e, (), b) => .forLoop p e b
 
+def decorators : Parser (List Exp) :=
+  .action (.star <| "@" >> expression >> newline)
+  fun l => l.map (Prod.fst ∘ .snd)
+
+def param : Parser Param :=
+  .action (
+    name >> PExp.optional (":" >> expression) >> PExp.optional ("=" >> expression)
+  ) fun (name, typ, dflt) =>
+    let typ := typ.map Prod.snd
+    let dflt := dflt.map Prod.snd
+    { name, typ, dflt }
+
+def functionDef : Parser Stmt' :=
+  .action (
+    decorators >>
+    "def" >> name >> PExp.optional (bracketList name true) >> parenList param
+    >> PExp.optional ("->" >> expression) >> ":" >> block fileMap
+  ) fun (decorators, (), name, typs, params, returns, (), body) =>
+    let f : FuncDef := {
+      name,
+      typParams := typs.getD [],
+      params,
+      returns := returns.map Prod.snd,
+      body,
+      decorators
+    }
+    .funcDef f
+
+def ifStmt : Parser Stmt' :=
+  .action (
+    "if" >> expression >> ":" >> block fileMap
+    >> PExp.star ("elif" >> expression >> ":" >> block fileMap)
+    >> PExp.optional ("else" >> ":" >> block fileMap)
+  ) fun ((), cond, (), thn, elifs, els) =>
+    let elifs := elifs.map fun ((), cond, (), body) => (cond, body)
+    let els := els.map (Prod.snd ∘ .snd)
+    .ifStm cond thn elifs els
+
+def whileStmt : Parser Stmt' :=
+  .action (
+    "while" >> expression >> ":" >> block fileMap
+  ) fun ((), cond, (), body) => .whileLoop cond body
+
 def compountStmt : Parser Stmt :=
   mkPos fileMap (
-    forStmt fileMap
+    functionDef fileMap
+    <|> ifStmt fileMap
+    <|> forStmt fileMap
+    <|> whileStmt fileMap
   ) fun s pos => ⟨pos, s⟩
 
 def statements : Parser (List Stmt) :=
@@ -297,11 +450,9 @@ def prods (fileMap : FileMap) : PegParser.Production Token NT Token.denote NT.de
   | .statements => statements fileMap
   | .expression => exp fileMap
   | .pattern => pattern
-  -- | .primary => prim fileMap
 
 def run (input : String) (fileName : String) (fileMap : FileMap := input.toFileMap) : Except String Prog := do
   let tks ← Tokenizer.run input fileName fileMap
-  -- dbg_trace Tokenizer.Test.tokensToString tks
   let c : PegParser.Context Token NT Token.denote NT.denote := {
     input := tks,
     tkEq := Token.kindEq,
@@ -324,6 +475,10 @@ def run (input : String) (fileName : String) (fileMap : FileMap := input.toFileM
   let stmts ← PExp.run p .file c
   .ok { file := fileName, stmts }
 
-def input := "a[1]()\n"
+def input := "
+def foo():
+  a = (1 * 2) * 3
+  pass
+"
 #eval run input "<input>"
 #eval (run input "<input>").map Lean.toJson

@@ -164,7 +164,7 @@ def run (prods : Production τ ν T N) (start : ν) (c : Context τ ν T N) : Ex
       let last := c.input[s.pos]
         let startPos := c.tkStartPos last
         let endPos := c.tkEndPos last
-      let msg := c.errFormat "unexpected end of input" startPos endPos
+      let msg := c.errFormat "invalid syntax" startPos endPos
       .error msg
     else
       .ok d

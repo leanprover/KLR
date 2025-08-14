@@ -1,0 +1,30 @@
+{
+  "stmts": [
+    {
+      "stmt": {
+        "exp": {
+          "exp": {
+            "pos": {
+              "lineEnd": 1,
+              "line": 1,
+              "columnEnd": 1,
+              "column": 0
+            },
+            "exp": {
+              "var": {
+                "name": "i"
+              }
+            }
+          }
+        }
+      },
+      "pos": {
+        "lineEnd": 1,
+        "line": 1,
+        "columnEnd": 1,
+        "column": 0
+      }
+    }
+  ],
+  "file": "<input>"
+}

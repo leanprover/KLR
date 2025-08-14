@@ -71,7 +71,7 @@ deriving ToJson
 
 inductive UnaryOp
   | pos | neg | bitwiseNot | not
-deriving ToJson
+deriving ToJson, Inhabited
 
 inductive BinOp
   -- logical
@@ -87,7 +87,7 @@ inductive BinOp
   | floor
   -- other
   | matmul
-deriving BEq, ToJson
+deriving BEq, ToJson, Inhabited
 
 mutual
 
