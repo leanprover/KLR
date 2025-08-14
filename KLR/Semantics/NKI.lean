@@ -72,16 +72,16 @@ partial def KLR.NKI.Expr.model (s : NKI.Expr) : Err (NML.Expr Float) :=
         Err.Bind' (kws.hasKW "dst") <| fun dst =>
         Err.Bind' (KLR.NKI.Expr.model dst) <| fun edst =>
         Err.Bind' (kws.hasKW "name") <| fun name =>
-        Err.Bind' (KLR.NKI.Expr.model name) <| fun ename =>
+        Err.Bind' (KLR.NKI.Expr.model name) <| fun _ =>
         Err.Bind' (kws.hasKW "value") <| fun value =>
         Err.Bind' (KLR.NKI.Expr.model value) <| fun evalue =>
         Err.Bind' (kws.hasKW "dtype") <| fun dtype =>
-        Err.Bind' (KLR.NKI.Expr.model dtype) <| fun edtype =>
-        match edst, ename, evalue, edtype  with
-        -- TODO: Right now, NKI is parsing dtypes as variables, I will ignore it
-        | .var vdst, .val (.string sname), .val v, _ =>
-          .error s!"TODO: TODO: memset {Lean.toJson dtype}"
-        | _, _, _, _ => .error s!"Bad call to memset"
+        Err.Bind' (KLR.NKI.Expr.model dtype) <| fun _ =>
+        -- TODO: Ignoring the name and dtype fields at the moment
+        -- TODO: NKI is parsing dtypes as variables for some reason
+        match evalue with
+        | .val (.data v) => .ok <| .dunop edst (.cst v)
+        | _ => .error "bad value in nisa memset"
       | .var (.str (.str .anonymous "sbuf") "view") =>
         match args with
         | [_, shape, dst] =>
@@ -96,7 +96,7 @@ partial def KLR.NKI.Expr.model (s : NKI.Expr) : Err (NML.Expr Float) :=
 def KLR.NKI.iterator.model : Iterator → Err NML.IteratorS
   | .expr _ => .error ".expr iterators no modeled"
   | .range _ l u s =>
-      Err.Bind' (KLR.NKI.Expr.model l) <| fun zl =>
+      Err.Bind' (KLR.NKI.Expr.model l) <| fun (zl : NML.Expr Float) =>
       Err.Bind' (KLR.NKI.Expr.model u) <| fun zu =>
       Err.Bind' (KLR.NKI.Expr.model s) <| fun zs =>
       match zl, zu, zs with
@@ -152,11 +152,13 @@ def NML.Value.pprint : NML.Value Float → String
 | .unit => ".unit"
 | .bool b => s!".bool {b}"
 | .int z => s!".int {z}"
-| .data f => s!".data {f}"
+| .string s => s!".string \"{s}\""
+| .data f => s!".data (intoDataT {f})"
 | .iref i => s!".iref {i}"
 | .tupV l => s!".tupV {", ".intercalate (l.map pprint)}"
-| _ => "{NML.Value.pprint: Not implemented}"
--- | ptr      (p : TensorHandle)
+| _ => "sorry /- NML.Value.pprint: Not implemented -/"
+
+
 -- /-- [ uptr ] A raw reference to a chip in memory -/
 -- | uptr     (i : ChipIndex)
 -- /-- [ iptr ] A raw reference to a location inside a chip's memory -/
@@ -168,26 +170,19 @@ def NML.Value.pprint : NML.Value Float → String
 -- /-- [ lidx ] A logical index into a tensor. -/
 -- | lidx     (l : List Int)
 
+
+
+def NML.Dunop.pprint : NML.Dunop Float → String
+| .cst f => s!".cst (intoDataT {f})"
+| .lean _ => "«Lean function»"
+
 def NML.Expr.pprint : NML.Expr Float → String
 | .val v => s!".val ({v.pprint})"
 | .var x => s!".var \"{x}\""
 | .tup l => s!".tup {", ".intercalate (l.map pprint)}"
-| _ => "{NML.Expr.pprint: Not implemented}"
--- /-- [ dunop ] Apply a unary function to a piece of data. -/
--- | dunop         (e : Expr) (f : DataT → DataT)
--- /-- [ alloc ] Nonphysical tensor allocation.
--- Generate a new, empty, nonphysical tensor block inside the given memory. -/
--- | alloc         (m : Memory)
--- /-- [ readp ] Raw point read.
--- Access the data stored in a given chip at a given index. This read is "raw"
--- in the sense that it does not perform any layout calculations. -/
--- | readp         (chip index : Expr)
--- /-- [ idx ] A list of expressions, that should be thought of as reducing to a single logical address. -/
--- | idx           (l : List Expr)
--- /-- [ chip ] Access the chip (uptr) from the metadata of a ptr -/
--- | chip          (ptr : Expr)
--- /-- [ ix ] Compute the raw location (iptr) of an address given a logical address. -/
--- | ix            (ptr : Expr) (index : Expr)
+| .dunop d f => s!".dunop ({d.pprint}) ({f.pprint})"
+| .view e1 e2 => s!".view ({e1.pprint}) ({e2.pprint})"
+| _ => "sorry /- NML.Expr.pprint: Not implemented -/"
 
 def NML.IteratorS.pprint : NML.IteratorS → String
 | .affineRange l u s => s!".affineRange {l} {u} {s}"
@@ -195,18 +190,12 @@ def NML.IteratorS.pprint : NML.IteratorS → String
 def NML.Stmt.pprint : NML.Stmt Float → List String
 | .ret e => [s!".ret ({e.pprint}),"]
 | .assign none e => [s!".assign none ({e.pprint}),"]
-| .assign (.some x) e => [s!".assign (some \"{x}\") ({e.pprint}),"]
+| .assign (.some x) e => [s!".assign (.some \"{x}\") ({e.pprint}),"]
 | .mkiter n i => [s!".mkiter {n} ({i.pprint}),"]
 | .loop x it b =>
     let b' := b.map NML.Stmt.pprint |>.flatten  |>.map ("  " ++ ·)
     (s!".loop \"{x}\" {it.pprint} [") :: b' ++ ["]"]
-| _ => ["{NML.Stmt.pprint: Not implemented}"]
-
--- /-- [ frame ] (Internal) Evaluate a list of statements with a given local context. -/
--- | frame        (p : List Stmt) (ctx : LocalContext DataT)
--- /-- [ setp ] Set a single memory location -/
--- | setp         (chip index val : @Expr DataT)
-
+| _ => ["sorry /- NML.Stmt.pprint: Not implemented -/"]
 
 /-- Print out a string representation of the NKI program.
 Replaces all floats with a call to the interpretation function. -/

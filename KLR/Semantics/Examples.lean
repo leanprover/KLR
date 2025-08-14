@@ -234,7 +234,7 @@ namespace example8
 
 abbrev K : LeibnizO Nat := ⟨2⟩
 
-variable (f : NML.Dunop) (d₀ d₁ : DataT) (Hf : NMLEnv.evalDunop f d₀ = d₁)
+variable (f : NML.Dunop DataT) (d₀ d₁ : DataT) (Hf : NMLEnv.evalDunop f d₀ = d₁)
 
 @[simp] def sL : ExecState DataT := .run [
     .ret <| (.dunop (.val <| .data d₀) f)

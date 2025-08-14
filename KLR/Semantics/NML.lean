@@ -81,7 +81,13 @@ relationships between them. -/
 | lidx     (l : List Int)
 
 /-- NML Unops that operate on Data-/
-inductive Dunop where
+inductive Dunop (DataT  : Type) where
+/-- [cst] The constant function -/
+| cst (v : DataT)
+/-- [internal] An arbitrary Lean function.
+All (total) dunops can be represented this way, but it makes pretty printing NML
+expressions difficult. -/
+| lean (f : DataT → DataT)
 
 /-- NML expressions.
 Expressions are allowed to read and update the program state.
@@ -98,7 +104,7 @@ TODO: Stepping rules  -/
 TODO: Stepping rules -/
 | view          (eshape edst : Expr DataT)
 /-- [ dunop ] Apply a unary function to a piece of data. -/
-| dunop         (e : Expr DataT) (f : Dunop)
+| dunop         (e : Expr DataT) (f : Dunop DataT)
 /-- [ alloc ] Nonphysical tensor allocation.
 Generate a new, empty, nonphysical tensor block inside the given memory. -/
 | alloc         (m : Memory)
@@ -205,7 +211,7 @@ def Value.ExpectInt : Expr DataT → Option Int | .val (.int z) => some z | _ =>
 All paramaters required to define a semantics for NML -/
 class NMLEnv (DataT : Type _) where
   intoDataT : Float → Option DataT
-  evalDunop : Dunop → DataT → DataT
+  evalDunop : Dunop DataT → DataT → DataT
 
 def Dtype.Interp (DataT : Type _) (d : KLR.Core.Dtype) : Type _ :=
   match d with
@@ -348,6 +354,9 @@ inductive ExecState (DataT : Type) where
           ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
           some ⟨.run (.setp e' ei ev :: ps) ctx, s'⟩
 
+      -- /- Unhandled cases -/
+      -- | _ => .none
+
 
 instance NML.Semantics [NMLEnv DataT] : SmallStep (ExecState DataT) (Value DataT) (State DataT) where
   Step e1 e2 := NML.step e1 = .some e2
@@ -438,7 +447,7 @@ theorem EPure.var : EPure (DataT := DataT) (.var x) (.val v) (LCBindP x v) := by
   rw [HP]
   simp
 
-theorem EPure.dunop : EPure (.dunop (.val <| .data d) f) (.val <| .data <| NMLEnv.evalDunop (DataT := DataT) f d) LCTrueP := by
+theorem EPure.dunop : EPure (.dunop (.val <| .data (d : DataT)) f) (.val <| .data <| NMLEnv.evalDunop f d) LCTrueP := by
   intro _ _ HP; simp [ExprStep]
 
 theorem EPure.idx : EPure (DataT := DataT) (.idx e) (.val <| .lidx <| e.map Expr.asIntV) (LCIntList e) := by
