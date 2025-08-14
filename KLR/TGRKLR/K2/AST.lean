@@ -9,20 +9,30 @@ namespace KLR.TGRKLR.K2
 
 open KLR.TGR(TensorTy)
 
+/- Variables that represent a location in SBUF/PSUM -/
 abbrev Var := String
+/- Variables that have been bound by a let expression -/
 abbrev ScalarVar := String
 
+/- We assume HBM tensors can be referred to by name and tensors with different
+names do not overlap. -/
 structure HbmTensor where
   name : String
 deriving Inhabited, Repr, BEq
 
+/- A tile in SBUF/PSUM that has a size in the parallel and free dimension.
+
+Note that at the K2 level, the tile has not had a specific location allocated yet.
+The name stands in for the location, and we assume tiles with the same name
+are at an identical location and tiles with different names do not overlap. -/
 structure TensorK2 where
   name    : String
   dtype   : Core.Dtype
   memory : Core.SramMemory
-  -- The size of this tensor in the parallel dimension
+  /- The size of this tensor in the parallel dimension -/
   parDim : Nat
-  -- The length and stride of each dimension besides the first
+  /- The size and stride of each dimension besides the first.
+  Slower-moving dimensions come first. -/
   freePattern: List Core.APPair
 deriving BEq, Repr
 
@@ -31,34 +41,53 @@ inductive ScalarOp where
   | add
 deriving Inhabited, Repr, BEq
 
+/- A scalar in K2, which is an expression in a small expression language. -/
 inductive ScalarK2
   | float (f : Float32)
   | int (f : Nat)
+  /- Use a scalar variable that has been let-bound by an `assign` statement -/
   | var (var : ScalarVar)
   | expr (op : ScalarOp) (a b : ScalarK2)
+  /- Reference an address in SBUF/PSUM (at the K2 level,
+  addresses haven't been allocate yet, so we just use a name) -/
   | address (name : Var)
 deriving Inhabited, Repr, BEq
 
 abbrev OperatorK2 := KLR.TGRKLR.Operator TensorK2 ScalarK2
 
+/- An access pattern into a tensor in HBM -/
 abbrev HbmLocationK2 := KLR.TGRKLR.HbmLocation ScalarK2
 
+/- Statements that comprise a K2 program -/
 inductive StatementK2 where
-| comment (s : String)
-| op (op : OperatorK2)
-| loop (var : ScalarVar) (start : Nat) (stop : Nat) (step : Nat) (body : List StatementK2)
-| ifzero (var : ScalarVar) (consequent alternate : List StatementK2)
-| load (dst : TensorK2) (src : HbmLocationK2)
-| store (dst : HbmLocationK2) (src : TensorK2)
-| dramToDram (dst : HbmLocationK2) (src : HbmLocationK2)
-| assign (var : ScalarVar) (expr : ScalarK2)
+  | comment (s : String)
+  /- execute a side-effectful operator -/
+  | op (op : OperatorK2)
+  /- Continue executing body until `var==stop`, incrementing `var` by `step`
+  each time and initializing `var` to `start`. -/
+  | loop (var : ScalarVar) (start : Nat) (stop : Nat) (step : Nat) (body : List StatementK2)
+  /- If `var==0`, execute `consequent`, otherwise execute `alternate`. -/
+  | ifzero (var : ScalarVar) (consequent alternate : List StatementK2)
+  /- Load a tensor from HBM into SBUF/PSUM -/
+  | load (dst : TensorK2) (src : HbmLocationK2)
+  /- Store a tensor from SBUF/PSUM into HBM -/
+  | store (dst : HbmLocationK2) (src : TensorK2)
+  /- Move a tensor from one HBM location to another -/
+  | dramToDram (dst : HbmLocationK2) (src : HbmLocationK2)
+  /- let-bind a scalar variable to the result of an expression -/
+  | assign (var : ScalarVar) (expr : ScalarK2)
 deriving Inhabited, Repr, BEq
 
 structure ProgramK2 where
+  /- At the moment, this isn't used for anything useful -/
   name : String
+  /- The list of intermediate HBM tensors that are written to in the program but are not inputs or outputs. -/
   tensors : List (Var × TensorTy)
+  /- The set of HBM tensors that are inputs to the program. Can be referred to by name. -/
   inputs : List (Var × TensorTy)
+  /- The set of HBM tensor names that will be written to by the end of the program. -/
   outputs : List Var
+  /- A K2 program has no functions, just a list of statements that are executed in order. -/
   statements : List StatementK2
 deriving Inhabited, Repr, BEq
 
@@ -72,7 +101,7 @@ instance : ToString TensorK2 where
 def toStringScalarK2 : ScalarK2 → String
   | .float f => s!"{f}"
   | .int i => s!"{i}"
-  | .var var => s!"%{var}"
+  | .var var => s!"{var}"
   | .expr op a b =>
     let opStr := match op with
       | .mult => "*"
