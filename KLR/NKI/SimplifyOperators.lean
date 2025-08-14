@@ -45,6 +45,14 @@ private def rewriteOp (rhs: Expr) (dst: Expr) : SimplifyOp (Option Stmt') := do
       return none
   | _ => return none
 
+private def rewriteNdarray (stmt : Stmt') : Stmt' :=
+  match stmt with
+  | .letM (.var x) ty ⟨.call ⟨.var `xx, p0 ⟩ args kws, p1 ⟩ =>
+      if kws.any fun x => x.name == "name" then stmt else
+      let kws := ⟨"name", ⟨ .var x, p1⟩⟩ :: kws
+      .letM (.var x) ty ⟨.call ⟨.var `xx, p0 ⟩ args kws, p1 ⟩
+  | _ => stmt
+
 mutual
 private def stmt (s : Stmt) : SimplifyOp (Stmt) := do
   return ⟨ <- stmt' s.stmt, s.pos ⟩
@@ -61,7 +69,7 @@ private def stmt' (s : Stmt') : SimplifyOp Stmt' := do
     if let .call f .. := e.expr then
       if isISA f then
         warn "ISA function does not return a value"
-    return s
+    return rewriteNdarray s
   | .setM x e accum =>
     match <- rewriteOp e x with
     | some op =>

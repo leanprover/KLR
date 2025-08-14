@@ -183,6 +183,7 @@ structure State where
   locals : Env := ∅
   body : Array Stmt := #[]
   warnings : Array (Pos × String) := #[]
+  tensorNames : Std.HashSet String := ∅
 deriving Repr
 
 instance : Inhabited State where
@@ -297,6 +298,25 @@ def add_stmt (stmt : Pos -> Stmt) : Trace Unit :=
 -- emit a warning
 def warn (msg : String) : Trace Unit :=
   modify fun s => { s with warnings := s.warnings.push (s.pos, msg) }
+
+-- check and register a tensor name
+def checkTensorName (name : String) : Trace Unit := do
+  let st <- get
+  if st.tensorNames.contains name then
+    throw "Tensor name {name} already in use"
+  set { st with tensorNames := st.tensorNames.insert name }
+
+-- generate a unique tensor name
+def genTensorName : Trace String := do
+  let st <- get
+  let mut n := st.fvn -- arbitrary
+  let mut name := ""
+  repeat
+    name := s!"tensor{n}"
+    if not (st.tensorNames.contains name) then break
+    n := n + 1
+  set { st with tensorNames := st.tensorNames.insert name }
+  return name
 
 -- Run a `Trace` monad computation, and handle any generated warnings or errors.
 def tracer (g : List (Name × Term)) (m : Trace a) (showWarnings := true) : Err (String × a) :=
