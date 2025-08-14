@@ -186,7 +186,6 @@ def info (p : Parsed) : IO UInt32 := do
     IO.println s!"Source Functions: {fs}"
     let gs := String.intercalate "," $ kernel.globals.map fun kw => kw.id
     IO.println s!"Globals: {gs}"
-    IO.println s!"Undefined names {kernel.undefinedSymbols.mergeSort}"
   | .nki kernel =>
     IO.println s!"AST summary for NKI kernel {kernel.entry}"
     let fs := String.intercalate "," $ kernel.funs.map fun f => f.name
