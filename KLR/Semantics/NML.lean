@@ -10,42 +10,6 @@ import KLR.Semantics.Memory
 import KLR.Semantics.SmallStep
 import TensorLib.Iterator
 
--- TODO: Saturday
-
--- Finish the refactor
--- * Don't worry about pure properties since the new uwp machinery can handle that.
-
--- - Expr properties:
---    - ExprLift     (Lift steps on arguments)
--- - Stmt properties
---    - StmtLift     (Stmt step → Stmt step)
---    - ExprLift     (Expr step → Expr step)
--- - Proof rules
---    - ewp/uwps
---    - ewp and uwp lifting for the above 3 cases
-
--- All cases of the semantics should be covered a lifting lemma, an ewp, or a uwp.
-
-
--- TODO: Sunday
-
--- Clear all sorry's, copy out the Iris dependency
--- Generate more examples
--- Project should be mergable at this point
-
--- TODO: Wednesday
-
-
-def Dtype.Interp {DataT : Type _} : KLR.Core.Dtype → Type
-| .uint64   => UInt64
-| .uint32   => UInt32
-| .uint16   => UInt16
-| .uint8    => UInt8
-| .int64    => Int64
-| .int32    => Int32
-| .int16    => Int16
-| .int8     => Int8
-| .float16 | .float32r | .float32 | .float8e5 | .float8e4 | .float8e3 | .bfloat16 => DataT
 
 /-- A physical ChipIndex cannot be free allocated. -/
 def ChipIndex.IsPhysical : KLR.Core.ChipIndex → Prop
@@ -60,11 +24,8 @@ open KLR.Core TensorLib
 /-! # NML, Neuron Modeling Language
 The language is parameterized by a type of floating point numbers, see `KLR/Semantics/Float.lean`. -/
 
-variable (DataT : Type _)
 
--- TODO: Is this actually useful?
 /-- A pointer to a tensor that carries additional metadata.
-
 NB. No size contstraints on the tensor (like Address). Minimum size can be computed
 from shape and layout. -/
 structure TensorHandle where
@@ -90,16 +51,18 @@ In particular, state should frame around weakest preconditions (P -∗ wp .. Q i
 all pieces of state `s`).
 
 Local bindings are not a part of state, because they do not obey the frame property! -/
-structure State where
+structure State (DataT : Type _) where
   memory : KLR.Core.NeuronMemory DataT
 
 /-- NML values.
 A value should be thought of as an expression that does not reduce. -/
-inductive Value
+inductive Value (DataT : Type _)
 | unit
 | bool     (b : Bool)
 | int      (i : Int)
-/-- [ data ] An individual unit piece of data. -/
+/-- [ data ] An individual unit piece of data.
+This Float does not necessarily behave like a float. Its semantics are given by an
+NMLEnv struct. -/
 | data     (d : DataT)
 /-- [ ptr ] A pointer to an entire tensor in memory -/
 | ptr      (p : TensorHandle)
@@ -114,19 +77,53 @@ relationships between them. -/
 /-- [ lidx ] A logical index into a tensor. -/
 | lidx     (l : List Int)
 
+/-- NML Unops that operate on Data-/
+inductive Dunop where
+
+/-- NML expressions.
+Expressions are allowed to read and update the program state.
+Expressions can refer to the local context, but they are lexically scoped and cannot update it. -/
+inductive Expr (DataT : Type)
+/-- [ val ] Fully-reduced expression. -/
+| val           (v : Value DataT)
+/-- [ var ] Variable reference. -/
+| var           (x : String)
+/-- [ dunop ] Apply a unary function to a piece of data. -/
+| dunop         (e : Expr DataT) (f : Dunop)
+/-- [ alloc ] Nonphysical tensor allocation.
+Generate a new, empty, nonphysical tensor block inside the given memory. -/
+| alloc         (m : Memory)
+/-- [ readp ] Raw point read.
+Access the data stored in a given chip at a given index. This read is "raw"
+in the sense that it does not perform any layout calculations. -/
+| readp         (chip index : Expr DataT)
+/-- [ idx ] A list of expressions, that should be thought of as reducing to a single logical address. -/
+| idx           (l : List (Expr DataT))
+/-- [ chip ] Access the chip (uptr) from the metadata of a ptr -/
+| chip          (ptr : Expr DataT)
+/-- [ ix ] Compute the raw location (iptr) of an address given a logical address. -/
+| ix            (ptr : Expr DataT) (index : Expr DataT)
+
+/-- Iterator expressions -/
+inductive IteratorS where
+| affineRange    (start step count : Int)
 
 /-- Locals: A context mapping variable names to values. -/
-def Locals := String → Option (Value DataT)
+def Locals (DataT : Type _) := String → Option (Value DataT)
 def Locals.emp : Locals DataT := fun _ => .none
-def Locals.bind (s : Locals DataT) (x : String) (v : Value DataT) : Locals DataT :=
+def Locals.bind (s : Locals DataT) (x : String) (v : Value DataT) : Locals DataT:=
   fun x' => if x = x' then .some v else s x'
 
 /-- A structure that contains a TensorLib iterator.
 The iterator may be finished, in which case its carrier is .none. -/
-structure Iterator where
+structure Iterator (DataT : Type _) where
   I : Type
   [instIIter : TensorLib.Iterator I (Value DataT)]
   car : I
+
+-- Right now: the IteratorS semantics work for all choices of DataT
+def IteratorS.toIterator {DataT : Type _} : IteratorS → Iterator DataT
+| .affineRange start stop step => sorry
 
 instance {i : Iterator DataT} : TensorLib.Iterator i.I (Value DataT) := Iterator.instIIter _
 
@@ -136,30 +133,28 @@ def Iterator.advance (i : Iterator DataT) : Option (Iterator DataT) :=
   i.instIIter.next i.car |>.bind fun ii => .some <| Iterator.mk i.I ii
 
 /-- Iterators: A context mapping iterator identifiers to values. -/
-def Iterators := Nat → Option (Iterator DataT)
+def Iterators DataT := Nat → Option (Iterator DataT)
 def Iterators.emp : Iterators DataT := fun _ => .none
 def Iterators.bind (s : Iterators DataT) (x : Nat) (v : Option (Iterator DataT)) : Iterators DataT :=
   fun x' => if x = x' then v else s x'
 
-structure LocalContext where
+structure LocalContext (DataT : Type _) where
   loc : Locals DataT
   it : Iterators DataT
 
-def LocalContext.emp : LocalContext DataT where
-  loc := .emp DataT
-  it  := .emp DataT
+def LocalContext.emp : LocalContext DataT := ⟨.emp, .emp⟩
 
 /-- Get a variable in a local context. -/
 @[simp] def LocalContext.getv (lc : LocalContext DataT) (x : String) : Option (Value DataT) :=
   lc.loc x
 
 /-- Bind a variable in a local context. Only valid for contexts that are not ignored. -/
-@[simp] def LocalContext.bindv (lc : LocalContext DataT) (x : String) (v : Value DataT) : LocalContext DataT where
-  loc := lc.loc.bind _ x v
+@[simp] def LocalContext.bindv (lc : LocalContext DataT) (x : String) (v : (Value DataT)) : LocalContext DataT where
+  loc := lc.loc.bind x v
   it := lc.it
 
 /-- Peek the next value in an iterator from the local context. Only valid if the context is not ignored -/
-@[simp] def LocalContext.peeki (lc : LocalContext DataT) (n : Nat) : Option (Value DataT) :=
+@[simp] def LocalContext.peeki (lc : LocalContext DataT) (n : Nat) : Option (Value DataT):=
   lc.it n |>.bind (·.peek)
 
 /-- Advance an iterator in the local context. -/
@@ -168,46 +163,16 @@ def LocalContext.emp : LocalContext DataT where
   it :=
     match (lc.it n) with
     | .none => lc.it
-    | .some i => lc.it.bind DataT n i.advance
+    | .some i => lc.it.bind n i.advance
 
 /-- Bind a variable in a local context. Only valid for contexts that are not ignored. -/
 @[simp] def LocalContext.bindi (lc : LocalContext DataT) (n : Nat) (i : Iterator DataT) : LocalContext DataT where
   loc := lc.loc
-  it := lc.it.bind _ n i
-
-/-- NML expressions.
-Expressions are allowed to read and update the program state.
-Expressions can refer to the local context, but they are lexically scoped and cannot update it. -/
-inductive Expr
-/-- [ val ] Fully-reduced expression. -/
-| val           (v : Value DataT)
-/-- [ var ] Variable reference. -/
-| var           (x : String)
-/-- [ dunop ] Apply a unary function to a piece of data. -/
-| dunop         (e : Expr) (f : DataT → DataT)
-/-- [ alloc ] Nonphysical tensor allocation.
-Generate a new, empty, nonphysical tensor block inside the given memory. -/
-| alloc         (m : Memory)
-/-- [ readp ] Raw point read.
-Access the data stored in a given chip at a given index. This read is "raw"
-in the sense that it does not perform any layout calculations. -/
-| readp         (chip index : Expr)
-/-- [ idx ] A list of expressions, that should be thought of as reducing to a single logical address. -/
-| idx           (l : List Expr)
-/-- [ chip ] Access the chip (uptr) from the metadata of a ptr -/
-| chip          (ptr : Expr)
-/-- [ ix ] Compute the raw location (iptr) of an address given a logical address. -/
-| ix            (ptr : Expr) (index : Expr)
-
-/-- Iterator expressions -/
-inductive IteratorS where
-
-
-
+  it := lc.it.bind n i
 
 /-- NML statements.
 Statements can read and write both the state and the local context. -/
-inductive Stmt where
+inductive Stmt (DataT : Type _) where
 /-- [ ret ] Return statement. Early returns are permitted. -/
 | ret          (e : Expr DataT)
 /-- [ assign ] Let-binding statement. -/
@@ -216,34 +181,53 @@ inductive Stmt where
 As of now, all iterators must be known statically. In principle, i can be changed to use a new "iterator expression"
 that allows iterators to depend on eg. the local bindings. I am expressing it this way (rather than having
 iterators be values) to avoid difficult cases such as iterators of iterators. -/
-| mkiter       (n : Nat) (i : Iterator DataT)
+| mkiter       (n : Nat) (i : IteratorS)
 /-- [ frame ] (Internal) Evaluate a list of statements with a given local context. -/
-| frame        (p : List Stmt) (ctx : LocalContext DataT)
+| frame        (p : List (Stmt DataT)) (ctx : LocalContext DataT)
 /-- [ loop ] Looping construct. The argument should evaluate to a iterator variable. -/
-| loop         (x : String) (it : Expr DataT) (body : List Stmt)
+| loop         (x : String) (it : Expr DataT) (body : List (Stmt DataT))
 /-- [ setp ] Set a single memory location -/
-| setp         (chip index val : @Expr DataT)
+| setp         (chip index val : (Expr DataT))
 -- | ret_assert   (_ : @Expr DataT) (_ : @State DataT → Prop)
 
 def Value.ExpectInt : Expr DataT → Option Int | .val (.int z) => some z | _ => none
 
+/-- NML Enviornment
+All paramaters required to define a semantics for NML -/
+class NMLEnv (DataT : Type _) where
+  intoDataT : Float → Option DataT
+  evalDunop : Dunop → DataT → DataT
+
+def Dtype.Interp (DataT : Type _) (d : KLR.Core.Dtype) : Type _ :=
+  match d with
+  | .uint64   => UInt64
+  | .uint32   => UInt32
+  | .uint16   => UInt16
+  | .uint8    => UInt8
+  | .int64    => Int64
+  | .int32    => Int32
+  | .int16    => Int16
+  | .int8     => Int8
+  | .float16 | .float32r | .float32 | .float8e5 | .float8e4 | .float8e3 | .bfloat16 => DataT
+
 /-- A NML Program during execution. Namely, one of
 - A list of statements, and a context to execute them in, or
 - A completed execution, its return value. -/
-inductive ExecState where
-| run   (p : List (Stmt DataT)) (ctx : LocalContext DataT)
+inductive ExecState (DataT : Type) where
+| run   (p : List (Stmt DataT)) (ctx : (LocalContext DataT))
 | done  (v : Value DataT)
 
-@[simp] def ExprStep (e : Expr DataT) (ctx : LocalContext DataT) (s : State DataT) : Option (Expr DataT × State DataT) :=
+
+@[simp] def ExprStep [NMLEnv DataT] (e : Expr DataT) (ctx : LocalContext DataT) (s : State DataT) : Option (Expr DataT × State DataT) :=
   match e with
   /- Var step: Look the variable up in the local context. -/
   | .var x =>
-      ctx.getv _ x |>.bind fun v =>
+      ctx.getv x |>.bind fun v =>
       some ⟨.val v, s⟩
 
   /- Data unop -/
   | .dunop (.val <| .data d) f =>
-      some (.val <| .data <| f d, s)
+      some (.val <| .data <| NMLEnv.evalDunop f d, s)
   | .dunop ed f =>
       ExprStep ed ctx s |>.bind fun ⟨ed', s'⟩ =>
       some (.dunop ed' f, s')
@@ -265,7 +249,7 @@ inductive ExecState where
       some ⟨.readp ec' ei, s'⟩
 
   /- Logical index expressions (currently: static indices only) -/
-  | .idx e => List.mapM (Value.ExpectInt DataT) e |>.bind (.some ⟨.val <| .lidx ·, s⟩)
+  | .idx e => List.mapM (Value.ExpectInt ) e |>.bind (.some ⟨.val <| .lidx ·, s⟩)
 
   /- Chip expressions -/
   | .chip (.val <| .ptr t) => some ⟨.val <| .uptr t.index, s⟩
@@ -293,7 +277,7 @@ inductive ExecState where
 @[simp] def NML.toVal (e : ExecState DataT) : Option (Value DataT) :=
   match e with | .done v => .some v | _ => .none
 
-@[simp] def NML.step (e : ExecState DataT × State DataT) : Option (ExecState DataT × State DataT) :=
+@[simp] def NML.step [NMLEnv DataT] (e : ExecState DataT × State DataT) : Option (ExecState DataT × State DataT) :=
   match e with
   | ⟨.done _, _⟩
   | ⟨.run [] _, _⟩ => none
@@ -303,26 +287,26 @@ inductive ExecState where
       | .ret (.val v) =>
           some ⟨.done v, s⟩
       | .ret e =>
-          ExprStep _ e ctx s |>.bind fun ⟨e', s'⟩ =>
+          ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
           some ⟨.run (.ret e' :: ps) ctx, s'⟩
 
       /- Assignment -/
       | .assign (.some x) (.val v) =>
-          some ⟨.run ps (ctx.bindv _ x v), s⟩
+          some ⟨.run ps (ctx.bindv x v), s⟩
       | .assign (.some x) e =>
-          ExprStep _ e ctx s |>.bind fun ⟨e', s'⟩ =>
+          ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
           some ⟨.run ((.assign (.some x) e') :: ps) ctx, s'⟩
 
       /- Sequencing -/
       | .assign .none (.val _) =>
           some ⟨.run ps ctx, s⟩
       | .assign .none e =>
-          ExprStep _ e ctx s |>.bind fun ⟨e', s'⟩ =>
+          ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
           some ⟨.run ((.assign none e') :: ps) ctx, s'⟩
 
       /- Register a new static iterator -/
       | .mkiter n it =>
-          some ⟨.run ps (ctx.bindi _ n it), s⟩
+          some ⟨.run ps (ctx.bindi n it.toIterator), s⟩
 
       /- Evaluation within a frame -/
       | .frame [] _ =>
@@ -335,45 +319,43 @@ inductive ExecState where
 
       /- Loop -/
       | .loop x (.val <| .iref i) b =>
-          match ctx.peeki _ i with
+          match ctx.peeki i with
           | .none => .some ⟨.run ps ctx, s⟩
-          | .some itv => .some ⟨.run (.frame b (ctx.bindv _ x itv):: .loop x (.val <| .iref i) b :: ps) ctx, s⟩
+          | .some itv => .some ⟨.run (.frame b (ctx.bindv x itv):: .loop x (.val <| .iref i) b :: ps) ctx, s⟩
       | .loop x e b =>
-          ExprStep _ e ctx s |>.bind fun ⟨e', s'⟩ =>
+          ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
           some ⟨.run (.loop x e' b :: ps) ctx, s'⟩
 
       /- Set point -/
       | .setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v) =>
           some ⟨.run ps ctx, { s with memory := ChipMemory.set s.memory ⟨i, x⟩ (some v) }⟩
       | .setp (.val <| .uptr i) (.val <| .iptr x) e  =>
-          ExprStep _ e ctx s |>.bind fun ⟨e', s'⟩ =>
+          ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
           some ⟨.run (.setp (.val <| .uptr i) (.val <| .iptr x) e' :: ps) ctx, s'⟩
       | .setp (.val <| .uptr i) e ev  =>
-          ExprStep _ e ctx s |>.bind fun ⟨e', s'⟩ =>
+          ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
           some ⟨.run (.setp (.val <| .uptr i) e' ev :: ps) ctx, s'⟩
       | .setp e ei ev  =>
-          ExprStep _ e ctx s |>.bind fun ⟨e', s'⟩ =>
+          ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
           some ⟨.run (.setp e' ei ev :: ps) ctx, s'⟩
 
 
-instance NML.Semantics : SmallStep (ExecState DataT) (Value DataT) (State DataT) where
-  Step e1 e2 := NML.step DataT e1 = .some e2
-  toVal := NML.toVal DataT
+instance NML.Semantics [NMLEnv DataT] : SmallStep (ExecState DataT) (Value DataT) (State DataT) where
+  Step e1 e2 := NML.step e1 = .some e2
+  toVal := NML.toVal
   toVal_isSome_isStuck {c _} _ _ := by cases c <;> simp
 
-instance : Det (ExecState DataT) (Value DataT) (State DataT)  where
+instance [NMLEnv DataT] : Det (ExecState DataT) (Value DataT) (State DataT) where
   step_det {c c'} := by
     simp only [Step]
     intro H _ H'
     obtain ⟨rfl⟩ := H' ▸ H
     rfl
 
-
-
 section properties
 
 open NML
-variable {DataT : Type _}
+variable {DataT : Type _} [NMLEnv DataT]
 
 /-! NML program properties
 
@@ -391,8 +373,8 @@ TODO, and TODO, and they are proven below. -/
 
 /-- An expression with a hole lifts ExprSteps in that hole. -/
 def EELift (ek : Expr DataT → Expr DataT) : Prop := ∀ {e e' s s' loc},
-    ExprStep DataT e loc s = some (e', s') →
-    ExprStep DataT (ek e) loc s = some (ek e', s')
+    ExprStep e loc s = some (e', s') →
+    ExprStep (ek e) loc s = some (ek e', s')
 
 syntax "solveEELift" : tactic
 macro_rules
@@ -423,7 +405,7 @@ theorem EELift.ix_lidx : EELift (.ix (DataT := DataT) (.val <| .ptr t) ·) := by
 
 /-- A pure step of expression reduction given some pure assumption -/
 def EPure (e e' : Expr DataT) (HP : LocalContext DataT → Prop) : Prop :=
-  ∀ s loc, HP loc → ExprStep DataT e loc s = some (e', s)
+  ∀ s loc, HP loc → ExprStep e loc s = some (e', s)
 
 /-- A LocalContext binds a given variable to a value -/
 @[simp] def LCBindP (x : String) (v : Value DataT) : LocalContext DataT → Prop :=
@@ -434,7 +416,7 @@ def EPure (e e' : Expr DataT) (HP : LocalContext DataT → Prop) : Prop :=
 
 /-- Expect a list of exprs to be all values -/
 @[simp] def LCIntList (le : List (Expr DataT)) : LocalContext DataT → Prop :=
-  fun _ => List.all le (Value.ExpectInt DataT · |>.isSome)
+  fun _ => List.all le (Value.ExpectInt · |>.isSome)
 
 /-- Expect a tensor to have the shape for a logical index -/
 @[simp] def LCTShape (t : TensorHandle) (lf : List Int): LocalContext DataT → Prop :=
@@ -442,15 +424,15 @@ def EPure (e e' : Expr DataT) (HP : LocalContext DataT → Prop) : Prop :=
 
 @[simp] abbrev Expr.asIntV : Expr DataT → Int | (.val <| .int z) => z | _ => 0
 
-theorem EPure.var : EPure (.var x) (.val v) (LCBindP x v) := by
+theorem EPure.var : EPure (DataT := DataT) (.var x) (.val v) (LCBindP x v) := by
   intro _ _ HP; simp [ExprStep]
   rw [HP]
   simp
 
-theorem EPure.dunop : EPure (.dunop (.val <| .data d) f) (.val <| .data <| f d) LCTrueP := by
+theorem EPure.dunop : EPure (.dunop (.val <| .data d) f) (.val <| .data <| NMLEnv.evalDunop (DataT := DataT) f d) LCTrueP := by
   intro _ _ HP; simp [ExprStep]
 
-theorem EPure.idx : EPure (.idx e) (.val <| .lidx <| e.map Expr.asIntV) (LCIntList e) := by
+theorem EPure.idx : EPure (DataT := DataT) (.idx e) (.val <| .lidx <| e.map Expr.asIntV) (LCIntList e) := by
   rename_i DataT
   intro _ _ HP
   obtain ⟨lz, rfl⟩ : ∃ lz : List Int, e = lz.map (fun z => .val <| .int z) := by
@@ -466,11 +448,11 @@ theorem EPure.idx : EPure (.idx e) (.val <| .lidx <| e.map Expr.asIntV) (LCIntLi
     simp
   clear HP
   rw [List.map_map]
-  have Hinv : (Expr.asIntV (DataT := DataT) ∘ fun z => Expr.val (Value.int z)) = id := by rfl
-  rw [Hinv, List.map_id]
-  simp [ExprStep]
-  induction lz with | nil => simp | cons h t => ?_
-  rename_i IH
+  -- have Hinv : (Expr.asIntV  ∘ fun z => Expr.val (DataT := DataT) (Value.int z)) = id := by rfl
+  -- rw [Hinv, List.map_id]
+  -- simp [ExprStep]
+  -- induction lz with | nil => simp | cons h t => ?_
+  -- rename_i IH
   -- simp [List.mapM_cons]
   -- induction e with | nil => simp at HP ⊢ | cons h t => ?_
   -- rename_i IH
@@ -496,15 +478,9 @@ theorem EPure.ix :
   intro _ _ HP; simp [ExprStep]
   rw [HP]
 
-
-
-
-
-
-
 /-- A statement lifts expression steps to head steps -/
 def EPLift (sk : Expr DataT → Stmt DataT) : Prop := ∀ {e e' s s' ps loc},
-    ExprStep DataT e loc s = some (e', s') →
+    ExprStep e loc s = some (e', s') →
     Step ⟨ExecState.run (sk e :: ps) loc, s⟩ ⟨ExecState.run (sk e':: ps) loc, s'⟩
 
 syntax "solveEPLift" : tactic
@@ -545,34 +521,34 @@ def EPLift.setp_val : EPLift (.setp (DataT := DataT) (.val <| .uptr i) (.val <| 
 def SPure (e e' : ExecState DataT) (HP : Prop) : Prop :=
   ∀ s, HP → Step ⟨e, s⟩ ⟨e', s⟩
 
-theorem SPure.ret : SPure (.run ((.ret <| .val v) :: ps) loc) (.done v) True := by
+theorem SPure.ret : SPure (DataT := DataT) (.run ((.ret <| .val v) :: ps) loc) (.done v) True := by
   intro s _; simp [Step]
 
-theorem SPure.assign : SPure (.run ((.assign (.some x) <| .val v) :: ps) loc) (.run ps (loc.bindv _ x v)) True := by
+theorem SPure.assign : SPure (DataT := DataT) (.run ((.assign (.some x) <| .val v) :: ps) loc) (.run ps (loc.bindv x v)) True := by
   intro s _; simp [Step]
 
-theorem SPure.seq : SPure (.run ((.assign .none <| .val v) :: ps) loc) (.run ps loc) True := by
+theorem SPure.seq : SPure (DataT := DataT) (.run ((.assign .none <| .val v) :: ps) loc) (.run ps loc) True := by
   intro s _; simp [Step]
 
-theorem SPure.mkiter : SPure (.run (.mkiter n it :: ps) loc) (.run ps (loc.bindi _ n it)) True := by
+theorem SPure.mkiter : SPure (DataT := DataT) (.run (.mkiter n it :: ps) loc) (.run ps (loc.bindi n it.toIterator)) True := by
   intro s _; simp [Step]
 
-theorem SPure.frameEmp : SPure (.run (.frame [] ctx :: ps) loc) (.run ps loc) True := by
+theorem SPure.frameEmp : SPure (DataT := DataT) (.run (.frame [] ctx :: ps) loc) (.run ps loc) True := by
   intro s _; simp [Step]
 
-@[simp] abbrev PLoopExit (ctx : LocalContext DataT) (n : Nat) : Prop := ctx.peeki _ n = none
+@[simp] abbrev PLoopExit (ctx : LocalContext DataT) (n : Nat) : Prop := ctx.peeki n = none
 
-theorem SPure.loopExit : SPure
+theorem SPure.loopExit : SPure (DataT := DataT)
     (.run (.loop x (.val <| .iref i) b :: ps) loc)
     (.run ps loc) (PLoopExit loc i) := by
   intro s H; simp only [Step, step]; rw [H]
 
 @[simp] abbrev PLoopContinue (ctx : LocalContext DataT) (n : Nat) (v : Value DataT) : Prop :=
-  ctx.peeki _ n = some v
+  ctx.peeki n = some v
 
-theorem SPure.loopContinue : SPure
+theorem SPure.loopContinue : SPure (DataT := DataT)
     (.run (.loop x (.val <| .iref i) b :: ps) loc)
-    (.run (.frame b (loc.bindv _ x v) :: .loop x (.val <| .iref i) b :: ps) loc)
+    (.run (.frame b (loc.bindv x v) :: .loop x (.val <| .iref i) b :: ps) loc)
     (PLoopContinue loc i v) := by
   intro s H; simp only [Step, step]; rw [H]
 

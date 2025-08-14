@@ -15,7 +15,7 @@ section weakestpre
 open Iris.BI.BIBase KLR.Core Iris NML Iris.BI
 
 set_option grind.warning false
-variable {DataT : Type _}
+variable {DataT : Type _} [NMLEnv DataT]
 attribute [simp] Locals.bind
 
 @[simp] def ΦInt (Φ : Int → Int → Prop) (v1 v2 : Value DataT) : Prop :=
@@ -39,7 +39,7 @@ theorem example0 : ⊢ wp (DataT := DataT) K sL sR (ΦPure <| ΦInt (· < ·)) :
   grind
 
 /-- Applying the NML Adequacy theorem to example0 -/
-example (σ₁ σ₂ : State DataT) : SmallStep.PRel (sL, σ₁) (sR, σ₂) (ΦInt (· < ·)) := by
+example (σ₁ σ₂ : State DataT) : SmallStep.PRel (Prog := NML.ExecState DataT) (sL, σ₁) (sR, σ₂) (ΦInt (· < ·)) := by
   apply wp_adequacy (K := ⟨1⟩)
   refine .trans ?_ example0
   exact true_intro.trans true_emp.mp
@@ -50,8 +50,8 @@ namespace example1
 /-! Example: Desync, step left and right, and return -/
 
 abbrev K : LeibnizO Nat := ⟨1⟩
-@[simp] def sL : ExecState DataT := .run [.ret <| .val <| .int 4] (.emp DataT)
-@[simp] def sR : ExecState DataT := .run [.ret <| .val <| .int 4] (.emp DataT)
+@[simp] def sL : ExecState DataT := .run [.ret <| .val <| .int 4] .emp
+@[simp] def sR : ExecState DataT := .run [.ret <| .val <| .int 4] .emp
 
 example : ⊢ wp (DataT := DataT) K sL sR (ΦPure <| ΦInt (· = ·)) := by
   istart
@@ -70,7 +70,7 @@ namespace example2
 /-! Example: Proving safety of a program -/
 
 abbrev K : LeibnizO Nat := ⟨1⟩
-@[simp] def s : ExecState DataT := .run [.ret <| .val <| .int 4] (.emp DataT)
+@[simp] def s : ExecState DataT := .run [.ret <| .val <| .int 4] .emp
 
 theorem example2 : ⊢ wp (DataT := DataT) K s s (ΦPure ΦTriv) := by
   istart
@@ -83,7 +83,7 @@ theorem example2 : ⊢ wp (DataT := DataT) K s s (ΦPure ΦTriv) := by
   ipure_intro
   grind
 
-example (σ : State DataT) : SmallStep.Safe (s, σ) := by
+example (σ : State DataT) : SmallStep.Safe (Prog := NML.ExecState DataT) (s, σ) := by
   apply SmallStep.Safe_of_PRel (Φf := ΦTriv)
   apply wp_adequacy (K := ⟨1⟩)
   refine .trans ?_ example2
@@ -98,10 +98,10 @@ abbrev K : LeibnizO Nat := ⟨2⟩
 @[simp] def sL : ExecState DataT := .run [
     .assign (.some "x") (.val .unit),
     .ret <| (.val .unit)
-  ] (.emp DataT)
+  ] .emp
 @[simp] def sR : ExecState DataT := .run [
     .ret <| (.val .unit)
-  ] (.emp DataT)
+  ] .emp
 
 example : ⊢ wp (DataT := DataT) K sL sR (ΦPure ΦTriv) := by
   istart
@@ -124,10 +124,10 @@ abbrev K : LeibnizO Nat := ⟨2⟩
 @[simp] def sL : ExecState DataT := .run [
     .assign .none (.val .unit),
     .ret <| (.val .unit)
-  ] (.emp DataT)
+  ] .emp
 @[simp] def sR : ExecState DataT := .run [
     .ret <| (.val .unit)
-  ] (.emp DataT)
+  ] .emp
 
 example : ⊢ wp (DataT := DataT) K sL sR (ΦPure ΦTriv) := by
   istart
@@ -147,15 +147,15 @@ namespace example5
 /-! Example: Step empty assignment -/
 
 abbrev K : LeibnizO Nat := ⟨2⟩
-variable (n : Nat) (i : Iterator DataT)
+variable (n : Nat) (i : IteratorS)
 
 @[simp] def sL : ExecState DataT := .run [
     .mkiter n i,
     .ret <| (.val .unit)
-  ] (.emp DataT)
+  ] .emp
 @[simp] def sR : ExecState DataT := .run [
     .ret <| (.val .unit)
-  ] (.emp DataT)
+  ] .emp
 
 example : ⊢ wp (DataT := DataT) K (sL n i) sR (ΦPure ΦTriv) := by
   istart
@@ -181,10 +181,10 @@ variable (c' : LocalContext DataT)
 @[simp] def sL : ExecState DataT := .run [
     .frame [] c',
     .ret <| (.val .unit)
-  ] (.emp DataT)
+  ] .emp
 @[simp] def sR : ExecState DataT := .run [
     .ret <| (.val .unit)
-  ] (.emp DataT)
+  ] .emp
 
 example : ⊢ wp (DataT := DataT) K (sL c') sR (ΦPure ΦTriv) := by
   istart
@@ -205,15 +205,15 @@ namespace example7
 
 abbrev K : LeibnizO Nat := ⟨2⟩
 variable (n : Nat) (i : Iterator DataT) (b : List (Stmt DataT))
-variable (Hloop : PLoopExit (LocalContext.bindi DataT (LocalContext.emp DataT) n i) n)
+variable (Hloop : PLoopExit (LocalContext.bindi .emp n i) n)
 
 @[simp] def sL : ExecState DataT := .run [
     .loop "x" (.val <| .iref n) b,
     .ret <| (.val .unit)
-  ] (LocalContext.bindi _ (.emp DataT) n i)
+  ] (LocalContext.bindi .emp n i)
 @[simp] def sR : ExecState DataT := .run [
     .ret <| (.val .unit)
-  ] (.emp DataT)
+  ] .emp
 
 example : ⊢ wp (DataT := DataT) K (sL n i b) sR (ΦPure ΦTriv) := by
   istart
@@ -234,14 +234,14 @@ namespace example8
 
 abbrev K : LeibnizO Nat := ⟨2⟩
 
-variable (f : DataT → DataT) (d₀ d₁ : DataT) (Hf : f d₀ = d₁)
+variable (f : NML.Dunop) (d₀ d₁ : DataT) (Hf : NMLEnv.evalDunop f d₀ = d₁)
 
 @[simp] def sL : ExecState DataT := .run [
     .ret <| (.dunop (.val <| .data d₀) f)
-  ] (.emp DataT)
+  ] .emp
 @[simp] def sR : ExecState DataT := .run [
     .ret <| (.val <| .data d₁)
-  ] (.emp DataT)
+  ] .emp
 
 example : ⊢ wp (DataT := DataT) K (sL f d₀) (sR d₁) (ΦPure (· = ·)) := by
   istart
@@ -269,10 +269,10 @@ variable (d₀ : DataT)
     .assign (some "x") (.val <| .data d₀),
     .assign (some "y") (.var "x"),
     .ret <| (.var "y")
-  ] (.emp DataT)
+  ] .emp
 @[simp] def sR : ExecState DataT := .run [
     .ret <| (.val <| .data d₀)
-  ] (.emp DataT)
+  ] .emp
 
 example : ⊢ wp (DataT := DataT) K (sL d₀) (sR d₀) (ΦPure (· = ·)) := by
   istart
@@ -302,10 +302,10 @@ variable (d₀ : DataT)
     .assign (some "x") (.val <| .data d₀),
     .assign (some "y") (.var "x"),
     .ret <| (.var "y")
-  ] (.emp DataT)
+  ] .emp
 @[simp] def sR : ExecState DataT := .run [
     .ret <| (.val <| .data d₀)
-  ] (.emp DataT)
+  ] .emp
 
 example : ⊢ wp (DataT := DataT) K (sL d₀) (sR d₀) (ΦPure (· = ·)) := by
   istart
@@ -333,7 +333,7 @@ abbrev K : LeibnizO Nat := ⟨5⟩
 @[simp] def s : ExecState DataT := .run [
     .assign (some "ℓ") (.alloc .sbuf),
     .ret <| (.var "ℓ")
-  ] (.emp DataT)
+  ] .emp
 
 /- Best we can get with our dwpL/R proof rules: there exists a chip -/
 @[simp] def ΦBothLoc (v1 v2 : Value DataT) : Prop :=

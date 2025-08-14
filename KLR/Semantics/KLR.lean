@@ -111,7 +111,7 @@ def KLR.Core.Address.toInputOutputPointer (i : Nat) (n : KLR.Core.TensorName) : 
 
 
 def BindingsToLocals : List (String × @NML.Value DataT) → @NML.LocalContext DataT :=
-  List.foldl (fun ℓ ⟨s, v⟩ => ℓ.bindv _ s v) (NML.LocalContext.emp DataT)
+  List.foldl (fun ℓ ⟨s, v⟩ => ℓ.bindv s v) .emp
 
 /-- Transform a KLR kernel into its NML program interpretation.
 To perform this transformation, you must provide a datatype to interpret floats into,

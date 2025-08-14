@@ -30,7 +30,7 @@ open Iris.BI.BIBase KLR.Core Iris NML
 
 abbrev Prog DataT := (ExecState DataT)
 
-variable {DataT : Type _}
+variable {DataT : Type _} [NMLEnv DataT]
 
 abbrev PROP (DataT : Type _)  : Type _ := heProp PNat ProdNeuronIndex DataT ProdNeuronMemory
 abbrev PROPR (DataT : Type _) : Type := (HeapView PNat ProdNeuronIndex (Agree (LeibnizO DataT)) ProdNeuronMemory)
@@ -116,6 +116,8 @@ end weakestpre
 section adequacy
 
 open Iris BI NML BIBase SmallStep
+
+variable [NMLEnv DataT]
 
 /-- Step 1 of the adequacy argument:
 Turn a proof of the wp in the logic into a relationship between the two programs, under some modalities and
@@ -212,9 +214,9 @@ theorem wp_adequacy
 
 end adequacy
 
-/-- Definition for Hoare Triple -/
-def triple (pre : PROP DataT) K (p1 p2 : Prog DataT) post :=
-  iprop(pre -∗ wp K p1 p2 post)
-
-macro "{{ " pre:term  " }} " p1:term " × " p2:term "{{ " x:ident  " => " post:term " }} " : term => do
-  ``(triple $pre $p1 $p2 (fun $x => $post))
+-- /-- Definition for Hoare Triple -/
+-- def triple  (pre : PROP DataT) K (p1 p2 : Prog DataT) post :=
+--   iprop(pre -∗ wp K p1 p2 post)
+--
+-- macro "{{ " pre:term  " }} " p1:term " × " p2:term "{{ " x:ident  " => " post:term " }} " : term => do
+--   ``(triple $pre $p1 $p2 (fun $x => $post))
