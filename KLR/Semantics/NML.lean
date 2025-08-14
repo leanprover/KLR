@@ -60,6 +60,7 @@ inductive Value (DataT : Type _)
 | unit
 | bool     (b : Bool)
 | int      (i : Int)
+| string   (s : String)
 /-- [ data ] An individual unit piece of data.
 This Float does not necessarily behave like a float. Its semantics are given by an
 NMLEnv struct. -/

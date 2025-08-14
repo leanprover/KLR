@@ -27,7 +27,6 @@ def NKIModelCtx.it_inc (c : NKIModelCtx) : NKIModelCtx :=
 def NKIModelCtx.default : NKIModelCtx where
   fresh_it := 0
 
-
 /-- Model the program where DataT is Float. -/
 structure NMLModel where
   name : String
@@ -40,10 +39,21 @@ def KLR.NKI.Value.model (s : NKI.Value) : Err (NML.Value Float) :=
   | .bool b => .ok <| .bool b
   | .int z => .ok <| .int z
   | .float f => .ok <| .data f
-  | .string _ => .error "string values not added"
+  | .string s => .ok <| .string s
   | .tensor _ _ _ => .error "tensor values not added" -- TODO: I think this is a ptr
 
-def KLR.NKI.Expr.model (s : NKI.Expr) : Err (NML.Expr Float) :=
+def List.hasKW (L : List NKI.Keyword) (n : String) : Err NKI.Expr :=
+  match L with
+  | .nil => .error s!"missing kwarg {n}"
+  | k :: ks => if k.name == n then .ok k.expr else ks.hasKW n
+
+-- FIXME: this is just a hack to write regular monadic code since the Err monad
+-- is giving me tons of universe problems
+def Err.Bind' (e : Err α) (f : α → Err β) : Err β :=
+  match e with | .error s => .error s | .ok v => f v
+
+
+partial def KLR.NKI.Expr.model (s : NKI.Expr) : Err (NML.Expr Float) :=
   match s.expr with
   | .value v => match v.model with | .error s => .error s | .ok e' => .ok <| .val e'
   | .var n => .ok <| .var n.toString
@@ -53,28 +63,37 @@ def KLR.NKI.Expr.model (s : NKI.Expr) : Err (NML.Expr Float) :=
   | .conj _ _ => .error "conj not modeled"
   | .disj _ _ => .error "disj not modeled"
   | .ifExp _ _ _ => .error "ifExp not modeled"
-  | .call _ _ _ => .error "call not modeled"
-
+  | .call f args kws =>
+      match f.expr with
+      -- Semantics for nisa.memset
+      | .var (.str (.str .anonymous "nisa") "memset") =>
+        Err.Bind' (kws.hasKW "dst") <| fun dst =>
+        Err.Bind' (KLR.NKI.Expr.model dst) <| fun edst =>
+        Err.Bind' (kws.hasKW "name") <| fun name =>
+        Err.Bind' (KLR.NKI.Expr.model name) <| fun ename =>
+        Err.Bind' (kws.hasKW "value") <| fun value =>
+        Err.Bind' (KLR.NKI.Expr.model value) <| fun evalue =>
+        Err.Bind' (kws.hasKW "dtype") <| fun dtype =>
+        Err.Bind' (KLR.NKI.Expr.model dtype) <| fun edtype =>
+        match edst, ename, evalue, edtype  with
+        -- TODO: Right now, NKI is parsing dtypes as variables, I will ignore it
+        | .var vdst, .val (.string sname), .val v, _ =>
+          .error s!"TODO: OK {Lean.toJson dtype}"
+        | _, _, _, _ => .error s!"Bad call to memset"
+      | _ => .error s!"call not modeled {Lean.toJson f}"
 
 -- TODO: Add Iterator expression steps to the model.
 -- Right now, all iterator expressions must be static.
 def KLR.NKI.iterator.model : Iterator → Err NML.IteratorS
   | .expr _ => .error ".expr iterators no modeled"
   | .range _ l u s =>
-      match KLR.NKI.Expr.model l with
-      | .error s => .error s
-      | .ok (.val <| .int zl) =>
-        match KLR.NKI.Expr.model u with
-        | .error s => .error s
-        | .ok (.val <| .int zu) =>
-          match KLR.NKI.Expr.model s with
-          | .error s => .error s
-          | .ok (.val <| .int zs) =>
-            .ok <| IteratorS.affineRange zl zu zs
-          | _ => .error "Not modeled: dynamic loop bound s"
-        | _ => .error "Not modeled: dynamic loop bound u"
-      | _ => .error "Not modeled: dynamic loop bound l"
-
+      Err.Bind' (KLR.NKI.Expr.model l) <| fun zl =>
+      Err.Bind' (KLR.NKI.Expr.model u) <| fun zu =>
+      Err.Bind' (KLR.NKI.Expr.model s) <| fun zs =>
+      match zl, zu, zs with
+      | .val (.int zl), .val (.int zu), .val (.int zs) =>
+        .ok <| IteratorS.affineRange zl zu zs
+      | _, _, _ => .error "bad call to iterator"
 -- TODO: Cleanup
 partial def KLR.NKI.Stmt.model (c : NKIModelCtx) (s : NKI.Stmt) : Err (NKIModelCtx × List (NML.Stmt Float)) :=
   match s.stmt with
