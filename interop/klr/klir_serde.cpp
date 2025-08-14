@@ -410,6 +410,19 @@ Ptr<AccessPattern> AccessPattern_des(FILE *in) {
   return x;
 }
 
+Ptr<BirAccessPattern> BirAccessPattern_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 120 || c != 0 || l != 3)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<BirAccessPattern> x = ptr<BirAccessPattern>();
+  x->tensor = TensorName_des(in);
+  x->offset = Nat_des(in);
+  x->pattern = List_APPair_des(in);
+  return x;
+}
+
 Ptr<Access> Access_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))

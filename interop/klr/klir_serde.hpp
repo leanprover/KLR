@@ -34,6 +34,7 @@ Ptr<Index> Index_des(FILE *in);
 Ptr<AccessBasic> AccessBasic_des(FILE *in);
 Ptr<APPair> APPair_des(FILE *in);
 Ptr<AccessPattern> AccessPattern_des(FILE *in);
+Ptr<BirAccessPattern> BirAccessPattern_des(FILE *in);
 Ptr<Access> Access_des(FILE *in);
 Ptr<TensorHbm> TensorHbm_des(FILE *in);
 Ptr<TensorSram> TensorSram_des(FILE *in);

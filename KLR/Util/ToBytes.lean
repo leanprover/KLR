@@ -69,6 +69,9 @@ instance [ToBytes a] : ToBytes (List a) where
 instance [ToBytes a][ToBytes b] : ToBytes (a × b) where
   toBytes := fun (x, y) => combine #[toBytes x, toBytes y]
 
+instance [ToBytes a] : ToBytes (Vector a n) where
+  toBytes xs := toBytes xs.toArray
+
 end ToBytes
 
 def mkToBytesHeader (indVal : InductiveVal) : TermElabM Header := do

@@ -104,6 +104,24 @@ private def lookupName (name : Name) : Trace Term := do
     | .str n id => (<- lookupName n).attr id
     | _ => throw s!"{name} not found"
 
+/-
+Best effort checks for slice overflow
+
+Currently this implementation will silently clip out-of-bounds slice patterns,
+similar to Python and numpy. However, to aide developers we will (try to) warn
+or fail if we detect an overflow. This function is applied to function
+arguments.
+-/
+private def checkAccess (t : Term) (warnOnly : Bool := true) : Trace Unit := do
+  match t with
+  | .expr (.value (.access (.basic b))) _ => do
+    let shape <- b.shape
+    for (dim, ndx) in shape.toList.zip b.indexes do
+      if dim < ndx.size then
+        if warnOnly then warn "index overflow"
+        else throw "inddex overflow"
+  | _ => return ()
+
 -- Values
 
 def value : Value -> Trace Term
@@ -180,7 +198,9 @@ partial def fnCall (f : Term) (args : List Expr) (kwargs : List Keyword) : Trace
   | .builtin n _ self =>
       let f <- builtinFn n
       let args <- args.mapM expr
+      args.forM checkAccess
       let kwargs <- kwargs.mapM keyword
+      kwargs.forM fun (_,t) => checkAccess t
       let args := match self with
         | none => args
         | some t => t :: args
@@ -189,6 +209,7 @@ partial def fnCall (f : Term) (args : List Expr) (kwargs : List Keyword) : Trace
       -- Note: here is where we can't prove termination
       let args <- bindArgs f args kwargs
       let args <- args.mapM keyword
+      args.forM fun (_,t) => checkAccess t (warnOnly := false)
       withSrc f.line f.source $ enterFun do
         args.forM fun kw => extend kw.1.toName kw.2
         match <- stmts f.body with
@@ -242,7 +263,7 @@ partial def stmt' (s' : Stmt') : Trace Result := do
         if res == .cont then continue
         if res == .brk then break
         if let .ret t := res then return .ret t
-      return .ret .none
+      return .next
   | .breakLoop => return .brk
   | .continueLoop => return .cont
 end
