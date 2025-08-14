@@ -153,7 +153,7 @@ def NML.Value.pprint : NML.Value Float → String
 | .bool b => s!".bool {b}"
 | .int z => s!".int {z}"
 | .string s => s!".string \"{s}\""
-| .data f => s!".data (intoDataT {f})"
+| .data f => s!".data (NMLEnv.intoDataT {f})"
 | .iref i => s!".iref {i}"
 | .tupV l => s!".tupV {", ".intercalate (l.map pprint)}"
 | _ => "sorry /- NML.Value.pprint: Not implemented -/"
@@ -173,7 +173,7 @@ def NML.Value.pprint : NML.Value Float → String
 
 
 def NML.Dunop.pprint : NML.Dunop Float → String
-| .cst f => s!".cst (intoDataT {f})"
+| .cst f => s!".cst (NMLEnv.intoDataT {f})"
 | .lean _ => "«Lean function»"
 
 def NML.Expr.pprint : NML.Expr Float → String
@@ -197,19 +197,31 @@ def NML.Stmt.pprint : NML.Stmt Float → List String
     (s!".loop \"{x}\" {it.pprint} [") :: b' ++ ["]"]
 | _ => ["sorry /- NML.Stmt.pprint: Not implemented -/"]
 
-/-- Print out a string representation of the NKI program.
-Replaces all floats with a call to the interpretation function. -/
-def NKI.pprint (p : NMLModel) : String :=
+
+
+def NKI.pprint_body (p : NMLModel) : String :=
   let b := p.body.map NML.Stmt.pprint |>.flatten
-  let bs :=
-    match b with
-    | [] => "[]"
-    | b1 :: br => (s!"  [ {b1}\n{"\n".intercalate <| br.map ("    " ++ ·)}\n  ]")
-s!"-- generated from {p.file}
+  match b with
+  | [] => "[]"
+  | b1 :: br => (s!"  [ {b1}\n{"\n".intercalate <| br.map ("    " ++ ·)}\n  ]")
+
+/-- Print out the NML model of a program -/
+def NKI.pprint_standalone_model (p : NMLModel) : String :=
+s!"
+import KLR.Semantics.Lib
+import KLR.Semantics.NML
+import KLR.Semantics.Logic
+import KLR.Semantics.ProofRules
+import KLR.Semantics.Tactics
+
+namespace model
+variable \{DataT : Type _} [NMLEnv DataT]
+
+-- NML model, generated from file {p.file}
 def {p.name} : NML.ExecState Float :=
   .run
-{bs}
+{NKI.pprint_body p}
   (LocalContext.emp Float)
-"
 
---
+end model
+"

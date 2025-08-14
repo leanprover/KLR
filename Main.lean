@@ -289,7 +289,7 @@ def modelKLR (p : Parsed) : IO UInt32 := do
   match (NKI.model kernel : Err NMLModel) with
   | .error s => throw <| (IO.userError s)
   | .ok m =>
-  IO.println s!"[NML] \n{NKI.pprint m}}"
+  writeContent "lean" p (NKI.pprint_standalone_model m)
   return 0
 
 def equivKLR (p : Parsed) : IO UInt32 := do
