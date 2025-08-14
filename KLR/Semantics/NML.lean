@@ -210,7 +210,7 @@ def Value.ExpectInt : Expr DataT → Option Int | .val (.int z) => some z | _ =>
 /-- NML Enviornment
 All paramaters required to define a semantics for NML -/
 class NMLEnv (DataT : Type _) where
-  intoDataT : Float → Option DataT
+  intoDataT : Float → DataT
   evalDunop : Dunop DataT → DataT → DataT
 
 def Dtype.Interp (DataT : Type _) (d : KLR.Core.Dtype) : Type _ :=

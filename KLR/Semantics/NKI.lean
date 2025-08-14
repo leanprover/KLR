@@ -155,9 +155,8 @@ def NML.Value.pprint : NML.Value Float → String
 | .string s => s!".string \"{s}\""
 | .data f => s!".data (NMLEnv.intoDataT {f})"
 | .iref i => s!".iref {i}"
-| .tupV l => s!".tupV {", ".intercalate (l.map pprint)}"
+| .tupV l => s!".tupV [{", ".intercalate (l.map pprint)}]"
 | _ => "sorry /- NML.Value.pprint: Not implemented -/"
-
 
 -- /-- [ uptr ] A raw reference to a chip in memory -/
 -- | uptr     (i : ChipIndex)
@@ -170,8 +169,6 @@ def NML.Value.pprint : NML.Value Float → String
 -- /-- [ lidx ] A logical index into a tensor. -/
 -- | lidx     (l : List Int)
 
-
-
 def NML.Dunop.pprint : NML.Dunop Float → String
 | .cst f => s!".cst (NMLEnv.intoDataT {f})"
 | .lean _ => "«Lean function»"
@@ -179,7 +176,7 @@ def NML.Dunop.pprint : NML.Dunop Float → String
 def NML.Expr.pprint : NML.Expr Float → String
 | .val v => s!".val ({v.pprint})"
 | .var x => s!".var \"{x}\""
-| .tup l => s!".tup {", ".intercalate (l.map pprint)}"
+| .tup l => s!".tup [{", ".intercalate (l.map pprint)}]"
 | .dunop d f => s!".dunop ({d.pprint}) ({f.pprint})"
 | .view e1 e2 => s!".view ({e1.pprint}) ({e2.pprint})"
 | _ => "sorry /- NML.Expr.pprint: Not implemented -/"
@@ -207,21 +204,22 @@ def NKI.pprint_body (p : NMLModel) : String :=
 
 /-- Print out the NML model of a program -/
 def NKI.pprint_standalone_model (p : NMLModel) : String :=
-s!"
-import KLR.Semantics.Lib
-import KLR.Semantics.NML
-import KLR.Semantics.Logic
-import KLR.Semantics.ProofRules
-import KLR.Semantics.Tactics
+s!"import KLR.Semantics
 
 namespace model
+open NML
+
+/- The type of floating point numbers.
+
+You should restrict this generic type using typeclasses, or instantiate
+it with the type of floats you care about. The proof framework will still
+work without specializing DataT whatsoever. -/
 variable \{DataT : Type _} [NMLEnv DataT]
 
--- NML model, generated from file {p.file}
-def {p.name} : NML.ExecState Float :=
+/-- NML model of {p.name}. Generated from file {p.file}. -/
+def {p.name} : NML.ExecState DataT :=
   .run
 {NKI.pprint_body p}
-  (LocalContext.emp Float)
+  .emp
 
-end model
-"
+end model"

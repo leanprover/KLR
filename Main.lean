@@ -278,7 +278,7 @@ def evalKLR (p : Parsed) : IO UInt32 := do
 def modelKLR (p : Parsed) : IO UInt32 := do
   /- Load the Python file and perform simplifications -/
   let kernel : KLR.Python.Kernel <- gatherTmp p
-  IO.println s!"[Kernel] \n{Lean.toJson kernel}"
+  -- IO.println s!"[Kernel] \n{Lean.toJson kernel}"
   let (kernel, warnings) := kernel.inferArguments
   warnings.forM IO.eprintln
   let kernel : KLR.NKI.Kernel <- KLR.NKI.simplify kernel
