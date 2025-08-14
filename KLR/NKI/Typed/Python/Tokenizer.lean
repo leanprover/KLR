@@ -37,31 +37,6 @@ inductive TokenKind
   | string (value : String)
   | ident (name : Ident)
   | tokenLit (s : String)
-
-  -- -- Keywords
-  -- -- https://docs.python.org/3/reference/lexical_analysis.html#keywords
-  -- | False | await | else | import | pass
-  -- | None | break | except | in | raise
-  -- | True | class | finally | is | return
-  -- | and | continue | for | lambda | try
-  -- | as | def | from | nonlocal | while
-  -- | assert | del | global | not | with
-  -- | async | elif | if | or | yield
-
-  -- -- Operators
-  -- -- https://docs.python.org/3/reference/lexical_analysis.html#operators
-  -- | plus | minus | star | dstar | slash | dslash | percent | at /- @ is also a delimiter -/
-  -- | lshift | rshift | amp | pipe | caret | tilde | colonassign
-  -- | lt | gt | le | ge | eq | ne
-
-  -- -- Delimiters
-  -- -- https://docs.python.org/3/reference/lexical_analysis.html#delimiters
-  -- | lparen | rparen | lbracket | rbracket | lbrace | rbrace
-  -- | comma | colon | bang | dot | semicolon | assign
-  -- | rarrow | plusassign | minusassign | starassign | slashassign | dslashassign | percentassign
-  -- | atassign | ampassign | pipeassign | caretassign | rshiftassign | lshiftassign | dstarassign
-  -- | ellipsis
-
   -- Special
   | newline | indent | dedent
 deriving Repr, Inhabited

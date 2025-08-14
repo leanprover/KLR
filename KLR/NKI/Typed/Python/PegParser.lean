@@ -117,7 +117,6 @@ partial def parse {α} (e : PExp τ ν T N α) (prods : Production τ ν T N) : 
     match r with
     | some d  => ((f d), s')
     | none => (none, s )
-    -- | .except msg => (.except msg   , s )
   | leadingPrec prec e =>
     let savedPrec := s.prec
     let (r, s') := e.parse prods c {s with prec := prec}
@@ -186,9 +185,62 @@ instance {α β} : HAndThen (PExp τ ν T N α) (PExp τ ν T N β) (PExp τ ν 
 instance {α} : OrElse (PExp τ ν T N α) where
   orElse a b := PExp.choice a (b ())
 
-def optional {α} (e : PExp τ ν T N α) : PExp τ ν T N (Option α) :=
+@[inline] def optional {α} (e : PExp τ ν T N α) : PExp τ ν T N (Option α) :=
   .action e some
   <|> .action .empty (fun _ => none)
+
+def many1 {α} (e : PExp τ ν T N α) : PExp τ ν T N (List α) :=
+  .action (e >> PExp.star e) fun (hd, tl) => hd :: tl
+
+def sepBy1 {α β} (e : PExp τ ν T N α) (sep : PExp τ ν T N β) (allowTrailing := true) : PExp τ ν T N (List α) :=
+  .action (
+    e >> PExp.star (sep >> e) >>
+      if allowTrailing then
+        .action (optional sep) fun _ => ()
+      else
+        not sep
+  ) fun (hd, tl, ()) => hd :: tl.map Prod.snd
+
+@[inline] def sepBy {α β} (e : PExp τ ν T N α) (sep : PExp τ ν T N β) (allowTrailing := true) : PExp τ ν T N (List α) :=
+  sepBy1 e sep allowTrailing
+  <|> .action .empty (fun _ => [])
+
+-- open Lean Macro
+
+-- declare_syntax_cat grammar
+-- declare_syntax_cat nonterm
+-- declare_syntax_cat prodRule
+-- declare_syntax_cat pexp
+
+-- syntax ident : pexp
+-- syntax "[" pexp "]" : pexp
+-- syntax ident "=" pexp : pexp
+-- syntax pexp "*" : pexp
+-- syntax pexp "+" : pexp
+-- syntax pexp "." pexp "*" : pexp
+-- syntax pexp "." pexp "+" : pexp
+-- syntax str : pexp
+-- syntax "(" pexp ")" : pexp
+-- syntax pexp pexp : pexp
+
+-- syntax pexp ("{" term "}")? : prodRule
+
+-- syntax ident "[" term "]" ("|" prodRule)+ : nonterm
+
+-- syntax nonterm+ : grammar
+
+-- partial def expandExp (stx : TSyntax `pexp) (nested : Bool := false) : MacroM (Option (List Ident) × TSyntax `term) := do
+--   match stx with
+--   | `(pexp| $id:ident = $e:pexp) =>
+--     let (ids, e) ← expandExp e
+--     return (ids.getD [id], e)
+--   | `(pexp| $e1:pexp $e2:pexp) =>
+
+--     sorry
+--   | _ => throwErrorAt stx "unsupported syntax"
+
+-- macro "peg_parser" τ:term ν:term fromStr:term α:term g:grammar : command =>
+--   sorry
 
 end PExp
 

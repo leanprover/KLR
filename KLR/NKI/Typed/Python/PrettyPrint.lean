@@ -17,7 +17,15 @@ limitations under the License.
 import KLR.NKI.Typed.Python.Basic
 
 /-!
-# A pretty printer for the Python AST, used mainly for debugging
+# A pretty printer for the Python AST
+
+Currently, this can only be used for debugging.
+To make this suitable for fuzzing the production compiler
+or as a code formatter, at least the following needs to be fixed:
+
+- Properly handle escape sequences when printing string literal
+- Distinguish between long strings ("""s""") and short string ("s")
+- Handle comments and white spaces (for code formatting)
 -/
 
 def String.escape (s : String) (char : Char → Bool) : String :=
@@ -52,36 +60,36 @@ def paren (f : Format) : Format :=
 def braket (f : Format) : Format :=
   "[" ++ f ++ "]"
 
-mutual
+-- mutual
 
-def Typ.listReprPrec : List Typ → Nat → List Format
-  | [], _ => []
-  | hd :: tl, p => hd.reprPrec p :: Typ.listReprPrec tl p
+-- def Typ.listReprPrec : List Typ → Nat → List Format
+--   | [], _ => []
+--   | hd :: tl, p => hd.reprPrec p :: Typ.listReprPrec tl p
 
-def Typ.reprPrec : Typ → Nat → Format
-  | { typ, .. }, p => typ.reprPrec p
+-- def Typ.reprPrec : Typ → Nat → Format
+--   | { typ, .. }, p => typ.reprPrec p
 
-def Typ'.reprPrec : Typ' → Nat → Format
-  | .var name, _ => name
-  | .prim p, _ => s!"{p}"
-  | .func typParams params, _ =>
-    let params := joinSep (params.map (Typ.reprPrec · 0)) ", "
-    let body := s!"FunctionType[{params}]"
-    if typParams.length > 0 then
-      s!"forall {joinSep typParams " "}. {body}"
-    else
-      body
-  | .iter e, _ => s!"Iterable[{e.reprPrec 0}]"
-  | .tuple ts, _ =>
-    let ts := joinSep (Typ.listReprPrec ts 0) ", "
-    s!"tuple[{ts}]"
-  | .list t, _ =>
-    s!"list[{t.reprPrec 0}]"
+-- def Typ'.reprPrec : Typ' → Nat → Format
+--   | .var name, _ => name
+--   | .prim p, _ => s!"{p}"
+--   | .func typParams params, _ =>
+--     let params := joinSep (params.map (Typ.reprPrec · 0)) ", "
+--     let body := s!"FunctionType[{params}]"
+--     if typParams.length > 0 then
+--       s!"forall {joinSep typParams " "}. {body}"
+--     else
+--       body
+--   | .iter e, _ => s!"Iterable[{e.reprPrec 0}]"
+--   | .tuple ts, _ =>
+--     let ts := joinSep (Typ.listReprPrec ts 0) ", "
+--     s!"tuple[{ts}]"
+--   | .list t, _ =>
+--     s!"list[{t.reprPrec 0}]"
 
-end
+-- end
 
-instance instReprTyp : Repr Typ where
-  reprPrec t n := Typ.reprPrec t n
+-- instance instReprTyp : Repr Typ where
+--   reprPrec t n := Typ.reprPrec t n
 
 def Value.reprPrec : Value → Nat → Format
   | .none, _ => "None"
@@ -178,9 +186,7 @@ def Exp'.reprPrec : Exp' → Nat → Format
     paren es
   | .list es, _ =>
     let es := es.map (fun e => e.reprPrec 0)
-    let len := es.length
     let es := joinSep es ", "
-    let es := if len == 1 then es ++ "," else es
     braket es
   | .ifExp test body orelse, p =>
     -- TODO: check precedence here

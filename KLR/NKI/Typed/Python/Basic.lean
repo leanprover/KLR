@@ -39,26 +39,26 @@ def QualifiedIdent.toString : QualifiedIdent → String
 instance instToStringQualifiedIdent : ToString QualifiedIdent where
   toString := QualifiedIdent.toString
 
-mutual
+-- mutual
 
-structure Typ where
-  pos : Pos := {}
-  typ : Typ'
-deriving ToJson
+-- structure Typ where
+--   pos : Pos := {}
+--   typ : Typ'
+-- deriving ToJson
 
-inductive Typ'
-  | var (name : Ident)
-  | prim (p : Prim)
-  | func (typParams : List Ident) (params : List Typ)
-  | iter (e : Typ)
-  | tuple (ts : List Typ)
-  | list (t : Typ)
-deriving ToJson
+-- inductive Typ'
+--   | var (name : Ident)
+--   | prim (p : Prim)
+--   | func (typParams : List Ident) (params : List Typ)
+--   | iter (e : Typ)
+--   | tuple (ts : List Typ)
+--   | list (t : Typ)
+-- deriving ToJson
 
-end
+-- end
 
-instance : Inhabited Typ where
-  default := { typ := .prim .none }
+-- instance : Inhabited Typ where
+--   default := { typ := .prim .none }
 
 inductive Value
   | none
@@ -113,7 +113,7 @@ inductive Exp'
   | tuple (es : List Exp)
   | list (es : List Exp)
   | ifExp (test body orelse : Exp)
-  | call (f : Exp) (typArgs : List Typ) (args : List Arg)
+  | call (f : Exp) (typArgs : List Exp) (args : List Arg)
   | access (e : Exp) (indices : List Index)
   | attr (e : Exp) (field : Ident)
 deriving ToJson
@@ -129,7 +129,7 @@ deriving ToJson
 
 structure Param where
   name : Ident
-  typ : Option Typ
+  typ : Option Exp
   dflt : Option Exp
 deriving ToJson
 
@@ -139,7 +139,7 @@ structure FuncDef where
   name : Ident
   typParams : List Ident
   params : List Param
-  returns : Option Typ
+  returns : Option Exp
   body : List Stmt
   decorators : List Exp
 deriving ToJson
@@ -154,7 +154,7 @@ inductive Stmt'
   | imprt (mod : QualifiedIdent) (as : Option Ident)
   | imprtFrom (mod : QualifiedIdent) (imp : Ident) (as : Option Ident)
   | ret (e : Exp)
-  | assign (lhs : Exp) (typ : Option Typ) (rhs : Exp)
+  | assign (lhs : Exp) (typ : Option Exp) (rhs : Exp)
   | assert (e : Exp)
   | funcDef (dfn : FuncDef)
   | ifStm (cond : Exp) (thn : List Stmt) (elifs : List (Exp × List Stmt)) (els : Option (List Stmt))
