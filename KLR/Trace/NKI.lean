@@ -95,15 +95,19 @@ private def range (start stop step : Int) : List Term :=
   termination_by (stop - start).natAbs
 
 -- Lookup a name, falling back to attribute if not found
-private def lookupName (name : Name) : Trace Term := do
+private def lookupName' (name : Name) : Trace Term := do
   match <- lookup? name with
   | some t => return t
   | none =>
     match name with
-    | .str .anonymous _ => throw "error: empty name"
-    | .str n id => (<- lookupName n).attr id
+    | .str .anonymous _ => throw "empty"
+    | .str n id => (<- lookupName' n).attr id
     | _ => throw s!"{name} not found"
 
+private def lookupName (name : Name) : Trace Term := do
+  try lookupName' name
+  catch | "empty" => throw s!"{name} not found"
+        | e => throw e
 /-
 Best effort checks for slice overflow
 
@@ -300,7 +304,7 @@ private def globals (k : Kernel) : Trace Unit := do
   let s <- get
   for f in k.funs do
     let n := f.name.toName
-    if not (s.globals.contains n) then
+    if not (s.globals.contains n) && shouldKeep n then
       extend_global n (.source f)
   for g in filterGlobals k.globals do
     let name := g.name.toName

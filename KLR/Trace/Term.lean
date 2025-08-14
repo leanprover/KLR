@@ -110,7 +110,7 @@ private def valueOp : BinOp -> Value -> Value -> Trace Term
   | op, .access l, .access r => tensor_tensor op l r
   | op, .access t, v => tensor_scalar op t v
   | op, v, .access t => scalar_tensor op v t
-  -- constants
+  -- integers
   | .add, .int l, .int r => return int (l + r)
   | .sub, .int l, .int r => return int (l - r)
   | .mul, .int l, .int r => return int (l * r)
@@ -124,9 +124,23 @@ private def valueOp : BinOp -> Value -> Value -> Trace Term
     return int (
       if l % r = 0 then (if samesgn then id else Int.neg) d
       else (if samesgn then d else Int.neg (d + 1)))
+  -- floats
+  | .add, .float l, .float r => return float (l + r)
+  | .sub, .float l, .float r => return float (l - r)
+  | .mul, .float l, .float r => return float (l * r)
+  | .div, .float l, .float r => return float (l / r)
+  | .add, .float l, .int r => return float (l + .ofInt r)
+  | .sub, .float l, .int r => return float (l - .ofInt r)
+  | .mul, .float l, .int r => return float (l * .ofInt r)
+  | .div, .float l, .int r => return float (l / .ofInt r)
+  | .add, .int l, .float r => return float (.ofInt l + r)
+  | .sub, .int l, .float r => return float (.ofInt l - r)
+  | .mul, .int l, .float r => return float (.ofInt l * r)
+  | .div, .int l, .float r => return float (.ofInt l / r)
   | op,_,_ => throw s!"unimplemented operator {op}"
 where
   int (i : Int) : Term := .expr (.value (.int i)) .int
+  float (f : Float) : Term := .expr (.value (.float f)) .float
 
 -- Binary operators on tensors (see Tensor.lean)
 private def exprOp : BinOp -> Expr -> Expr -> Trace Term
@@ -533,6 +547,19 @@ nki python_min (a : Term) (b : Term) := do
      return .expr (.value (.int (min a b))) .int
   | _, _ => throw "invalid arguments"
 
+-- TODO move these after removing type
+private instance : Coe Int Term where
+  coe i := .expr (.value (.int i)) .int
+
+private instance : Coe Float Term where
+  coe f := .expr (.value (.float f)) .float
+
+nki negate (t : Term) := do
+  match t with
+  | (x : Int) => return x.neg
+  | (x : Float) => return x.neg
+  | _ => throw "cannot negate values of this type"
+
 /-
 # Static environment of builtins
 
@@ -561,6 +588,7 @@ def builtinEnv : List (Name × BuiltinFn) :=
   (nisa "get_nc_version", get_nc_version) ::
   ( `len, python_len) ::
   ( `min, python_min) ::
+  (`builtin.op.negate, negate) ::
   Isa.builtins
 
 def builtinFn (name : Name) : Trace BuiltinFn :=
