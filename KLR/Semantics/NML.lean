@@ -24,7 +24,6 @@ open KLR.Core TensorLib
 /-! # NML, Neuron Modeling Language
 The language is parameterized by a type of floating point numbers, see `KLR/Semantics/Float.lean`. -/
 
-
 /-- A pointer to a tensor that carries additional metadata.
 NB. No size contstraints on the tensor (like Address). Minimum size can be computed
 from shape and layout. -/
@@ -79,9 +78,8 @@ relationships between them. -/
 | iref     (i : Nat)
 /-- [ lidx ] A logical index into a tensor. -/
 | lidx     (l : List Int)
-/-- [ cont ] (internal) A value which represents a program state that has successfully exeuted
-and must pop to a continuation. -/
-| cont
+/-- (internal) A continuation -/
+| kont
 
 /-- NML Unops that operate on Data-/
 inductive Dunop (DataT  : Type) where
@@ -209,13 +207,25 @@ iterators be values) to avoid difficult cases such as iterators of iterators. -/
 | setp         (chip index val : (Expr DataT))
 -- | ret_assert   (_ : @Expr DataT) (_ : @State DataT → Prop)
 
+abbrev StackFrame (DataT : Type _) := (List (Stmt DataT)) × LocalContext DataT
+
 /-- A NML Program during execution. Namely, one of
 - A list of statements, and a context to execute them in, or
 - A completed execution, its return value. -/
-inductive ExecState (DataT : Type) where
-| run   (p : List (Stmt DataT)) (ctx : (LocalContext DataT))
+inductive ExecState (DataT : Type _) where
+/- Program is executing -/
+| run   (s : StackFrame DataT)
+/- Program has encountered a return statement or has ran out of statements to execute.
+The latter case (the value kont) is not short-circuiting. Returning anything else is.
+-/
 | done  (v : Value DataT)
 
+
+structure ProgState (DataT : Type _) where
+  /-- The frame that is currently executing -/
+  current : ExecState DataT
+  /-- The remaining frames to execute -/
+  context : List (StackFrame DataT)
 
 def Value.ExpectInt : Expr DataT → Option Int | .val (.int z) => some z | _ => none
 
@@ -236,7 +246,6 @@ def Dtype.Interp (DataT : Type _) (d : KLR.Core.Dtype) : Type _ :=
   | .int16    => Int16
   | .int8     => Int8
   | .float16 | .float32r | .float32 | .float8e5 | .float8e4 | .float8e3 | .bfloat16 => DataT
-
 
 
 @[simp] def ExprStep [NMLEnv DataT] (e : Expr DataT) (ctx : LocalContext DataT) (s : State DataT) : Option (Expr DataT × State DataT) :=
@@ -295,85 +304,96 @@ def Dtype.Interp (DataT : Type _) (d : KLR.Core.Dtype) : Type _ :=
       some ⟨.ix ep' ei, s'⟩
   | _ => none
 
-@[simp] def NML.toVal (e : ExecState DataT) : Option (Value DataT) :=
-  match e with | .done v => .some v | _ => .none
-
-@[simp] def NML.step [NMLEnv DataT] (e : ExecState DataT × State DataT) : Option (ExecState DataT × State DataT) :=
+/- Execution is complete when there are no stack frames. -/
+@[simp] def NML.toVal (e : ProgState DataT) : Option (Value DataT) :=
   match e with
-  | ⟨.done _, _⟩ => none
-  | ⟨.run [] _, s⟩ => some ⟨.done .cont, s⟩
-  | ⟨.run (p :: ps) ctx, s⟩ =>
-      match p with
-      /- Return -/
-      | .ret (.val v) =>
-          some ⟨.done v, s⟩
-      | .ret e =>
-          ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
-          some ⟨.run (.ret e' :: ps) ctx, s'⟩
+  | ⟨.done v, []⟩ => .some v
+  | _ => .none
 
-      /- Assignment -/
-      | .assign (.some x) (.val v) =>
-          some ⟨.run ps (ctx.bindv x v), s⟩
-      | .assign (.some x) e =>
-          ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
-          some ⟨.run ((.assign (.some x) e') :: ps) ctx, s'⟩
 
-      /- Sequencing -/
-      | .assign .none (.val _) =>
-          some ⟨.run ps ctx, s⟩
-      | .assign .none e =>
-          ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
-          some ⟨.run ((.assign none e') :: ps) ctx, s'⟩
+@[simp] def NML.step [NMLEnv DataT] (e : ProgState DataT × State DataT) :
+      Option (ProgState DataT × State DataT) :=
+  match e with
+  -- Topmost frame is done but did not return a value.
+  -- There are no more frames.
+  -- This is the continuation value, which signifies this.
+  | ⟨⟨.run ⟨[], _⟩, []⟩, s⟩ => .some ⟨⟨.done .kont, []⟩, s⟩
+  -- Topmost frame is done but did not return a value.
+  -- There is a pending frame.
+  -- This will load and execute the pending frame.
+  | ⟨⟨.run ⟨[], _⟩, ftop :: frest⟩, s⟩ => .some ⟨⟨.run ftop, frest⟩, s⟩
 
-      /- Register a new static iterator -/
-      | .mkiter n it =>
-          some ⟨.run ps (ctx.bindi n it.toIterator), s⟩
+  -- Done states do not step
+  | ⟨⟨.done _, _⟩, _⟩ => .none
 
-      -- /- Evaluation within a frame -/
-      -- | .frame [] _ =>
-      --     some ⟨.run ps ctx, s⟩
-      -- | .frame fps fctx =>
-      --     NML.step ⟨(.run fps fctx), s⟩ |>.bind fun ⟨x, s'⟩ =>
-      --     match x with
-      --     | .done v => none -- some ⟨.done v, s'⟩ -- TODO: Early returns inside frames stuck for now
-      --     | .run fps' fctx' => some ⟨.run (.frame fps' fctx' :: ps) ctx, s'⟩
+  -- Topmost frame is not done
+  | ⟨⟨.run ⟨(p :: ps), ctx⟩, F⟩, s⟩ =>
+    match p with
 
-      -- /- Loop -/
-      -- | .loop x (.val <| .iref i) b =>
-      --     match ctx.peeki i with
-      --     | .none => .some ⟨.run ps ctx, s⟩
-      --     | .some itv => .some ⟨.run (.frame b (ctx.bindv x itv) :: .loop x (.val <| .iref i) b :: ps) ctx, s⟩
-      -- | .loop x e b =>
-      --     ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
-      --     some ⟨.run (.loop x e' b :: ps) ctx, s'⟩
+    /- Return -/
+    | .ret (.val v) =>
+        -- Return with a value immediately skips all pendings stack frames
+        some ⟨⟨.done v, []⟩, s⟩
+    | .ret e =>
+        ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
+        some ⟨⟨.run ⟨.ret e' :: ps, ctx⟩, F⟩, s'⟩
 
-      /- Set point -/
-      | .setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v) =>
-          some ⟨.run ps ctx, { s with memory := ChipMemory.set s.memory ⟨i, x⟩ (some v) }⟩
-      | .setp (.val <| .uptr i) (.val <| .iptr x) e  =>
-          ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
-          some ⟨.run (.setp (.val <| .uptr i) (.val <| .iptr x) e' :: ps) ctx, s'⟩
-      | .setp (.val <| .uptr i) e ev  =>
-          ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
-          some ⟨.run (.setp (.val <| .uptr i) e' ev :: ps) ctx, s'⟩
-      | .setp e ei ev  =>
-          ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
-          some ⟨.run (.setp e' ei ev :: ps) ctx, s'⟩
+    /- Assignment -/
+    | .assign (.some x) (.val v) =>
+        some ⟨⟨.run ⟨ps, ctx.bindv x v⟩, F⟩, s⟩
+    | .assign (.some x) e =>
+        ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
+        some ⟨⟨.run ⟨(.assign (.some x) e') :: ps, ctx⟩, F⟩, s'⟩
 
-      -- /- Unhandled cases -/
-      -- | _ => .none
+    /- Sequencing -/
+    | .assign .none (.val _) =>
+        some ⟨⟨.run ⟨ps, ctx⟩, F⟩, s⟩
+    | .assign .none e =>
+        ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
+        some ⟨⟨.run ⟨(.assign .none e') :: ps, ctx⟩, F⟩, s'⟩
 
-instance NML.Semantics [NMLEnv DataT] : SmallStep (ExecState DataT) (Value DataT) (State DataT) where
+    /- Register a new static iterator -/
+    | .mkiter n it =>
+        some ⟨⟨.run ⟨ps, ctx.bindi n it.toIterator⟩, F⟩, s⟩
+
+    /- Loop -/
+    | .loop x (.val <| .iref i) b =>
+        match ctx.peeki i with
+        | .none => .some ⟨⟨.run ⟨ps, ctx⟩, F⟩, s⟩
+        | .some itv =>
+            .some ⟨⟨.run ⟨b, ctx.bindv x itv⟩, ⟨.loop x (.val <| .iref i) b :: ps, ctx⟩ :: F⟩, s⟩
+    | .loop x e b =>
+        ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
+        some ⟨⟨.run ⟨(.loop x e' b :: ps), ctx⟩, F⟩, s'⟩
+
+    /- Set point -/
+    | .setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v) =>
+        some ⟨⟨.run ⟨ps, ctx⟩, F⟩, { s with memory := ChipMemory.set s.memory ⟨i, x⟩ (some v) }⟩
+    | .setp (.val <| .uptr i) (.val <| .iptr x) e  =>
+        ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
+        some ⟨⟨.run ⟨(.setp (.val <| .uptr i) (.val <| .iptr x) e' :: ps), ctx⟩, F⟩, s'⟩
+    | .setp (.val <| .uptr i) e ev  =>
+        ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
+        some ⟨⟨.run ⟨(.setp (.val <| .uptr i) e' ev :: ps), ctx⟩, F⟩, s'⟩
+    | .setp e ei ev  =>
+        ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
+        some ⟨⟨.run ⟨(.setp e' ei ev :: ps), ctx⟩, F⟩, s'⟩
+
+    -- | _ => .none
+
+instance NML.Semantics [NMLEnv DataT] : SmallStep (ProgState DataT) (Value DataT) (State DataT) where
   Step e1 e2 := NML.step e1 = .some e2
   toVal := NML.toVal
-  toVal_isSome_isStuck {c _} _ _ := by cases c <;> simp
+  toVal_isSome_isStuck {c _} _ _ := by rcases c with ⟨(_|_), c2⟩ <;> simp [toVal]
 
-instance [NMLEnv DataT] : Det (ExecState DataT) (Value DataT) (State DataT) where
+instance [NMLEnv DataT] : Det (ProgState DataT) (Value DataT) (State DataT) where
   step_det {c c'} := by
     simp only [Step]
     intro H _ H'
     obtain ⟨rfl⟩ := H' ▸ H
     rfl
+
+/-
 
 theorem NML.returnContInv [NMLEnv DataT] {b : List (Stmt DataT)} :
     Step (Val := Value DataT) (ExecState.run b ℓ, s) (ExecState.done Value.cont, s') → b = [] ∧ s = s' := by
@@ -428,6 +448,7 @@ theorem NML.intoFrameCont [NMLEnv DataT] k pc ℓc s' :
           rfl
       · -- Contradict Hcont
         sorry
+-/
 -/
 
 section properties
@@ -556,16 +577,18 @@ theorem EPure.ix :
   intro _ _ HP; simp [ExprStep]
   rw [HP]
 
-/-- A statement lifts expression steps to head steps -/
-def EPLift (sk : Expr DataT → Stmt DataT) : Prop := ∀ {e e' s s' ps loc},
+/-- A statement lifts expression steps to steps of the head expression -/
+def EPLift (sk : Expr DataT → Stmt DataT) : Prop := ∀ {e e' s s' ps loc F},
     ExprStep e loc s = some (e', s') →
-    Step ⟨ExecState.run (sk e :: ps) loc, s⟩ ⟨ExecState.run (sk e':: ps) loc, s'⟩
+    Step (Prog := ProgState DataT)
+      ⟨⟨ExecState.run ⟨sk e :: ps, loc⟩, F⟩, s⟩
+      ⟨⟨ExecState.run ⟨sk e':: ps, loc⟩, F⟩, s'⟩
 
 syntax "solveEPLift" : tactic
 macro_rules
   | `(tactic|solveEPLift) =>
   `(tactic|
-    intro e _ _ _ _ _;
+    intro e _ _ _ _ _ _;
     cases e with
     | val _ => simp [ExprStep]
     | _ => simp only [Step, step]; intro H; rw [H]; simp)
@@ -579,8 +602,8 @@ def EPLift.seq_arg : EPLift (.assign (DataT := DataT) none ·) := by
 def EPLift.assign_arg : EPLift (.assign (DataT := DataT) (some x) ·) := by
   solveEPLift
 
-def EPLift.loop_iter : EPLift (.loop (DataT := DataT) x · b) := by
-  solveEPLift
+-- def EPLift.loop_iter : EPLift (.loop (DataT := DataT) x · b) := by
+--   solveEPLift
 
 def EPLift.setp_chip : EPLift (.setp (DataT := DataT) · ei ev) := by
   solveEPLift
@@ -596,61 +619,52 @@ def EPLift.setp_val : EPLift (.setp (DataT := DataT) (.val <| .uptr i) (.val <| 
 -- This is most of them actually!
 
 /-- A pure step of program reduction -/
-def SPure (e e' : ExecState DataT) (HP : Prop) : Prop :=
+def SPure (e e' : ProgState DataT) (HP : Prop) : Prop :=
   ∀ s, HP → Step ⟨e, s⟩ ⟨e', s⟩
 
-theorem SPure.ret : SPure (DataT := DataT) (.run ((.ret <| .val v) :: ps) loc) (.done v) True := by
+theorem SPure.ret : SPure (DataT := DataT)
+    ⟨.run ⟨(.ret <| .val v) :: ps, loc⟩, F⟩
+    ⟨.done v, []⟩ True := by
   intro s _; simp [Step]
 
-theorem SPure.assign : SPure (DataT := DataT) (.run ((.assign (.some x) <| .val v) :: ps) loc) (.run ps (loc.bindv x v)) True := by
+theorem SPure.assign : SPure (DataT := DataT)
+    ⟨.run ⟨(.assign (.some x) <| .val v) :: ps, loc⟩, F⟩
+    ⟨.run ⟨ps, loc.bindv x v⟩, F⟩ True := by
   intro s _; simp [Step]
 
-theorem SPure.seq : SPure (DataT := DataT) (.run ((.assign .none <| .val v) :: ps) loc) (.run ps loc) True := by
+theorem SPure.seq : SPure (DataT := DataT)
+    ⟨.run ⟨(.assign .none <| .val v) :: ps, loc⟩, F⟩
+    ⟨.run ⟨ps, loc⟩, F⟩ True := by
   intro s _; simp [Step]
 
-theorem SPure.mkiter : SPure (DataT := DataT) (.run (.mkiter n it :: ps) loc) (.run ps (loc.bindi n it.toIterator)) True := by
+theorem SPure.mkiter : SPure (DataT := DataT)
+    ⟨.run ⟨.mkiter n it :: ps, loc⟩, F⟩
+    ⟨.run ⟨ps, loc.bindi n it.toIterator⟩, F⟩ True := by
   intro s _; simp [Step]
 
-theorem SPure.frameEmp : SPure (DataT := DataT) (.run (.frame [] ctx :: ps) loc) (.run ps loc) True := by
-  intro s _; simp [Step]
+-- theorem SPure.frameEmp : SPure (DataT := DataT) (.run (.frame [] ctx :: ps) loc) (.run ps loc) True := by
+--   intro s _; simp [Step]
 
 @[simp] abbrev PLoopExit (ctx : LocalContext DataT) (n : Nat) : Prop := ctx.peeki n = none
 
 theorem SPure.loopExit : SPure (DataT := DataT)
-    (.run (.loop x (.val <| .iref i) b :: ps) loc)
-    (.run ps loc) (PLoopExit loc i) := by
+    ⟨.run ⟨(.loop x (.val <| .iref i) b :: ps), loc⟩, F⟩
+    ⟨.run ⟨ps, loc⟩, F⟩ (PLoopExit loc i) := by
   intro s H; simp only [Step, step]; rw [H]
 
 @[simp] abbrev PLoopContinue (ctx : LocalContext DataT) (n : Nat) (v : Value DataT) : Prop :=
   ctx.peeki n = some v
 
-theorem SPure.loopContinue : SPure (DataT := DataT)
-    (.run (.loop x (.val <| .iref i) b :: ps) loc)
-    (.run (.frame b (loc.bindv x v) :: .loop x (.val <| .iref i) b :: ps) loc)
-    (PLoopContinue loc i v) := by
-  intro s H; simp only [Step, step]; rw [H]
+-- TODO: This is wrong
+-- theorem SPure.loopContinue : SPure (DataT := DataT)
+--     ⟨.run ⟨(.loop x (.val <| .iref i) b :: ps), loc⟩, F⟩
+--     ⟨.run ⟨b, ctx.bindv x v⟩, ⟨.loop x (.val <| .iref i) b :: ps, ctx⟩ :: F⟩
+--     (PLoopContinue loc i v) := by
+--   intro s H; simp only [Step, step]; rw [H]
+--   sorry
 
 -- Lifted head steps
 -- This is basically only frame
-
-/-
-@[simp] def NML.step (e : ExecState DataT × State DataT) : Option (ExecState DataT × State DataT) :=
-  match e with
-  | ⟨.run (p :: ps) ctx, s⟩ =>
-      match p with
-
-      /- Evaluation within a frame -/
-      | .frame fps fctx =>
-          NML.step ⟨(.run fps fctx), s⟩ |>.bind fun ⟨x, s'⟩ =>
-          match x with
-          | .done v => some ⟨.done v, s'⟩
-          | .run fps' fctx' => some ⟨.run (.frame fps' fctx' :: ps) ctx, s'⟩
-
-      /- Set point -/
-      | .setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v) =>
-          some ⟨.run ps ctx, { s with memory := ChipMemory.set s.memory ⟨i, x⟩ (some v) }⟩
--/
-
 
 
 
@@ -718,31 +732,7 @@ theorem RetPureExpr (H : PureExprStep e1 e2 PL) (Hl : PL loc):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /-
-
-
-
-
-
-
 
 
 theorem SetpEChipPureExpr (H : PureExprStep e e' PL) (Hl : PL loc) :
