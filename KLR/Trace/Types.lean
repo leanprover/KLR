@@ -143,7 +143,7 @@ inductive Term where
   | pointer  : Core.Address -> Term
   | expr     : Expr -> TermType -> Term
   | mgrid    : Term
-  | mgItem   : Int -> Int -> Term
+  | mgItem   : Int -> Int -> Int -> Term
   deriving Repr, BEq
 
 instance : Inhabited Term where
