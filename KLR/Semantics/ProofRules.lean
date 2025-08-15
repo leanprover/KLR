@@ -140,7 +140,7 @@ theorem wpValVal (H1 : toVal p1 = some v1) (H2 : toVal p2 = some v2) :
 -- NB. Keeping this code in the repo as an example for writing basic proof rules.
 @[deprecated "Use dwpDesync/dwpResync instead. " (since:="2025/07/31") ]
 theorem wpPureSync {Φ : Value DataT → Value DataT → @PROP DataT}
-    (H1 : PureStep p1 p1') (H2 : PureStep p2 p2') (Hk : 1 ≤ K.car) :
+    (H1 : PureStep p1 p1') (H2 : PureStep p2 p2') (Hk : 1 ≤ K) :
     wp K p1' p2' Φ ⊢ wp K p1 p2 Φ := by
   -- Unfold the WP
   refine .trans ?_ (equiv_iff.mp <| wp_unfold.symm).mp
@@ -285,7 +285,7 @@ def dwp (Lm Rm Lx Rx : Nat) (p1 p2 : ExecState DataT) (Φ : ExecState DataT → 
     state_interp s1' s2')
 
 /-- Introduce a `dwp` around a weakest precondition. -/
-theorem wpDesync : ⊢ dwp 1 1 K.1 K.1 p1 p2 (wp K · · Φf) -∗ wp (DataT := DataT) K p1 p2 Φf := by
+theorem wpDesync : ⊢ dwp 1 1 K K p1 p2 (wp K · · Φf) -∗ wp (DataT := DataT) K p1 p2 Φf := by
   -- Unfold the wp and dwp
   refine .trans ?_ <| wand_mono entails_preorder.refl (equiv_iff.mp wp_unfold.symm).mp
   unfold dwp

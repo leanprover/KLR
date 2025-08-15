@@ -79,6 +79,9 @@ relationships between them. -/
 | iref     (i : Nat)
 /-- [ lidx ] A logical index into a tensor. -/
 | lidx     (l : List Int)
+/-- [ cont ] (internal) A value which represents a program state that has successfully exeuted
+and must pop to a continuation. -/
+| cont
 
 /-- NML Unops that operate on Data-/
 inductive Dunop (DataT  : Type) where
@@ -294,8 +297,8 @@ inductive ExecState (DataT : Type) where
 
 @[simp] def NML.step [NMLEnv DataT] (e : ExecState DataT × State DataT) : Option (ExecState DataT × State DataT) :=
   match e with
-  | ⟨.done _, _⟩
-  | ⟨.run [] _, _⟩ => none
+  | ⟨.done _, _⟩ => none
+  | ⟨.run [] _, s⟩ => some ⟨.done .cont, s⟩
   | ⟨.run (p :: ps) ctx, s⟩ =>
       match p with
       /- Return -/
@@ -336,7 +339,7 @@ inductive ExecState (DataT : Type) where
       | .loop x (.val <| .iref i) b =>
           match ctx.peeki i with
           | .none => .some ⟨.run ps ctx, s⟩
-          | .some itv => .some ⟨.run (.frame b (ctx.bindv x itv):: .loop x (.val <| .iref i) b :: ps) ctx, s⟩
+          | .some itv => .some ⟨.run (.frame b (ctx.bindv x itv) :: .loop x (.val <| .iref i) b :: ps) ctx, s⟩
       | .loop x e b =>
           ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
           some ⟨.run (.loop x e' b :: ps) ctx, s'⟩
@@ -357,7 +360,6 @@ inductive ExecState (DataT : Type) where
       -- /- Unhandled cases -/
       -- | _ => .none
 
-
 instance NML.Semantics [NMLEnv DataT] : SmallStep (ExecState DataT) (Value DataT) (State DataT) where
   Step e1 e2 := NML.step e1 = .some e2
   toVal := NML.toVal
@@ -369,6 +371,16 @@ instance [NMLEnv DataT] : Det (ExecState DataT) (Value DataT) (State DataT) wher
     intro H _ H'
     obtain ⟨rfl⟩ := H' ▸ H
     rfl
+
+open SmallStep in
+theorem NML.intoFrameCont [NMLEnv DataT] k pc ℓc :
+    ∀ (b : List (Stmt DataT)) ℓ (s s' : State DataT),
+    StepN (Val := Value DataT) k ⟨ExecState.run b ℓ, s⟩ ⟨ExecState.done .cont, s'⟩ →
+    StepN (Val := Value DataT) k ⟨ExecState.run (.frame b ℓ :: pc) ℓc, s⟩ ⟨ExecState.run pc ℓc, s'⟩ := by
+  induction k
+  · sorry
+  · sorry
+
 
 section properties
 

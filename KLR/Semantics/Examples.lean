@@ -27,7 +27,7 @@ attribute [simp] Locals.bind
 namespace example0
 /-! Example: Done states are related-/
 
-abbrev K : LeibnizO Nat := ⟨1⟩
+abbrev K : Nat := 1
 @[simp] def sL : ExecState DataT := .done <| .int 4
 @[simp] def sR : ExecState DataT := .done <| .int 5
 
@@ -40,7 +40,7 @@ theorem example0 : ⊢ wp (DataT := DataT) K sL sR (ΦPure <| ΦInt (· < ·)) :
 
 /-- Applying the NML Adequacy theorem to example0 -/
 example (σ₁ σ₂ : State DataT) : SmallStep.PRel (Prog := NML.ExecState DataT) (sL, σ₁) (sR, σ₂) (ΦInt (· < ·)) := by
-  apply wp_adequacy (K := ⟨1⟩)
+  apply wp_adequacy (K := 1)
   refine .trans ?_ example0
   exact true_intro.trans true_emp.mp
 
@@ -49,11 +49,10 @@ end example0
 namespace example1
 /-! Example: Desync, step left and right, and return -/
 
-abbrev K : LeibnizO Nat := ⟨1⟩
 @[simp] def sL : ExecState DataT := .run [.ret <| .val <| .int 4] .emp
 @[simp] def sR : ExecState DataT := .run [.ret <| .val <| .int 4] .emp
 
-example : ⊢ wp (DataT := DataT) K sL sR (ΦPure <| ΦInt (· = ·)) := by
+example : ⊢ wp (DataT := DataT) 1 sL sR (ΦPure <| ΦInt (· = ·)) := by
   istart
   wp_desync
   uwp_left  SPure.uwpL .ret trivial
@@ -69,10 +68,9 @@ end example1
 namespace example2
 /-! Example: Proving safety of a program -/
 
-abbrev K : LeibnizO Nat := ⟨1⟩
 @[simp] def s : ExecState DataT := .run [.ret <| .val <| .int 4] .emp
 
-theorem example2 : ⊢ wp (DataT := DataT) K s s (ΦPure ΦTriv) := by
+theorem example2 : ⊢ wp (DataT := DataT) 2 s s (ΦPure ΦTriv) := by
   istart
   wp_desync
   uwp_left  SPure.uwpL .ret trivial
@@ -85,7 +83,7 @@ theorem example2 : ⊢ wp (DataT := DataT) K s s (ΦPure ΦTriv) := by
 
 example (σ : State DataT) : SmallStep.Safe (Prog := NML.ExecState DataT) (s, σ) := by
   apply SmallStep.Safe_of_PRel (Φf := ΦTriv)
-  apply wp_adequacy (K := ⟨1⟩)
+  apply wp_adequacy (K := 2)
   refine .trans ?_ example2
   exact true_intro.trans true_emp.mp
 
@@ -94,7 +92,6 @@ end example2
 namespace example3
 /-! Example: Step value assignment -/
 
-abbrev K : LeibnizO Nat := ⟨2⟩
 @[simp] def sL : ExecState DataT := .run [
     .assign (.some "x") (.val .unit),
     .ret <| (.val .unit)
@@ -103,7 +100,7 @@ abbrev K : LeibnizO Nat := ⟨2⟩
     .ret <| (.val .unit)
   ] .emp
 
-example : ⊢ wp (DataT := DataT) K sL sR (ΦPure ΦTriv) := by
+example : ⊢ wp (DataT := DataT) 2 sL sR (ΦPure ΦTriv) := by
   istart
   wp_desync
   uwp_left  SPure.uwpL .assign trivial
@@ -120,7 +117,6 @@ end example3
 namespace example4
 /-! Example: Step sequencing assignment -/
 
-abbrev K : LeibnizO Nat := ⟨2⟩
 @[simp] def sL : ExecState DataT := .run [
     .assign .none (.val .unit),
     .ret <| (.val .unit)
@@ -129,7 +125,7 @@ abbrev K : LeibnizO Nat := ⟨2⟩
     .ret <| (.val .unit)
   ] .emp
 
-example : ⊢ wp (DataT := DataT) K sL sR (ΦPure ΦTriv) := by
+example : ⊢ wp (DataT := DataT) 2 sL sR (ΦPure ΦTriv) := by
   istart
   wp_desync
   uwp_left  SPure.uwpL .seq trivial
@@ -146,7 +142,6 @@ end example4
 namespace example5
 /-! Example: Step empty assignment -/
 
-abbrev K : LeibnizO Nat := ⟨2⟩
 variable (n : Nat) (i : IteratorS)
 
 @[simp] def sL : ExecState DataT := .run [
@@ -157,7 +152,7 @@ variable (n : Nat) (i : IteratorS)
     .ret <| (.val .unit)
   ] .emp
 
-example : ⊢ wp (DataT := DataT) K (sL n i) sR (ΦPure ΦTriv) := by
+example : ⊢ wp (DataT := DataT) 2 (sL n i) sR (ΦPure ΦTriv) := by
   istart
   wp_desync
   uwp_left  SPure.uwpL .mkiter trivial
@@ -175,7 +170,6 @@ end example5
 namespace example6
 /-! Example: Step empty assignment -/
 
-abbrev K : LeibnizO Nat := ⟨2⟩
 variable (c' : LocalContext DataT)
 
 @[simp] def sL : ExecState DataT := .run [
@@ -186,7 +180,7 @@ variable (c' : LocalContext DataT)
     .ret <| (.val .unit)
   ] .emp
 
-example : ⊢ wp (DataT := DataT) K (sL c') sR (ΦPure ΦTriv) := by
+example : ⊢ wp (DataT := DataT) 2 (sL c') sR (ΦPure ΦTriv) := by
   istart
   wp_desync
   uwp_left  SPure.uwpL .frameEmp trivial
@@ -203,7 +197,6 @@ end example6
 namespace example7
 /-! Example: Loop exit -/
 
-abbrev K : LeibnizO Nat := ⟨2⟩
 variable (n : Nat) (i : Iterator DataT) (b : List (Stmt DataT))
 variable (Hloop : PLoopExit (LocalContext.bindi .emp n i) n)
 
@@ -215,7 +208,7 @@ variable (Hloop : PLoopExit (LocalContext.bindi .emp n i) n)
     .ret <| (.val .unit)
   ] .emp
 
-example : ⊢ wp (DataT := DataT) K (sL n i b) sR (ΦPure ΦTriv) := by
+example : ⊢ wp (DataT := DataT) 2 (sL n i b) sR (ΦPure ΦTriv) := by
   istart
   wp_desync
   uwp_left  SPure.uwpL .loopExit Hloop
@@ -232,8 +225,6 @@ end example7
 namespace example8
 /-! Example: Lifting pure expr steps -/
 
-abbrev K : LeibnizO Nat := ⟨2⟩
-
 variable (f : NML.Dunop DataT) (d₀ d₁ : DataT) (Hf : NMLEnv.evalDunop f d₀ = d₁)
 
 @[simp] def sL : ExecState DataT := .run [
@@ -243,7 +234,7 @@ variable (f : NML.Dunop DataT) (d₀ d₁ : DataT) (Hf : NMLEnv.evalDunop f d₀
     .ret <| (.val <| .data d₁)
   ] .emp
 
-example : ⊢ wp (DataT := DataT) K (sL f d₀) (sR d₁) (ΦPure (· = ·)) := by
+example : ⊢ wp (DataT := DataT) 2 (sL f d₀) (sR d₁) (ΦPure (· = ·)) := by
   istart
   wp_desync
   uwp_left EPLift.uwpL EPLift.ret_arg <| EPure.ewpL <| EPure.dunop
@@ -261,8 +252,6 @@ end example8
 namespace example9
 /-! Example: Variable assignment -/
 
-abbrev K : LeibnizO Nat := ⟨5⟩
-
 variable (d₀ : DataT)
 
 @[simp] def sL : ExecState DataT := .run [
@@ -274,7 +263,7 @@ variable (d₀ : DataT)
     .ret <| (.val <| .data d₀)
   ] .emp
 
-example : ⊢ wp (DataT := DataT) K (sL d₀) (sR d₀) (ΦPure (· = ·)) := by
+example : ⊢ wp (DataT := DataT) 5 (sL d₀) (sR d₀) (ΦPure (· = ·)) := by
   istart
   wp_desync
   uwp_left  SPure.uwpL .assign trivial
@@ -294,8 +283,6 @@ end example9
 namespace example10
 /-! Example: Variable assignment -/
 
-abbrev K : LeibnizO Nat := ⟨5⟩
-
 variable (d₀ : DataT)
 
 @[simp] def sL : ExecState DataT := .run [
@@ -307,7 +294,7 @@ variable (d₀ : DataT)
     .ret <| (.val <| .data d₀)
   ] .emp
 
-example : ⊢ wp (DataT := DataT) K (sL d₀) (sR d₀) (ΦPure (· = ·)) := by
+example : ⊢ wp (DataT := DataT) 5 (sL d₀) (sR d₀) (ΦPure (· = ·)) := by
   istart
   wp_desync
   uwp_left  SPure.uwpL .assign trivial
@@ -328,8 +315,6 @@ end example10
 namespace example11
 /-! Example: Safety of nonphysical allocation -/
 
-abbrev K : LeibnizO Nat := ⟨5⟩
-
 @[simp] def s : ExecState DataT := .run [
     .assign (some "ℓ") (.alloc .sbuf),
     .ret <| (.var "ℓ")
@@ -339,7 +324,7 @@ abbrev K : LeibnizO Nat := ⟨5⟩
 @[simp] def ΦBothLoc (v1 v2 : Value DataT) : Prop :=
   ∃ cl cr, v1 = .uptr cl ∧ v2 = .uptr cr
 
-example : ⊢ wp (DataT := DataT) K s s (ΦPure ΦBothLoc) := by
+example : ⊢ wp (DataT := DataT) 5 s s (ΦPure ΦBothLoc) := by
   istart
   wp_desync
   dwp_left dwpAllocL (Hx := by simp) -- FIXME: Why does this not go automatically?
@@ -372,7 +357,7 @@ end example11
 namespace example12
 /-! Example: Loop stuff -/
 
-abbrev K : LeibnizO Nat := ⟨5⟩
+abbrev K : Nat := 5
 
 
 end example12

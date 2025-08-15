@@ -80,6 +80,40 @@ notation k " [P]⇉ᵣ∅ "   => PointsToS (ProdIndex.right (ChipIndex.psumUnbou
 notation k " [H]⇉ᵣ∅ "   => PointsToS (ProdIndex.right (ChipIndex.hbmUnboundedIndex k))  none
 
 
+/-
+
+WIP Adding continuations to the WP
+
+I think adding an extra value form for (.run [] _) might be less invasive actually.
+
+
+/-- Lift a postcondition on values to a postcondition on continuations -/
+def ΦRet(Φ : Value DataT → Value DataT → PROP DataT) (mv1 mv2 : Option (Value DataT)) : PROP DataT :=
+  iprop(∃ v1 v2, ⌜mv1 = .some v1 ⌝ ∗ ⌜mv2 = .some v2⌝ ∗ Φ v1 v2)
+
+def toCont : Prog DataT → Option (Option (Value DataT))
+-- Program is an early return, value postcondition must hold
+| .done v  => .some (.some v)
+-- Program is stuck because it has reached the end of the frame, frame postcondition must hold
+| .run [] _ => .some .none
+-- Program is still running
+| _ => .none
+
+theorem toCont_some_toVal {p : Prog DataT} :
+    toCont p = .some (.some v) ↔ toVal p = .some v := by
+  cases p <;> simp [toCont, toVal]; intro H
+  rename_i p' _; cases p' <;> simp at H
+
+def wp_F (wp : LeibnizO Nat → Prog DataT → Prog DataT → (Option (Value DataT) → Option (Value DataT) → PROP DataT) → PROP DataT)
+  (K : LeibnizO Nat) (p1 p2 : Prog DataT) (Φf : Option (Value DataT) → Option (Value DataT) → PROP DataT) : PROP DataT := iprop(
+      (|==> ∃ mvl, ∃ mvr, ⌜toCont p1 = .some mvl⌝ ∗ ⌜toCont p2 = some mvr ⌝ ∗ Φf mvl mvr) ∨
+      (∀ sl, ∀ sr, state_interp sl sr -∗ |==>
+       ∃ cl', ∃ cr', ∃ nl, ∃ nr, ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K.car ∧ nr ≤ K.car ∧
+         SmallStep.StepN nl (p1, sl) cl' ∧ SmallStep.StepN nr (p2, sr) cr'⌝ ∗
+         ▷ (state_interp cl'.2 cr'.2 ∗ wp K cl'.1 cr'.1 Φf)))
+-/
+
+
 /--
 Definition of the weakest precondition.
 
@@ -87,27 +121,27 @@ For any pair of configurations, either both programs are values satisfying the p
 or for all states satisfying the current interp,
 the state can be updated to obtain the state after executing between 1 and k steps on both sides,
 and ending up in a pair of configurations that satisfy the weakest precondition. -/
-def wp_F (wp : LeibnizO Nat → Prog DataT → Prog DataT → (Value DataT → Value DataT → PROP DataT) → PROP DataT)
-  (K : LeibnizO Nat) (p1 p2 : Prog DataT) (Φf : Value DataT → Value DataT → PROP DataT) : PROP DataT := iprop(
-      (|==> ∃ vl, ∃ vr, ⌜toVal p1 = some vl⌝ ∗ ⌜toVal p2 = some vr⌝ ∗ Φf vl vr) ∨
+def wp_F (wp : Nat → Prog DataT → Prog DataT → (Value DataT → Value DataT → PROP DataT) → PROP DataT)
+  (K : Nat) (p1 p2 : Prog DataT) (Φf : Value DataT → Value DataT → PROP DataT) : PROP DataT := iprop(
+      (|==> ∃ vl, ∃ vr, ⌜toVal p1 = .some vl⌝ ∗ ⌜toVal p2 = some vr ⌝ ∗ Φf vl vr) ∨
       (∀ sl, ∀ sr, state_interp sl sr -∗ |==>
-       ∃ cl', ∃ cr', ∃ nl, ∃ nr, ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K.car ∧ nr ≤ K.car ∧
+       ∃ cl', ∃ cr', ∃ nl, ∃ nr, ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K ∧ nr ≤ K ∧
          SmallStep.StepN nl (p1, sl) cl' ∧ SmallStep.StepN nr (p2, sr) cr'⌝ ∗
          ▷ (state_interp cl'.2 cr'.2 ∗ wp K cl'.1 cr'.1 Φf)))
 
-instance wp_contractive : Iris.OFE.Contractive (α := LeibnizO Nat → Prog DataT → Prog DataT → (Value DataT → Value DataT → PROP DataT) → PROP DataT) wp_F := by
+instance wp_contractive : Iris.OFE.Contractive (α := Nat → Prog DataT → Prog DataT → (Value DataT → Value DataT → PROP DataT) → PROP DataT) wp_F := by
   sorry
 
 /-- Definition of the weakest precondition -/
-def wp (K : LeibnizO Nat) (p1 p2 : Prog DataT) (Φf : Value DataT → Value DataT → PROP DataT) : PROP DataT :=
+def wp (K : Nat) (p1 p2 : Prog DataT) (Φf : Value DataT → Value DataT → PROP DataT) : PROP DataT :=
   (Iris.fixpoint wp_F) K p1 p2 Φf
 
-theorem wp_unfold {K : LeibnizO Nat} {p1 p2 : Prog DataT} {Φf : Value DataT → Value DataT → PROP DataT} :
+theorem wp_unfold {K : Nat} {p1 p2 : Prog DataT} {Φf : Value DataT → Value DataT → PROP DataT} :
     wp K p1 p2 Φf ≡ iprop(
       (|==> ∃ vl, ∃ vr, ⌜toVal p1 = some vl⌝ ∗ ⌜toVal p2 = some vr⌝ ∗ Φf vl vr) ∨
       ( ∀ sl, ∀ sr, state_interp sl sr -∗ |==>
         ∃ cl', ∃ cr', ∃ nl, ∃ nr,
-          ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K.car ∧ nr ≤ K.car ∧ SmallStep.StepN nl (p1, sl) cl' ∧ SmallStep.StepN nr (p2, sr) cr'⌝ ∗
+          ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K ∧ nr ≤ K ∧ SmallStep.StepN nl (p1, sl) cl' ∧ SmallStep.StepN nr (p2, sr) cr'⌝ ∗
             ▷ (state_interp cl'.2 cr'.2 ∗ wp K cl'.1 cr'.1 Φf))) := by
   apply fixpoint_unfold (f := ⟨wp_F, OFE.ne_of_contractive wp_F⟩)
 
@@ -124,7 +158,7 @@ Turn a proof of the wp in the logic into a relationship between the two programs
 with a ``state_interp sl sr` precondition. -/
 theorem wp_to_fupd_PRelS :
     wp (DataT := DataT) K pl pr (iprop(⌜Φf · ·⌝)) ⊢ state_interp (DataT := DataT) sl sr -∗
-    |==> ▷^[n] ⌜PRelS n K.car (pl, sl) (pr, sr) Φf ⌝ := by
+    |==> ▷^[n] ⌜PRelS n K (pl, sl) (pr, sr) Φf ⌝ := by
   revert pl pr sl sr
   induction n with | zero => ?_ | succ n IH => ?_
   · -- Base case: n=0, postcondition is trivial
@@ -157,7 +191,7 @@ theorem wp_to_fupd_PRelS :
       refine (emp_sep.mp.trans <| BIUpdate.mono ?_).trans BIUpdate.trans
       iintro ⟨cl', cr', nl, nr, ⟨%Hnl0, %Hnr0, %HnlK, %HnrK, %HSl, %HSr⟩, H⟩
       -- It suffices to prove the theorem on the continuation
-      have Hcont (H : PRelS n K.car cl' cr' Φf) : PRelS (n + 1) K.car (pl, sl) (pr, sr) Φf := by
+      have Hcont (H : PRelS n K cl' cr' Φf) : PRelS (n + 1) K (pl, sl) (pr, sr) Φf := by
         simp only [stepN_toVal_none Hnl0 HSl, stepN_toVal_none Hnr0 HSr, PRelS]
         exists nl; exists nr; exists cl'; exists cr'
       refine .trans ?_ (BIUpdate.mono <| later_mono <| laterN_mono <| pure_mono <| Hcont)
@@ -204,7 +238,7 @@ theorem wp_adequacy
     (H : state_frag (DataT := DataT) sl sr ⊢ wp K pl pr (iprop(⌜Φf · ·⌝))) :
     PRel (pl, sl) (pr, sr) Φf := by
   -- Apply the approximation theorems
-  refine PrelNLimit (K := K.car) (fun n => ?_)
+  refine PrelNLimit (K := K) (fun n => ?_)
   refine PRelNS n ?_
   -- Apply the pre-adequacy theorem
   refine wp_adequacy_pre (fun n' => ?_) n
