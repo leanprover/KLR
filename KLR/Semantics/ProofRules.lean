@@ -167,6 +167,16 @@ theorem wpPureSync {Φ : Value DataT → Value DataT → @PROP DataT}
   -- Conclude
   exact sep_symm
 
+
+theorem wpMono {Φ : Value DataT → Value DataT → @PROP DataT} (P : PROP DataT) :
+    P ∗ wp k p1 p2 Φ ⊢ wp k p1 p2 (iprop(Φ · · ∗ P)) := by
+  sorry
+
+theorem wpFrameSync {Φ : Value DataT → Value DataT → PROP DataT} :
+      wp k (.run b1 ℓ1) (.run b2 ℓ2) (fun _ _ => wp k (.run p1 ℓ1') (.run p2 ℓ2') Φ)
+    ⊢ wp k (.run (.frame b1 ℓ1 :: p1) ℓ'1) (.run (.frame b2 ℓ2 :: p2) ℓ'2) Φ := by
+  sorry
+
 /-
 
 -- NB. Keeping this code in the repo as an example for writing basic proof rules.

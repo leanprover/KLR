@@ -369,6 +369,14 @@ example : ⊢ wp (DataT := DataT) K s s (ΦPure ΦBothLoc) := by
 
 end example11
 
+namespace example12
+/-! Example: Loop stuff -/
+
+abbrev K : LeibnizO Nat := ⟨5⟩
+
+
+end example12
+
 
 
 
