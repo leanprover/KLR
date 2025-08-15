@@ -188,6 +188,7 @@ def LocalContext.emp : LocalContext DataT := ⟨.emp, .emp⟩
   loc := lc.loc
   it := lc.it.bind n i
 
+
 /-- NML statements.
 Statements can read and write both the state and the local context. -/
 inductive Stmt (DataT : Type _) where
@@ -200,13 +201,21 @@ As of now, all iterators must be known statically. In principle, i can be change
 that allows iterators to depend on eg. the local bindings. I am expressing it this way (rather than having
 iterators be values) to avoid difficult cases such as iterators of iterators. -/
 | mkiter       (n : Nat) (i : IteratorS)
-/-- [ frame ] (Internal) Evaluate a list of statements with a given local context. -/
-| frame        (p : List (Stmt DataT)) (ctx : LocalContext DataT)
+-- /- [ frame ] (Internal) Evaluate a list of statements with a given local context. -/
+-- | frame        (p : List (Stmt DataT)) (ctx : LocalContext DataT)
 /-- [ loop ] Looping construct. The argument should evaluate to a iterator variable. -/
 | loop         (x : String) (it : Expr DataT) (body : List (Stmt DataT))
 /-- [ setp ] Set a single memory location -/
 | setp         (chip index val : (Expr DataT))
 -- | ret_assert   (_ : @Expr DataT) (_ : @State DataT → Prop)
+
+/-- A NML Program during execution. Namely, one of
+- A list of statements, and a context to execute them in, or
+- A completed execution, its return value. -/
+inductive ExecState (DataT : Type) where
+| run   (p : List (Stmt DataT)) (ctx : (LocalContext DataT))
+| done  (v : Value DataT)
+
 
 def Value.ExpectInt : Expr DataT → Option Int | .val (.int z) => some z | _ => none
 
@@ -228,12 +237,6 @@ def Dtype.Interp (DataT : Type _) (d : KLR.Core.Dtype) : Type _ :=
   | .int8     => Int8
   | .float16 | .float32r | .float32 | .float8e5 | .float8e4 | .float8e3 | .bfloat16 => DataT
 
-/-- A NML Program during execution. Namely, one of
-- A list of statements, and a context to execute them in, or
-- A completed execution, its return value. -/
-inductive ExecState (DataT : Type) where
-| run   (p : List (Stmt DataT)) (ctx : (LocalContext DataT))
-| done  (v : Value DataT)
 
 
 @[simp] def ExprStep [NMLEnv DataT] (e : Expr DataT) (ctx : LocalContext DataT) (s : State DataT) : Option (Expr DataT × State DataT) :=
@@ -326,23 +329,23 @@ inductive ExecState (DataT : Type) where
       | .mkiter n it =>
           some ⟨.run ps (ctx.bindi n it.toIterator), s⟩
 
-      /- Evaluation within a frame -/
-      | .frame [] _ =>
-          some ⟨.run ps ctx, s⟩
-      | .frame fps fctx =>
-          NML.step ⟨(.run fps fctx), s⟩ |>.bind fun ⟨x, s'⟩ =>
-          match x with
-          | .done v => some ⟨.done v, s'⟩
-          | .run fps' fctx' => some ⟨.run (.frame fps' fctx' :: ps) ctx, s'⟩
+      -- /- Evaluation within a frame -/
+      -- | .frame [] _ =>
+      --     some ⟨.run ps ctx, s⟩
+      -- | .frame fps fctx =>
+      --     NML.step ⟨(.run fps fctx), s⟩ |>.bind fun ⟨x, s'⟩ =>
+      --     match x with
+      --     | .done v => none -- some ⟨.done v, s'⟩ -- TODO: Early returns inside frames stuck for now
+      --     | .run fps' fctx' => some ⟨.run (.frame fps' fctx' :: ps) ctx, s'⟩
 
-      /- Loop -/
-      | .loop x (.val <| .iref i) b =>
-          match ctx.peeki i with
-          | .none => .some ⟨.run ps ctx, s⟩
-          | .some itv => .some ⟨.run (.frame b (ctx.bindv x itv) :: .loop x (.val <| .iref i) b :: ps) ctx, s⟩
-      | .loop x e b =>
-          ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
-          some ⟨.run (.loop x e' b :: ps) ctx, s'⟩
+      -- /- Loop -/
+      -- | .loop x (.val <| .iref i) b =>
+      --     match ctx.peeki i with
+      --     | .none => .some ⟨.run ps ctx, s⟩
+      --     | .some itv => .some ⟨.run (.frame b (ctx.bindv x itv) :: .loop x (.val <| .iref i) b :: ps) ctx, s⟩
+      -- | .loop x e b =>
+      --     ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
+      --     some ⟨.run (.loop x e' b :: ps) ctx, s'⟩
 
       /- Set point -/
       | .setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v) =>
@@ -372,15 +375,60 @@ instance [NMLEnv DataT] : Det (ExecState DataT) (Value DataT) (State DataT) wher
     obtain ⟨rfl⟩ := H' ▸ H
     rfl
 
+theorem NML.returnContInv [NMLEnv DataT] {b : List (Stmt DataT)} :
+    Step (Val := Value DataT) (ExecState.run b ℓ, s) (ExecState.done Value.cont, s') → b = [] ∧ s = s' := by
+  cases b with | nil => simp [Step] | cons h t => ?_
+  intro H
+  exfalso
+  sorry
+  -- simp [Step, step] at H <;> unfold step at H
+  -- -- All cases are .run
+  -- sorry
+/-
 open SmallStep in
-theorem NML.intoFrameCont [NMLEnv DataT] k pc ℓc :
-    ∀ (b : List (Stmt DataT)) ℓ (s s' : State DataT),
+theorem NML.intoFrameCont [NMLEnv DataT] k pc ℓc s' :
+    ∀ (b : List (Stmt DataT)) ℓ (s : State DataT),
     StepN (Val := Value DataT) k ⟨ExecState.run b ℓ, s⟩ ⟨ExecState.done .cont, s'⟩ →
     StepN (Val := Value DataT) k ⟨ExecState.run (.frame b ℓ :: pc) ℓc, s⟩ ⟨ExecState.run pc ℓc, s'⟩ := by
   induction k
-  · sorry
-  · sorry
-
+  · -- N = 0: Contradiction base case
+    intros _ _ _ H
+    cases (stepN_zero_inv H)
+  · rename_i n IH
+    intro b ℓ s H
+    cases n
+    · -- N = 1: The real base case
+      clear IH
+      simp only [Nat.zero_add] at ⊢ H
+      have H' := stepN_1_iff_step.mp H
+      apply stepN_1_iff_step.mpr
+      -- The only way for the H' step to happen is if b is empty
+      obtain ⟨rfl, rfl⟩ := NML.returnContInv H'
+      simp [Step]
+    · rename_i n
+      generalize HN : (n + 1) = N
+      rw [HN] at H IH
+      -- We can split off the first step of execution from H and the goal
+      rw [Nat.add_comm] at H ⊢
+      obtain ⟨⟨pnext, snext⟩, Hstep, Hcont⟩ := StepN_add_iff.mp H
+      apply StepN_add_iff.mpr
+      -- pnext must be .run or else we would not be able to take N > 0 steps out of it
+      cases pnext
+      · rename_i bnext ctxnext
+        exists ⟨ExecState.run (Stmt.frame bnext ctxnext :: pc) ℓc, snext ⟩
+        refine ⟨?_, IH _ _ _ Hcont⟩
+        apply stepN_1_iff_step.mpr
+        simp [Step]
+        -- b cannot be empty
+        cases b
+        · -- Contradiction with Hcont
+          sorry
+        · simp [step]
+          rw [stepN_1_iff_step.mp Hstep]
+          rfl
+      · -- Contradict Hcont
+        sorry
+-/
 
 section properties
 

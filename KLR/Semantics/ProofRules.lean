@@ -172,10 +172,81 @@ theorem wpMono {Φ : Value DataT → Value DataT → @PROP DataT} (P : PROP Data
     P ∗ wp k p1 p2 Φ ⊢ wp k p1 p2 (iprop(Φ · · ∗ P)) := by
   sorry
 
-theorem wpFrameSync {Φ : Value DataT → Value DataT → PROP DataT} :
-      wp k (.run b1 ℓ1) (.run b2 ℓ2) (fun _ _ => wp k (.run p1 ℓ1') (.run p2 ℓ2') Φ)
-    ⊢ wp k (.run (.frame b1 ℓ1 :: p1) ℓ'1) (.run (.frame b2 ℓ2 :: p2) ℓ'2) Φ := by
+
+-- TODO: The "free" BiLoeb instance from BILaterContractive (which we have done for UPred)
+instance : BILoeb (PROP DataT) := sorry
+
+theorem wpFrameSync' {Φ : Value DataT → Value DataT → PROP DataT} :
+    ⊢ ∀ b1 b2 ℓ1 ℓ2, /- ⌜b1 = [] ↔ b2 = [] ⌝ -∗ -/
+        wp k (.run b1 ℓ1) (.run b2 ℓ2) (fun v1 v2 => iprop(⌜v1 = .cont⌝ ∗ ⌜v2 = .cont⌝ ∗ wp k (.run p1 ℓ1') (.run p2 ℓ2') Φ))
+    -∗ wp k (.run (.frame b1 ℓ1 :: p1) ℓ'1) (.run (.frame b2 ℓ2 :: p2) ℓ'2) Φ := by
   sorry
+  /-
+  refine BI.wand_entails (Entails.trans ?_ loeb)
+  istart
+  iintro IH - b1 b2 ℓ1 ℓ2 /- %Hbeqv -/ Hwp
+  -- Unfold the wp in the hypothesis
+  refine .trans (sep_mono .rfl (equiv_iff.mp <| wp_unfold).mp) ?_
+  -- Unfold the wp in the conclusion
+  refine .trans ?_ (equiv_iff.mp <| wp_unfold).mpr
+  istart
+  iintro ⟨IH, (H|H)⟩
+  · -- Value case. Take one step on the left and right to eliminate the later and
+    -- delete the completed frame expression.
+    iright
+    iintro sl sr Hs
+    -- Clear the bupds
+    istop
+    apply Entails.trans sep_assoc.mp ?_
+    apply Entails.trans (sep_mono .rfl BIUpdate.frame_r) ?_
+    apply Entails.trans bupd_frame_l ?_
+    apply BIUpdate.mono
+    istart
+    -- Access the statements about the
+    iintro ⟨IH, ⟨vl, vr, %Hl, %Hr, %Hvl, %Hvr, Hwp⟩, Hs⟩
+    simp [toVal] at Hl
+    -- Oh this isn't the real value case is it
+  · -- Lift the steps from the wp up into the frame
+    iright
+    iintro sl sr Hs
+    ispecialize H sl sr Hs
+    -- Clear the bupds
+    istop
+    apply Entails.trans bupd_frame_l ?_
+    apply BIUpdate.mono
+    istart
+
+    iintro ⟨IH, ⟨cl', cr', nl, nr, %Hsteps, H⟩⟩
+    -- I defeinitely need to take exactly nl and nr steps because
+    -- that tells me about my updates state.
+
+    iexists cl'
+    iexists cr'
+    iexists nl
+    iexists nr
+    isplit r
+    · ipure_intro
+      rcases Hsteps with ⟨_, _, _, _, _, _⟩
+      refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try trivial
+      · -- The frame lifting lemma
+        -- What if cl' and cr' aren't .run's?
+        sorry
+      · sorry
+    · sorry
+
+
+    -- So the bad case is:
+    -- We must take one step on the left to get to .cont (ie bl is [])
+    -- .cont is at least k steps away on the right
+
+    -- Can I strengthen my inductive invariant to include b1 = [] ↔ b2 = []?
+    -- This is definitely true of my initial state
+    -- Otherwise, I either have both of them being done,
+    -- or both can take at least one step
+    -- Ah but the strengthened IH does not necessarily hold on the remainders
+  -/
+
+
 
 /-
 
