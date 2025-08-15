@@ -17,7 +17,6 @@ limitations under the License.
 import KLR.Core
 import KLR.Trace.Types
 import KLR.Trace.Builtin
-import KLR.Trace.Tensor
 
 namespace KLR.Trace.Isa
 open KLR.Core
@@ -89,7 +88,7 @@ def getTransposeOps(op: Option (List Int)) : Trace TransposeOps :=
 
 -- set_option linter.unusedVariables false
 
-nki nc_matmul
+nki builtin.isa.nc_matmul
  (dst : Access)
  (stationary : Access)
  -- kwargs
@@ -115,7 +114,7 @@ nki nc_matmul
       }) name
     return .none
 
-nki nc_transpose
+nki builtin.isa.nc_transpose
  (dst : Access)
  (data : Access)
  -- kwargs
@@ -133,7 +132,7 @@ nki nc_transpose
   }) name
   return .none
 
-nki activation
+nki builtin.isa.activation
  (dst : Access)
  (op : ActivationFunc)
  (data : Access)
@@ -161,7 +160,7 @@ nki activation
   }) name
   return .none
 
-nki activation_reduce
+nki builtin.isa.activation_reduce
  (dst: Access)
  (op : ActivationFunc)
  (data : Access)
@@ -191,7 +190,7 @@ nki activation_reduce
     }) name
     return .none
 
-nki tensor_reduce
+nki builtin.isa.tensor_reduce
   (dst: Access)
   (op : AluOp)
   (data : Access)
@@ -215,7 +214,7 @@ nki tensor_reduce
     }) name
     return .none
 
-nki tensor_partition_reduce
+nki builtin.isa.tensor_partition_reduce
   (dst: Access)
   (op : AluOp)
   (data : Access)
@@ -233,7 +232,7 @@ nki tensor_partition_reduce
     }) name
     return .none
 
-nki tensor_tensor
+nki builtin.isa.tensor_tensor
  (dst: Access)
  (data1 : Access)
  (data2 : Access)
@@ -255,7 +254,7 @@ nki tensor_tensor
     }) name
     return .none
 
-nki tensor_tensor_scan
+nki builtin.isa.tensor_tensor_scan
  (dst: Access)
  (data0 : Access)
  (data1 : Access)
@@ -286,7 +285,7 @@ nki tensor_tensor_scan
     }) name
     return .none
 
-nki scalar_tensor_tensor
+nki builtin.isa.scalar_tensor_tensor
  (dst : Access)
  -- kwargs
  (data : Access)
@@ -317,7 +316,7 @@ nki scalar_tensor_tensor
     }) name
     return .none
 
-nki tensor_scalar
+nki builtin.isa.tensor_scalar
  (dst: Access)
  (data : Access)
  (op0 : AluOp)
@@ -351,7 +350,7 @@ nki tensor_scalar
     }) name
     return .none
 
-nki tensor_scalar_reduce
+nki builtin.isa.tensor_scalar_reduce
  (dst : Access)
  -- kwargs
  (data : Access)
@@ -378,7 +377,7 @@ nki tensor_scalar_reduce
     }) name
     return .none
 
-nki tensor_copy
+nki builtin.isa.tensor_copy
  (dst: Access)
  (src : Access)
  -- kwargs
@@ -395,7 +394,7 @@ nki tensor_copy
     }) name
     return .none
 
-nki tensor_copy_dynamic_src
+nki builtin.isa.tensor_copy_dynamic_src
  (dst : Access)
  (src : Access)
  -- kwargs
@@ -412,7 +411,7 @@ nki tensor_copy_dynamic_src
     }) name
     return .none
 
-nki tensor_copy_dynamic_dst
+nki builtin.isa.tensor_copy_dynamic_dst
  (dst : Access)
  (src : Access)
  -- kwargs
@@ -429,7 +428,7 @@ nki tensor_copy_dynamic_dst
     }) name
     return .none
 
-nki tensor_copy_predicated
+nki builtin.isa.tensor_copy_predicated
  (dst : Access)
  -- kwargs
  (src : Access)
@@ -448,7 +447,7 @@ nki tensor_copy_predicated
     }) name
     return .none
 
-nki reciprocal
+nki builtin.isa.reciprocal
  (dst: Access)
  (data : Access)
  -- kwargs
@@ -463,22 +462,20 @@ nki reciprocal
     }) name
     return .none
 
-nki iota
+nki builtin.isa.iota
  (dst: Access)
- (_expr : Int)
- -- kwargs
- (dtype : Option Dtype := none)
- (mask : Option Immediate := none)
+ (pattern : List (Int × Nat))
+ (offset : Nat := 0)
  (name : Option String := none) := do
-    if mask.isSome then throw maskNotSupported
+    let pairs := pattern.map fun (i, n) => APPair.mk i n
     Trace.add_stmt $ .oper (.iota {
       dst := .abstract dst,
-      pattern := ⟨ 0, []⟩
-      dtype := dtype
+      pattern := ⟨ offset, pairs ⟩
+      dtype := dst.tensor.dtype
     }) name
     return .none
 
-nki dropout
+nki builtin.isa.dropout
  (dst: Access)
  (data : Access)
  (prob : Sum Immediate Access)
@@ -498,7 +495,7 @@ nki dropout
     }) name
     return .none
 
-nki affine_select
+nki builtin.isa.affine_select
  (dst: Access)
  (_pred : Int)
  (on_true_tile : Access)
@@ -518,7 +515,7 @@ nki affine_select
     }) name
     return .none
 
-nki range_select
+nki builtin.isa.range_select
  (dst: Access)
  (on_true_tile : Access)
  (comp_op0 : AluOp)
@@ -551,7 +548,7 @@ nki range_select
     }) name
     return .none
 
-nki memset
+nki builtin.isa.memset
  (dst: Access)
  (value : Immediate)
  (dtype : Dtype)
@@ -568,7 +565,7 @@ nki memset
     }) name
     return .none
 
-nki bn_stats
+nki builtin.isa.bn_stats
  (dst: Access)
  (data : Access)
  -- kwargs
@@ -583,7 +580,7 @@ nki bn_stats
     }) name
     return .none
 
-nki bn_aggr
+nki builtin.isa.bn_aggr
  (dst: Access)
  (data : Access)
  -- kwargs
@@ -598,7 +595,7 @@ nki bn_aggr
     }) name
     return .none
 
-nki local_gather
+nki builtin.isa.local_gather
  (dst: Access)
  (src_buffer : Access)
  (index : Access)
@@ -617,7 +614,7 @@ nki local_gather
     }) name
     return .none
 
-nki dma_copy
+nki builtin.isa.dma_copy
  (dst : Access)
  (src : Access)
  -- kwargs
@@ -645,7 +642,7 @@ nki dma_copy
   }) name
   return .none
 
-nki dma_transpose
+nki builtin.isa.dma_transpose
   (dst : Access)
   (src : Access)
   -- kwargs
@@ -662,7 +659,7 @@ nki dma_transpose
   }) name
   return .none
 
-nki max8
+nki builtin.isa.max8
  (dst: Access)
  -- kwargs
  (src : Access)
@@ -677,7 +674,7 @@ nki max8
     }) name
     return .none
 
-nki nc_find_index8
+nki builtin.isa.nc_find_index8
  (dst: Access)
  -- kwargs
  (data : Access)
@@ -695,7 +692,7 @@ nki nc_find_index8
     }) name
     return .none
 
-nki nc_match_replace8
+nki builtin.isa.nc_match_replace8
  (dst: Access)
  -- kwargs
  (data : Access)
@@ -718,7 +715,7 @@ nki nc_match_replace8
     return .none
 
 
-nki nc_stream_shuffle
+nki builtin.isa.nc_stream_shuffle
  (src : Access)
  (dst : Access)
  (shuffle_mask : List Immediate)
@@ -735,7 +732,7 @@ nki nc_stream_shuffle
     }) name
     return .none
 
-nki select_reduce
+nki builtin.isa.select_reduce
   (dst : Access)
   (predicate : Access)
   (on_true : Access)
@@ -764,7 +761,7 @@ nki select_reduce
     }) name
     return .none
 
-nki sequence_bounds
+nki builtin.isa.sequence_bounds
   (dst : Access)
   (segment_ids : Access)
   -- kwargs
@@ -776,49 +773,3 @@ nki sequence_bounds
       dtype := dtype
     }) name
     return .none
-
-
--- List of builtin functions
--- TODO: automate this list in nki macro
-
-private def nisa : String -> Name := .str `neuronxcc.nki.isa
-
--- List of builtin function implementations
-def builtins : List (Name × BuiltinFn) :=
-  [ (nisa "activation", Isa.activation)
-  --, (nisa "affine_select", Isa.affine_select)
-  , (nisa "bn_stats", Isa.bn_stats)
-  , (nisa "bn_aggr", Isa.bn_aggr)
-  , (nisa "tensor_copy", Isa.tensor_copy)
-  , (nisa "tensor_copy_predicated", Isa.tensor_copy_predicated)
-  , (nisa "dma_copy", Isa.dma_copy)
-  , (nisa "dma_transpose", Isa.dma_transpose)
-  , (nisa "dropout", Isa.dropout)
-  , (nisa "nc_find_index8", Isa.nc_find_index8)
-  , (nisa "iota", Isa.iota)
-  -- TODO load mask register
-  -- TODO load stationary
-  -- TODO ISA Matmul
-  , (nisa "nc_match_replace8", Isa.nc_match_replace8)
-  -- TODO match value load
-  , (nisa "max8", Isa.max8)
-  , (nisa "memset", Isa.memset)
-  , (nisa "range_select", Isa.range_select)
-  , (nisa "select_reduce", Isa.select_reduce)
-  , (nisa "sequence_bounds", Isa.sequence_bounds)
-  , (nisa "local_gather", Isa.local_gather)
-  , (nisa "reciprocal", Isa.reciprocal)
-  , (nisa "nc_stream_shuffle", Isa.nc_stream_shuffle)
-  , (nisa "tensor_reduce", Isa.tensor_reduce)
-  , (nisa "tensor_tensor_scan", Isa.tensor_tensor_scan)
-  , (nisa "nc_transpose", Isa.nc_transpose)
-  , (nisa "nc_matmul", Isa.nc_matmul)
-  , (nisa "activation_reduce", Isa.activation_reduce)
-  , (nisa "tensor_partition_reduce", Isa.tensor_partition_reduce)
-  , (nisa "tensor_scalar", Isa.tensor_scalar)
-  , (nisa "scalar_tensor_tensor", Isa.scalar_tensor_tensor)
-  , (nisa "tensor_tensor", Isa.tensor_tensor)
-  , (nisa "tensor_scalar_reduce", Isa.tensor_scalar_reduce)
-  , (nisa "tensor_copy_dynamic_src", Isa.tensor_copy_dynamic_src)
-  , (nisa "tensor_copy_dynamic_dst", Isa.tensor_copy_dynamic_dst)
-  ]

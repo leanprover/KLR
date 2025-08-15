@@ -143,13 +143,58 @@ inductive Term where
   | pointer  : Core.Address -> Term
   | expr     : Expr -> TermType -> Term
   | mgrid    : Term
-  | mgItem   : Int -> Int -> Term
+  | mgItem   : Int -> Int -> Int -> Term
   deriving Repr, BEq
 
 instance : Inhabited Term where
   default := .none
 
+instance : Coe Bool Term where
+  coe b := .expr (.value (.bool b)) .bool
+
+instance : Coe Nat Term where
+  coe i := .expr (.value (.int i)) .int
+
+instance : Coe Int Term where
+  coe i := .expr (.value (.int i)) .int
+
+instance : Coe Float Term where
+  coe f := .expr (.value (.float f)) .float
+
 namespace Term
+
+def nat (x : Nat) : Term := .expr (.value (.int x)) .int
+def int (x : Int) : Term := .expr (.value (.int x)) .int
+def float (x : Float) : Term := .expr (.value (.float x)) .float
+
+-- Truthiness of Terms following Python
+
+def isTrue : Term -> Err Bool
+  | .none
+  | .tuple []
+  | .list []  => return false
+  | .module _
+  | .mgrid
+  | .mgItem ..
+  | .builtin ..
+  | .source _
+  | .string _
+  | .tuple _
+  | .list _
+  | .ellipsis
+  | .slice ..
+  | .store ..
+  | .pointer .. => return true
+  | .expr (.value (.var _)) _ => return true
+  | .expr (.value (.bool b)) _ => return b
+  | .expr (.value (.int i)) _ => return i != 0
+  | .expr (.value (.float f)) _ => return f != 0.0
+  | .expr (.value (.access _)) _ => return true
+  | .expr _ _ => throw "non-constant expression"
+
+def isFalse (t : Term) : Err Bool :=
+  return not (<- t.isTrue)
+
 
 -- TODO: not efficient!
 -- TODO: this is partial because of the use of flatMap
@@ -303,7 +348,7 @@ def warn (msg : String) : Trace Unit :=
 def checkTensorName (name : String) : Trace Unit := do
   let st <- get
   if st.tensorNames.contains name then
-    throw "Tensor name {name} already in use"
+    throw s!"Tensor name '{name}' already in use"
   set { st with tensorNames := st.tensorNames.insert name }
 
 -- generate a unique tensor name
@@ -317,6 +362,11 @@ def genTensorName : Trace String := do
     n := n + 1
   set { st with tensorNames := st.tensorNames.insert name }
   return name
+
+-- Either check or generate a tensor name
+def tensorName : Option String -> Trace String
+  | none => genTensorName
+  | some n => do checkTensorName n; return n
 
 -- Run a `Trace` monad computation, and handle any generated warnings or errors.
 def tracer (g : List (Name × Term)) (m : Trace a) (showWarnings := true) : Err (String × a) :=

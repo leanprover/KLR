@@ -300,9 +300,10 @@ Ptr<Address> Address_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 113 || c != 0 || l != 5)
+  if (t != 113 || c != 0 || l != 6)
     throw std::runtime_error("Invalid Tag");
   Ptr<Address> x = ptr<Address>();
+  x->name = String_des(in);
   x->memory = Memory_des(in);
   x->parSize = Nat_des(in);
   x->freeSize = Nat_des(in);

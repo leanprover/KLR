@@ -30,13 +30,14 @@ def Access.lowerAccessPattern (a : Access) : KLR.Err BirAccessPattern := do
   -- laid out in row major form.
   let layout := Layout.rowMajorForm (← a.shape)
   let ap1 := a.interpPar
-  if ap1.start != 0 &&
-     ap1.start != 32 &&
-     ap1.start != 64 &&
-     ap1.start != 96
-  then throw "Cannot lower AccessPatterns with partition start of {ap1.start}."
-  if ap1.step != 1
-  then throw "Cannot lower AccessPattern with partition step size not equal to 1."
+  if a.tensor.address.memory != .hbm then
+    if ap1.start != 0 &&
+       ap1.start != 32 &&
+       ap1.start != 64 &&
+       ap1.start != 96
+    then throw s!"Cannot lower AccessPatterns with partition start of {ap1.start}."
+    if ap1.step != 1
+    then throw "Cannot lower AccessPattern with partition step size not equal to 1."
 
   let ap := CompileIndex.freePairs a.tensor ap1.num layout
   let ap := { ap with parOffset := ap1.start }

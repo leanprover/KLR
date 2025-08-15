@@ -1,0 +1,93 @@
+/-
+Copyright KLR Contributors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-/
+
+import KLR.Core
+import KLR.Trace.ISA
+import KLR.Trace.Types
+
+/-
+NKI Language builtins
+-/
+
+namespace KLR.Trace
+open Core
+
+nki builtin.lang.ndarray
+  (shape : Shape)
+  (dtype : Dtype)
+  (buffer : Option Memory := none)
+  (name : Option String := none)
+  (address : Option (Nat × Nat) := none) := do
+    let memory := buffer.getD .sbuf
+    let (parSize, freeSize) := Address.defaultSize shape dtype
+    let (parOffset, freeOffset) := match address with
+    | some (par, free) => (some par, some free)
+    | none => (none, none)
+    let name <- tensorName name
+    let address := { name, memory, parSize, freeSize, parOffset, freeOffset : Address }
+    let tensor <- TensorName.make name dtype shape address
+    return .expr (.value $ .access (.simple tensor)) (.tensor dtype shape)
+
+nki builtin.lang.par_dim (t : Term) := do
+  warn "par_dim is deprecated"
+  return t
+
+nki builtin.lang.get_nc_version := do
+  lookup `arch
+
+nki builtin.lang.program_id (axis : Int) := do
+  if axis != 0 then
+    throw s!"invalid program axis {axis} (must be zero)"
+  lookup (nl "_program_id")
+
+nki builtin.lang.num_programs (axes : Option Int := none) := do
+  if axes.getD 0 != 0 then
+    throw s!"invalid program axis {axes} (must be zero)"
+  lookup (nl "_num_programs")
+
+nki builtin.lang.program_ndim := do
+  lookup (nl "_program_ndim")
+
+nki builtin.lang.ds (start : Int) (size : Int) := do
+  return .mgItem start (start + size) 1
+
+-- We can't change the variable names to add an "_" or the macros will
+-- not resolve user parameters correctly.
+-- TODO remove this setting one builtins are fully implemented (or removed)
+set_option linter.unusedVariables false
+
+nki builtin.lang.load
+  (src : Access)
+  (mask : Term := .none)
+  (dtype : Option Dtype := none) := do
+  warn "load is not supported"
+  let d := src.tensor.dtype
+  let s <- src.shape
+  return .expr (.value (.access src)) (.tensor d s)
+
+nki builtin.lang.store (dst : Access) (src : Access) := do
+  warn "store is not supported"
+  return .none
+
+nki builtin.lang.copy (src : Access) (dst : Access) := do
+  warn "copy is not supported"
+  return .none
+
+nki builtin.lang.transpose (src : Access) := do
+  warn "transpose is not supported"
+  let d := src.tensor.dtype
+  let s <- src.shape
+  return .expr (.value (.access src)) (.tensor d s)

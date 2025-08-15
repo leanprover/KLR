@@ -16,8 +16,9 @@ limitations under the License.
 
 import KLR.Core
 import KLR.Trace.ISA
+import KLR.Trace.Lang
+import KLR.Trace.Python
 import KLR.Trace.Types
-import KLR.Trace.Tensor
 
 /-
 # Basic tracing facilities
@@ -25,65 +26,8 @@ import KLR.Trace.Tensor
 Basic tracing definitions only deal with Terms (not Python sources)
 -/
 
-namespace KLR.Core.Value
-
--- Python-like rules for conversion to boolean
-def isTrue : Value -> Bool
-  | .var _    => true
-  | .bool b   => b
-  | .int i    => i != 0
-  | .float f  => f != 0.0
-  | .access _ => true
-
--- Python-like rules for conversion to integer
-/-
-def toInt : Const -> Err Int
-  | .none       => throw "none cannot be converted to an integer"
-  | .bool true  => return 1
-  | .bool false => return 0
-  | .int i      => return i
-  | .float f    =>
-      -- Python is a bit strange here, it truncates both
-      -- positive and negative numbers toward zero
-      if f < 0.0 then
-        return (Int.ofNat (Float.floor (-f)).toUInt64.toNat).neg
-      else
-        return Int.ofNat (Float.floor f).toUInt64.toNat
-  | .string s   =>
-      -- Fortunately, Lean's String.toInt appears to be compatible
-      -- with Python's int(string) conversion.
-      match s.toInt? with
-      | .none  => throw s!"string {s} cannot be converted to an integer"
-      | .some i => return i
--/
-end KLR.Core.Value
-
 namespace KLR.Trace
 open Core
-
--- Truthiness of Terms following Python
-
-def Term.isTrue : Term -> Err Bool
-  | .none
-  | .tuple []
-  | .list []  => return false
-  | .module _
-  | .mgrid
-  | .mgItem ..
-  | .builtin ..
-  | .source _
-  | .string _
-  | .tuple _
-  | .list _
-  | .ellipsis
-  | .slice ..
-  | .store ..
-  | .pointer .. => return true
-  | .expr (.value v) _ => return v.isTrue
-  | .expr _ _ => throw "non-constant expression"
-
-def Term.isFalse (t : Term) : Err Bool :=
-  return not (<- t.isTrue)
 
 -- Binary Operators
 
@@ -103,44 +47,56 @@ private def mulseq (l : List a) : Value -> Err (List a)
   | _           => throw "invalid multiply"
 
 -- Binary operators on constants
+
+private def uintOp (op : BinOp) (l r : UInt64) : Trace Term :=
+  let ret (x : UInt64) : Trace Term := return (Int.ofNat x.toNat)
+  match op with
+  | .lshift => ret (l <<< r)
+  | .rshift => ret (l >>> r)
+  | .or => ret (l ||| r)
+  | .xor => ret (l ^^^ r)
+  | .and => ret (l &&& r)
+  | _ => throw "unsupported operator on integers"
+
+private def intOp (op : BinOp) (l r : Int) : Trace Term :=
+  match op with
+  | .add => return l + r
+  | .sub => return l - r
+  | .mul => return l * r
+  | .div => if r = 0 then throw "division by zero" else
+            return Float.ofInt l / Float.ofInt r
+  | .mod => return l % r
+  | .pow => return l.pow r.toNat
+  | .floor => if r = 0 then throw "division by zero" else
+              return l / r
+  | _ => uintOp op (UInt64.ofInt l) (UInt64.ofInt r)
+
+private def floatOp (op : BinOp) (l r : Float) : Trace Term :=
+  match op with
+  | .add => return l + r
+  | .sub => return l - r
+  | .mul => return l * r
+  | .div => return l / r
+  | .pow => return l.pow r
+  | .floor => return (l / r).floor
+  | _ => throw "unsupported operator on floating point numbers"
+
 -- Note: both Lean and Python use big integers
 -- TODO: imcomplete
 private def valueOp : BinOp -> Value -> Value -> Trace Term
   -- tensors
-  | op, .access l, .access r => tensor_tensor op l r
-  | op, .access t, v => tensor_scalar op t v
-  | op, v, .access t => scalar_tensor op v t
+  | _, .access _, _
+  | _, _, .access _ =>
+    throw "binary operators on tensors not supported. Use nki.isa directly."
   -- integers
-  | .add, .int l, .int r => return int (l + r)
-  | .sub, .int l, .int r => return int (l - r)
-  | .mul, .int l, .int r => return int (l * r)
-  | .div, .int l, .int r => return int (l / r)
-  | .mod, .int l, .int r => return int (l % r)
-  | .floor, .int l, .int r =>
-    if r = 0 then throw "division by zero" else
-    let samesgn := (l < 0) ↔ (r < 0)
-    let (l,r) := (l.natAbs, r.natAbs)
-    let d := Int.ofNat (l / r)
-    return int (
-      if l % r = 0 then (if samesgn then id else Int.neg) d
-      else (if samesgn then d else Int.neg (d + 1)))
+  | op, .int l, .int r => intOp op l r
+  | op, .int l, .bool r => intOp op l r.toInt
+  | op, .bool l, .int r => intOp op l.toInt r
   -- floats
-  | .add, .float l, .float r => return float (l + r)
-  | .sub, .float l, .float r => return float (l - r)
-  | .mul, .float l, .float r => return float (l * r)
-  | .div, .float l, .float r => return float (l / r)
-  | .add, .float l, .int r => return float (l + .ofInt r)
-  | .sub, .float l, .int r => return float (l - .ofInt r)
-  | .mul, .float l, .int r => return float (l * .ofInt r)
-  | .div, .float l, .int r => return float (l / .ofInt r)
-  | .add, .int l, .float r => return float (.ofInt l + r)
-  | .sub, .int l, .float r => return float (.ofInt l - r)
-  | .mul, .int l, .float r => return float (.ofInt l * r)
-  | .div, .int l, .float r => return float (.ofInt l / r)
+  | op, .float l, .float r => floatOp op l r
+  | op, .float l, .int r => floatOp op l (Float.ofInt r)
+  | op, .int l, .float r => floatOp op (Float.ofInt l) r
   | op,_,_ => throw s!"unimplemented operator {op}"
-where
-  int (i : Int) : Term := .expr (.value (.int i)) .int
-  float (f : Float) : Term := .expr (.value (.float f)) .float
 
 -- Binary operators on tensors (see Tensor.lean)
 private def exprOp : BinOp -> Expr -> Expr -> Trace Term
@@ -159,11 +115,14 @@ def termOp : BinOp -> Term -> Term -> Trace Term
   | .mul, .tuple  l,          .expr (.value  v) _
   | .mul, .expr (.value v) _, .tuple l  => return .tuple (<- mulseq l v)
   -- mgrid
-  | .add, .expr (.value (.int i)) _, .mgItem a b
-  | .add, .mgItem a b, .expr (.value (.int i)) _ => return .mgItem (a+i) (b+i)
+  | .add, .expr (.value (.int i)) _, .mgItem a b s
+  | .add, .mgItem a b s, .expr (.value (.int i)) _ => return .mgItem (a+i) (b+i) (s+1)
+  | .add, .mgItem a b c, .mgItem x y z => return .mgItem (a+x) (b+y) (c+z)
+  | .mul, .expr (.value (.int i)) _, .mgItem a b s
+  | .mul, .mgItem a b s, .expr (.value (.int i)) _ => return .mgItem (a*i) (b*i) (s*1)
   -- expressions
   | op, .expr l _, .expr r _ => exprOp op l r
-  | a, b, c => throw s!"unsupported operator {repr a} {repr b} {repr c}"
+  | _, _, _ => throw "unsupported operator"
 
 /-
 Comparison operators
@@ -201,11 +160,6 @@ where
     | [], [] => return true
     | x :: xs, y :: ys => return (<- termEq x y) && (<- teq xs ys)
     | _, _ => return false
-
--- Python "is" operator is the same as == for all literals, except for lists.
-private def termIsIdentical : Term -> Term -> Trace Bool
-  | .list _, .list _ => return false
-  | l, r => termEq l r
 
 -- Python: contains operator: 1 in [1,2,3]
 -- TODO: strings
@@ -312,8 +266,8 @@ def toIndex (shape : List Nat) (ts : List Term) : Err (List Core.Index) := do
           throw "index out of range of tensor dimension"
         return .slice (<- Core.Slice.make x.toNat y.toNat z) :: (<- toIndex ds ts)
     | .tuple _ | .list  _ => throw "nested tuple/list indexes not supported"
-    | .mgItem s e =>
-        return .slice (<- Core.Slice.make s.toNat e.toNat 1) :: (<- toIndex ds ts)
+    | .mgItem s e t =>
+        return .slice (<- Core.Slice.make s.toNat e.toNat t) :: (<- toIndex ds ts)
     | t => do
         let i : Int <- fromNKI? t
         if i < 0 || i >= d then
@@ -393,7 +347,8 @@ def pointerAccess (addr : Core.Address) (i : List Term) : Err Term := do
     return (s.l, b - s.l)
 
   let ptr (parOffset freeOffset : Option Nat) (size : Nat × Nat) : Term :=
-    .pointer { memory := addr.memory
+    .pointer { name := addr.name
+               memory := addr.memory
                parSize := size.1
                freeSize := size.2
                parOffset,
@@ -433,9 +388,8 @@ def mgrid (indexes : List Term) : Err Term := do
       if b == none then
         throw "size not specified"
       let b := b.get!
-      if c != none && c != some 1 then
-        throw "step size must be 1"
-      l := l ++ [.mgItem a b]
+      let c := c.getD 1
+      l := l ++ [.mgItem a b c]
     | _ => throw "expecting slice"
   match l with
   | [] => throw "mgrid must have at least 1 dimension"
@@ -468,19 +422,29 @@ TODO: For now we ignore unknown names in NKI modules.
 Once the Python APIs are updated we can stop doing this.
 -/
 
+private def offset (a : Access) : Trace Term := do
+  let bap <- a.lowerAccessPattern
+  return bap.offset
+
+private def pattern (a : Access) : Trace Term := do
+  let bap <- a.lowerAccessPattern
+  let pairs := bap.pattern.map fun p =>
+    Term.tuple [Term.int p.step, Term.nat p.num]
+  return .tuple pairs
+
 def Term.attr : Term -> String -> Trace Term
-  | .module n, id => do
-     let name := n.str id
-     try lookup name
-     catch _ =>
-       if isNKI name
-       then return .expr (.value $ .var name.toString) (.obj name)
-       else throw s!"{id} is not in module {n}"
+  | .module n, id => lookup (.str n id)
+  | .pointer addr, "name" => return .string addr.name
   | .pointer addr, "start" => return tuple [addr.parOffset, addr.freeOffset]
   | .pointer addr, "size" => return tuple [addr.parSize, addr.freeSize]
+  | .pointer addr, "ptr" => return memPtrBuiltin addr
   | .pointer addr, "view" => return memViewBuiltin addr
   | .expr _ (.tensor d _), "dtype" => return (dtype d)
   | .expr _ (.tensor _ s), "shape" => return (tuple $ s.toList.map some)
+  | .expr (.value (.access a)) _, "address" => return .pointer a.tensor.address
+  | .expr (.value (.access a)) _, "offset" => offset a
+  | .expr (.value (.access a)) _, "pattern" => pattern a
+  | t@(.expr _ (.tensor ..)), "reshape" => return reshapeBuiltin t
   | .expr _ (.obj n), id => lookup (n.str id)
   | _, id => throw s!"unsupported attribute {id}"
 where
@@ -496,18 +460,30 @@ where
     match s.toName with
     | .str _ s => s
     | _ => panic! "internal error (dtype name)"
-  isNKI : Name -> Bool
-  | .str `neuronxcc.nki _ => true
-  | .str n _ => isNKI n
-  | _ => false
 
+nki builtin.memPtr
+    (self : Address)
+    (size : (Nat × Nat))
+    (offset : Option (Nat × Nat) := none)
+    (name : Option String := none) := do
+  let name <- tensorName name
+  let memory := self.memory
+  let parSize := size.1
+  let freeSize := size.2
+  let (parOffset, freeOffset) := match offset with
+    | none => (none, none)
+    | some (x, y) => (some x, some y)
+  return .pointer {
+    name, memory,
+    parSize, freeSize,
+    parOffset, freeOffset
+  }
 
--- Also used in ndarray (below)
-private def tensorName : Option String -> Trace String
-  | none => genTensorName
-  | some n => do checkTensorName n; return n
-
-nki memView (self : Address) (dtype : Dtype) (shape : Shape) (name : Option String := none) := do
+nki builtin.memView
+    (self : Address)
+    (dtype : Dtype)
+    (shape : Shape)
+    (name : Option String := none) := do
   let name <- tensorName name
   if parWF: shape.parDim <= self.parSize then
     if freeWF: shape.freeElements * dtype.size <= self.freeSize then
@@ -517,58 +493,19 @@ nki memView (self : Address) (dtype : Dtype) (shape : Shape) (name : Option Stri
     else throw "shape is too large for memory region"
   else throw "partition size is too large for memory region"
 
-nki ndarray
-  (shape : Shape)
-  (dtype : Dtype)
-  (buffer : Option Memory := none)
-  (name : Option String := none)
-  (address : Option (Nat × Nat) := none) := do
-    let memory := buffer.getD .sbuf
-    let (parSize, freeSize) := Address.defaultSize shape dtype
-    let (parOffset, freeOffset) := match address with
-    | some (par, free) => (some par, some free)
-    | none => (none, none)
-    let address := { memory, parSize, freeSize, parOffset, freeOffset : Address }
-    let name <- tensorName name
-    let tensor <- TensorName.make name dtype shape address
-    return .expr (.value $ .access (.simple tensor)) (.tensor dtype shape)
-
--- TODO reorganize these
-nki par_dim (t : Term) := do
-  warn "par_dim is deprecated"
-  return t
-
--- TODO nki macro doesn't work if there are no arguments
-def get_nc_version (_ : List Term) (_ : List (String × Term)) : Trace Term := do
-  lookup `arch
-
-nki ds (start : Int) (size : Int) := do
-  return .mgItem start (start + size)
-
-nki python_len (t : Term) := do
-  match t with
-  | .tuple l | .list l => return .expr (.value (.int l.length)) .int
-  | _ => throw "invalid argument"
-
--- TODO: should take arbitrary number of arguments and work on more types
-nki python_min (a : Term) (b : Term) := do
-  match a, b with
-  | .expr (.value (.int a)) _, .expr (.value (.int b)) _ =>
-     return .expr (.value (.int (min a b))) .int
-  | _, _ => throw "invalid arguments"
-
--- TODO move these after removing type
-private instance : Coe Int Term where
-  coe i := .expr (.value (.int i)) .int
-
-private instance : Coe Float Term where
-  coe f := .expr (.value (.float f)) .float
-
-nki negate (t : Term) := do
-  match t with
-  | (x : Int) => return x.neg
-  | (x : Float) => return x.neg
-  | _ => throw "cannot negate values of this type"
+nki builtin.reshape
+    (self : Access)
+    (shape : List Nat)
+    (dtype : Option Dtype := none)
+    (name : Option String := none) := do
+  let tensor <- match self with
+    | .simple t => pure t
+    | _ => throw "cannot reshape a complex access pattern"
+  let dtype := dtype.getD tensor.dtype
+  let name <- tensorName name
+  let shape <- Shape.fromList shape
+  let t <- TensorName.make name dtype shape tensor.address
+  return .expr (.value (.access (.simple t))) (.tensor dtype shape)
 
 /-
 # Static environment of builtins
@@ -586,20 +523,45 @@ and the builtin environment will then contain:
 
 This indirection is necessary because the builtin implementations take terms
 and live in the Trace monad, which contains an environment of terms.
+
+The builtin environment is tracked as a Lean environment extension (see Builtin.lean).
+We extract the builtins into a list here. Note, this means all modules with builtins
+should be imported into this module.
 -/
 
-def builtinEnv : List (Name × BuiltinFn) :=
-  (memViewName, memView) ::
-  (nl "par_dim", par_dim) ::
-  (nl "ndarray", ndarray) ::
-  (nl "ds", ds) ::
-  (nisa "get_nc_version", get_nc_version) ::
-  ( `len, python_len) ::
-  ( `min, python_min) ::
-  (`builtin.op.negate, negate) ::
-  Isa.builtins
+open Lean in
+run_meta
+  let builtins : Builtins := extension.getState (<- getEnv)
+  let mut set : Std.HashSet Name := Std.HashSet.emptyWithCapacity builtins.builtins.size
+  let mut pairs := #[]
+  for builtin in builtins.builtins do
+    if set.contains builtin.nkiName then
+      throwError s!"{builtin.nkiName} ({builtin.leanName}) redefined"
+    set := set.insert builtin.nkiName
+    let str := Syntax.mkStrLit builtin.nkiName.toString
+    let trm := mkIdent builtin.leanName
+    let pair <- `( ( $(str).toName, $trm:term ))
+    pairs := pairs.push pair
+  let name := mkIdent (Name.str (<- getCurrNamespace) "builtinFns")
+  let cmd <- `( def $name : List (Name × BuiltinFn) := [ $pairs,* ] )
+  liftCommandElabM (Elab.Command.elabCommand cmd)
 
 def builtinFn (name : Name) : Trace BuiltinFn :=
-  match builtinEnv.lookup name with
+  match builtinFns.lookup name with
   | some f => return f
   | none => throw s!"unimplemented API {name}"
+
+/-
+We have a convention on naming, but this is temporary while the NKI APIs
+are being rewritten. For now, we register names in the builtin namespace
+to public names, e.g. builtin.isa.X => nki.isa.X.
+-/
+def builtinEnv : List (Name × Term) := Id.run do
+  builtinFns.flatMap fun (name, _) =>
+    let fn := .builtin name (.obj name) none
+    let names : List Name := match name with
+      | .str `builtin.python n => [.str .anonymous n]
+      | .str `builtin.isa n => [nisa n, name]
+      | .str `builtin.lang n => [nl n, name]
+      | _ => [name]
+    names.map fun n => (n, fn)

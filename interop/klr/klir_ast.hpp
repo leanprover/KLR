@@ -52,6 +52,7 @@ struct Shape final {
 };
 
 struct Address final {
+  String name;
   Memory memory;
   Nat parSize;
   Nat freeSize;

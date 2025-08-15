@@ -28,24 +28,34 @@ namespace KLR.Trace
 -- https://awsdocs-neuron.readthedocs-hosted.com/en/latest/general/nki/nki_arch_guides.html
 def keywords : List (Name × Term) :=
   let ptr name memory parSize freeSize :=
-    (name, Term.pointer { memory, parSize, freeSize })
+    (name, Term.pointer { name := name.toString, memory, parSize, freeSize })
   [ const_int `arch 2
   , ptr `hbm  .hbm  0xffffffff 0xffffffff -- TODO: size of HBM?
   , ptr `sbuf .sbuf 128 0x30000
   , ptr `psum .psum 128 0x4000
   ]
 
-def globalEnv := keywords ++ NKIEnv ++ NumpyEnv
+def globalEnv := keywords ++ builtinEnv ++ NKIEnv ++ NumpyEnv
 
-def runNkiKernel (k : KLR.NKI.Kernel) (pid : Nat := 1) : Err (String × KLR.Core.Kernel) := do
-  let pid := Term.expr (.value (.int pid)) .int
-  let env := (nl "program_id", pid) :: globalEnv
+def runNkiKernel
+     (k : KLR.NKI.Kernel)
+     (pid : Option (Nat × Nat) := none)
+     : Err (String × KLR.Core.Kernel) := do
+  let int i := Term.expr (.value (.int i)) .int
+  let env := match pid with
+    | none => (nl "_program_id", int 0) ::
+              (nl "_num_programs", int 1) ::
+              (nl "_program_ndim", int 0) :: globalEnv
+    | some (p,n) => (nl "_program_id", int p) ::
+                    (nl "_num_programs", int n) ::
+                    (nl "_program_ndim", int 1) :: globalEnv
   tracer env (traceKernel k)
 
 -- TODO: probably the messages are identical, but they might not be
 -- TODO: check that inputs and outputs are the same
 def runLncKernels (k : KLR.NKI.Kernel) : Err (String × KLR.Core.LncKernel) := do
-  let (m0, k0) <- runNkiKernel k 0
+  let num := k.grid.max 1
+  let (m0, k0) <- runNkiKernel k (0, num)
   let kernel : Core.LncKernel := {
     name := k0.name
     inputs := k0.inputs
@@ -54,8 +64,8 @@ def runLncKernels (k : KLR.NKI.Kernel) : Err (String × KLR.Core.LncKernel) := d
   }
   let mut msgs := [m0]
   let mut bodies := [k0.body]
-  for i in [1:k.grid.max 1] do
-    let (msg, k) <- runNkiKernel k i
+  for i in [1:num] do
+    let (msg, k) <- runNkiKernel k (i,num)
     msgs := msg :: msgs
     bodies := k.body :: bodies
   let msg := "\n".intercalate msgs.reverse

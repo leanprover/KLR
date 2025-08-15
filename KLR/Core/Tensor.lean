@@ -102,6 +102,7 @@ The Address structure is represented as a "pointer" term during tracing.
 -/
 @[serde tag = 113]
 structure Address where
+  name : String
   memory : Memory
   parSize : Nat
   freeSize : Nat
@@ -120,6 +121,7 @@ def withDefaultSize (addr : Address) (shape : Shape) (dtype : Dtype) : Address :
 
 instance : Inhabited Address where
   default := {
+    name := "empty"
     memory := .sbuf
     parSize := 0
     freeSize := 0
@@ -453,7 +455,7 @@ def shape (bap : BirAccessPattern) : Shape :=
   | ⟨ _, parNum ⟩ :: rest => .mk parNum $ rest.map fun pair => pair.num
 
 def fromAccessPattern (ap : AccessPattern) : BirAccessPattern :=
-  let free := ap.shape.freeElements
+  let free := ap.tensor.shape.freeElements
   { tensor := ap.tensor
     offset := free * ap.parOffset + ap.freeOffset
     pattern := ⟨ free, ap.parNum ⟩ :: ap.freePattern

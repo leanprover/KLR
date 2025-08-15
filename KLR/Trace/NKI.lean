@@ -36,6 +36,7 @@ def NKIEnv : List (Name × Term) :=
   , module nki_
   , module nki_isa
   , module nki_lang
+  , module `math
   , const_int (.str (nl "tile_size") "pmax") 128
   , const_int (.str (nl "tile_size") "gemm_stationary_fmax") 128
   , const_int (.str (nl "tile_size") "gemm_moving_fmax") 512
@@ -43,9 +44,11 @@ def NKIEnv : List (Name × Term) :=
   , const_int (.str (nisa "nc_version") "gen2") 2
   , const_int (.str (nisa "nc_version") "gen3") 3
   , (nl "mgrid", .mgrid)
+  , const_var (nl "sbuf")
+  , const_var (nl "shared_hbm")
+  , const_var (nl "less")
+  , const_var (nl "int8")
   ]
-  ++ builtinEnv.map fun (x,_) => (x, .builtin x (.obj x) none)
-
 
 -- The result of a statement evaluation
 inductive Result where
@@ -128,6 +131,7 @@ def value : Value -> Trace Term
       let shape <- Core.Shape.fromList s
       let dtype <- fromNKI? (.expr (.value $ .var dty) .none)
       let addr : Core.Address := {
+        name := name
         memory := .hbm
         parSize := shape.parDim
         freeSize := shape.freeElements * dtype.size

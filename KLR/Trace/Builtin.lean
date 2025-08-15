@@ -15,6 +15,7 @@ limitations under the License.
 -/
 
 import KLR.Core
+import KLR.Trace.Extension
 import KLR.Trace.FromNKI
 import KLR.Trace.Types
 
@@ -64,9 +65,17 @@ names, which are just names that would be syntactically invalid in python.
 We define all of these special names here.
 -/
 
-def memViewName := hidden "mem.view"
+def memPtrName := `builtin.memPtr
+def memPtrBuiltin (a : Address) : Term :=
+  .builtin memPtrName default (some (.pointer a))
+
+def memViewName := `builtin.memView
 def memViewBuiltin (a : Address) : Term :=
   .builtin memViewName default (some (.pointer a))
+
+def reshapeName := `builtin.reshape
+def reshapeBuiltin (t : Term) : Term :=
+  .builtin reshapeName default (some t)
 
 -- conveience functions for creating environment entries
 
@@ -167,6 +176,12 @@ def elabArgs (args : Array SynArg) :
 @[command_elab nkicmd]
 def klrElab : CommandElab
   | `(nki $name $args* := do $rhs*) => do
+    let nkiName := name.getId
+    let nkiName' := nkiName.toString.replace "." "_"
+    let leanName := Name.str (<- getCurrNamespace) nkiName'
+    let name := mkIdent (Name.str .anonymous nkiName')
+    modifyEnv fun env =>
+      extension.addEntry env { nkiName, leanName : Builtin }
     let (ids, tys, dflts) <- elabArgs args
     let pos := ((List.range ids.size).map Syntax.mkNatLit).toArray
     let names := ids.map idToStrLit

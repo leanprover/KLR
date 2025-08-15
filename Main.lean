@@ -201,8 +201,12 @@ def info (p : Parsed) : IO UInt32 := do
   return 0
 
 def compile (p : Parsed) : IO UInt32 := do
+  let debug := p.hasFlag "debug"
   let kernel : KLR.Python.Kernel <- gatherTmp p
-  let _kernel <- compilePython kernel
+  let kernel <- compilePython kernel
+  IO.println "OK."
+  if debug then
+    IO.println s!"Kernel:\n {repr kernel}"
   return 0
 
 def trace (p : Parsed) : IO UInt32 := do
