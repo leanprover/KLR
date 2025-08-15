@@ -319,7 +319,8 @@ def evalKLRCmd := `[Cli|
   ARGS:
     moduleFileName : String;      "File of the Python module with the kernel function"
     kernelFunctionName : String;  "Name of the kernel function"
-    ...inputFiles : String;       ".npy files corresponding to the inputs to the kernel, in positional order"
+-- TODO: add this once all the dependencies are figured out. Causing a build failure during upgrade from 4.21 to 4.22
+--    ...inputFiles : String;       ".npy files corresponding to the inputs to the kernel, in positional order"
 ]
 
 def klrCmd : Cmd := `[Cli|

@@ -45,18 +45,19 @@ lean_exe "klr" where
 
 require Archive from "KLR/Util/Archive"
 
+-- TODO: Update to 4.22 when this bug is fixed: https://github.com/leanprover/lean4-cli/issues/50
 require Cli from git
-  "https://github.com/leanprover/lean4-cli.git" @ "v4.21.0"
+  "https://github.com/leanprover/lean4-cli.git" @ "v4.22.0"
 
 require Gzip from "KLR/Util/Gzip"
 
 require NRT from "KLR/NRT"
 
 require plausible from git
-  "https://github.com/leanprover-community/plausible" @ "v4.21.0"
+  "https://github.com/leanprover-community/plausible" @ "v4.22.0"
 
 require TensorLib from git
-  "https://github.com/leanprover/TensorLib.git" @ "v0.0.13"
+  "https://github.com/leanprover/TensorLib.git" @ "v0.0.15"
 
 -- Comment the above and uncomment this for local development
 -- require TensorLib from "../TensorLib"

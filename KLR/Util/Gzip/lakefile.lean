@@ -70,7 +70,7 @@ extern_lib liblean_gzip pkg := do
   buildStaticLib (pkg.staticLibDir / name) #[ffiO]
 
 require Cli from git
-  "https://github.com/leanprover/lean4-cli.git" @ "v4.21.0"
+  "https://github.com/leanprover/lean4-cli.git" @ "v4.22.0"
 
 require FFIUtil from "../FFIUtil"
 require Util from "../.."
