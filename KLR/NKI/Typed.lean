@@ -15,5 +15,4 @@ limitations under the License.
 -/
 
 import KLR.NKI.Typed.Common
-import KLR.NKI.Typed.Python
 import KLR.NKI.Typed.TIR

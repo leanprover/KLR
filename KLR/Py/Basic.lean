@@ -14,12 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -/
 
-import KLR.Py.Types
 import KLR.Py.Util
 
 namespace KLR.Py
 
 open Lean (ToJson)
+
+abbrev Ident := String
+
+abbrev QualifiedIdent := (List Ident × Ident)
+
+def QualifiedIdent.toString : QualifiedIdent → String
+  | ([], i) => i
+  | (qs, i) => s!"{".".intercalate qs}.{i}"
+
+instance instToStringQualifiedIdent : ToString QualifiedIdent where
+  toString := QualifiedIdent.toString
 
 inductive Value
   | none
@@ -74,14 +84,14 @@ inductive Exp'
   | tuple (es : List Exp)
   | list (es : List Exp)
   | ifExp (test body orelse : Exp)
-  | call (f : Exp) (typArgs : List Typ) (args : List Arg)
+  | call (f : Exp) (typArgs : List Exp) (args : List Arg)
   | access (e : Exp) (indices : List Index)
   | attr (e : Exp) (field : Ident)
 deriving ToJson
 
 end
 
-instance : Inhabited Exp := ⟨{ exp := .var "" }⟩
+instance : Inhabited Exp := ⟨{ exp := .value .none }⟩
 
 inductive Pattern
   | var (name : Ident)
@@ -100,7 +110,7 @@ structure FuncDef where
   name : Ident
   typParams : List Ident
   params : List Param
-  returns : Option Typ
+  returns : Option Exp
   body : List Stmt
   decorators : List Exp
 deriving ToJson
@@ -115,7 +125,7 @@ inductive Stmt'
   | imprt (mod : QualifiedIdent) (as : Option Ident)
   | imprtFrom (mod : QualifiedIdent) (imp : Ident) (as : Option Ident)
   | ret (e : Exp)
-  | assign (lhs : Exp) (typ : Option Typ) (rhs : Exp)
+  | assign (lhs : Exp) (typ : Option Exp) (rhs : Exp)
   | assert (e : Exp)
   | funcDef (dfn : FuncDef)
   | ifStm (cond : Exp) (thn : List Stmt) (elifs : List (Exp × List Stmt)) (els : Option (List Stmt))

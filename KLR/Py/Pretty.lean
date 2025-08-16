@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -/
 
-import KLR.NKI.Typed.Python.Basic
+import KLR.Py.Basic
 
 /-!
 # A pretty printer for the Python AST
@@ -40,7 +40,7 @@ where
     else
       c :: go tl
 
-namespace KLR.NKI.Typed.Python
+namespace KLR.Py
 
 open Std (Format)
 open Std.Format (group align joinSep)
@@ -59,37 +59,6 @@ def paren (f : Format) : Format :=
 
 def braket (f : Format) : Format :=
   "[" ++ f ++ "]"
-
--- mutual
-
--- def Typ.listReprPrec : List Typ → Nat → List Format
---   | [], _ => []
---   | hd :: tl, p => hd.reprPrec p :: Typ.listReprPrec tl p
-
--- def Typ.reprPrec : Typ → Nat → Format
---   | { typ, .. }, p => typ.reprPrec p
-
--- def Typ'.reprPrec : Typ' → Nat → Format
---   | .var name, _ => name
---   | .prim p, _ => s!"{p}"
---   | .func typParams params, _ =>
---     let params := joinSep (params.map (Typ.reprPrec · 0)) ", "
---     let body := s!"FunctionType[{params}]"
---     if typParams.length > 0 then
---       s!"forall {joinSep typParams " "}. {body}"
---     else
---       body
---   | .iter e, _ => s!"Iterable[{e.reprPrec 0}]"
---   | .tuple ts, _ =>
---     let ts := joinSep (Typ.listReprPrec ts 0) ", "
---     s!"tuple[{ts}]"
---   | .list t, _ =>
---     s!"list[{t.reprPrec 0}]"
-
--- end
-
--- instance instReprTyp : Repr Typ where
---   reprPrec t n := Typ.reprPrec t n
 
 def Value.reprPrec : Value → Nat → Format
   | .none, _ => "None"

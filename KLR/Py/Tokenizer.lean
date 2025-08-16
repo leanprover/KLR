@@ -14,8 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -/
 
-import Aesop
-import KLR.Py.AST
+import KLR.Py.Basic
 import KLR.Py.PosLemmas
 import KLR.Py.Util
 
@@ -163,7 +162,7 @@ def checkIndent (startPos : String.Pos) : TokenizerM (CheckIndentResult startPos
   let next := input.findAux (· != ' ') input.endPos startPos
   have hle : startPos.1 ≤ next.1 := String.findAux_le_start
 
-  if h : input.atEnd next then return .lineEmpty ⟨next + ⟨1⟩, by grind [String.Pos.add_byteIdx]⟩ else
+  if h : input.atEnd next then return .lineEmpty ⟨next + ⟨1⟩, by grind only [String.Pos.add_byteIdx]⟩ else
   if let some next ← newline next then return .lineEmpty <| next.fromLe hle
 
   let errPos : Pos := ⟨next, input.next' next h⟩
