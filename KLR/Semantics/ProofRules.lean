@@ -164,6 +164,7 @@ theorem wpPureSync {Φ : Value DataT → Value DataT → @PROP DataT}
     refine ⟨stepN_1_iff_step.mpr <| H1 _, stepN_1_iff_step.mpr <| H2 _⟩
   -- Eliminate the later
   refine Entails.trans ?_ Iris.BI.later_intro
+  refine Entails.trans ?_ BIUpdate.intro
   -- Conclude
   exact sep_symm
 
@@ -176,9 +177,7 @@ theorem wpMono {Φ : Value DataT → Value DataT → @PROP DataT} (P : PROP Data
 -- TODO: The "free" BiLoeb instance from BILaterContractive (which we have done for UPred)
 instance : BILoeb (PROP DataT) := sorry
 
-
-
-theorem wpFrameSync' {Φ : Value DataT → Value DataT → PROP DataT} (Hk : 1 ≤ k):
+theorem wpFrameSync {Φ : Value DataT → Value DataT → PROP DataT} (Hk : 1 ≤ k):
     ⊢ ∀ piL piR,
         wp k ⟨.run piL, []⟩ ⟨.run piR, []⟩
           (fun v1 v2 => iprop(⌜v1 = .kont⌝ ∗ ⌜v2 = .kont⌝ ∗ wp k ⟨.run poL, Fl⟩ ⟨.run poR, Fr⟩ Φ))
@@ -226,6 +225,7 @@ theorem wpFrameSync' {Φ : Value DataT → Value DataT → PROP DataT} (Hk : 1 �
     istop
     -- Turn the crank
     refine .trans ?_ later_intro
+    refine .trans ?_ BIUpdate.intro
     istart
     iintro ⟨Hwp, Hσ⟩
     isplit l [Hσ]
@@ -239,184 +239,46 @@ theorem wpFrameSync' {Φ : Value DataT → Value DataT → PROP DataT} (Hk : 1 �
     -- We will have to update the resources so only clear the bupd from the hypothesis
     istop
     apply Entails.trans bupd_frame_l ?_
-    refine .trans ?_ bupd_idem.mp
-    apply BIUpdate.mono
-    -- istart
-    -- iintro ⟨IH, ⟨cl', cr', nl, nr, %Hsteps, H⟩⟩
-
-    -- cl' and cr' are both .run .. []
-    -- have : ∃ PiL',  ({ current := ExecState.run PiL', context := [] }, sl) = cl' := sorry
-
-
-    -- -- rcases Hsteps with ⟨Hnl, Hnr, Hnlx, Hnrx, Hsl, Hsr⟩
-    -- -- Will step to cl' and cr'
-    -- iexists cl'
-    -- iexists cr'
-    -- iexists nl
-    -- iexists nr
-    -- isplit r
-    -- · ipure_intro
-    --   -- Step lifting lemma: If we can make steps in an empty context
-    --   -- The same steps in an extended context will also reach the same state.
-    --   sorry
-    -- -- Get the resources out from under the later
-    -- apply Entails.trans later_sep.mpr
-    -- apply later_mono
-    -- istart
-    -- iintro ⟨IH, ⟨Hσ, Hwp⟩⟩
-    -- isplit l [Hσ]
-    -- · iexact Hσ
-
-    -- Hack: specialize the emp from the IH
-    -- refine .trans sep_emp.mpr ?_
-    -- istart
-    -- iintro ⟨⟨IH, Hwp⟩, Hemp⟩
-    -- ispecialize IH Hemp
-
-
-
-
-    sorry
-
-    -- iright
-    -- iintro sl sr Hs
-    -- -- Clear the bupds
-
-    -- -- I defeinitely need to take exactly nl and nr steps because
-    -- -- that tells me about my updates state.
-
-    -- iexists cl'
-    -- iexists cr'
-    -- iexists nl
-    -- iexists nr
-    -- isplit r
-    -- · ipure_intro
-    --   rcases Hsteps with ⟨_, _, _, _, _, _⟩
-    --   refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try trivial
-    --   · -- The frame lifting lemma
-    --     -- What if cl' and cr' aren't .run's?
-    --     sorry
-    --   · sorry
-    -- · sorry
-
-
-    -- So the bad case is:
-    -- We must take one step on the left to get to .cont (ie bl is [])
-    -- .cont is at least k steps away on the right
-
-    -- Can I strengthen my inductive invariant to include b1 = [] ↔ b2 = []?
-    -- This is definitely true of my initial state
-    -- Otherwise, I either have both of them being done,
-    -- or both can take at least one step
-    -- Ah but the strengthened IH does not necessarily hold on the remainders
-
-
-
-/-
-theorem wpFrameSync' {Φ : Value DataT → Value DataT → PROP DataT} (Hk : 1 ≤ k):
-    ⊢ ∀ b1 b2 ℓ1 ℓ2, /- ⌜b1 = [] ↔ b2 = [] ⌝ -∗ -/
-        wp k ⟨.run ⟨b1, ℓ1⟩, []⟩ ⟨.run ⟨b2, ℓ2⟩, []⟩
-          (fun v1 v2 => iprop(⌜v1 = .kont⌝ ∗ ⌜v2 = .kont⌝ ∗ wp k ⟨.run ⟨p1, ℓ1'⟩, Fl⟩ ⟨.run ⟨p2, ℓ2'⟩, Fr⟩ Φ))
-    -∗ wp k ⟨.run ⟨b1, ℓ1⟩, ⟨p1, ℓ1'⟩ :: Fl⟩ ⟨.run ⟨b2, ℓ2⟩, ⟨p2, ℓ2'⟩ :: Fr⟩ Φ := by
-  refine BI.wand_entails (Entails.trans ?_ loeb)
-  istart
-  iintro IH - b1 b2 ℓ1 ℓ2 /- %Hbeqv -/ Hwp
-  -- Unfold the wp in the hypothesis
-  refine .trans (sep_mono .rfl (equiv_iff.mp <| wp_unfold).mp) ?_
-  -- Unfold the wp in the conclusion
-  refine .trans ?_ (equiv_iff.mp <| wp_unfold).mpr
-  istart
-  iintro ⟨IH, (H|H)⟩
-  · -- Value case.
-    -- Still use right case to take exactly one step to move to the continuation
-    -- Apply the wp
-    iright
-    iintro sl sr Hσ
-    -- Clear the bupds
-    istop
-    apply Entails.trans sep_assoc.mp ?_
-    apply Entails.trans (sep_mono .rfl BIUpdate.frame_r) ?_
-    apply Entails.trans bupd_frame_l ?_
-    apply BIUpdate.mono
-    istart
-
-    -- Obtain new resources
-    iintro ⟨-, ⟨vk1, vk2, %Hv1, %Hv2, %Hvk1, %Hvk2, Hwp⟩, Hσ⟩
-
-    -- It will step to the continuation in one step
-    iexists ⟨⟨ExecState.run (p1, ℓ1'), Fl⟩, sl⟩
-    iexists ⟨⟨ExecState.run (p2, ℓ2'), Fr⟩, sr⟩
-    iexists 1
-    iexists 1
-    isplit r
-    · ipure_intro
-      -- A run state being value implies that b1 and b2 are both empty
-      obtain ⟨_, rfl⟩ := NML.toVal_run_isSome_inv _ Hv1
-      obtain ⟨_, rfl⟩ := NML.toVal_run_isSome_inv _ Hv2
-      refine ⟨Nat.one_pos, Nat.one_pos, Hk, Hk, ?_, ?_⟩
-      · exact stepN_1_iff_step.mpr rfl
-      · exact stepN_1_iff_step.mpr rfl
-    istop
-    -- Turn the crank
-    refine .trans ?_ later_intro
-    istart
-    iintro ⟨Hwp, Hσ⟩
-    isplit l [Hσ]
-    · iexact Hσ
-    · iexact Hwp
-  · -- Lift the steps from the wp up into the frame
-    iright
-    iintro sl sr Hσ
-    ispecialize H sl sr Hσ
-    istop
-    apply Entails.trans bupd_frame_l ?_
     apply BIUpdate.mono
     istart
     iintro ⟨IH, ⟨cl', cr', nl, nr, %Hsteps, H⟩⟩
-    -- rcases Hsteps with ⟨Hnl, Hnr, Hnlx, Hnrx, Hsl, Hsr⟩
+
+    -- cl' and cr' are both .run .. []
+    obtain ⟨PiL', sl', rfl⟩ : ∃ PiL' sl',  cl' = (⟨ExecState.run PiL', []⟩, sl') := sorry
+    obtain ⟨PiR', sr', rfl⟩ : ∃ PiR' sr',  cr' = (⟨ExecState.run PiR', []⟩, sr') := sorry
+    simp only []
+
+    -- -- rcases Hsteps with ⟨Hnl, Hnr, Hnlx, Hnrx, Hsl, Hsr⟩
     -- Will step to cl' and cr'
-    iexists cl'
-    iexists cr'
+    iexists (⟨ExecState.run PiL', poL :: Fl⟩, sl')
+    iexists (⟨ExecState.run PiR', poR :: Fr⟩, sr')
     iexists nl
     iexists nr
     isplit r
     · ipure_intro
-      exact Hsteps
+      -- Step lifting lemma: If we can make steps in an empty context
+      -- The same steps in an extended context will also reach the same state.
+      sorry
+    -- Get the resources out from under the later
+    apply Entails.trans later_sep.mpr
+    apply later_mono
 
-    sorry
+    -- Hack: specialize the emp from the IH
+    refine .trans sep_emp.mpr ?_
+    istart
+    iintro ⟨⟨IH, Hwp⟩, Hemp⟩
+    ispecialize IH Hemp PiL' PiR'
 
-    -- iright
-    -- iintro sl sr Hs
-    -- -- Clear the bupds
-
-    -- -- I defeinitely need to take exactly nl and nr steps because
-    -- -- that tells me about my updates state.
-
-    -- iexists cl'
-    -- iexists cr'
-    -- iexists nl
-    -- iexists nr
-    -- isplit r
-    -- · ipure_intro
-    --   rcases Hsteps with ⟨_, _, _, _, _, _⟩
-    --   refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try trivial
-    --   · -- The frame lifting lemma
-    --     -- What if cl' and cr' aren't .run's?
-    --     sorry
-    --   · sorry
-    -- · sorry
-
-
-    -- So the bad case is:
-    -- We must take one step on the left to get to .cont (ie bl is [])
-    -- .cont is at least k steps away on the right
-
-    -- Can I strengthen my inductive invariant to include b1 = [] ↔ b2 = []?
-    -- This is definitely true of my initial state
-    -- Otherwise, I either have both of them being done,
-    -- or both can take at least one step
-    -- Ah but the strengthened IH does not necessarily hold on the remainders
--/
+    -- Eliminate the bupd
+    refine .trans BIUpdate.frame_r ?_
+    refine BIUpdate.mono ?_
+    istart
+    iintro ⟨⟨Hσ, IH⟩, Hwp⟩
+    isplit l [Hσ]
+    · iexact Hσ
+    simp
+    iapply Hwp
+    iexact IH
 
 
 /-
@@ -552,6 +414,7 @@ theorem wpDesync : ⊢ dwp 1 1 K K p1 p2 (wp K · · Φf) -∗ wp (DataT := Data
     refine ⟨?_, ?_, ?_, ?_, by trivial⟩ <;> try omega
   -- Eliminate the later
   refine .trans ?_ later_intro
+  refine .trans ?_ BIUpdate.intro
   -- Conclude using current resources
   exact sep_symm
 

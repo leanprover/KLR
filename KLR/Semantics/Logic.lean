@@ -127,7 +127,7 @@ def wp_F (wp : Nat → Prog DataT → Prog DataT → (Value DataT → Value Data
       (∀ sl, ∀ sr, state_interp sl sr -∗ |==>
        ∃ cl', ∃ cr', ∃ nl, ∃ nr, ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K ∧ nr ≤ K ∧
          SmallStep.StepN nl (p1, sl) cl' ∧ SmallStep.StepN nr (p2, sr) cr'⌝ ∗
-         ▷ (state_interp cl'.2 cr'.2 ∗ wp K cl'.1 cr'.1 Φf)))
+         ▷ |==> (state_interp cl'.2 cr'.2 ∗ wp K cl'.1 cr'.1 Φf)))
 
 instance wp_contractive : Iris.OFE.Contractive (α := Nat → Prog DataT → Prog DataT → (Value DataT → Value DataT → PROP DataT) → PROP DataT) wp_F := by
   sorry
@@ -142,7 +142,7 @@ theorem wp_unfold {K : Nat} {p1 p2 : Prog DataT} {Φf : Value DataT → Value Da
       ( ∀ sl, ∀ sr, state_interp sl sr -∗ |==>
         ∃ cl', ∃ cr', ∃ nl, ∃ nr,
           ⌜0 < nl ∧ 0 < nr ∧ nl ≤ K ∧ nr ≤ K ∧ SmallStep.StepN nl (p1, sl) cl' ∧ SmallStep.StepN nr (p2, sr) cr'⌝ ∗
-            ▷ (state_interp cl'.2 cr'.2 ∗ wp K cl'.1 cr'.1 Φf))) := by
+            ▷ |==> (state_interp cl'.2 cr'.2 ∗ wp K cl'.1 cr'.1 Φf))) := by
   apply fixpoint_unfold (f := ⟨wp_F, OFE.ne_of_contractive wp_F⟩)
 
 end weakestpre
@@ -196,9 +196,12 @@ theorem wp_to_fupd_PRelS :
         exists nl; exists nr; exists cl'; exists cr'
       refine .trans ?_ (BIUpdate.mono <| later_mono <| laterN_mono <| pure_mono <| Hcont)
       -- Apply the IH
-      refine .trans (later_mono <| wand_elim' IH) ?_
-      -- Exchange bupd and later
-      exact later_bupd_comm_plain
+      -- apply BIUpdate.mono
+      refine .trans ?_ later_bupd_comm_plain
+      refine later_mono ?_
+      refine .trans ?_ bupd_idem.mp
+      apply BIUpdate.mono
+      exact wand_elim' IH
 
 
 open KLR.Core HasHHMap in
