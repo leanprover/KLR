@@ -28,5 +28,5 @@ require plausible from git
 require TensorLib from git
   "https://github.com/leanprover/TensorLib.git" @ "v0.0.12"
 
--- Comment the above and uncomment this for local development
--- require TensorLib from "../../TensorLib"
+require iris from git
+  "https://github.com/markusdemedeiros/iris-lean.git"
