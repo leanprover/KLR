@@ -15,27 +15,47 @@ limitations under the License.
 -/
 
 import Lean
-import KLR.Core
-namespace KLR.NKI.Typed.Python
+import TensorLib
 
-open KLR.Core (Pos)
-open Lean (FileMap)
+open Lean (ToJson FileMap)
 
-class HasFileInfo (m : Type → Type) where
-  input    : m String
-  fileName : m String
-  fileMap  : m FileMap
+deriving instance ToJson for TensorLib.Dtype, String.Pos
 
-def fromStringPos {m} [Monad m] [HasFileInfo m] (startPos endPos : String.Pos) : m Pos := do
-  let fileMap ← HasFileInfo.fileMap
-  let { line, column } := fileMap.toPosition startPos
-  let { line := lineEnd, column := columnEnd } := fileMap.toPosition endPos
-  pure { line, column, lineEnd, columnEnd }
+/-- Dummy implementation for debugging use -/
+instance instTojsonTensor : ToJson TensorLib.Tensor where
+  toJson _ := .str "tensor"
 
-def formatError (input : String) (fileName : String) (fileMap : FileMap) (pre : String) (msg : String) (startPos endPos : String.Pos) : String :=
-  let { line, column } := fileMap.toPosition startPos
-  let endPos := input.prev endPos
-  let { line := lineEnd, column := columnEnd } := fileMap.toPosition endPos
+def TensorLib.Dtype.toString : TensorLib.Dtype → String
+  | .bool    => "bool"
+  | .int8    => "int8"
+  | .int16   => "int16"
+  | .int32   => "int32"
+  | .int64   => "int64"
+  | .uint8   => "uint8"
+  | .uint16  => "uint16"
+  | .uint32  => "uint32"
+  | .uint64  => "uint64"
+  | .float32 => "float32"
+  | .float64 => "float64"
+
+namespace KLR.Py
+
+structure Pos where
+  pos     : String.Pos := {}
+  stopPos : String.Pos := {}
+deriving ToJson, Repr, Inhabited, BEq
+
+structure FileInfo where
+  content  : String
+  fileMap  : FileMap
+  fileName : String
+
+def FileInfo.formatError (f : FileInfo) (pre : String) (msg : String) (pos : Pos) : String :=
+  let fileMap := f.fileMap
+  let input := f.content
+
+  let { line, column } := fileMap.toPosition pos.pos
+  let { line := lineEnd, column := columnEnd } := f.fileMap.toPosition (pos.stopPos)
 
   let startPos := fileMap.ofPosition { line := line, column := 0 }
   let endPos := fileMap.ofPosition { line := lineEnd + 1, column := 0 }
@@ -46,43 +66,35 @@ def formatError (input : String) (fileName : String) (fileMap : FileMap) (pre : 
       let markStart := if i == 0 then column else 0
       let markEnd := if i == lines.length - 1 then columnEnd else line.length
       let pre := "".pushn ' ' markStart
-      let mark := "".pushn '^' (markEnd - markStart + 1)
+      let mark := "".pushn '^' (markEnd - markStart)
       line ++ "\n" ++ pre ++ mark
   )
   let markedCode := Std.Format.nest 2 ("\n" ++ Std.Format.joinSep markedLines "\n")
 
-  let posMsg := s!"{pre}: {fileName}:{line}:{column}:"
+  let posMsg := s!"{pre}: {f.fileName}:{line}:{column}:"
   let errMsg := s!"{msg}"
   s!"{posMsg}{markedCode}\n{errMsg}"
 
-def formatErrorM {m} [Monad m] [HasFileInfo m] (pre : String) (msg : String) (startPos endPos : String.Pos) : m String := do
-  let input    ← HasFileInfo.input
-  let fileName ← HasFileInfo.fileName
-  let fileMap  ← HasFileInfo.fileMap
-  return formatError input fileName fileMap pre msg startPos endPos
-
 namespace _Debug
 
-def s := "1
+def input := "1
 23456
   79
   a
   80000
 bcd"
-def fm := s.toFileMap
-def sp := s.find (· == '3')
-def ep := s.find (· == '8')
-
-def err := formatError s "/usr/code/my.py" fm "SyntaxError" "invalid syntax" sp (ep + ⟨1⟩)
+def pos : Pos := ⟨input.find (· == '3'), input.next <| input.find (· == '8')⟩
+def info : FileInfo := ⟨input, input.toFileMap, "/usr/code/my.py"⟩
+def err := info.formatError "SyntaxError" "invalid syntax" pos
 
 /--
 info: SyntaxError: /usr/code/my.py:2:1:
   23456
-   ^^^^^
+   ^^^^
     79
-  ^^^^^
-    a
   ^^^^
+    a
+  ^^^
     80000
   ^^^
 invalid syntax

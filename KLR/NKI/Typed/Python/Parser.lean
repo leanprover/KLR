@@ -167,6 +167,10 @@ def numLit : Parser Exp' :=
   (.action (.token ⟨.int 0, {}, {}⟩) fun i => .value (.int i))
   <|> (.action (.token ⟨.float 0, {}, {}⟩) fun f => .value (.float f))
 
+def boolLit : Parser Exp' :=
+  (.action "True" fun () => .value (.bool true))
+  <|> (.action "False" fun () => .value (.bool false))
+
 def strLit : Parser Exp' :=
   .action (.token ⟨.string "", {}, {}⟩) fun s => .value (.string s)
 
@@ -176,7 +180,7 @@ def name : Parser Ident :=
 def atom : Parser Exp :=
   (mkPos fileMap (
     (.action name fun id => .var id)
-    <|> numLit <|> strLit
+    <|> numLit <|> strLit <|> boolLit
     <|> (.action (bracketList expression) Exp'.list)
     <|> (.action "..." fun () => .value .ellipsis)
   ) fun e pos => ⟨pos, e⟩)
@@ -343,6 +347,8 @@ def importStmt : Parser Stmt' :=
   (.action (
     "from" >> dottedName >> "import" >> name >> PExp.optional ("as" >> name)
   ) fun ((), mod, (), imp, as) => .imprtFrom mod imp (as.map Prod.snd))
+  <|> (.invalid ("import" >> dottedName >> "from" >> dottedName)
+        "did you mean to use 'from ... import ...' instead?")
   <|> (.action (
     "import" >> dottedName >> PExp.optional ("as" >> name)
   ) fun ((), mod, as) => .imprt mod (as.map Prod.snd))
@@ -435,12 +441,13 @@ def compountStmt : Parser Stmt :=
   ) fun s pos => ⟨pos, s⟩
 
 def statements : Parser (List Stmt) :=
-  .action (
+  (.action (
     .many1 (
       (.action (compountStmt fileMap) List.singleton)
       <|> simpleStmts fileMap
     )
-  ) List.flatten
+  ) List.flatten)
+  <|> PExp.invalid .empty "expected statements"
 
 end
 
@@ -469,7 +476,7 @@ def run (input : String) (fileName : String) (fileMap : FileMap := input.toFileM
       | .newline => "newline"
       | .dedent => "dedent"
       | .indent => "indent",
-    errFormat msg startPos endPos := formatErrorPure fileName fileMap "Syntax Error" msg startPos endPos
+    errFormat msg startPos endPos := formatError input fileName fileMap "Syntax Error" msg startPos endPos
   }
   let p := prods fileMap
   let stmts ← PExp.run p .file c
@@ -521,9 +528,9 @@ def Prog.printExpTree (p : Prog) : Std.Format :=
   Std.Format.joinSep es "\n"
 
 def input := "
-#1 * (1()
+0 + 1 + 2
 "
-#eval run input "<input>"
+-- #eval run input "<input>"
 #eval (run input "<input>").map Prog.printExpTree
 
 end Debug

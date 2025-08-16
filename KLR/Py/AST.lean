@@ -14,51 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -/
 
-import KLR.Core
-import KLR.NKI.Typed.Common
+import KLR.Py.Types
+import KLR.Py.Util
 
-namespace KLR.NKI.Typed.Python
+namespace KLR.Py
 
-open KLR.Core (Pos)
 open Lean (ToJson)
-
-/-!
-# Python IR
-
-High-level IR for NKI that closely resembles the python AST
--/
-
-abbrev Ident := String
-
-abbrev QualifiedIdent := (List Ident × Ident)
-
-def QualifiedIdent.toString : QualifiedIdent → String
-  | ([], i) => i
-  | (qs, i) => s!"{".".intercalate qs}.{i}"
-
-instance instToStringQualifiedIdent : ToString QualifiedIdent where
-  toString := QualifiedIdent.toString
-
-mutual
-
-structure Typ where
-  pos : Pos := {}
-  typ : Typ'
-deriving ToJson
-
-inductive Typ'
-  | var (name : Ident)
-  | prim (p : Prim)
-  | func (typParams : List Ident) (params : List Typ)
-  | iter (e : Typ)
-  | tuple (ts : List Typ)
-  | list (t : Typ)
-deriving ToJson
-
-end
-
-instance : Inhabited Typ where
-  default := { typ := .prim .none }
 
 inductive Value
   | none

@@ -33,7 +33,7 @@ inductive PExp (τ ν : Type) (T : τ → Type) (N : ν → Type) : Type → Typ
   | leadingPrec {α : Type} (p : Nat) (e : PExp τ ν T N α) : PExp τ ν T N α
   | trailingPrec {α : Type} (l r : Nat) (e : PExp τ ν T N α) : PExp τ ν T N α
   | withPos {α β : Type} (e : PExp τ ν T N α) (f : α → String.Pos → String.Pos → β) : PExp τ ν T N β
-  | invalid {α : Type} (e : PExp τ ν T N α) (msg : String) : PExp τ ν T N α
+  | invalid {α β : Type} (e : PExp τ ν T N α) (msg : String) : PExp τ ν T N β
 
 abbrev Production (τ ν : Type) (T : τ → Type) (N : ν → Type) := (n : ν) → PExp τ ν T N (N n)
 
@@ -52,13 +52,17 @@ def maxPrec := 1024
 structure State where
   prec : Nat := maxPrec
   pos : Nat := 0
-  err : Option String := none
+  err : List String := []
 
-def State.setErr (e : String) (s : State) : State :=
-  {s with err := some e}
+def State.pushErr (e : String) (s : State) : State :=
+  {s with err := e :: s.err}
 
 def State.next (s : State) : State :=
   {s with pos := s.pos + 1}
+
+def State.pullErr (s1 : State) (s2 : State) : State :=
+  {s1 with err := s2.err}
+infix:100 "err<<" => State.pullErr
 
 /--
 A monadic setup doesn't buy us much here, since we require fine-grained control
@@ -92,13 +96,13 @@ partial def parse {α} (e : PExp τ ν T N α) (prods : Production τ ν T N) : 
       let (r2, s') := e2.parse prods c s'
       match r2 with
       | .some d2 => ((d1, d2), s')
-      | .none => (none, s)
-    | none => (none, s)
+      | .none => (none, s err<< s')
+    | none => (none, s err<< s')
   | choice e1 e2 =>
     let (r1, s') := e1.parse prods c s
     match r1 with
     | some d1 => (d1, s')
-    | none => e2.parse prods c s
+    | none => e2.parse prods c (s err<< s')
   | star e =>
     let (r, s') := e.parse prods c s
     match r with
@@ -106,30 +110,31 @@ partial def parse {α} (e : PExp τ ν T N α) (prods : Production τ ν T N) : 
       let (tl, s') := (star e).parse prods c s'
       let tl := tl.getD []
       ((hd :: tl), s')
-    | _ => (some [], s)
+    | _ => (some [], s err<< s')
   | not e =>
-    let (r, _) := e.parse prods c s
+    let (r, s') := e.parse prods c s
     match r with
     | some _ => (none, s)
-    | none   => ((), s)
+    | none   => ((), s err<< s')
   | action e f =>
     let (r, s') := e.parse prods c s
     match r with
     | some d  => ((f d), s')
-    | none => (none, s )
+    | none => (none, s err<< s')
   | leadingPrec prec e =>
     let savedPrec := s.prec
     let (r, s') := e.parse prods c {s with prec := prec}
     match r with
     | some d => (d, {s' with prec := savedPrec})
-    | none => (none, s)
+    | none => (none, s err<< s')
   | trailingPrec l r e =>
     let savedPrec := s.prec
-    if s.prec < savedPrec then (none, s.setErr "low precedence, consider parenthesis") else
+    dbg_trace "prec tk={c.input[s.pos]?.map c.tkToString} l={l} r={r} saved={savedPrec}"
+    if s.prec < savedPrec then (none, s.pushErr "low precedence, consider parenthesis") else
     let (r, s') := e.parse prods c {s with prec := r}
     match r with
     | some d => (d, {s' with prec := savedPrec})
-    | none => (none, s)
+    | none => (none, s err<< s')
   | withPos e f =>
     parseWithPos e (fun r s startPos endPos =>
       match r with
@@ -139,7 +144,9 @@ partial def parse {α} (e : PExp τ ν T N α) (prods : Production τ ν T N) : 
   | invalid e msg =>
     parseWithPos e (fun r s startPos endPos =>
       match r with
-      | some d => (none, s.setErr <| c.errFormat msg startPos endPos)
+      | some d =>
+        let msg := c.errFormat msg startPos endPos
+        (none, s.pushErr msg)
       | none => (none, s)
     ) c s
 where
@@ -155,21 +162,24 @@ where
       f r s' startPos (c.tkEndPos last)
     | none =>
       let msg := c.errFormat "internal error, missing position information" startPos (c.tkEndPos fst)
-      (none, s.setErr msg)
+      (none, s.pushErr msg)
 
 def run (prods : Production τ ν T N) (start : ν) (c : Context τ ν T N) : Except String (N start) :=
   match (prods start).parse prods c {} with
   | (some d, s) =>
+    -- dbg_trace "errs: [\n{"\n".intercalate s.err}\n]"
     if h : s.pos < c.input.size then
-      let last := c.input[s.pos]
+      let msg := s.err.getLastD <|
+        let last := c.input[s.pos]
         let startPos := c.tkStartPos last
         let endPos := c.tkEndPos last
-      let msg := c.errFormat "invalid syntax" startPos endPos
+        c.errFormat "invalid syntax" startPos endPos
       .error msg
     else
       .ok d
   | (none, s) =>
-    let msg := s.err.getD (
+    -- dbg_trace "errs: [\n{"\n".intercalate s.err}\n]"
+    let msg := s.err.getLastD (
       match c.input[s.pos]? with
       | some tk =>
         let startPos := c.tkStartPos tk
@@ -188,6 +198,9 @@ instance {α} : OrElse (PExp τ ν T N α) where
 @[inline] def optional {α} (e : PExp τ ν T N α) : PExp τ ν T N (Option α) :=
   .action e some
   <|> .action .empty (fun _ => none)
+
+@[inline] def and (e : PExp τ ν T N α) : PExp τ ν T N Unit :=
+  .not <| .not e
 
 def many1 {α} (e : PExp τ ν T N α) : PExp τ ν T N (List α) :=
   .action (e >> PExp.star e) fun (hd, tl) => hd :: tl

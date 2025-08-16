@@ -89,7 +89,7 @@ structure State where
   indentStack : List Nat       := [0]
   /-- https://docs.python.org/3/reference/lexical_analysis.html#implicit-line-joining -/
   lineJoin    : Bool           := false
-  bracesStack : List TokenKind := []
+  bracesStack : List (TokenKind × String.Pos) := []
 
 abbrev TokenizerM := ReaderT Context (EStateM String State)
 
@@ -102,6 +102,7 @@ def TkResult.isSuccess {startPos : String.Pos} : TkResult startPos → Bool
   | .failure   => false
 
 instance : HasFileInfo TokenizerM where
+  input := return (← read).input
   fileName := return (← read).fileName
   fileMap := return (← read).fileMap
 
@@ -109,7 +110,7 @@ instance : HasFileInfo TokenizerM where
 TODO: Python-style errors where we print out the relevant source code.
 -/
 def throw {α} (msg : String) (startPos endPos : String.Pos) : TokenizerM α := do
-  let msg ← formatError "SyntaxError" msg startPos endPos
+  let msg ← formatErrorM "SyntaxError" msg startPos endPos
   monadLift (m := EStateM String State) (EStateM.throw msg)
 
 def throwInternal {α} (startPos endPos : String.Pos) : TokenizerM α := do
@@ -135,14 +136,14 @@ def setLineJoin (lj : Bool) : TokenizerM Unit := do
   let s ← get
   set {s with lineJoin := lj}
 
-def getBracesStack : TokenizerM (List TokenKind) := do
+def getBracesStack : TokenizerM (List (TokenKind × String.Pos)) := do
   pure (← get).bracesStack
 
-def pushBrace (br : TokenKind) : TokenizerM Unit := do
+def pushBrace (br : TokenKind) (pos : String.Pos) : TokenizerM Unit := do
   let s ← get
-  set {s with bracesStack := br :: s.bracesStack}
+  set {s with bracesStack := (br, pos) :: s.bracesStack}
 
-def popBrace : TokenizerM (Option TokenKind) := do
+def popBrace : TokenizerM (Option (TokenKind × String.Pos)) := do
   let s ← get
   let stack := s.bracesStack
   set {s with bracesStack := stack.tail}
@@ -262,10 +263,10 @@ def checkIndent (startPos : String.Pos) : TokenizerM (PosGt startPos ⊕ PosGe s
 def checkBraces (brace : TokenKind) (startPos endPos : String.Pos) : TokenizerM Unit := do
   match brace with
   | tk"(" | tk"{" | tk"[" =>
-    pushBrace brace; setLineJoin true
+    pushBrace brace startPos; setLineJoin true
   | tk")" | tk"}" | tk"]" =>
     match ← popBrace with
-    | some left =>
+    | some (left, startPos) =>
       if bracesMatch left brace then
         if ← bracesStackempty then setLineJoin false
       else
@@ -620,7 +621,7 @@ def tokenize : TokenizerM Unit := do
   termination_by (input.endPos - startPos).byteIdx
   _ ← go {}
   match ← popBrace with
-  | some left => throwUnmatchedBrace left input.endPos input.endPos
+  | some (left, startPos) => throwUnmatchedBrace left startPos (startPos + ⟨1⟩)
   | none => popIndent input.endPos input.endPos 0
 
 def run (input : String) (fileName : String) (fileMap : FileMap := input.toFileMap) : Except String (Array Token) :=
@@ -640,3 +641,7 @@ namespace Test
     match tokens with
     | .ok tokens => tokensToString tokens
     | .error msg => msg
+
+  def s := "1 #1
+  "
+  #eval IO.println <| test s
