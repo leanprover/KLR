@@ -176,11 +176,11 @@ theorem wpMono {Φ : Value DataT → Value DataT → @PROP DataT} (P : PROP Data
 -- TODO: The "free" BiLoeb instance from BILaterContractive (which we have done for UPred)
 instance : BILoeb (PROP DataT) := sorry
 
-theorem wpFrameSync' {Φ : Value DataT → Value DataT → PROP DataT} :
-    ⊢ ∀ b1 b2 ℓ1 ℓ2, /- ⌜b1 = [] ↔ b2 = [] ⌝ -∗ -/
-        wp k (.run b1 ℓ1) (.run b2 ℓ2) (fun v1 v2 => iprop(⌜v1 = .cont⌝ ∗ ⌜v2 = .cont⌝ ∗ wp k (.run p1 ℓ1') (.run p2 ℓ2') Φ))
-    -∗ wp k (.run (.frame b1 ℓ1 :: p1) ℓ'1) (.run (.frame b2 ℓ2 :: p2) ℓ'2) Φ := by
-  sorry
+-- theorem wpFrameSync' {Φ : Value DataT → Value DataT → PROP DataT} :
+--     ⊢ ∀ b1 b2 ℓ1 ℓ2, /- ⌜b1 = [] ↔ b2 = [] ⌝ -∗ -/
+--         wp k (.run b1 ℓ1) (.run b2 ℓ2) (fun v1 v2 => iprop(⌜v1 = .cont⌝ ∗ ⌜v2 = .cont⌝ ∗ wp k (.run p1 ℓ1') (.run p2 ℓ2') Φ))
+--     -∗ wp k (.run (.frame b1 ℓ1 :: p1) ℓ'1) (.run (.frame b2 ℓ2 :: p2) ℓ'2) Φ := by
+--   sorry
   /-
   refine BI.wand_entails (Entails.trans ?_ loeb)
   istart
@@ -347,7 +347,7 @@ The `dwp` modality includes a basic update, allowing for each independent step t
 variable [NMLEnv DataT]
 
 /-- The desynchronized weakest precondition modality (dwp). -/
-def dwp (Lm Rm Lx Rx : Nat) (p1 p2 : ExecState DataT) (Φ : ExecState DataT → ExecState DataT → @PROP DataT) :
+def dwp (Lm Rm Lx Rx : Nat) (p1 p2 : ProgState DataT) (Φ : ProgState DataT → ProgState DataT → @PROP DataT) :
     @PROP DataT := iprop(
   ∀ s1, ∀ s2, state_interp s1 s2 -∗ |==>
   ∃ p1' p2', Φ p1' p2' ∗ ∃ s1' s2',
@@ -472,10 +472,10 @@ theorem dwpPureR (Hstep : SPure p2 p2' HP) (H : HP) (Hx : 0 < Rx := by omega) :
 open ChipIndex in
 /-- `dwp` for a single allocation step on the left. This is a little bit simpler
 than the `uwp` version since it quantifies over the generated location. -/
-theorem dwpAllocL (Hx : 1 < Lx := by omega) :
+theorem dwpAllocL (Hx : 1 < Lx := by omega) {loc : LocalContext DataT}:
     (∀ ℓₗ, (ℓₗ [S]⇉ₗ∅) -∗
-         dwp (Lm - 2) Rm (Lx - 2) Rx (.run p1' (loc.bindv x (.uptr <| sbufUnboundedIndex ℓₗ))) p2 Φ)
-    ⊢ dwp (DataT := DataT) Lm Rm Lx Rx (.run (.assign (.some x) (.alloc Memory.sbuf) :: p1') loc) p2 Φ := by
+         dwp (Lm - 2) Rm (Lx - 2) Rx ⟨.run ⟨p1', (loc.bindv x (.uptr <| sbufUnboundedIndex ℓₗ))⟩, F⟩ p2 Φ)
+    ⊢ dwp (DataT := DataT) Lm Rm Lx Rx ⟨.run ⟨(.assign (.some x) (.alloc Memory.sbuf) :: p1'), loc⟩, F⟩ p2 Φ := by
   sorry
   /-
   -- Unfold the dwp in the conclusion
@@ -538,10 +538,10 @@ theorem dwpAllocL (Hx : 1 < Lx := by omega) :
 open ChipIndex in
 /-- `dwp` for a single allocation step on the left. This is a little bit simpler
 than the `uwp` version since it quantifies over the generated location. -/
-theorem dwpAllocR (Hx : 1 < Rx := by omega) :
+theorem dwpAllocR (Hx : 1 < Rx := by omega) {loc : LocalContext DataT}:
     (∀ ℓᵣ, (ℓᵣ [S]⇉ₗ∅) -∗
-         dwp Lm (Rm - 2) Lx (Rx - 2) p1 (.run p2' (loc.bindv x (.uptr <| sbufUnboundedIndex ℓᵣ))) Φ)
-    ⊢ dwp (DataT := DataT) Lm Rm Lx Rx p1 (.run (.assign (.some x) (.alloc Memory.sbuf) :: p2') loc) Φ := by
+         dwp Lm (Rm - 2) Lx (Rx - 2) p1 ⟨.run ⟨p2', loc.bindv x (.uptr <| sbufUnboundedIndex ℓᵣ)⟩, F⟩ Φ)
+    ⊢ dwp (DataT := DataT) Lm Rm Lx Rx p1 ⟨.run ⟨(.assign (.some x) (.alloc Memory.sbuf) :: p2'), loc⟩, F⟩ Φ := by
   sorry
 
 /-
@@ -657,8 +657,8 @@ theorem dwpSetpL {v : DataT} (Hx : 0 < Lx := by omega) :
 
 -- TODO: Turn this into a uwp
 theorem dwpSetpL {v : DataT} (Hx : 0 < Lx := by omega) :
-    ((⟨i, x⟩ ↦ₗ mv) ∗ ((⟨i, x⟩ ↦ₗ some v) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx (.run p1 loc) p2 Φ))
-    ⊢ (dwp Lm Rm Lx Rx (.run (.setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v) :: p1) loc) p2 Φ) := by
+    ((⟨i, x⟩ ↦ₗ mv) ∗ ((⟨i, x⟩ ↦ₗ some v) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx ⟨.run ⟨p1, loc⟩, F⟩ p2 Φ))
+    ⊢ (dwp Lm Rm Lx Rx ⟨.run ⟨(.setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v) :: p1), loc⟩, F⟩ p2 Φ) := by
   -- Unfold the dwp in the conclusion
   iintro ⟨Hmv, Hdwp⟩
   conv => rhs; unfold dwp
@@ -699,8 +699,8 @@ theorem dwpSetpL {v : DataT} (Hx : 0 < Lx := by omega) :
 
 -- TODO: Turn this into a uwp
 theorem dwpSetpR {v : DataT} (Hx : 0 < Rx := by omega) :
-    ((⟨i, x⟩ ↦ᵣ mv) ∗ ((⟨i, x⟩ ↦ᵣ some v) -∗ dwp Lm (Rm - 1) Lx (Rx - 1) p1 (.run p2 loc) Φ))
-    ⊢ (dwp Lm Rm Lx Rx p1 (.run (.setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v) :: p2) loc) Φ) := by
+    ((⟨i, x⟩ ↦ᵣ mv) ∗ ((⟨i, x⟩ ↦ᵣ some v) -∗ dwp Lm (Rm - 1) Lx (Rx - 1) p1 ⟨.run ⟨p2, loc⟩, F⟩ Φ))
+    ⊢ (dwp Lm Rm Lx Rx p1 ⟨.run ⟨(.setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v) :: p2), loc⟩, F⟩ Φ) := by
   -- Unfold the dwp in the conclusion
   iintro ⟨Hmv, Hdwp⟩
   conv => rhs; unfold dwp
@@ -860,9 +860,9 @@ theorem dwpLoopDoneR (Hx : 1 < Rx := by omega) :
 
 /-- Generalize a wp by a relationship on its locations -/
 theorem wp_gen_loc (R : LocalContext DataT → LocalContext DataT → Prop) :
-  ⊢ (∀ locₗ locᵣ, ⌜R locₗ locᵣ⌝ -∗ wp (DataT := DataT) K (.run (sₗ :: pₗ) locₗ) (.run (sᵣ :: pᵣ) locᵣ) Φ) -∗
+  ⊢ (∀ locₗ locᵣ, ⌜R locₗ locᵣ⌝ -∗ wp (DataT := DataT) K ⟨.run ⟨(sₗ :: pₗ), locₗ⟩, F⟩ ⟨.run ⟨(sᵣ :: pᵣ), locᵣ⟩, F⟩ Φ) -∗
     ⌜R llₗ llᵣ⌝ -∗
-    wp (DataT := DataT) K (.run (sₗ :: pₗ) llₗ) (.run (sᵣ :: pᵣ) llᵣ) Φ := by
+    wp (DataT := DataT) K ⟨.run ⟨(sₗ :: pₗ), llₗ⟩, F⟩ ⟨.run ⟨(sᵣ :: pᵣ), llᵣ⟩, F⟩ Φ := by
   iintro H HR
   ispecialize H _ _ HR
   iexact H
@@ -889,8 +889,8 @@ TODO: Not sure this actually works at the frontend. Maybe make it a typeclass?
 structure uwp (DataT : Type _) where
   pre   : PROP DataT
   post  : PROP DataT
-  prog  : NML.ExecState DataT
-  prog' : NML.ExecState DataT
+  prog  : NML.ProgState DataT
+  prog' : NML.ProgState DataT
   steps : Nat
 
 /-- A `uwp` that uses its resources to take steps on the left. -/
@@ -1115,17 +1115,17 @@ structure ewpR (DataT : Type _) [NMLEnv DataT] extends ewp DataT where
     (∀ loc, ∃ σᵣ', ⌜locP loc → ExprStep expr loc σᵣ = .some (expr', σᵣ')⌝ ∗ |==> (state_interp σₗ σᵣ' ∗ post)))
 
 @[simp] def liftE (e : ewp DataT) (p : Expr DataT → Stmt DataT)
-    (ps : List (NML.Stmt DataT)) (loc : NML.LocalContext DataT) : uwp DataT where
+    (ps : List (NML.Stmt DataT)) (loc : NML.LocalContext DataT) (F : List (StackFrame DataT)) : uwp DataT where
   pre   := e.pre
   post  := e.post
-  prog  := .run (p e.expr :: ps) loc
-  prog' := .run (p e.expr' :: ps) loc
+  prog  := ⟨.run ⟨(p e.expr :: ps), loc⟩, F⟩
+  prog' := ⟨.run ⟨(p e.expr' :: ps), loc⟩, F⟩
   steps := 1
 
 /-- Lift an `ewpL` to a `uwpL` provided the context is `ExprLift` -/
 @[simp] def liftEL [NMLEnv DataT] (e : ewpL DataT) {p : Expr DataT → Stmt DataT} (Hp : EPLift p) {ps : List (NML.Stmt DataT)}
-     {loc : NML.LocalContext DataT} (Hloc : e.locP loc := by simp) : uwpL DataT where
-  touwp := liftE e.toewp p ps loc
+     {loc : NML.LocalContext DataT} {F : List (StackFrame DataT)} (Hloc : e.locP loc := by simp) : uwpL DataT where
+  touwp := liftE e.toewp p ps loc F
   spec  := by
     apply Entails.trans e.spec ?_
     simp only [liftE]
@@ -1140,8 +1140,8 @@ structure ewpR (DataT : Type _) [NMLEnv DataT] extends ewp DataT where
 
 /-- Lift an `ewpR` to a `uwpR` provided the context is `ExprLift` -/
 @[simp] def liftER [NMLEnv DataT] (e : ewpR DataT) {p : Expr DataT → Stmt DataT} (Hp : EPLift p) {ps : List (NML.Stmt DataT)}
-    {loc : NML.LocalContext DataT} (Hloc : e.locP loc := by simp) : uwpR DataT where
-  touwp := liftE e.toewp p ps loc
+    {loc : NML.LocalContext DataT} {F : List (StackFrame DataT)} (Hloc : e.locP loc := by simp) : uwpR DataT where
+  touwp := liftE e.toewp p ps loc F
   spec  := by
     apply Entails.trans e.spec ?_
     simp only [liftE]
@@ -1155,12 +1155,12 @@ structure ewpR (DataT : Type _) [NMLEnv DataT] extends ewp DataT where
     · iexact Hupd
 
 @[simp] def EPLift.uwpL [NMLEnv DataT] {p : Expr DataT → Stmt DataT} (Hp : EPLift p) (e : ewpL DataT) {ps : List (NML.Stmt DataT)}
-     {loc : NML.LocalContext DataT} (Hloc : e.locP loc := by simp) : uwpL DataT :=
-  liftEL e Hp (Hloc := Hloc) (ps := ps)
+     {loc : NML.LocalContext DataT} {F : List (StackFrame DataT)} (Hloc : e.locP loc := by simp) : uwpL DataT :=
+  liftEL e Hp (Hloc := Hloc) (ps := ps) (F := F)
 
 @[simp] def EPLift.uwpR [NMLEnv DataT] {p : Expr DataT → Stmt DataT} (Hp : EPLift p) (e : ewpR DataT) {ps : List (NML.Stmt DataT)}
-     {loc : NML.LocalContext DataT} (Hloc : e.locP loc := by simp) : uwpR DataT :=
-  liftER e Hp (Hloc := Hloc) (ps := ps)
+     {loc : NML.LocalContext DataT} {F : List (StackFrame DataT)} (Hloc : e.locP loc := by simp) : uwpR DataT :=
+  liftER e Hp (Hloc := Hloc) (ps := ps) (F := F)
 
 @[deprecated "Use EPure.ewpL instead. " (since:="2025/08/09") ]
 def ewpVarL [NMLEnv DataT] {s : String} (v : Value DataT) : ewpL DataT where

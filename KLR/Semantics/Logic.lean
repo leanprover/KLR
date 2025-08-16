@@ -28,7 +28,7 @@ import Iris.Algebra.HeapView
 section weakestpre
 open Iris.BI.BIBase KLR.Core Iris NML
 
-abbrev Prog DataT := (ExecState DataT)
+abbrev Prog DataT := (ProgState DataT)
 
 variable {DataT : Type _} [NMLEnv DataT]
 
