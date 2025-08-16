@@ -308,6 +308,7 @@ def Dtype.Interp (DataT : Type _) (d : KLR.Core.Dtype) : Type _ :=
 @[simp] def NML.toVal (e : ProgState DataT) : Option (Value DataT) :=
   match e with
   | ⟨.done v, []⟩ => .some v
+  | ⟨.run ⟨[], _⟩, []⟩ => .some .kont
   | _ => .none
 
 
@@ -317,7 +318,7 @@ def Dtype.Interp (DataT : Type _) (d : KLR.Core.Dtype) : Type _ :=
   -- Topmost frame is done but did not return a value.
   -- There are no more frames.
   -- This is the continuation value, which signifies this.
-  | ⟨⟨.run ⟨[], _⟩, []⟩, s⟩ => .some ⟨⟨.done .kont, []⟩, s⟩
+  | ⟨⟨.run ⟨[], _⟩, []⟩, s⟩ => .none
   -- Topmost frame is done but did not return a value.
   -- There is a pending frame.
   -- This will load and execute the pending frame.
@@ -381,10 +382,21 @@ def Dtype.Interp (DataT : Type _) (d : KLR.Core.Dtype) : Type _ :=
 
     -- | _ => .none
 
+
+theorem NML.toVal_run_isSome_inv v : toVal ⟨ExecState.run ⟨f, loc⟩, c2⟩ = some v →
+    c2 = [] ∧ f = [] := by cases f <;> cases c2 <;> simp [toVal]
+
 instance NML.Semantics [NMLEnv DataT] : SmallStep (ProgState DataT) (Value DataT) (State DataT) where
   Step e1 e2 := NML.step e1 = .some e2
   toVal := NML.toVal
-  toVal_isSome_isStuck {c _} _ _ := by rcases c with ⟨(_|_), c2⟩ <;> simp [toVal]
+  toVal_isSome_isStuck {c _} _ _ := by
+    rcases c with ⟨(⟨f, loc⟩|_), c2⟩
+    · intro H
+      rcases X : (toVal { current := ExecState.run (f, loc), context := c2 })
+      · rw [X] at H; simp at H
+      rcases NML.toVal_run_isSome_inv _ X with ⟨rfl, rfl⟩
+      simp [step]
+    · simp [toVal]
 
 instance [NMLEnv DataT] : Det (ProgState DataT) (Value DataT) (State DataT) where
   step_det {c c'} := by
