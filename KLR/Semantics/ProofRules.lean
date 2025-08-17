@@ -168,16 +168,58 @@ theorem wpPureSync {Φ : Value DataT → Value DataT → @PROP DataT}
   -- Conclude
   exact sep_symm
 
-
-theorem wpMono {Φ : Value DataT → Value DataT → @PROP DataT} (P : PROP DataT) :
-    P ∗ wp k p1 p2 Φ ⊢ wp k p1 p2 (iprop(Φ · · ∗ P)) := by
-  sorry
-
-
 -- TODO: The "free" BiLoeb instance from BILaterContractive (which we have done for UPred)
 instance : BILoeb (PROP DataT) := sorry
 
-theorem wpFrameSync {Φ : Value DataT → Value DataT → PROP DataT} (Hk : 1 ≤ k):
+theorem wpMono' {Φ : Value DataT → Value DataT → @PROP DataT} (P : PROP DataT) :
+    ⊢ ∀ p1 p2, P ∗ wp k p1 p2 Φ -∗ wp k p1 p2 (iprop(Φ · · ∗ P)) := by
+  refine BI.wand_entails (Entails.trans ?_ loeb)
+  istart
+  iintro IH - p1 p2  ⟨HP, Hwp⟩
+  refine .trans (sep_mono .rfl (equiv_iff.mp <| wp_unfold).mp) ?_
+  refine .trans ?_ (equiv_iff.mp <| wp_unfold).mpr
+  iintro ⟨p, (Hwp | Hwp)⟩
+  · ileft
+    refine .trans bupd_frame_l (BIUpdate.mono ?_)
+    iintro ⟨⟨-, P⟩, ⟨vl, vr, %H1, %H2, HΦ⟩⟩
+    iexists vl
+    iexists vr
+    isplit r; ipure_intro; trivial
+    isplit r; ipure_intro; trivial
+    isplit l [HΦ]
+    · iexact HΦ
+    · iexact P
+  · iright
+    iintro sl sr Hσ
+    ispecialize Hwp sl sr Hσ
+    refine .trans bupd_frame_l (BIUpdate.mono ?_)
+    iintro ⟨⟨IH, P⟩, cl', cr', nl, nr, %Hpure, Hwp⟩
+    iexists cl'
+    iexists cr'
+    iexists nl
+    iexists nr
+    isplit r; ipure_intro; trivial
+    -- Eliminate the later
+    istop
+    refine .trans (sep_mono (sep_mono .rfl later_intro) .rfl) ?_
+    refine .trans (sep_mono later_sep.mpr .rfl) ?_
+    refine .trans later_sep.mpr ?_
+    refine later_mono ?_
+    -- Eliminate the bupd
+    refine .trans bupd_frame_l ?_
+    refine BIUpdate.mono ?_
+    -- Hack: add in a .emp term to specialize the IH
+    refine .trans sep_emp.mpr ?_
+    istart
+    iintro ⟨⟨⟨IH, HP⟩, ⟨Hσ, Hwp⟩⟩, Hemp⟩
+    isplit l [Hσ]; iexact Hσ
+    ispecialize IH Hemp cl'.fst cr'.fst
+    iapply IH
+    isplit l [HP]; iexact HP
+    iexact Hwp
+
+
+theorem wpFrameSync' {Φ : Value DataT → Value DataT → PROP DataT} (Hk : 1 ≤ k):
     ⊢ ∀ piL piR,
         wp k ⟨.run piL, []⟩ ⟨.run piR, []⟩
           (fun v1 v2 => iprop(⌜v1 = .kont⌝ ∗ ⌜v2 = .kont⌝ ∗ wp k ⟨.run poL, Fl⟩ ⟨.run poR, Fr⟩ Φ))
