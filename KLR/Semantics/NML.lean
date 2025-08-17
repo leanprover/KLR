@@ -405,6 +405,102 @@ instance [NMLEnv DataT] : Det (ProgState DataT) (Value DataT) (State DataT) wher
     obtain ⟨rfl⟩ := H' ▸ H
     rfl
 
+/-- Predicate to restrict our loop lifting rule to programs with simple control flow.
+No nested loops (yet), no early returns. -/
+@[simp] def SimpleFrame : NML.Stmt DataT → Prop
+| .ret _  | .loop _ _ _ => False | _ => True
+
+@[simp] def SimpleStackFrame (P : NML.StackFrame DataT) : Prop :=
+  List.forall P.1 SimpleFrame
+
+theorem SimpleFrame.frame_inv [NMLEnv DataT] {P : StackFrame DataT} :
+  SimpleStackFrame P →
+  Step (Prog := ProgState DataT) (Val := Value DataT) ⟨⟨ExecState.run P, []⟩, s⟩ ⟨⟨ExecState.run P', F⟩, s'⟩ →
+  F = [] := by
+  rcases P with ⟨los, loc⟩
+  simp
+  cases los
+  · simp [Step]
+  · rename_i s0 los
+    cases s0 <;> simp [List.forall]
+    · simp [Step, Locals.bind, Option.bind]; grind
+    · simp [Step, Locals.bind, Option.bind]; grind
+    · simp [Step, Locals.bind, Option.bind]; grind
+
+-- TODO: More simple frame elmmas
+-- TODO: Define SimpleFrame semantically rather than by induction
+-- A Simple statement is one that executies without adding any frames and just
+-- peels off the first statment. It also doesn't return.
+
+theorem StepN_run_noframe_inv [NMLEnv DataT] {c : ProgState DataT × State DataT}
+    (Hsf : SimpleStackFrame P)
+    (H : SmallStep.StepN n ⟨⟨ExecState.run P, []⟩, s⟩ c) :
+    ∃ P' s', c = ⟨⟨ExecState.run P', []⟩, s'⟩ := by
+  revert P s c
+  induction n
+  · intro P s c Hsf H
+    obtain ⟨rfl⟩ := SmallStep.stepN_zero_inv H
+    exists P
+    exists s
+  · intro P s c Hsf
+    rename_i n IH
+    intro H
+    -- Cases on the next step
+    rw [Nat.add_comm] at H
+    obtain ⟨⟨⟨esn, Fn⟩, sn⟩, Hnext, Hrest⟩ := SmallStep.StepN_add_iff.mp H; clear H
+    have Hnext' := SmallStep.stepN_1_iff_step.mp Hnext; clear Hnext
+    rcases esn with (P'|v)
+    · -- Run.
+      -- Apply the IH. Frame is empty by lemma
+      obtain ⟨rfl⟩ := SimpleFrame.frame_inv Hsf Hnext'
+      -- For all simple stack frame cases, P' is P minus the first statement
+      -- The remainder is still a simple stack frame
+      sorry
+    · -- Done.
+      exfalso
+      rcases P with ⟨los, loc⟩
+      cases los
+      · simp_all [Step]
+      · rename_i head _
+        -- There's only one way to step to done and that is if head is .ret
+        -- TODO: Make this a lemma
+        cases head <;> simp_all [List.forall]
+        · simp [Step] at Hnext'
+          sorry
+        · sorry
+        · sorry
+
+-- Might as well use simpleFrame here since we need noFrame inv anyways
+theorem StepN_run_noframe_lift [NMLEnv DataT] {P : StackFrame DataT} {F : List (StackFrame DataT)}
+    (H : SmallStep.StepN (Prog := ProgState DataT) n (⟨⟨ExecState.run P, []⟩, s⟩) ⟨⟨ExecState.run P', []⟩, s'⟩) :
+    SmallStep.StepN (Prog := ProgState DataT) n (⟨⟨ExecState.run P, F⟩, s⟩) ⟨⟨ExecState.run P', F⟩, s'⟩ := by
+  revert P s s'
+  induction n
+  · intro s s' P H
+    obtain ⟨rfl⟩ := SmallStep.stepN_zero_inv H
+    exact SmallStep.StepN.done rfl
+  · rename_i n IH
+    intro s s' P H
+    rw [Nat.add_comm] at H ⊢
+    obtain ⟨⟨⟨esn, Fn⟩, sn⟩, Hnext, Hrest⟩ := SmallStep.StepN_add_iff.mp H; clear H
+    rcases esn with (P'|v)
+    · sorry
+    · sorry
+    -- idk something will work though
+
+    -- apply SmallStep.StepN_add_iff.mpr
+    -- exists ({ current := esn, context := Fn }, sn)
+    -- refine ⟨?_, ?_⟩
+    -- · apply SmallStep.stepN_1_iff_step.mpr
+    --   have Hnext' := SmallStep.stepN_1_iff_step.mp Hnext
+    --   sorry
+    -- · have IH' := @IH sn s'
+    --
+    --   sorry
+
+
+
+
 /-
 
 theorem NML.returnContInv [NMLEnv DataT] {b : List (Stmt DataT)} :

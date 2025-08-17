@@ -221,6 +221,7 @@ theorem wpMono' {Φ : Value DataT → Value DataT → @PROP DataT} (P : PROP Dat
 
 theorem wpFrameSync' {Φ : Value DataT → Value DataT → PROP DataT} (Hk : 1 ≤ k):
     ⊢ ∀ piL piR,
+        ⌜NML.SimpleStackFrame piL ∧ NML.SimpleStackFrame piR⌝ ∗
         wp k ⟨.run piL, []⟩ ⟨.run piR, []⟩
           (fun v1 v2 => iprop(⌜v1 = .kont⌝ ∗ ⌜v2 = .kont⌝ ∗ wp k ⟨.run poL, Fl⟩ ⟨.run poR, Fr⟩ Φ))
     -∗ wp k ⟨.run piL, poL :: Fl⟩ ⟨.run piR, poR :: Fr⟩ Φ := by
@@ -228,11 +229,11 @@ theorem wpFrameSync' {Φ : Value DataT → Value DataT → PROP DataT} (Hk : 1 �
   istart
   iintro IH - piL piR Hwp
   -- Unfold the wp in the hypothesis
-  refine .trans (sep_mono .rfl (equiv_iff.mp <| wp_unfold).mp) ?_
+  refine .trans (sep_mono .rfl (sep_mono .rfl (equiv_iff.mp <| wp_unfold).mp)) ?_
   -- Unfold the wp in the conclusion
   refine .trans ?_ (equiv_iff.mp <| wp_unfold).mpr
   istart
-  iintro ⟨IH, (H|H)⟩
+  iintro ⟨IH, %Hsimple, (H|H)⟩
   · -- Value case.
     -- Still use right case to take exactly one step to move to the continuation
     -- Apply the wp
@@ -284,10 +285,11 @@ theorem wpFrameSync' {Φ : Value DataT → Value DataT → PROP DataT} (Hk : 1 �
     apply BIUpdate.mono
     istart
     iintro ⟨IH, ⟨cl', cr', nl, nr, %Hsteps, H⟩⟩
+    obtain ⟨Hnl, Hnr, Hnlx, Hnrx, HstepL, HstepR⟩ := Hsteps
 
     -- cl' and cr' are both .run .. []
-    obtain ⟨PiL', sl', rfl⟩ : ∃ PiL' sl',  cl' = (⟨ExecState.run PiL', []⟩, sl') := sorry
-    obtain ⟨PiR', sr', rfl⟩ : ∃ PiR' sr',  cr' = (⟨ExecState.run PiR', []⟩, sr') := sorry
+    obtain ⟨PiL', sl', rfl⟩ := StepN_run_noframe_inv Hsimple.1 HstepL
+    obtain ⟨PiR', sr', rfl⟩ := StepN_run_noframe_inv Hsimple.2 HstepR
     simp only []
 
     -- -- rcases Hsteps with ⟨Hnl, Hnr, Hnlx, Hnrx, Hsl, Hsr⟩
@@ -300,7 +302,9 @@ theorem wpFrameSync' {Φ : Value DataT → Value DataT → PROP DataT} (Hk : 1 �
     · ipure_intro
       -- Step lifting lemma: If we can make steps in an empty context
       -- The same steps in an extended context will also reach the same state.
-      sorry
+      refine ⟨Hnl, Hnr, Hnlx, Hnrx, ?_, ?_⟩
+      · exact StepN_run_noframe_lift HstepL
+      · exact StepN_run_noframe_lift HstepR
     -- Get the resources out from under the later
     apply Entails.trans later_sep.mpr
     apply later_mono
@@ -320,8 +324,11 @@ theorem wpFrameSync' {Φ : Value DataT → Value DataT → PROP DataT} (Hk : 1 �
     · iexact Hσ
     simp
     iapply Hwp
+    isplit r
+    · ipure_intro
+      -- TODO: Prove that executing inside a simple frame leaves a simple frame
+      sorry
     iexact IH
-
 
 /-
 
