@@ -209,6 +209,11 @@ def compile (p : Parsed) : IO UInt32 := do
     IO.println s!"Kernel:\n {repr kernel}"
   return 0
 
+def typecheck (p : Parsed) : IO UInt32 := do
+  let _file := p.positionalArg! "file" |>.as! String
+  IO.println "unimplemented"
+  return 1
+
 def trace (p : Parsed) : IO UInt32 := do
   let file := p.positionalArg! "file" |>.as! String
   let kernel <- KLR.File.readKLRFile file
@@ -299,6 +304,14 @@ def infoCmd := `[Cli|
     d, dump : String; "Output entire contents, format: json, nki, repr, sexp"
   ARGS:
     file : String; "KLR format input file"
+]
+
+def typecheckCmd := `[Cli|
+  "typecheck" VIA typecheck;
+  "Run the type checker on a Python source file"
+
+  ARGS:
+    file : String; "Python file"
 ]
 
 def traceCmd := `[Cli|
