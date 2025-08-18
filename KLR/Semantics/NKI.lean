@@ -217,10 +217,9 @@ work without specializing DataT whatsoever. -/
 variable \{DataT : Type _} [NMLEnv DataT]
 
 /-- NML model of {p.name}. Generated from file {p.file}. -/
-def {p.name} : NML.ExecState DataT :=
-  .run
-{NKI.pprint_body p}
-  .emp
+def {p.name} : NML.ProgState DataT :=
+  ⟨.run ⟨
+{NKI.pprint_body p}, .emp⟩, []⟩
 
 end model"
 
@@ -241,7 +240,7 @@ work without specializing DataT whatsoever. -/
 variable \{DataT : Type _} [NMLEnv DataT]
 
 /-- Stuttering bound. This can be set to any value. -/
-abbrev K : LeibnizO Nat := ⟨sorry⟩
+abbrev K : Nat := sorry
 
 /-- (Pure) relational postcondion. -/
 def Φ : NML.Value DataT → NML.Value DataT → Prop := sorry
@@ -253,16 +252,14 @@ See the adequacy theorem.
 def σI : @PROP DataT := emp -- TODO: Generate these automatically
 
 /-- NML model of {pl.name}. Generated from file {pl.file}. -/
-def sL : NML.ExecState DataT :=
-  .run
-{NKI.pprint_body pl}
-  .emp
+def sL : NML.ProgState DataT :=
+  ⟨.run ⟨
+{NKI.pprint_body pl}, .emp⟩, []⟩
 
 /-- NML model of {pr.name}. Generated from file {pr.file}. -/
-def sR : NML.ExecState DataT :=
-  .run
-{NKI.pprint_body pr}
-  .emp
+def sR : NML.ProgState DataT :=
+  ⟨.run ⟨
+{NKI.pprint_body pr}, .emp⟩, []⟩
 
 theorem sLsR_equiv : σI ⊢ wp (DataT := DataT) K sL sR (ΦPure Φ) := by
   -- Equivalence proof

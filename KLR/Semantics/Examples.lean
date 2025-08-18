@@ -355,13 +355,141 @@ example : ⊢ wp (DataT := DataT) 5 s s (ΦPure ΦBothLoc) := by
 
 end example11
 
-namespace example12
-/-! Example: Loop stuff -/
 
-abbrev K : Nat := 5
+namespace example12
+/-! Example: Loop unrolling -/
+
+-- TODO: Finish the definition of simple loop bodies first
+
+
+
 
 
 end example12
+
+
+
+namespace example13
+/-! Example: Loop equivalence -/
+
+
+section LoopRelSync
+
+open TensorLib.Iterator in
+-- Loop rule to demonstrate separating conjunction
+-- For programs that are sampling from the same affine iterator,
+-- two loops can be related provided
+--   - We can separate the resources out to each value of the iterate
+--   - The values of the iterates are verified independently
+--   - Side conditions like the loops being simple
+def wpAffineLoopRelSync [NMLEnv DataT] {p1 p2 : List (NML.Stmt DataT)} {locL locR} {FL FR} {xL xR}
+      {i : AffineIter} {bl br : String} {Φ : Value DataT → Value DataT → @PROP DataT}
+      (IPre IPost : @Value DataT → @PROP DataT) :
+    ⌜ locL.it iL = .some (Iterator.mk AffineIter i) ⌝ ∗
+    ⌜ locR.it iR = .some (Iterator.mk AffineIter i) ⌝ ∗
+    (([∗] (toList i |>.map IPost)) -∗ wp K ⟨.run ⟨pL, locL⟩, FL⟩ ⟨.run ⟨pR, locR⟩, FR⟩ Φ) ∗
+    (□ ∀ v, IPre v -∗
+      wp K
+        ⟨.run ⟨bL, locL.bindv xL v⟩, []⟩
+        ⟨.run ⟨bR, locR.bindv xR v⟩, []⟩
+        (iprop(⌜· = .kont⌝ ∗ ⌜· = .kont⌝ ∗ IPost v))) ∗
+    ([∗] (toList i |>.map IPre))
+    ⊢ wp K
+        ⟨.run ⟨.loop xL (.val <| .iref iL) bL :: pL, locL⟩, FL⟩
+        ⟨.run ⟨.loop xR (.val <| .iref iR) bR :: pR, locR⟩, FR⟩
+        Φ := by
+  -- Proof: By regular induction on the progress of the iterator
+  -- Invariant: Access to the postconditions of all loops done so far, and the preconditions
+  -- of the loops not done yet.
+  -- For the inductive step:
+
+  -- Clean up some of the spec
+  generalize HwpDef : iprop(□ ∀ v, IPre v -∗
+      wp K ⟨.run (bL, locL.bindv xL v), []⟩ ⟨.run (bR, locR.bindv xR v), []⟩
+      (iprop(⌜· = Value.kont⌝ ∗ ⌜· = Value.kont⌝ ∗ IPost v))) = Hwp
+
+  -- 1. Destruct i and tidy up the proof state
+  rcases i with ⟨ist, ipk, inum, istn, istep⟩
+  let I inum ipk : AffineIter := { start := ist, peek := ipk, num := inum, start_num := istn, step := istep }
+  obtain X : { start := ist, peek := ipk, num := inum, start_num := istn, step := istep } = I inum ipk := by rfl
+  rw [X]; clear X
+  let II inum ipk : Iterator DataT := Iterator.mk AffineIter (I inum ipk)
+  obtain X : Iterator.mk AffineIter (I inum ipk) = II inum ipk := by rfl
+  rw [X]; clear X
+  iintro ⟨%HiLeft, %HiRight, _⟩; istop
+  let inum_init := inum
+  let InvPre inum ipk : PROP DataT := [∗] (List.map IPre (toList (I inum_init ipk) |>.take inum))
+  -- TODO: Lemma about toList of affineiter
+  obtain X : iprop([∗] (List.map IPre (toList (I inum ipk)))) = InvPre inum ipk := by
+    sorry
+  rw [X]; clear X
+  let InvPost inum ipk : PROP DataT := [∗] (List.map IPost (toList (I inum ipk) |>.drop inum))
+  obtain X : iprop(emp) = InvPost inum ipk := by
+    sorry
+  refine .trans emp_sep.mpr ?_
+  rw [X]; clear X
+  let Hcont inum ipk : PROP DataT := iprop([∗] (List.map IPost (toList (I inum ipk))) -∗ wp K { current := ExecState.run (pL, locL), context := FL } { current := ExecState.run (pR, locR), context := FR } Φ)
+  have X : iprop([∗] (List.map IPost (toList (I inum ipk))) -∗ wp K { current := ExecState.run (pL, locL), context := FL } { current := ExecState.run (pR, locR), context := FR } Φ) = Hcont inum ipk := rfl
+  rw [X]; clear X
+  revert ipk
+  induction inum
+
+  -- Perform induction
+  · intro ipk
+    intro HlocL HlocR
+    iintro ⟨Hpost, Hcont, -, -⟩
+    -- No steps left
+
+    wp_desync
+
+    -- uwp_left  SPure.uwpL .loopExit Hloop
+    have X :=
+      dwpL (SPure.uwpL (@SPure.loopExit DataT _ xL iL bL pL locL FL) ?G1) (Lx := K) (Lm := 1) (Rx := K) (Rm := 1)
+        (pr := ⟨ExecState.run (Stmt.loop xR (Expr.val (Value.iref iR)) bR :: pR, locR), FR⟩) (Φ := (iprop(wp K · · Φ))) ?G2
+    case G1 => sorry
+    case G2 => sorry
+    refine .trans ?_ X; clear X
+    simp [SPure]
+    istart; iintro H
+    isplit r; exact true_intro
+    iintro -; istop
+
+    have X :=
+      dwpR (SPure.uwpR (@SPure.loopExit DataT _ xR iR bR pR locR FR) ?G1) (Lx := K - 1) (Lm := 0) (Rx := K) (Rm := 1)
+        (pl := ⟨ExecState.run (pL, locL), FL⟩)  (Φ := (iprop(wp K · · Φ))) ?G2
+    case G1 => sorry
+    case G2 => sorry
+    refine .trans ?_ X; clear X
+    simp [SPure]
+    istart; iintro H
+    isplit r; exact true_intro
+    iintro -; istop
+
+    refine Entails.trans ?_ <| wand_entails <| wpResync
+
+    iintro ⟨Hpost, Hcont⟩
+    iapply Hcont
+    unfold InvPost
+    rw [List.drop_zero]
+    iexact Hpost
+
+  · intro ipk HiLeft HiRight
+    rename_i iph IH
+
+    -- Step both sides to get a frame
+    -- wpFrameSync' with mono to frame the resources
+    -- Need to unvold InvPost and InvPre
+
+    sorry
+
+end LoopRelSync
+
+
+
+
+
+
+end example13
 
 
 

@@ -7,7 +7,7 @@ Authors: Markus de Medeiros
 import KLR.Core
 import KLR.Semantics.NML
 import KLR.Semantics.Memory
-
+/-
 /- # Semantics for KLR by translation to NML -/
 
 open KLR.Core
@@ -121,3 +121,4 @@ def KLR.Core.Kernel.semantics (k : KLR.Core.Kernel) : Err (@NML.ExecState DataT)
   -- Set up pointers to HBM for each of the input tensors
   List.mapIdxM (@KLR.Core.Address.toInputOutputPointer DataT) (k.inputs ++ k.outputs) |>.bind fun L =>
   .ok <| .run p (BindingsToLocals L)
+-/
