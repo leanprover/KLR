@@ -249,8 +249,13 @@ static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
     // Handle Numpy & Torch tensors
     // Note: t is borrowed
     PyTypeObject *t = Py_TYPE(obj);
+    if (!t) return NULL;
+
     // Tensor is type for PyTorch tensors, ShapedArray is type for JAX tensors
-    if (!t || (strcmp(t->tp_name, "numpy.ndarray") != 0 && strcmp(t->tp_name, "Tensor") != 0 && strcmp(t->tp_name, "ShapedArray") != 0))
+    if (strcmp(t->tp_name, "tensor") != 0 &&
+        strcmp(t->tp_name, "ndarray") != 0 &&
+        strcmp(t->tp_name, "Tensor") != 0 &&
+        strcmp(t->tp_name, "ShapedArray") != 0)
       return NULL;
 
     PyObject *shape = PyObject_GetAttrString(obj, "shape");
@@ -265,7 +270,7 @@ static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
 
     PyObject *dstr = PyObject_Str(dtype);
     Py_DECREF(dtype);
-    if (!dstr) 
+    if (!dstr)
       return NULL;
 
     const char *dtype_str = PyUnicode_AsUTF8(dstr);
@@ -274,7 +279,7 @@ static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
       return NULL;
     }
 
-    // use "uint32" instead of "torch.uint32" which is not a recognized type. 
+    // use "uint32" instead of "torch.uint32" which is not a recognized type.
     if (strncmp(dtype_str, "torch.", 6) == 0) {
       dtype_str += 6;
     }
@@ -680,16 +685,12 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
       e->tag = Python_Expr_tuple;
       e->tuple.xs = exprs(st, python->v.Tuple.elts);
       e->tuple.ctx = context(python->v.Tuple.ctx);
-      if (!e->tuple.xs)
-        res = NULL;
       break;
     }
     case List_kind: {
       e->tag = Python_Expr_list;
       e->list.xs = exprs(st, python->v.List.elts);
       e->list.ctx = context(python->v.List.ctx);
-      if (!e->list.xs)
-        res = NULL;
       break;
     }
 
@@ -1266,7 +1267,7 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *inter
 
   if (internal_kws) {
     Py_ssize_t pos = 0;
-    PyObject *key, *val; 
+    PyObject *key, *val;
     while(PyDict_Next(internal_kws, &pos, &key, &val)) {
       Py_ssize_t sz = 0;
       const char *s = PyUnicode_AsUTF8AndSize(key, &sz);

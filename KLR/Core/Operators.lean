@@ -18,7 +18,6 @@ import KLR.Core.Tensor
 import KLR.Serde.Attr
 import KLR.Serde.Elab
 import KLR.Util
-import Lean
 
 /-
 # Definition of operators

@@ -18,7 +18,6 @@ import KLR.Core
 import KLR.Serde.Attr
 import KLR.Serde.Elab
 import KLR.Util
-import Lean
 
 /-!
 # Abstract syntax of Python functions

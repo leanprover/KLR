@@ -19,7 +19,6 @@ import KLR.Core.Operators
 import KLR.Serde.Attr
 import KLR.Serde.Elab
 import KLR.Util
-import Lean
 
 /-!
 # Abstract syntax of Core NKL language

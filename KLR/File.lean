@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -/
 
-import Lean
 import KLR.NKI.Basic
 import KLR.Python
 import KLR.Serde

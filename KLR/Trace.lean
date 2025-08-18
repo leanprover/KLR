@@ -41,7 +41,7 @@ def runNkiKernel
      (k : KLR.NKI.Kernel)
      (pid : Option (Nat × Nat) := none)
      : Err (String × KLR.Core.Kernel) := do
-  let int i := Term.expr (.value (.int i)) .int
+  let int i := Term.int i
   let env := match pid with
     | none => (nl "_program_id", int 0) ::
               (nl "_num_programs", int 1) ::

@@ -43,14 +43,13 @@ nki builtin.python.slice (b : Int) (e : Int) (s : Int) := do
 
 nki builtin.python.len (t : Term) := do
   match t with
-  | .tuple l | .list l => return .expr (.value (.int l.length)) .int
+  | .tuple l | .list l => return .expr (.value (.int l.length))
   | _ => throw "invalid argument"
 
 -- TODO: should take arbitrary number of arguments and work on more types
 nki builtin.python.min (a : Term) (b : Term) := do
   match a, b with
-  | .expr (.value (.int a)) _, .expr (.value (.int b)) _ =>
-     return .expr (.value (.int (min a b))) .int
+  | .expr (.value (.int a)), .expr (.value (.int b)) => return .int (min a b)
   | _, _ => throw "invalid arguments"
 
 

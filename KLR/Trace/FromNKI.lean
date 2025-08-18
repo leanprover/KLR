@@ -65,10 +65,11 @@ instance : FromNKI Term := ⟨ .ok ⟩
 
 instance : FromNKI Expr where
   fromNKI? t :=
-    let err ty := throw s!"{ty} cannot be converted to a KLR term"
+    let err ty := throw s!"internal error: {ty} cannot be lowered"
     match t with
     | .module _    => err "module"
     | .builtin n .. => return .value (.var n.toString)
+    | .ref _       => err "ref"
     | .source _    => err "function"
     | .mgrid       => err "mgrid"
     | .mgItem ..   => err "mgItem"
@@ -78,9 +79,8 @@ instance : FromNKI Expr where
     | .list _      => err "list"
     | .ellipsis    => err "ellipsis"
     | .slice ..    => err "slice"
-    | .store ..    => err "store"
     | .pointer ..  => err "pointer"
-    | .expr e _    => return e
+    | .expr e      => return e
 
 instance : FromNKI Address where
   fromNKI?
@@ -95,39 +95,42 @@ instance : FromNKI Value where
 
 instance : FromNKI Bool where
   fromNKI?
-    | .expr (.value $ .bool b) _ => return b
+    | .expr (.value $ .bool b) => return b
     | _ => throw "expecting boolean"
 
 instance : FromNKI Int where
   fromNKI?
-    | .expr (.value $ .bool true) _ => return 1
-    | .expr (.value $ .bool false) _ => return 0
-    | .expr (.value $ .int i) _ => return i
+    | .expr (.value $ .bool true) => return 1
+    | .expr (.value $ .bool false) => return 0
+    | .expr (.value $ .int i) => return i
     | _ => throw "expecting integer"
 
 instance : FromNKI Nat where
   fromNKI?
-    | .expr (.value $ .bool true) _ => return 1
-    | .expr (.value $ .bool false) _ => return 0
-    | .expr (.value $ .int (.ofNat n)) _ => return n
+    | .expr (.value $ .bool true) => return 1
+    | .expr (.value $ .bool false) => return 0
+    | .expr (.value $ .int (.ofNat n)) => return n
     | _ => throw "expecting positive integer"
 
 instance : FromNKI Float where
   fromNKI?
-    | .expr (.value $ .float f) _ => return f
+    | .expr (.value $ .bool true) => return 1
+    | .expr (.value $ .bool false) => return 0
+    | .expr (.value $ .int i) => return Float.ofInt i
+    | .expr (.value $ .float f) => return f
     | _ => throw "expecting float"
 
 instance : FromNKI Float32 where
-  fromNKI?
-    | .expr (.value $ .float f) _ => return f.toFloat32
-    | _ => throw "expecting float32"
+  fromNKI? t := do
+    let f : Float <- fromNKI? t
+    return f.toFloat32
 
 instance : FromNKI Immediate where
   fromNKI?
-    | .expr (.value $ .bool true) _ => return .int 1
-    | .expr (.value $ .bool false) _ => return .int 0
-    | .expr (.value $ .int i) _ => return .int i
-    | .expr (.value $ .float f) _ => return .float f.toFloat32
+    | .expr (.value $ .bool true) => return .int 1
+    | .expr (.value $ .bool false) => return .int 0
+    | .expr (.value $ .int i) => return .int i
+    | .expr (.value $ .float f) => return .float f.toFloat32
     | _ => throw "expecting int or float"
 
 instance : FromNKI String where
@@ -138,7 +141,7 @@ instance : FromNKI String where
 -- TODO: when new NKI API is settled, rewrite is a nicer way
 instance : FromNKI Dtype where
   fromNKI?
-    | .expr (.value $ .var name) _
+    | .expr (.value $ .var name)
     | .string name =>
       match name with
       -- NKI variants (see table in NKI docs)
@@ -199,7 +202,7 @@ instance : FromNKI Memory where
   fromNKI? t :=
     let err := .error "expecting buffer type"
     match t with
-    | .expr (.value $ .var name) _ =>
+    | .expr (.value $ .var name) =>
       match name with
       -- TODO: do we need to distinguish the different HBM types?
       | "neuronxcc.nki.language.shared_hbm" => .ok .hbm
@@ -214,7 +217,7 @@ instance : FromNKI Engine where
   fromNKI? t :=
     let err := .error "expecting engine type"
     match t with
-    | .expr (.value $ .var name) _ =>
+    | .expr (.value $ .var name) =>
       match name with
       | "neuronxcc.nki.isa.unknown_engine" => .ok .unassigned
       | "neuronxcc.nki.isa.tensor_engine" => .ok .pe
@@ -225,18 +228,18 @@ instance : FromNKI Engine where
 
 instance : FromNKI Access where
   fromNKI?
-    | .expr (.value $ .access a) _ => return a
+    | .expr (.value $ .access a) => return a
     | _ => throw "expecting tensor access"
 
 instance : FromNKI TensorName where
   fromNKI?
-    | .expr (.value (.access (.simple t))) _ => return t
+    | .expr (.value (.access (.simple t))) => return t
     | _ => throw "expecting tensor"
 
 instance : FromNKI AluOp where
   fromNKI?
     | .none => return .bypass
-    | .expr (.value $ .var name) _ =>
+    | .expr (.value $ .var name) =>
         match name with
         -- bitwise operations
         | "neuronxcc.nki.language.invert" => return .bitwise_not
@@ -292,7 +295,7 @@ instance : FromNKI ActivationFunc where
   fromNKI? t :=
     let err := .error "expecting activation function type"
     match t with
-    | .expr (.value $ .var name) _ =>
+    | .expr (.value $ .var name) =>
       match name with
         | "neuronxcc.nki.language.copy" | "numpy.copy" => return .copy
         | "neuronxcc.nki.language.square" | "numpy.square" => return .sqrt
@@ -325,7 +328,7 @@ instance : FromNKI AccumCmd where
   fromNKI? t :=
     let err := .error "expecting activation function type"
     match t with
-    | .expr (.value $ .var name) _ =>
+    | .expr (.value $ .var name) =>
       match name with
         | "neuronxcc.nki.isa.reduce_cmd.idle" => return .Idle
         | "neuronxcc.nki.isa.reduce_cmd.reset" => return .Zero

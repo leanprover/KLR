@@ -1,13 +1,9 @@
 # tests of pointers and memory allocation
 
-import os
-from apis import *
-
-# this needs to be after the apis
-import numpy as np
 import pytest
+import neuronxcc.nki.typing as nt
 
-from klr import Kernel
+from klr.frontend import Kernel
 
 # Success cases
 # (these functions should load and trace to KLR)
@@ -40,8 +36,7 @@ def views():
   ])
 def test_succeed(f):
   F = Kernel(f)   # parse python
-  file = F()      # specialize, and reduce to KLR
-  os.remove(file)
+  F.specialize()
 
 # Failing cases
 # (These functions are expected to fail elaboration to KLR)
@@ -67,4 +62,4 @@ def too_large2(): sbuf[0:32, 0:16].view("float32", (32, 5))
 def test_fails(f):
   F = Kernel(f)
   with pytest.raises(Exception):
-    F()
+    F.specialize()

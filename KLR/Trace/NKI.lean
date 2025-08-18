@@ -75,7 +75,7 @@ def bindArgs (f : Fun)
 
 -- range, but only in a for-loop context
 private def range (start stop step : Int) : List Term :=
-  let int i := Term.expr (.value (.int i)) .int
+  let int i := Term.expr (.value (.int i))
   if step = 0 then []
   else if 0 < step then
     if stop <= start then [] else
@@ -111,7 +111,7 @@ arguments.
 -/
 private def checkAccess (t : Term) (warnOnly : Bool := true) : Trace Unit := do
   match t with
-  | .expr (.value (.access (.basic b))) _ => do
+  | .expr (.value (.access (.basic b))) => do
     let shape <- b.shape
     for (dim, ndx) in shape.toList.zip b.indexes do
       if dim < ndx.size then
@@ -123,13 +123,13 @@ private def checkAccess (t : Term) (warnOnly : Bool := true) : Trace Unit := do
 
 def value : Value -> Trace Term
   | .none      => return .none
-  | .bool b    => return .expr (.value $ .bool b)   .bool
-  | .int i     => return .expr (.value $ .int i)    .int
-  | .float f   => return .expr (.value $ .float f)  .float
+  | .bool b    => return .bool b
+  | .int i     => return .int i
+  | .float f   => return .float f
   | .string s  => return .string s
   | .tensor s dty (some name) => do
       let shape <- Core.Shape.fromList s
-      let dtype <- fromNKI? (.expr (.value $ .var dty) .none)
+      let dtype <- fromNKI? (.expr (.value $ .var dty))
       let addr : Core.Address := {
         name := name
         memory := .hbm
@@ -137,7 +137,7 @@ def value : Value -> Trace Term
         freeSize := shape.freeElements * dtype.size
       }
       let tensor <- Core.TensorName.make name dtype shape (some addr)
-      return .expr (.value $ .access $ .simple tensor) (.tensor dtype shape)
+      return .expr (.value $ .access $ .simple tensor)
   | .tensor _ _ none =>
       throw "internal error: tensor argument does not have a name"
 
@@ -193,7 +193,7 @@ partial def keyword (kw : Keyword) : Trace (String × Term) :=
 
 partial def fnCall (f : Term) (args : List Expr) (kwargs : List Keyword) : Trace Term := do
   match f with
-  | .builtin n _ self =>
+  | .builtin n self =>
       let f <- builtinFn n
       let args <- args.mapM expr
       args.forM checkAccess

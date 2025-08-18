@@ -18,7 +18,6 @@ import Init.Data.Int.Basic
 import KLR.Serde.Attr
 import KLR.Serde.Elab
 import KLR.Util
-import Lean
 
 namespace KLR.KLR
 open Lean (FromJson ToJson)

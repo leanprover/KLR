@@ -15,7 +15,6 @@ limitations under the License.
 -/
 
 import KLR.Util
-import Lean
 import Plausible
 import TensorLib  -- for all the nice conversion functions
 

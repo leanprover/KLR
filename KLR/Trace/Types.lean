@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -/
 
-import Lean
 import KLR.Util
 import KLR.Core
 import KLR.NKI.Basic
@@ -76,26 +75,6 @@ scoped instance : BEq NKI.Fun where
   beq f1 f2 := f1.name == f2.name
 
 /-
-Terms are an extension of KLR.Expr, and they have types, which are an
-extension of the KLR types. Notably, a Term can have type `obj Name`, which
-represents an object type (a.k.a. a "nominal type").
-Note: the implementation is currently abusing this type by using it for
-functions. While this is not "incorrect," from the perspective of Python,
-the goal is to eventually give all functions function types, and this
-will happen once type inference is integrated.
--/
-inductive TermType where
-  | none | bool | int | float | string
-  | obj    : Name -> TermType
-  | tuple  : List TermType -> TermType
-  | list   : List TermType -> TermType
-  | tensor : Dtype -> Shape -> TermType
-  deriving Repr, BEq
-
-instance : Inhabited TermType where
-  default := .obj "object".toName
-
-/-
 A term contains KLR expressions plus things that may exists at trace time.
 References to modules, built-ins or user functions are only valid during
 tracing. Also, none, strings, tuples and lists are only valid during tracing.
@@ -104,34 +83,14 @@ statement depending on context. A slice is only valid in a tensor access
 context in KLR, but may also be used with a list at trace time, or may float
 around as a term for a while before it finds a home in a KLR term.
 
-The store expression is an interesting case. In the original python
-code, a store can show up in an expression context. For example:
-
-  c = nl.load(a) + nl.load(b)
-
-Which is technically:
-
-  c = (store(t1, nl.load(a)) + store(t2, nl.load(b))
-
-In KLR, these stores must be lifted up to the statement level:
-
-  store(t1, nl.load(a))
-  store(t2, nl.load(b))
-  c = t1 + t2
-
-The `store` term is an expression, and the tracing code will lift it
-up to a KLR statement in the `RValue` function.
-
-The tensor expression is a constant tensor that ephemerally appears during
-tracing, then disappears after tracing eventually. An example is the output
-of mgrid.
-
-The mgrid expression is the 'mgrid' object in numpy and NKI. Its subscripted
-form (with its indices) is represented using KLR.Python.Expr'.subscript .
+The ref variant is used to simulate mutable data types. The Name is a
+value in the local environment that will be shared by all references to
+the value.
 -/
 inductive Term where
   | module   : Name -> Term
-  | builtin  : Name -> TermType -> Option Term -> Term
+  | builtin  : Name -> Option Term -> Term
+  | ref      : Name -> Term
   | source   : NKI.Fun -> Term
   | none     : Term
   | string   : String -> Term
@@ -139,9 +98,8 @@ inductive Term where
   | list     : List Term -> Term
   | ellipsis : Term
   | slice    : Option Int -> Option Int -> Option Int -> Term
-  | store    : Access -> Operator -> List Value -> Term
   | pointer  : Core.Address -> Term
-  | expr     : Expr -> TermType -> Term
+  | expr     : Expr -> Term
   | mgrid    : Term
   | mgItem   : Int -> Int -> Int -> Term
   deriving Repr, BEq
@@ -149,23 +107,17 @@ inductive Term where
 instance : Inhabited Term where
   default := .none
 
-instance : Coe Bool Term where
-  coe b := .expr (.value (.bool b)) .bool
-
-instance : Coe Nat Term where
-  coe i := .expr (.value (.int i)) .int
-
-instance : Coe Int Term where
-  coe i := .expr (.value (.int i)) .int
-
-instance : Coe Float Term where
-  coe f := .expr (.value (.float f)) .float
-
 namespace Term
 
-def nat (x : Nat) : Term := .expr (.value (.int x)) .int
-def int (x : Int) : Term := .expr (.value (.int x)) .int
-def float (x : Float) : Term := .expr (.value (.float x)) .float
+def bool (x : Bool) : Term := .expr (.value (.bool x))
+def nat (x : Nat) : Term := .expr (.value (.int x))
+def int (x : Int) : Term := .expr (.value (.int x))
+def float (x : Float) : Term := .expr (.value (.float x))
+
+instance : Coe Bool Term where coe := bool
+instance : Coe Nat Term where coe := nat
+instance : Coe Int Term where coe := int
+instance : Coe Float Term where coe := float
 
 -- Truthiness of Terms following Python
 
@@ -174,6 +126,7 @@ def isTrue : Term -> Err Bool
   | .tuple []
   | .list []  => return false
   | .module _
+  | .ref _
   | .mgrid
   | .mgItem ..
   | .builtin ..
@@ -183,32 +136,22 @@ def isTrue : Term -> Err Bool
   | .list _
   | .ellipsis
   | .slice ..
-  | .store ..
   | .pointer .. => return true
-  | .expr (.value (.var _)) _ => return true
-  | .expr (.value (.bool b)) _ => return b
-  | .expr (.value (.int i)) _ => return i != 0
-  | .expr (.value (.float f)) _ => return f != 0.0
-  | .expr (.value (.access _)) _ => return true
-  | .expr _ _ => throw "non-constant expression"
+  | .expr (.value (.var _)) => return true
+  | .expr (.value (.bool b)) => return b
+  | .expr (.value (.int i)) => return i != 0
+  | .expr (.value (.float f)) => return f != 0.0
+  | .expr (.value (.access _)) => return true
+  | .expr _ => throw "non-constant expression"
 
 def isFalse (t : Term) : Err Bool :=
   return not (<- t.isTrue)
 
-
--- TODO: not efficient!
--- TODO: this is partial because of the use of flatMap
--- the ▷ syntax in Util could be updated to handle this case.
-partial def tensor_list : Term -> List Core.TensorName
-  | .module _ | .builtin .. | .source _ | .mgrid | .mgItem ..
-  | .none | .string _
-  | .ellipsis | .slice ..
-  | .pointer .. => []
-  | .tuple l | .list l => (l.flatMap tensor_list).eraseDups
-  | .store a _ v => (tensors a ++ tensors v).eraseDups
-  | .expr e _ => tensors e
-
-instance : Tensors Term := ⟨ Term.tensor_list ⟩
+-- Only fully lowered terms are relevant
+instance : Tensors Term where
+  tensors
+  | .expr e => tensors e
+  | _ => []
 
 end Term
 
@@ -219,13 +162,14 @@ traced statements is held in the `body` field, and there is an array of
 warnings which may be shown to the user after tracing.
 -/
 
-abbrev Env := Lean.RBMap Name Term compare
+abbrev Env := Std.HashMap Name Term
 
 structure State where
   fvn : Nat := 0
   pos : Pos := { line := 0 }
   globals : Env := ∅
   locals : Env := ∅
+  refs : Env := ∅
   body : Array Stmt := #[]
   warnings : Array (Pos × String) := #[]
   tensorNames : Std.HashSet String := ∅
@@ -309,11 +253,11 @@ def extend (x : Name) (v : Term) : Trace Unit :=
 
 -- lookup a name in the global environment
 def lookup_global? (name : Name) : Trace (Option Term) := do
-  return (<- get).globals.find? name
+  return (<- get).globals.get? name
 
 -- lookup a name in the environment
 def lookup? (name : Name) : Trace (Option Term) := do
-  match (<- get).locals.find? name with
+  match (<- get).locals.get? name with
   | some t => return t
   | none => lookup_global? name
 
@@ -370,7 +314,7 @@ def tensorName : Option String -> Trace String
 
 -- Run a `Trace` monad computation, and handle any generated warnings or errors.
 def tracer (g : List (Name × Term)) (m : Trace a) (showWarnings := true) : Err (String × a) :=
-  match m { globals := Lean.RBMap.ofList g } with
+  match m { globals := .ofList g } with
   | .ok x s => .ok (addWarnings s "", x)
   | .error (.formatted str) s => .error (addWarnings s ("error:" ++ str))
   | .error (.located _ str) s => .error (addWarnings s ("error:" ++ str))

@@ -67,26 +67,26 @@ We define all of these special names here.
 
 def memPtrName := `builtin.memPtr
 def memPtrBuiltin (a : Address) : Term :=
-  .builtin memPtrName default (some (.pointer a))
+  .builtin memPtrName (some (.pointer a))
 
 def memViewName := `builtin.memView
 def memViewBuiltin (a : Address) : Term :=
-  .builtin memViewName default (some (.pointer a))
+  .builtin memViewName (some (.pointer a))
 
 def reshapeName := `builtin.reshape
 def reshapeBuiltin (t : Term) : Term :=
-  .builtin reshapeName default (some t)
+  .builtin reshapeName (some t)
 
 -- conveience functions for creating environment entries
 
 def module (name : Name) : Name × Term :=
   (name, .module name)
 
-def const_var (name: Name) (ty : TermType := .obj name) : Name × Term :=
-  (name, .expr (.value $ .var name.toString) ty)
+def const_var (name: Name) : Name × Term :=
+  (name, .expr (.value $ .var name.toString))
 
 def const_int (name: Name) (i : Int) : Name × Term :=
-  (name, .expr (.value $ .int i) .int)
+  (name, .expr (.value $ .int i))
 
 -- Type of builtin functions; since these are called from python,
 -- they take a list of positional argument and a list of keyword

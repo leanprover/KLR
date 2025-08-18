@@ -57,7 +57,7 @@ static PyObject* kernel_specialize(struct kernel *self, PyObject *args_tuple) {
   PyObject* args = NULL;
   PyObject* kwargs = NULL;
   PyObject* internal_kwargs = NULL;
-  
+
   if (!PyArg_ParseTuple(args_tuple, "|OOO", &args, &kwargs, &internal_kwargs)) {
       return NULL;
   }

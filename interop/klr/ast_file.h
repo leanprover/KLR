@@ -12,8 +12,6 @@ Authors: Paul Govereau, Sean McLaughlin
 #include "region.h"
 #include "ast_common.h"
 #include "ast_python_core.h"
-#include "ast_nki.h"
-#include "ast_klir.h"
 
 // KLR File Formats
 

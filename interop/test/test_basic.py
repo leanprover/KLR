@@ -2,14 +2,10 @@
 # a set of basic unit tests. Each function is parsed,
 # handed to Lean, where it is checked and reduced to KLR.
 
-import os
-from apis import *
-
-# this needs to be after the apis
-import numpy as np
 import pytest
+import neuronxcc.nki.typing as nt
 
-from klr import Kernel
+from klr.frontend import Kernel
 
 # Success cases
 # (these functions should load and trace to KLR)
@@ -29,7 +25,7 @@ floating = 1.23
 boolean = True
 nothing = None
 triple = (1, floating, False)
-list3 = [string, triple, np]
+list3 = [string, triple, nt]
 
 def expr_name(t):
   # these names will end up in the global environment after parsing
@@ -145,10 +141,9 @@ def undefined_ok(t):
   undefined_ok
   ])
 def test_succeed(f):
-  t = np.ndarray((10,10,10), dtype="float32")
+  t = nt.tensor("float32", (10,10,10))
   F = Kernel(f)   # parse python
-  file = F(t)     # specialize, and reduce to KLR
-  os.remove(file)
+  file = F.specialize((t,))
 
 # Failing cases
 # (These functions are expected to fail elaboration to KLR)

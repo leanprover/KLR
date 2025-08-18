@@ -304,7 +304,7 @@ def generateCommonAST: MetaM Unit := do
   genTypes commonAST
 
 def generateFileAST: MetaM Unit := do
-  IO.println (headerH ["ast_common.h", "ast_python_core.h", "ast_nki.h", "ast_klir.h"])
+  IO.println (headerH ["ast_common.h", "ast_python_core.h"])
   IO.println "// KLR File Formats"
   genTypes fileAST
 
