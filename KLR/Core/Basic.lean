@@ -192,6 +192,8 @@ instance : Tensors Operator where
       | .tensorScalarReduce t => [t.dst, t.src, t.reduceRes]
       | .selectReduce s => [s.dst, s.predicate, s.onTrue]
       | .sequenceBounds s => [s.dst, s.segmentIds]
+      | .sendRecv s => [s.dst, s.src]
+      | .sendRecvCCE s => [s.dst]
     let additionalTensors := match op with
       | .ncActivate d => tensors d.reduceRes
       | .ncAffineSelect a => tensors a.onTrueTile
@@ -204,6 +206,7 @@ instance : Tensors Operator where
       | .activationReduce t => tensors t.reduceRes
       | .tensorScalarReduce t => tensors t.operand0
       | .selectReduce s => (tensors s.onFalse) ++ (tensors s.reduceRes)
+      | .sendRecvCCE s => tensors s.src
       | _ => []
     (transformed.flatMap tensors) ++ additionalTensors
 

@@ -2061,11 +2061,43 @@ Ptr<SequenceBounds> SequenceBounds_des(FILE *in) {
   return x;
 }
 
+Ptr<SendRecv> SendRecv_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 187 || c != 0 || l != 6)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<SendRecv> x = ptr<SendRecv>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  x->sendToRank = Immediate_des(in);
+  x->recvFromRank = Immediate_des(in);
+  x->pipeId = Immediate_des(in);
+  x->useGpsimdDma = Bool_des(in);
+  return x;
+}
+
+Ptr<SendRecvCCE> SendRecvCCE_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 188 || c != 0 || l != 6)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<SendRecvCCE> x = ptr<SendRecvCCE>();
+  x->dst = TensorRef_des(in);
+  x->src = List_TensorRef_des(in);
+  x->sendToRank = Immediate_des(in);
+  x->recvFromRanks = List_Immediate_des(in);
+  x->pipeId = Immediate_des(in);
+  x->op = AluOp_des(in);
+  return x;
+}
+
 Ptr<Operator> Operator_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 187)
+  if (t != 189)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -2404,6 +2436,22 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
+  case 41: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorSendRecvWrapper> x = ptr<OperatorSendRecvWrapper>();
+    x->op = SendRecv_des(in);
+    return x;
+    break;
+  }
+  case 42: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorSendRecvCCEWrapper> x = ptr<OperatorSendRecvCCEWrapper>();
+    x->op = SendRecvCCE_des(in);
+    return x;
+    break;
+  }
   default:
     throw std::runtime_error("Invalid value tag");
   }
@@ -2673,6 +2721,19 @@ Option<Ptr<Immediate>> Option_Immediate_des(FILE *in) {
   if (isSome)
     x = Immediate_des(in);
   return x;
+}
+
+List<Ptr<TensorRef>> List_TensorRef_des(FILE *in) {
+  u64 size = 0;
+  if (!deserialize_array_start(in, &size))
+    throw std::runtime_error("expecting List");
+
+  List<Ptr<TensorRef>> l;
+  while (size-- > 0) {
+    Ptr<TensorRef> b = TensorRef_des(in);
+    l.push_back(b);
+  }
+  return l;
 }
 
 List<Ptr<Value>> List_Value_des(FILE *in) {

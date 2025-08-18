@@ -121,6 +121,11 @@ def Operator.lowerAccessPatterns (k : Operator) : KLR.Err Operator :=
       dst := (<- op.dst.lowerAccessPatterns)
       segmentIds := (<- op.segmentIds.lowerAccessPatterns)
     }
+  | .sendRecv op => do return .sendRecv { op with dst := (<- op.dst.lowerAccessPatterns), src := (<- op.src.lowerAccessPatterns)}
+  | .sendRecvCCE op => do return .sendRecvCCE { op with
+    dst := (<-op.dst.lowerAccessPatterns)
+    src := (<- op.src.mapM TensorRef.lowerAccessPatterns)
+    }
 
 
 def Stmt.lowerAccessPatterns : Stmt → KLR.Err Stmt

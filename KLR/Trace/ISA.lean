@@ -773,3 +773,43 @@ nki builtin.isa.sequence_bounds
       dtype := dtype
     }) name
     return .none
+
+nki builtin.isa.sendrecv
+  (src: Access)
+  (dst: Access)
+  (send_to_rank: Immediate)
+  (recv_from_rank: Immediate)
+  (pipe_id: Int)
+  (mask : Option Immediate := none)
+  (use_gpsimd_dma: Bool := false)
+  (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.sendRecv {
+      dst := .abstract dst,
+      src := .abstract src,
+      sendToRank := send_to_rank,
+      recvFromRank := recv_from_rank,
+      pipeId := .int pipe_id,
+      useGpsimdDma := use_gpsimd_dma
+    }) name
+    return .none
+
+nki builtin.isa.sendrecv_cce
+  (src: List Access)
+  (dst: Access)
+  (send_to_rank: Immediate)
+  (recv_from_ranks: List Immediate)
+  (pipe_id: Int)
+  (op : AluOp)
+  (mask : Option Immediate := none)
+  (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.sendRecvCCE {
+      dst := .abstract dst,
+      src := <- src.mapM (fun x => return .abstract x),
+      sendToRank := send_to_rank,
+      recvFromRanks := recv_from_ranks,
+      pipeId := .int pipe_id,
+      op := op
+    }) name
+    return .none

@@ -262,6 +262,8 @@ def klrAST: MetaM (List LeanType) := do
     `KLR.Core.NcCopy,
     `KLR.Core.SelectReduce,
     `KLR.Core.SequenceBounds,
+    `KLR.Core.SendRecv,
+    `KLR.Core.SendRecvCCE,
     `KLR.Core.Operator,
     -- Core.Basic
     `KLR.Core.Value,

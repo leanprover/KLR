@@ -787,6 +787,24 @@ struct SequenceBounds final {
   Option<Dtype> dtype;
 };
 
+struct SendRecv final {
+  Ptr<TensorRef> dst;
+  Ptr<TensorRef> src;
+  Ptr<Immediate> sendToRank;
+  Ptr<Immediate> recvFromRank;
+  Ptr<Immediate> pipeId;
+  Bool useGpsimdDma;
+};
+
+struct SendRecvCCE final {
+  Ptr<TensorRef> dst;
+  List<Ptr<TensorRef>> src;
+  Ptr<Immediate> sendToRank;
+  List<Ptr<Immediate>> recvFromRanks;
+  Ptr<Immediate> pipeId;
+  AluOp op;
+};
+
 struct Operator {
   enum class Tag {
     activate = 1,
@@ -830,6 +848,8 @@ struct Operator {
     transpose,
     selectReduce,
     sequenceBounds,
+    sendRecv,
+    sendRecvCCE,
   };
   Tag tag;
   Operator(Tag tag) : tag(tag) {}
@@ -1039,6 +1059,16 @@ struct OperatorSelectReduceWrapper final : Operator {
 struct OperatorSequenceBoundsWrapper final : Operator {
   Ptr<SequenceBounds> op;
   OperatorSequenceBoundsWrapper() : Operator(Tag::sequenceBounds) {}
+};
+
+struct OperatorSendRecvWrapper final : Operator {
+  Ptr<SendRecv> op;
+  OperatorSendRecvWrapper() : Operator(Tag::sendRecv) {}
+};
+
+struct OperatorSendRecvCCEWrapper final : Operator {
+  Ptr<SendRecvCCE> op;
+  OperatorSendRecvCCEWrapper() : Operator(Tag::sendRecvCCE) {}
 };
 
 struct Value {
