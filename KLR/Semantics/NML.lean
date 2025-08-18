@@ -763,13 +763,11 @@ theorem SPure.loopExit : SPure (DataT := DataT)
 @[simp] abbrev PLoopContinue (ctx : LocalContext DataT) (n : Nat) (v : Value DataT) : Prop :=
   ctx.peeki n = some v
 
--- TODO: This is wrong
--- theorem SPure.loopContinue : SPure (DataT := DataT)
---     ⟨.run ⟨(.loop x (.val <| .iref i) b :: ps), loc⟩, F⟩
---     ⟨.run ⟨b, ctx.bindv x v⟩, ⟨.loop x (.val <| .iref i) b :: ps, ctx⟩ :: F⟩
---     (PLoopContinue loc i v) := by
---   intro s H; simp only [Step, step]; rw [H]
---   sorry
+theorem SPure.loopContinue : SPure (DataT := DataT)
+    ⟨.run ⟨(.loop x (.val <| .iref i) b :: ps), loc⟩, F⟩
+    ⟨.run ⟨b, loc.bindv x v⟩, ⟨.loop x (.val <| .iref i) b :: ps, loc⟩ :: F⟩
+    (PLoopContinue loc i v) := by
+  intro s H; simp only [Step, step]; rw [H]
 
 -- Lifted head steps
 -- This is basically only frame
@@ -910,7 +908,7 @@ theorem LiftEValSetp : ExprLift (DataT := DataT) (NML.Stmt.setp (.val <| .uptr i
   intro e e' s s' l ps He
   exact NML.step.setpEVal He
 -/
-
+-/
 structure AffineIter where
   start     : Int
   peek      : Int
@@ -926,5 +924,12 @@ instance instIterAffineIter {DataT : Type _} : TensorLib.Iterator AffineIter (NM
   peek r  := NML.Value.int r.peek
   size r  := r.num
   reset r := ⟨r.start, r.start, r.start_num, r.start_num, r.step⟩
--/
+
+
+
+-- structure Iterator (DataT : Type _) where
+--   I : Type
+--   [instIIter : TensorLib.Iterator I (Value DataT)]
+--   car : I
+
 end properties
