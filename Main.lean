@@ -210,9 +210,11 @@ def compile (p : Parsed) : IO UInt32 := do
   return 0
 
 def typecheck (p : Parsed) : IO UInt32 := do
-  let _file := p.positionalArg! "file" |>.as! String
-  IO.println "unimplemented"
-  return 1
+  let file := p.positionalArg! "file" |>.as! String
+  let content ← IO.FS.readFile file
+  match NKI.Typed.runTypechecker content file with
+  | .ok    ctx => IO.println ctx; return 0
+  | .error msg => IO.println msg; return 1
 
 private def outfolder (outfile : Option Parsed.Flag) : IO (Option String) := do
   match outfile with
@@ -361,7 +363,8 @@ def klrCmd : Cmd := `[Cli|
     evalKLRCmd;
     gatherCmd;
     infoCmd;
-    traceCmd
+    traceCmd;
+    typecheckCmd
 ]
 
 def main (args : List String) : IO UInt32 := do

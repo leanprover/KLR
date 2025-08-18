@@ -94,7 +94,7 @@ macro "#py_exp_tree" s:str : command => `(#eval Prog.printExpTree <$> (Parser.ru
 "
 
 /--
-info: ok:
+info:
 (+)
  |---(+)
       |---1
@@ -105,7 +105,7 @@ info: ok:
 "
 
 /--
-info: ok:
+info:
 (**)
  |---1
  '---(**)
@@ -116,7 +116,7 @@ info: ok:
 "
 
 /--
-info: ok:
+info:
 (+)
  |---1
  '---(*)
@@ -127,7 +127,7 @@ info: ok:
 "
 
 /--
-info: ok:
+info:
 (ite)
  |---True
  |---0
@@ -346,4 +346,75 @@ def np_average_pool_2D(in_tensor, pool_size):
   reshaped = in_tensor.reshape(c, h_in // pool_size, pool_size, w_in // pool_size, pool_size)
   return np.nanmean(reshaped, axis=(2, 4))
 
+"
+/--
+info: ok:
+def foo(x:int, y:float, z:str, w:bool) -> None:
+  return None
+
+def bar[A](f:[] -> A, a:A) -> A:
+  return a
+
+def baz[A](f:forall A. [A] -> A, a:A) -> A:
+  x : iter[int] = [10, 20, 30]
+  for i in x:
+    print(i)
+  return f[A](a)
+
+def t[dt, M, N](a:tensor[A, dt], b:tensor[(M, N, 10), int]):
+  pass
+
+def lists(a:list[int], b:tuple[int, float]):
+  pass
+-/
+#guard_msgs in #py "
+
+def foo(x : int, y : float, z : str, w : bool) -> None:
+  return
+
+def bar[A](f : [] -> A, a : A) -> A:
+  return a
+
+def baz[A](f : forall A. [A] -> A, a : A) -> A:
+  x : iter[int] = [10, 20, 30]
+  for i in x:
+    print(i)
+  return f[A](a)
+
+def t[dt, M, N](a : tensor[A, dt], b : tensor[(M, N, 10), int]):
+  pass
+
+def lists(a : list[int], b : tuple[int, float]):
+  pass
+
+"
+
+/--
+info: ok:
+def tile[M, N](s:tensor[(M, N), int])
+where
+  32 | M
+  N <= 128
+:
+  pass
+-/
+#guard_msgs in #py "
+
+def tile[M, N](s : tensor[(M, N), int])
+where
+  32 | M
+  N <= 128
+:
+  pass
+
+"
+
+/--
+info: ok:
+def aug_assign(n:int):
+  x = x + 1
+-/
+#guard_msgs in  #py "
+def aug_assign(n : int):
+  x += 1
 "

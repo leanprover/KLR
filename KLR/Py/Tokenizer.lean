@@ -72,8 +72,8 @@ def TokenKind.toString : TokenKind → String
 instance instToStingTokenKind : ToString TokenKind := ⟨TokenKind.toString⟩
 
 structure Token where
-  kind   : TokenKind
-  pos    : Pos
+  kind : TokenKind
+  span : Span
 deriving Repr, Inhabited, BEq
 
 structure State where
@@ -83,38 +83,38 @@ structure State where
   Used to check implicit line joining
   https://docs.python.org/3/reference/lexical_analysis.html#implicit-line-joining
   -/
-  bracesStack : List (TokenKind × Pos) := []
+  bracesStack : List (TokenKind × Span) := []
 
 abbrev TokenizerM := ReaderT FileInfo (EStateM String State)
 
-def throw {α} (msg : String) (pos : Pos) : TokenizerM α := do
-  let msg := (← read).formatError "SyntaxError" msg pos
+def throw {α} (msg : String) (span : Span) : TokenizerM α := do
+  let msg := (← read).formatError "SyntaxError" msg span
   monadLift (m := EStateM String State) (EStateM.throw msg)
 
-def throwInternal {α} (pos : Pos) : TokenizerM α := do
-  throw "unexpected internal error, please report!" pos
+def throwInternal {α} (span : Span) : TokenizerM α := do
+  throw "unexpected internal error, please report!" span
 
-def indentLevel (errPos : Pos) : TokenizerM Nat := do
+def indentLevel (errSpan : Span) : TokenizerM Nat := do
   let { indentStack, .. } ← get
   match indentStack.head? with
   | some n => pure n
-  | none   => throwInternal errPos
+  | none   => throwInternal errSpan
 
 def getInput : TokenizerM String :=
   return (← read).content
 
-def pushToken (t : TokenKind) (pos : Pos) : TokenizerM Unit := do
+def pushToken (t : TokenKind) (span : Span) : TokenizerM Unit := do
   let s ← get
-  set {s with tokens := s.tokens.push ⟨t, pos⟩}
+  set {s with tokens := s.tokens.push ⟨t, span⟩}
 
-def getBracesStack : TokenizerM (List (TokenKind × Pos)) := do
+def getBracesStack : TokenizerM (List (TokenKind × Span)) := do
   pure (← get).bracesStack
 
-def pushBrace (br : TokenKind) (pos : Pos) : TokenizerM Unit := do
+def pushBrace (br : TokenKind) (span : Span) : TokenizerM Unit := do
   let s ← get
-  set {s with bracesStack := (br, pos) :: s.bracesStack}
+  set {s with bracesStack := (br, span) :: s.bracesStack}
 
-def popBrace : TokenizerM (Option (TokenKind × Pos)) := do
+def popBrace : TokenizerM (Option (TokenKind × Span)) := do
   let s ← get
   let stack := s.bracesStack
   set {s with bracesStack := stack.tail}
@@ -140,26 +140,26 @@ def newline (pos : String.Pos) (pushNewline : Bool := true) : TokenizerM (Option
     return next
   | none => return none
 
-def pushIndent (pos : Pos) (n : Nat) : TokenizerM Unit := do
+def pushIndent (span : Span) (n : Nat) : TokenizerM Unit := do
   let s ← get
   set {s with indentStack := n :: s.indentStack}
-  pushToken .indent pos
+  pushToken .indent span
 
-def popIndent (pos : Pos) (n : Nat) : TokenizerM Unit := do
+def popIndent (span : Span) (n : Nat) : TokenizerM Unit := do
   let stack := (← get).indentStack
   let newStack ← go stack
   modifyGet fun s => ((), {s with indentStack := newStack})
 where
   go : List Nat → TokenizerM (List Nat)
-  | [] => throwInternal pos
+  | [] => throwInternal span
   | hd :: tl => do
     if hd == n then
       pure (hd :: tl)
     else if hd > n then
-      pushToken .dedent pos
+      pushToken .dedent span
       go tl
     else
-      throw "inconsistent dedent" pos
+      throw "inconsistent dedent" span
 
 def finishLineComment (pos : String.Pos) (pushNewline : Bool := true) : TokenizerM (PosGt pos) := do
   let input ← getInput
@@ -186,26 +186,26 @@ def checkIndent (startPos : String.Pos) : TokenizerM (CheckIndentResult startPos
   if h : input.atEnd next then return .lineEmpty ⟨next + ⟨1⟩, by grind only [String.Pos.add_byteIdx]⟩ else
   if let some next ← newline next false then return .lineEmpty <| next.fromLe hle
 
-  let errPos : Pos := ⟨next, input.next' next h⟩
+  let errSpan : Span := ⟨next, input.next' next h⟩
   match input.get' next h with
   | '#' =>
     let next ← finishLineComment next false
     return .lineEmpty <| next.fromLe hle
   | '\t' =>
-    throw "tab indents not supported, please configure your editor to use spaces" errPos
+    throw "tab indents not supported, please configure your editor to use spaces" errSpan
   | _ =>
     let currIndent := (next - startPos).1
-    let indent ← indentLevel errPos
-    let pos : Pos := ⟨startPos, next⟩
+    let indent ← indentLevel errSpan
+    let span : Span := ⟨startPos, next⟩
 
     if currIndent > indent then
-      pushIndent pos currIndent
+      pushIndent span currIndent
     else if currIndent < indent then
-      popIndent pos currIndent
+      popIndent span currIndent
     pure <| .lineNotEmpty ⟨next, hle⟩
 
-@[inline] def throwUnmatchedBrace {α} (brace : TokenKind) (pos : Pos) : TokenizerM α := do
-  throw s!"unmatched {brace}" pos
+@[inline] def throwUnmatchedBrace {α} (brace : TokenKind) (span : Span) : TokenizerM α := do
+  throw s!"unmatched {brace}" span
 
 @[inline] def bracesMatch : TokenKind → TokenKind → Bool
   | tk"(", tk")"
@@ -213,17 +213,17 @@ def checkIndent (startPos : String.Pos) : TokenizerM (CheckIndentResult startPos
   | tk"{", tk"}" => true
   | _    , _     => false
 
-def checkBraces (brace : TokenKind) (pos : Pos) : TokenizerM Unit := do
+def checkBraces (brace : TokenKind) (span : Span) : TokenizerM Unit := do
   match brace with
   | tk"(" | tk"{" | tk"[" =>
-    pushBrace brace pos
+    pushBrace brace span
   | tk")" | tk"}" | tk"]" =>
     match ← popBrace with
     | some (left, pos) =>
       if !bracesMatch left brace then
         throwUnmatchedBrace left pos
     | none =>
-      throwUnmatchedBrace brace pos
+      throwUnmatchedBrace brace span
   | _ => return
 
 def opsAndDelimsLit : List {s : String // s.utf8ByteSize > 0} := [
@@ -385,10 +385,10 @@ def finishIdent (pos : String.Pos) (first : Char) : TokenizerM (String × PosGe 
   let id := first.toString ++ (input.extract pos next)
   pure (id, ⟨next, String.findAux_le_start⟩)
 
-def decodeNat (s : String) (errPos : Pos) : TokenizerM Nat := do
+def decodeNat (s : String) (errSpan : Span) : TokenizerM Nat := do
   match s.toNat? with
   | some n => pure n
-  | none   => throw "invalid int literal" errPos
+  | none   => throw "invalid int literal" errSpan
 
 def decodeFloatAux (before after : String) : Option Float := do
   let mantissa ← before.toNat?
@@ -404,10 +404,10 @@ where
     else
       none
 
-def decodeFloat (before after : String) (errPos : Pos) : TokenizerM Float := do
+def decodeFloat (before after : String) (errSpan : Span) : TokenizerM Float := do
   match decodeFloatAux before after with
   | some float => pure float
-  | none       => throw "invalid float literal" errPos
+  | none       => throw "invalid float literal" errSpan
 
 /--
 TODO: Implement full python numeric literal with underscores and scientific notations
@@ -420,11 +420,11 @@ def finishNum (pos : String.Pos) (first : Char) : TokenizerM (TokenKind × PosGe
 
   let (int, next) := extractDigits pos
   let int := first.toString ++ int
-  let errPos : Pos := ⟨input.prev pos, next⟩
-  if h : input.atEnd next then return (.int <| ← decodeNat int errPos, next) else
+  let errSpan : Span := ⟨input.prev pos, next⟩
+  if h : input.atEnd next then return (.int <| ← decodeNat int errSpan, next) else
 
   let curr := input.get' next h
-  if curr != '.' then return (.int <| ← decodeNat int errPos, next) else
+  if curr != '.' then return (.int <| ← decodeNat int errSpan, next) else
   let ⟨next, _⟩ := PosGt.next' next h
 
   let (afterDot, ⟨next, _⟩) := extractDigits next
@@ -434,12 +434,12 @@ def finishNum (pos : String.Pos) (first : Char) : TokenizerM (TokenKind × PosGe
 /--
 Ensure proper separation of a numeric literal with the next token for better error messages.
 -/
-def checkNumLitEnd (pos : Pos) : TokenizerM Unit := do
+def checkNumLitEnd (span : Span) : TokenizerM Unit := do
   let input ← getInput
-  if h : input.atEnd pos.stopPos then return else
-  let curr := input.get' pos.stopPos h
+  if h : input.atEnd span.stopPos then return else
+  let curr := input.get' span.stopPos h
   if isIdRest curr then
-    throw "invalid numeric literal" pos
+    throw "invalid numeric literal" span
 
 def identKind (s : String) : TokenKind :=
   match s with
@@ -477,8 +477,35 @@ def identKind (s : String) : TokenKind :=
   | "elif"
   | "if"
   | "or"
-  | "yield" => .tokenLit s
-  | id      => .ident id
+  | "yield"
+  /- Keywords specific to NKI, not standard python keywords -/
+  | "where"
+  -- types
+  | "int"
+  | "float"
+  | "str"
+  | "list"
+  | "tuple"
+  | "forall"
+  | "iter"
+  | "tensor"
+  -- dtypes
+  | "bfloat16"
+  | "float8e3"
+  | "float8e4"
+  | "float8e5"
+  | "float16"
+  | "float32"
+  | "float32r"
+  | "int8"
+  | "int16"
+  | "int64"
+  | "int32"
+  | "uint8"
+  | "uint16"
+  | "uint32"
+  | "uint64" => .tokenLit s
+  | id       => .ident id
 
 def tokenizeLine (pos : String.Pos) : TokenizerM (PosGt pos) := do
   let input ← getInput
