@@ -61,11 +61,11 @@ instance : Bind ParserM := ⟨ParserM.bind⟩
 def fail {α} : ParserM α :=
   fun _ s => (none, s)
 
-def Context.formatError (c : Context) (msg : String) (pos : Pos) : String :=
-  c.fileInfo.formatError "SyntaxError" msg pos
+def Context.formatError (c : Context) (msg : String) (span : Span) : String :=
+  c.fileInfo.formatError "SyntaxError" msg span
 
-def pushErr (msg : String) (pos : Pos) : ParserM Unit := do
-  let msg := (← read).formatError msg pos
+def pushErr (msg : String) (span : Span) : ParserM Unit := do
+  let msg := (← read).formatError msg span
   modifyGet fun s => ((), {s with err := msg :: s.err})
 
 def getInput : ParserM (Array Token) :=
@@ -74,24 +74,24 @@ def getInput : ParserM (Array Token) :=
 def getTkPtr : ParserM Nat :=
   return (← get).ptr
 
-def getPos! : ParserM Pos := do
+def getPos! : ParserM  Span:= do
   let input ← getInput
   let i ← getTkPtr
   if h : i < input.size then
-    return input[i].pos
+    return input[i].span
   else
     let some last := input.back? | fail
-    return last.pos
+    return last.span
 
 def getStopPos : ParserM String.Pos := do
   let curr := (← getInput)[(← getTkPtr) - 1]?
-  let pos  := curr.map (Pos.stopPos ∘ Token.pos)
+  let pos  := curr.map (Span.stopPos ∘ Token.span)
   return pos.getD 0
 
-def mkPosStartingAt (pos : Pos) : ParserM Pos := do
-  let startPos := pos.pos
+def mkSpanStartingAt (span : Span) : ParserM Span := do
+  let startPos := span.pos
   let stopPos  ← getStopPos
-  return ⟨startPos, if stopPos ≤ startPos then pos.stopPos else stopPos⟩
+  return ⟨startPos, if stopPos ≤ startPos then span.stopPos else stopPos⟩
 
 def clearErr : ParserM Unit :=
   modifyGet fun s => ((), {s with err := []})
@@ -105,23 +105,23 @@ def peek : ParserM (Option Token) := do
 def consume : ParserM Unit :=
   modifyGet fun s => ((), {s with ptr := s.ptr + 1})
 
-def withPos {α β} (f : Pos → α → β) (p : ParserM α) : ParserM β := do
+def withSpan {α β} (f : Span → α → β) (p : ParserM α) : ParserM β := do
   let some curr ← peek | fail
   let i ← getTkPtr
   let a ← p
   let j ← getTkPtr
-  if i ≥ j then pushErr "internal error: failed to get position infomataion" curr.pos; fail else
-  let some last ← peekAt (j - 1) | pushErr "internal error: failed to get position information" curr.pos; fail
-  return f ⟨curr.pos.pos, last.pos.stopPos⟩ a
+  if i ≥ j then pushErr "internal error: failed to get position infomataion" curr.span; fail else
+  let some last ← peekAt (j - 1) | pushErr "internal error: failed to get position information" curr.span; fail
+  return f ⟨curr.span.pos, last.span.stopPos⟩ a
 
-def withErr {α} (msg : String) (pos? : Option Pos) (p : ParserM α) : ParserM α :=
-  let pos := if h : pos?.isSome then pure (pos?.get h) else getPos!
+def withErr {α} (msg : String) (span? : Option Span) (p : ParserM α) : ParserM α :=
+  let pos := if h : span?.isSome then pure (span?.get h) else getPos!
   pos >>= fun pos => fun c s =>
   let (a?, s') := p c s
   match a? with
   | some a => return (a, s')
   | none =>
-    let lastPos := Token.pos <$> c.input[s'.ptr - 1]? |> (Option.getD · pos)
+    let lastPos := Token.span <$> c.input[s'.ptr - 1]? |> (Option.getD · pos)
     let msg := c.formatError msg ⟨pos.pos, lastPos.stopPos⟩
     (none, {s with err := msg :: s'.err})
 
@@ -142,7 +142,7 @@ def not {α} (p : ParserM α) (msg : String) : ParserM Unit := fun c s =>
     let (a?, _) := p c s
     match a? with
     | some _ =>
-      let err := c.formatError msg curr.pos
+      let err := c.formatError msg curr.span
       (none, {s with err := err :: s.err})
     | none => (some (), s)
 
@@ -263,12 +263,12 @@ def binOpMap : TokenMap (Nat × Assoc × BinOp) :=
     ("or" , (45, .l, .lor       )),
   ]
 
-def precErr (pos : Pos) (nonAssoc : Bool := false) : ParserM Unit := do
+def precErr (span : Span) (nonAssoc : Bool := false) : ParserM Unit := do
   clearErr
   if nonAssoc then
-    pushErr "chaining of comparison operators is not allowed" pos
+    pushErr "chaining of comparison operators is not allowed" span
   else
-    pushErr "precedence level is low, consider parentheses" pos
+    pushErr "precedence level is low, consider parentheses" span
 
 mutual
 
@@ -297,13 +297,13 @@ partial def list : ParserM Exp := do
 partial def atom : ParserM Exp := do
   -- Don't know if the compiler is smart enough to cache this
   let atomMap : TokenMap (ParserM Exp) := {
-    (.ident    ""     , withPos .mk <| Exp'.var <$> name),
-    (.int      0      , withPos .mk <| numLit),
-    (.float    0      , withPos .mk <| numLit),
-    (.tokenLit "None" , withPos .mk <| (fun () => .value .none)         <$> consume),
-    (.tokenLit "True" , withPos .mk <| (fun () => .value (.bool true )) <$> consume),
-    (.tokenLit "False", withPos .mk <| (fun () => .value (.bool false)) <$> consume),
-    (.string   ""     , withPos .mk <| strLit),
+    (.ident    ""     , withSpan .mk <| Exp'.var <$> name),
+    (.int      0      , withSpan .mk <| numLit),
+    (.float    0      , withSpan .mk <| numLit),
+    (.tokenLit "None" , withSpan .mk <| (fun () => .value .none)         <$> consume),
+    (.tokenLit "True" , withSpan .mk <| (fun () => .value (.bool true )) <$> consume),
+    (.tokenLit "False", withSpan .mk <| (fun () => .value (.bool false)) <$> consume),
+    (.string   ""     , withSpan .mk <| strLit),
     (.tokenLit "("    ,                tuple),
     (.tokenLit "["    ,                list)
   }
@@ -355,10 +355,10 @@ partial def exp (precLimit : Nat := 0) : ParserM Exp := do
     match unaryOpMap.get? start.kind with
     | some (prec, op) =>
       if prec + 1 ≤ precLimit then
-        precErr start.pos; fail
+        precErr start.span; fail
       else
         consume; let lhs ← exp prec
-        pure ⟨⟨start.pos.pos, lhs.pos.stopPos⟩, .unaryOp op lhs⟩
+        pure ⟨⟨start.span.pos, lhs.span.stopPos⟩, .unaryOp op lhs⟩
     | none => atom
 
   let mut lhs := fst
@@ -374,7 +374,7 @@ partial def exp (precLimit : Nat := 0) : ParserM Exp := do
       let some ⟨.ident field, pos⟩ ← peek
         | pushErr "expected field access using an identifier" pos; fail
       consume
-      lhs := ⟨⟨lhs.pos.pos, pos.stopPos⟩, .attr lhs field⟩
+      lhs := ⟨⟨lhs.span.pos, pos.stopPos⟩, .attr lhs field⟩
     | "(" =>
       if 110 ≤ precLimit then precErr pos; break else
       consume
@@ -382,19 +382,19 @@ partial def exp (precLimit : Nat := 0) : ParserM Exp := do
       let some ⟨.tokenLit ")", pos⟩ ← peek
         | pushErr "missing ) after function arguments" pos; fail
       consume
-      lhs := ⟨⟨lhs.pos.pos, pos.stopPos⟩, .call lhs [] args.toList⟩
+      lhs := ⟨⟨lhs.span.pos, pos.stopPos⟩, .call lhs [] args.toList⟩
     | "[" =>
       if 110 ≤ precLimit then precErr pos; break else
       match ← optional typedCall with
       | some (typs, args, stopPos) =>
-        lhs := ⟨⟨lhs.pos.pos, stopPos⟩, .call lhs typs args⟩
+        lhs := ⟨⟨lhs.span.pos, stopPos⟩, .call lhs typs args⟩
       | none =>
         let (indices, stopPos) ← indices
         if let some ⟨.tokenLit "(", pos⟩ ← peek then
-          pushErr "please parenthesize calling a subscript expression, or it will be parsed as a generic function call" ⟨lhs.pos.pos, pos.stopPos⟩
+          pushErr "please parenthesize calling a subscript expression, or it will be parsed as a generic function call" ⟨lhs.span.pos, pos.stopPos⟩
           fail
         else
-          lhs := ⟨⟨lhs.pos.pos, stopPos⟩, .access lhs indices⟩
+          lhs := ⟨⟨lhs.span.pos, stopPos⟩, .access lhs indices⟩
     | _ => break
     curr ← peek
 
@@ -405,22 +405,22 @@ partial def exp (precLimit : Nat := 0) : ParserM Exp := do
     match binOpMap.get? tk.kind with
     | some (prec, assoc, op) =>
       if prec ≤ precLimit then
-        precErr tk.pos (assoc == .n); break
+        precErr tk.span (assoc == .n); break
       else
         consume
-        let rhs ← withErr "expected expression" tk.pos (exp (assoc.prec prec))
-        lhs := ⟨⟨start.pos.pos, rhs.pos.stopPos⟩, .binOp op lhs rhs⟩
+        let rhs ← withErr "expected expression" tk.span (exp (assoc.prec prec))
+        lhs := ⟨⟨start.span.pos, rhs.span.stopPos⟩, .binOp op lhs rhs⟩
         if assoc == .n then precLimit := prec + 1
     | none =>
       let ⟨.tokenLit "if", _⟩ := tk | break
       if 40 ≤ precLimit then
-        precErr tk.pos; break
+        precErr tk.span; break
       else
         consume; clearErr
-        let cond ← withErr "unfinished if-expression" tk.pos (exp 40)
-        _ ← withErr "missing else branch in if-expression" tk.pos (token "else")
-        let els ← withErr "failed to pasrse else branch in if-expression" tk.pos (exp 39)
-        lhs := ⟨⟨start.pos.pos, els.pos.stopPos⟩, .ifExp cond lhs els⟩
+        let cond ← withErr "unfinished if-expression" tk.span (exp 40)
+        _ ← withErr "missing else branch in if-expression" tk.span (token "else")
+        let els ← withErr "failed to pasrse else branch in if-expression" tk.span (exp 39)
+        lhs := ⟨⟨start.span.pos, els.span.stopPos⟩, .ifExp cond lhs els⟩
     curr ← peek
 
   return lhs
@@ -449,9 +449,9 @@ def exps : ParserM Exp := do
   let some ⟨.tokenLit ",", pos⟩ ← peek | return hd
   consume
   let tl ← sepBy exp (token ",")
-  let lastPos := tl.back?.map (Pos.stopPos ∘ Exp.pos)
+  let lastPos := tl.back?.map (Span.stopPos ∘ Exp.span)
   let lastPos := lastPos.getD pos.stopPos
-  return ⟨⟨hd.pos.pos, lastPos⟩, .tuple (hd :: tl.toList)⟩
+  return ⟨⟨hd.span.pos, lastPos⟩, .tuple (hd :: tl.toList)⟩
 
 def dottedName : ParserM QualifiedIdent := do
   not (token ".") "implicit current directory not supported"
@@ -509,7 +509,7 @@ def simpleStmtMap : TokenMap (ParserM Stmt') := mkTokenMap [
   ("continue", (Function.const _ .continueLoop) <$> consume)
 ]
 
-def simpleStmt : ParserM Stmt := withPos .mk do
+def simpleStmt : ParserM Stmt := withSpan .mk do
   let some curr ← peek | fail
   (simpleStmtMap.get? curr.kind).getD do
   -- parse assignment or expressions
@@ -517,7 +517,7 @@ def simpleStmt : ParserM Stmt := withPos .mk do
   let anno := Prod.snd <$> (← optional (token ":" >> exp))
   let some ((), rhs) ← optional (token "=" >> exps) | {
     if h : anno.isSome then
-      pushErr "uninitialized variables are not allowed" (anno.get h).pos
+      pushErr "uninitialized variables are not allowed" (anno.get h).span
       fail
     else
       return .exp lhs
@@ -579,7 +579,7 @@ partial def whileStmt : ParserM Stmt' := do
   (fun ((), cond, (), body) => .whileLoop cond body) <$>
   (consume >> exp >> token ":" >> block)
 
-partial def compoundStmt : ParserM Stmt := withPos .mk do
+partial def compoundStmt : ParserM Stmt := withSpan .mk do
   let m := mkTokenMap [
     ("@"    , funcDef  ),
     ("def"  , funcDef  ),
@@ -620,6 +620,6 @@ def run (input : String) (fileName : String) (fileMap : Lean.FileMap := input.to
   let (stmts?, s) := statements c {}
   let some stmts := stmts? | .error (s.err.getLast?.getD "invalid syntax")
   if h : s.ptr < tks.size then
-    .error (s.err.getLast?.getD (c.formatError "invalid syntax" tks[s.ptr].pos))
+    .error (s.err.getLast?.getD (c.formatError "invalid syntax" tks[s.ptr].span))
   else
     .ok ⟨fileName, stmts⟩

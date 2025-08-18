@@ -194,6 +194,12 @@ def Exp'.reprPrec : Exp' → Nat → Format
 
 end
 
+instance instReprExp' : Repr Exp' where
+  reprPrec e n := e.reprPrec n
+
+instance instToStringExp' : ToString Exp' where
+  toString e := s!"{e.reprPrec 0}"
+
 instance instReprExp : Repr Exp where
   reprPrec e n := e.reprPrec n
 
