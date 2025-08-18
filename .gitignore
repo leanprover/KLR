@@ -8,3 +8,10 @@ __pycache__/
 build/
 dist/
 klr.bin
+KLR/gotest
+KLR/test.py
+.gitignore
+KLR/Compile/test.lean
+KLR/test.ast
+KLR/.DS_Store
+.DS_Store

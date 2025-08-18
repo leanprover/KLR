@@ -198,6 +198,7 @@ section Basics
 
   infix:100 "⊔" => Max.max
 
+
   def NodeMap.instBEq {α β : Type} [NodeMap α] [BEq β] : BEq ⟦α, β⟧ := {
     beq μ₀ μ₁ := μ₀ fold⟪true, (fun a prev => prev ∧ (μ₀◃a == μ₁◃a))⟫
   }
@@ -242,6 +243,14 @@ section Basics
           trivial
         }
       }
+    }
+
+  theorem NodeMap.of_const_map {α β γ: Type} [BEq β] [BEq γ] [LawfulBEq γ] [NodeMap α]
+    (b : β) (f : β → γ) : (NodeMap.const (α:=α) b) map⟪f⟫ == ⟪↦(f b)⟫ := by {
+      rw [beq_ext]
+      intro a
+      rw [of_map_get, of_const_get, of_const_get]
+      simp
     }
 
   instance {α β : Type} [NodeMap α] [ToString α] [ToString β] : ToString ⟦α, β⟧ where
@@ -300,7 +309,6 @@ section Basics
 
 end Basics
 
-
 /-
   The section `DataflowProblemSolver ` is parameterized on an instance of `DataflowProblem α β`.
   It builds on the definitions of maps `⟦α, β⟧` from `NodeMap α`, and on the transition functions
@@ -313,20 +321,29 @@ end Basics
   the dataflow problem, and a `I' ν : Prop` - which captures that `ν` satisfies the dataflow problem.
 -/
 section DataflowProblemSolver
+
   variable {α β : Type} [BEq α] {DP: DataflowProblem α β}
   open DataflowProblem
 
+
   def ν₀ : ⟦α, (β × Bool)⟧ := ⟪↦(⊥, true)⟫
+
 
   def ε (a₀ a₁ : Node α) : Bool := List.elem a₁ (σ◃a₀)
 
+
   def strip_bools (ν : ⟦α, (β × Bool)⟧) := ν map⟪fun (β, _)=>β⟫
 
+
   def E (P : (Node α) → (Node α) → Prop) := ∀ (a₀ a₁) (_:ε a₀ a₁), P a₀ a₁
+
   def R (ν₀ : ⟦α, (β × Bool)⟧) (ν₁ : ⟦α, β⟧) [LE β]: Prop := E (fun a₀ a₁ => (ν₀◃a₀).2 ∨ (τ◃a₀) ((ν₀◃a₀).1) ≤ (ν₁◃a₁))
+
   def I (ν : ⟦α, (β × Bool)⟧) : Prop := R ν (strip_bools ν)
 
+
   def R' (ν₀ ν₁ : ⟦α, β⟧) : Prop := E (fun a₀ a₁ => (τ◃a₀) (ν₀◃a₀) ≤ ν₁◃a₁)
+
   def I' (ν : ⟦α, β⟧) : Prop := R' ν ν
 
   theorem base_case : @I α β _ DP ν₀ := by {
@@ -337,15 +354,19 @@ section DataflowProblemSolver
     rw [NodeMap.of_const_get]
   }
 
+
   def δ (ν : ⟦α, (β × Bool)⟧) (a : Node α) : ⟦α, β⟧ := -- step
     of_func⟪(fun a' => if ε a a' then ((τ◃a) (ν◃a).1) else ⊥)⟫
+
 
   def Δ₀ (ν : ⟦α, (β × Bool)⟧) : ⟦α, β⟧ :=
     ν fold⟪ν map⟪(·.1)⟫, (fun a ν₀ => if (ν◃a).2 then ν₀ ⊔ (δ ν a) else ν₀)⟫
 
+
   def Δ (ν : ⟦α, (β × Bool)⟧) : ⟦α, (β × Bool)⟧ :=
     let ν' := Δ₀ ν
     of_func⟪fun a => let (β, β') := ((ν◃a).1, (ν'◃a)); (β', β != β')⟫
+
 
 
   def is_fix (ν : ⟦α, (β × Bool)⟧) : Bool :=
@@ -529,6 +550,7 @@ section DataflowProblemSolver
       }
   }
 
+  -- don't want to unroll this automatically
   def DataflowProblem.solve_to_depth {α β : Type}
     (depth : ℕ)
     (DP : DataflowProblem α β)
@@ -545,6 +567,7 @@ section DataflowProblemSolver
             some ⟨ν', h', fix⟩
           else
             solve_to_depth depth' DP ν' h'
+
 
   def DataflowProblem.solve {α β : Type} [BEq α]
     (DP : DataflowProblem α β)
@@ -585,26 +608,34 @@ section FiniteDataflowProblemSolver
     le_supl (β₀ β₁ : β) : β₀ ≤ Max.max β₀ β₁
     le_supr (β₀ β₁ : β) : β₁ ≤ Max.max β₀ β₁
 
+
   def LtProp : NodeProp ℕ where
     node_prop n' := n' < n
 
+
   def NodeT := @Node ℕ (LtProp n)
+
 
   def node_to_fin (nd : NodeT n) : (Fin n)
     := {val := @nd.data, isLt := @nd.sound}
 
+
   def fin_to_node (fin : Fin n) : (NodeT n)
     := @Node.mk ℕ (LtProp n) fin.val fin.isLt
+
 
   def nodes : Vector (NodeT n) n
     := Vector.ofFn (fin_to_node n)
 
+
   def vector_fn {β : Type} (f : NodeT n → β) : Vector β n
     := Vector.ofFn (f ∘ (fin_to_node n))
+
 
   def FiniteNodeProp : NodeProp ℕ := {
       node_prop n' := n' < n
     }
+
 
   def FiniteNodeMap : NodeMap ℕ := {
     FiniteNodeProp n with
@@ -697,6 +728,7 @@ section FiniteDataflowProblemSolver
     This is the end of the section because the returned instance provides the
     `DataflowProblem.solve` function.
   -/
+
   def FiniteDataflowProblem {β : Type}
     [BEq β]
     [P:Preorder β]
@@ -810,23 +842,27 @@ section InnerMapImpl
       vals (n k : ℕ) : (n < num_nodes) → (k < num_keys) → ρ
       props (n m k : ℕ) : (hn : n < num_nodes) → (hm : m < num_nodes) → (hk : k < num_keys) →
         (edges n m) → transitions n k (vals n k hn hk) ≤ (vals m k hm hk)
+      key_labels : ℕ → Option String --for debugging printing
 
     def SolutionT.toString [ToString ρ]
     (𝕊 : SolutionT ρ num_nodes num_keys edges transitions)
     : String :=
       let 𝕍 := 𝕊.vals
       let nd_to_string n (hn :n < num_nodes) : String :=
-        let entries := (List.range num_keys).filterMap
-          (fun k => if hk: k < num_keys then some (ToString.toString (𝕍 n k hn hk)) else none)
+        let entries := (List.range num_keys).filterMap -- all entries will map to some _ but this isn't a dependent map
+          (fun k => if hk: k < num_keys then
+            let pre := match 𝕊.key_labels k with | some s => s!"{s}:" | none => "";
+            some (s!"{pre}{(𝕍 n k hn hk)}")
+          else none)
         String.intercalate " " entries
-      let lines := (List.range num_nodes).filterMap
+      let lines := (List.range num_nodes).filterMap -- all entries will map to some _ but this isn't a dependent map
         (fun n => if hn: n < num_nodes then (
           let s := nd_to_string n hn; some (s!"Node {n}: {s}")
         ) else none)
       String.intercalate "\n" ([""] ++ lines ++ [""])
 
-      instance [ToString ρ] : ToString (SolutionT ρ num_nodes num_keys edges transitions) where
-        toString := (SolutionT.toString ρ num_nodes num_keys edges transitions)
+    instance [ToString ρ] : ToString (SolutionT ρ num_nodes num_keys edges transitions) where
+      toString := SolutionT.toString ρ num_nodes num_keys edges transitions
 
   end SolutionImpl
 
@@ -986,9 +1022,13 @@ section InnerMapImpl
       some {
         vals := vals
         props := props
+        key_labels _ := none
       }
 end InnerMapImpl
-/-
+
+
+/- EXAMPLE
+
   The section `ConcreteMapImpl` serves to illustrate an end-to-end usage
   of the dataflow solver defined above. In particular:
 
@@ -1422,6 +1462,7 @@ namespace UseDefImpl
 
   end DataflowInstance
 end UseDefImpl
+
 
 
 -- thanks for reading! - Julia 💕
