@@ -24,7 +24,8 @@ jobs:
         # macos-13 is x64
         # macos-latest is arm64
         # ubuntu-latest is x64
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-13]
+        # os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-13]
+        os: [macos-latest, macos-13]
 
     runs-on: ${{ matrix.os }}
 

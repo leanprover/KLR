@@ -126,7 +126,7 @@ instance : FromNKI Immediate where
   fromNKI?
     | .expr (.value $ .bool true) _ => return .int 1
     | .expr (.value $ .bool false) _ => return .int 0
-    | .expr (.value $ .int i) _ => return .int i
+    | .expr (.value $ .int i) _ => return .int i.toInt32
     | .expr (.value $ .float f) _ => return .float f.toFloat32
     | _ => throw "expecting int or float"
 
