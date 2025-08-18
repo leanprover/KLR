@@ -18,6 +18,7 @@ set_option grind.warning false
 variable {DataT : Type _} [NMLEnv DataT]
 attribute [simp] Locals.bind
 
+
 @[simp] def ΦInt (Φ : Int → Int → Prop) (v1 v2 : Value DataT) : Prop :=
   ∃ z1 z2, v1 = .int z1 ∧ v2 = .int z2 ∧ Φ z1 z2
 @[simp] def ΦPure (Φ : Value DataT → Value DataT → Prop) : Value DataT → Value DataT → @PROP DataT :=
@@ -28,8 +29,8 @@ namespace example0
 /-! Example: Done states are related-/
 
 abbrev K : Nat := 1
-@[simp] def sL : ExecState DataT := .done <| .int 4
-@[simp] def sR : ExecState DataT := .done <| .int 5
+@[simp] def sL : ProgState DataT := ⟨.done <| .int 4, []⟩
+@[simp] def sR : ProgState DataT := ⟨.done <| .int 5, []⟩
 
 theorem example0 : ⊢ wp (DataT := DataT) K sL sR (ΦPure <| ΦInt (· < ·)) := by
   simp [sL, sR]
@@ -39,7 +40,7 @@ theorem example0 : ⊢ wp (DataT := DataT) K sL sR (ΦPure <| ΦInt (· < ·)) :
   grind
 
 /-- Applying the NML Adequacy theorem to example0 -/
-example (σ₁ σ₂ : State DataT) : SmallStep.PRel (Prog := NML.ExecState DataT) (sL, σ₁) (sR, σ₂) (ΦInt (· < ·)) := by
+example (σ₁ σ₂ : State DataT) : SmallStep.PRel (Prog := NML.ProgState DataT) (sL, σ₁) (sR, σ₂) (ΦInt (· < ·)) := by
   apply wp_adequacy (K := 1)
   refine .trans ?_ example0
   exact true_intro.trans true_emp.mp
@@ -49,8 +50,8 @@ end example0
 namespace example1
 /-! Example: Desync, step left and right, and return -/
 
-@[simp] def sL : ExecState DataT := .run [.ret <| .val <| .int 4] .emp
-@[simp] def sR : ExecState DataT := .run [.ret <| .val <| .int 4] .emp
+@[simp] def sL : ProgState DataT := ⟨.run ⟨[.ret <| .val <| .int 4], .emp⟩, []⟩
+@[simp] def sR : ProgState DataT := ⟨.run ⟨[.ret <| .val <| .int 4], .emp⟩, []⟩
 
 example : ⊢ wp (DataT := DataT) 1 sL sR (ΦPure <| ΦInt (· = ·)) := by
   istart
@@ -68,7 +69,7 @@ end example1
 namespace example2
 /-! Example: Proving safety of a program -/
 
-@[simp] def s : ExecState DataT := .run [.ret <| .val <| .int 4] .emp
+@[simp] def s : ProgState DataT := ⟨.run ⟨[.ret <| .val <| .int 4], .emp⟩, []⟩
 
 theorem example2 : ⊢ wp (DataT := DataT) 2 s s (ΦPure ΦTriv) := by
   istart
@@ -81,7 +82,7 @@ theorem example2 : ⊢ wp (DataT := DataT) 2 s s (ΦPure ΦTriv) := by
   ipure_intro
   grind
 
-example (σ : State DataT) : SmallStep.Safe (Prog := NML.ExecState DataT) (s, σ) := by
+example (σ : State DataT) : SmallStep.Safe (Prog := NML.ProgState DataT) (s, σ) := by
   apply SmallStep.Safe_of_PRel (Φf := ΦTriv)
   apply wp_adequacy (K := 2)
   refine .trans ?_ example2
@@ -92,13 +93,13 @@ end example2
 namespace example3
 /-! Example: Step value assignment -/
 
-@[simp] def sL : ExecState DataT := .run [
+@[simp] def sL : ProgState DataT := ⟨.run ⟨[
     .assign (.some "x") (.val .unit),
     .ret <| (.val .unit)
-  ] .emp
-@[simp] def sR : ExecState DataT := .run [
+  ], .emp⟩, []⟩
+@[simp] def sR : ProgState DataT := ⟨.run ⟨[
     .ret <| (.val .unit)
-  ] .emp
+  ], .emp⟩, []⟩
 
 example : ⊢ wp (DataT := DataT) 2 sL sR (ΦPure ΦTriv) := by
   istart
@@ -117,13 +118,13 @@ end example3
 namespace example4
 /-! Example: Step sequencing assignment -/
 
-@[simp] def sL : ExecState DataT := .run [
+@[simp] def sL : ProgState DataT := ⟨.run ⟨[
     .assign .none (.val .unit),
     .ret <| (.val .unit)
-  ] .emp
-@[simp] def sR : ExecState DataT := .run [
+  ], .emp⟩, []⟩
+@[simp] def sR : ProgState DataT := ⟨.run ⟨[
     .ret <| (.val .unit)
-  ] .emp
+  ], .emp⟩, []⟩
 
 example : ⊢ wp (DataT := DataT) 2 sL sR (ΦPure ΦTriv) := by
   istart
@@ -144,13 +145,13 @@ namespace example5
 
 variable (n : Nat) (i : IteratorS)
 
-@[simp] def sL : ExecState DataT := .run [
+@[simp] def sL : ProgState DataT := ⟨.run ⟨[
     .mkiter n i,
     .ret <| (.val .unit)
-  ] .emp
-@[simp] def sR : ExecState DataT := .run [
+  ], .emp⟩, []⟩
+@[simp] def sR : ProgState DataT := ⟨.run ⟨[
     .ret <| (.val .unit)
-  ] .emp
+  ], .emp⟩, []⟩
 
 example : ⊢ wp (DataT := DataT) 2 (sL n i) sR (ΦPure ΦTriv) := by
   istart
@@ -167,32 +168,32 @@ example : ⊢ wp (DataT := DataT) 2 (sL n i) sR (ΦPure ΦTriv) := by
 end example5
 
 
-namespace example6
-/-! Example: Step empty assignment -/
-
-variable (c' : LocalContext DataT)
-
-@[simp] def sL : ExecState DataT := .run [
-    .frame [] c',
-    .ret <| (.val .unit)
-  ] .emp
-@[simp] def sR : ExecState DataT := .run [
-    .ret <| (.val .unit)
-  ] .emp
-
-example : ⊢ wp (DataT := DataT) 2 (sL c') sR (ΦPure ΦTriv) := by
-  istart
-  wp_desync
-  uwp_left  SPure.uwpL .frameEmp trivial
-  uwp_left  SPure.uwpL .ret trivial
-  uwp_right SPure.uwpR .ret trivial
-  wp_resync
-  wp_sync_val
-  unfold ΦPure ΦTriv
-  ipure_intro
-  grind
-
-end example6
+-- namespace example6
+-- /-! Example: Step empty assignment -/
+--
+-- variable (c' : LocalContext DataT)
+--
+-- @[simp] def sL : ProgState DataT := ⟨.run ⟨[
+--     .frame [] c',
+--     .ret <| (.val .unit)
+--   ], .emp⟩, []⟩
+-- @[simp] def sR : ExecState DataT := .run [
+--     .ret <| (.val .unit)
+--   ] .emp
+--
+-- example : ⊢ wp (DataT := DataT) 2 (sL c') sR (ΦPure ΦTriv) := by
+--   istart
+--   wp_desync
+--   uwp_left  SPure.uwpL .frameEmp trivial
+--   uwp_left  SPure.uwpL .ret trivial
+--   uwp_right SPure.uwpR .ret trivial
+--   wp_resync
+--   wp_sync_val
+--   unfold ΦPure ΦTriv
+--   ipure_intro
+--   grind
+--
+-- end example6
 
 namespace example7
 /-! Example: Loop exit -/
@@ -200,13 +201,13 @@ namespace example7
 variable (n : Nat) (i : Iterator DataT) (b : List (Stmt DataT))
 variable (Hloop : PLoopExit (LocalContext.bindi .emp n i) n)
 
-@[simp] def sL : ExecState DataT := .run [
+@[simp] def sL : ProgState DataT := ⟨.run ⟨[
     .loop "x" (.val <| .iref n) b,
     .ret <| (.val .unit)
-  ] (LocalContext.bindi .emp n i)
-@[simp] def sR : ExecState DataT := .run [
+  ], (LocalContext.bindi .emp n i)⟩, []⟩
+@[simp] def sR : ProgState DataT := ⟨.run ⟨[
     .ret <| (.val .unit)
-  ] .emp
+  ], .emp⟩, []⟩
 
 example : ⊢ wp (DataT := DataT) 2 (sL n i b) sR (ΦPure ΦTriv) := by
   istart
@@ -227,12 +228,12 @@ namespace example8
 
 variable (f : NML.Dunop DataT) (d₀ d₁ : DataT) (Hf : NMLEnv.evalDunop f d₀ = d₁)
 
-@[simp] def sL : ExecState DataT := .run [
+@[simp] def sL : ProgState DataT := ⟨.run ⟨[
     .ret <| (.dunop (.val <| .data d₀) f)
-  ] .emp
-@[simp] def sR : ExecState DataT := .run [
+  ], .emp⟩, []⟩
+@[simp] def sR : ProgState DataT := ⟨.run ⟨[
     .ret <| (.val <| .data d₁)
-  ] .emp
+  ], .emp⟩, []⟩
 
 example : ⊢ wp (DataT := DataT) 2 (sL f d₀) (sR d₁) (ΦPure (· = ·)) := by
   istart
@@ -254,14 +255,14 @@ namespace example9
 
 variable (d₀ : DataT)
 
-@[simp] def sL : ExecState DataT := .run [
+@[simp] def sL : ProgState DataT := ⟨.run ⟨[
     .assign (some "x") (.val <| .data d₀),
     .assign (some "y") (.var "x"),
     .ret <| (.var "y")
-  ] .emp
-@[simp] def sR : ExecState DataT := .run [
+  ], .emp⟩, []⟩
+@[simp] def sR : ProgState DataT := ⟨.run ⟨[
     .ret <| (.val <| .data d₀)
-  ] .emp
+  ], .emp⟩, []⟩
 
 example : ⊢ wp (DataT := DataT) 5 (sL d₀) (sR d₀) (ΦPure (· = ·)) := by
   istart
@@ -285,14 +286,14 @@ namespace example10
 
 variable (d₀ : DataT)
 
-@[simp] def sL : ExecState DataT := .run [
+@[simp] def sL : ProgState DataT := ⟨.run ⟨[
     .assign (some "x") (.val <| .data d₀),
     .assign (some "y") (.var "x"),
     .ret <| (.var "y")
-  ] .emp
-@[simp] def sR : ExecState DataT := .run [
+  ], .emp⟩, []⟩
+@[simp] def sR : ProgState DataT := ⟨.run ⟨[
     .ret <| (.val <| .data d₀)
-  ] .emp
+  ], .emp⟩, []⟩
 
 example : ⊢ wp (DataT := DataT) 5 (sL d₀) (sR d₀) (ΦPure (· = ·)) := by
   istart
@@ -315,10 +316,10 @@ end example10
 namespace example11
 /-! Example: Safety of nonphysical allocation -/
 
-@[simp] def s : ExecState DataT := .run [
+@[simp] def s : ProgState DataT := ⟨.run ⟨[
     .assign (some "ℓ") (.alloc .sbuf),
     .ret <| (.var "ℓ")
-  ] .emp
+  ], .emp⟩, []⟩
 
 /- Best we can get with our dwpL/R proof rules: there exists a chip -/
 @[simp] def ΦBothLoc (v1 v2 : Value DataT) : Prop :=

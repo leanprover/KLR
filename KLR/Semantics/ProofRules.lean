@@ -1358,9 +1358,6 @@ section advanced
 
 variable [NMLEnv DataT]
 
-
-
-
 open TensorLib.Iterator in
 -- Loop rule to demonstrate separating conjunction
 -- For programs that are sampling from the same affine iterator,
@@ -1460,7 +1457,8 @@ def wpAffineLoopRelSync [NMLEnv DataT] {p1 p2 : List (NML.Stmt DataT)} {locL loc
     rename_i iph IH
 
     -- Step both sides to get a frame
-    -- wpFrameSync' with mono to frame the resources?
+    -- wpFrameSync' with mono to frame the resources
+    -- Need to unvold InvPost and InvPre
 
     sorry
 
