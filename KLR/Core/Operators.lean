@@ -754,6 +754,26 @@ structure SequenceBounds where
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 187]
+structure SendRecv where
+  dst : TensorRef
+  src : TensorRef
+  sendToRank : Immediate
+  recvFromRank : Immediate
+  pipeId : Immediate
+  useGpsimdDma : Bool
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 188]
+structure SendRecvCCE where
+  dst : TensorRef
+  src : List TensorRef
+  sendToRank : Immediate
+  recvFromRanks : List Immediate
+  pipeId : Immediate
+  op : AluOp
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 189]
 inductive Operator where
   | activate (op : Activate)
   | ncActivate (op : NcActivate)
@@ -796,9 +816,11 @@ inductive Operator where
   | transpose (op : Transpose)
   | selectReduce (op : SelectReduce)
   | sequenceBounds (op : SequenceBounds)
+  | sendRecv (op : SendRecv)
+  | sendRecvCCE (op : SendRecvCCE)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 188]
+@[serde tag = 190]
 inductive TGROperator where
   | activate (op : Activate)
   | affineSelect (op : AffineSelect)
