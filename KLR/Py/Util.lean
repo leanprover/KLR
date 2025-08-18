@@ -22,7 +22,7 @@ deriving instance ToJson for String.Pos
 
 namespace KLR.Py
 
-structure Pos where
+structure Span where
   pos     : String.Pos := {}
   stopPos : String.Pos := {}
 deriving ToJson, Repr, Inhabited, BEq
@@ -32,12 +32,12 @@ structure FileInfo where
   fileMap  : FileMap
   fileName : String
 
-def FileInfo.formatError (f : FileInfo) (pre : String) (msg : String) (pos : Pos) : String :=
+def FileInfo.formatError (f : FileInfo) (pre : String) (msg : String) (span : Span) : String :=
   let fileMap := f.fileMap
   let input := f.content
 
-  let { line, column } := fileMap.toPosition pos.pos
-  let { line := lineEnd, column := columnEnd } := f.fileMap.toPosition (pos.stopPos)
+  let { line, column } := fileMap.toPosition span.pos
+  let { line := lineEnd, column := columnEnd } := f.fileMap.toPosition (span.stopPos)
 
   let startPos := fileMap.ofPosition { line := line, column := 0 }
   let endPos := fileMap.ofPosition { line := lineEnd + 1, column := 0 }
@@ -65,7 +65,7 @@ def input := "1
   a
   80000
 bcd"
-def pos : Pos := ⟨input.find (· == '3'), input.next <| input.find (· == '8')⟩
+def pos : Span := ⟨input.find (· == '3'), input.next <| input.find (· == '8')⟩
 def info : FileInfo := ⟨input, input.toFileMap, "/usr/code/my.py"⟩
 def err := info.formatError "SyntaxError" "invalid syntax" pos
 

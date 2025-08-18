@@ -60,6 +60,53 @@ def paren (f : Format) : Format :=
 def braket (f : Format) : Format :=
   "[" ++ f ++ "]"
 
+def Prim.toString : Prim → String
+  | .bool => "bool"
+  | .none => "None"
+  | .string => "str"
+  | .numeric .int => "int"
+  | .numeric .float => "float"
+  | .dtype dt => dt.toString
+
+mutual
+
+def Typ'.reprPrec : Typ' → Nat → Format
+  | .var id, _ => id
+  | .prim p, _ => p.toString
+  | .list t, _ => s!"list[{t.reprPrec 0}]"
+  | .iter t, _ => s!"iter[{t.reprPrec 0}]"
+  | .tuple ts, _ =>
+    let ts := ts.map (·.reprPrec 0)
+    s!"tuple[{joinSep ts ", "}]"
+  | .tensor sh dt, _ =>
+    let sh := sh.reprPrec 0
+    let dt := dt.reprPrec 0
+    s!"tensor[{sh}, {dt}]"
+  | .size n, _ => s!"{n}"
+  | .shape dims, _ =>
+    let dims := dims.map (·.reprPrec 0)
+    s!"({joinSep dims ", "})"
+  | .func params ret, _ =>
+    let params := params.map (·.reprPrec 0)
+    let ret := ret.reprPrec 0
+    s!"[{joinSep params ", "}] -> {ret}"
+  | .forall names body, _ =>
+    let body := body.reprPrec 0
+    s!"forall {joinSep names " "}. {body}"
+  | .sizeAdd x y, _ =>
+    let x := x.reprPrec 0
+    let y := y.reprPrec 0
+    s!"{x} + {y}"
+  | .shapeAppend s1 s2, _ =>
+    let s1 := s1.reprPrec 0
+    let s2 := s2.reprPrec 0
+    s!"{s1} @ {s2}"
+
+def Typ.reprPrec : Typ → Nat → Format
+  | { typ, .. }, n => typ.reprPrec n
+
+end
+
 def Value.reprPrec : Value → Nat → Format
   | .none, _ => "None"
   | .bool value, _ => match value with | true => "True" | false => "False"
@@ -194,6 +241,12 @@ def Exp'.reprPrec : Exp' → Nat → Format
 
 end
 
+instance instReprExp' : Repr Exp' where
+  reprPrec e n := e.reprPrec n
+
+instance instToStringExp' : ToString Exp' where
+  toString e := s!"{e.reprPrec 0}"
+
 instance instReprExp : Repr Exp where
   reprPrec e n := e.reprPrec n
 
@@ -243,7 +296,7 @@ def Stmt.reprPrec : Stmt → Nat → Format
   | { stmt, .. }, p => stmt.reprPrec p
 
 def FuncDef.reprPrec : FuncDef → Nat → Format
-  | { name, typParams, params, returns, body, decorators, .. }, _ =>
+  | { name, typParams, params, returns, body, decorators, whereBounds }, _ =>
     let typParams :=
       if typParams.isEmpty then
         Format.nil
@@ -251,13 +304,17 @@ def FuncDef.reprPrec : FuncDef → Nat → Format
         braket <| joinSep typParams ", "
     let params := paren <| group <| align false ++ joinSep (params.map (·.reprPrec 0)) ", "
     let returns := (returns.map ((" -> " : Format) ++ ·.reprPrec 0)).getD Format.nil
+    let whereBounds : Format :=
+      if whereBounds.isEmpty then "" else
+      let es := whereBounds.map (Exp.reprPrec · 0)
+      br ++ "where" ++ nest (br ++ (joinSep es br)) ++ br
     let body := Stmt.listReprPrec body 0
     let decorators :=
       if decorators.isEmpty then
         Format.nil
       else
         (joinSep (decorators.map (("@" : Format) ++ ·.reprPrec 0)) br) ++ br
-    decorators ++ s!"def {name}{typParams}{params}" ++ returns ++ ":" ++ nest (br ++ body)
+    decorators ++ s!"def {name}{typParams}{params}" ++ returns ++ whereBounds ++ ":" ++ nest (br ++ body)
 
 def Stmt.listReprPrec (stmts : List Stmt) (prec : Nat) : Format :=
   let stmts := stmts.map (·.reprPrec prec)

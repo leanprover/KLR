@@ -14,10 +14,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -/
 
+import KLR.Core
 import KLR.Py.Util
+
+def KLR.Core.Dtype.toString : Dtype → String
+  | .bfloat16 => "bfloat16"
+  | .float8e3 => "float8e3"
+  | .float8e4 => "float8e4"
+  | .float8e5 => "float8e5"
+  | .float16 => "float16"
+  | .float32 => "float32"
+  | .float32r => "float32r"
+  | .int8 => "int8"
+  | .int16 => "int16"
+  | .int64 => "int64"
+  | .int32 => "int32"
+  | .uint8 => "uint8"
+  | .uint16 => "uint16"
+  | .uint32 => "uint32"
+  | .uint64 => "uint64"
 
 namespace KLR.Py
 
+open KLR.Core (Dtype)
 open Lean (ToJson)
 
 abbrev Ident := String
@@ -30,6 +49,43 @@ def QualifiedIdent.toString : QualifiedIdent → String
 
 instance instToStringQualifiedIdent : ToString QualifiedIdent where
   toString := QualifiedIdent.toString
+
+inductive Numeric
+  | int
+  | float
+deriving BEq, ToJson
+
+inductive Prim
+  | none
+  | bool
+  | numeric (numeric : Numeric)
+  | string
+  | dtype (dt : Dtype)
+deriving BEq, ToJson
+
+mutual
+
+inductive Typ'
+  | var (var : Ident)
+  | forall (names : List Ident) (body : Typ)
+  | prim (p : Prim)
+  | func (params : List Typ) (ret : Typ)
+  | size (n : Nat)
+  | shape (dims : List Typ)
+  | tuple (typs : List Typ)
+  | list (typ : Typ)
+  | tensor (shape : Typ) (dt : Typ)
+  | iter (typ : Typ)
+  | sizeAdd (x y : Typ)
+  | shapeAppend (s1 s2 : Typ)
+deriving ToJson
+
+structure Typ where
+  span : Span
+  typ  : Typ'
+deriving ToJson
+
+end
 
 inductive Value
   | none
@@ -72,8 +128,8 @@ inductive Index
   | slice (l u step : Option Exp)
 
 structure Exp where
-  pos : Pos := {}
-  exp : Exp'
+  span : Span := {}
+  exp  : Exp'
 deriving ToJson
 
 inductive Exp'
@@ -84,7 +140,7 @@ inductive Exp'
   | tuple (es : List Exp)
   | list (es : List Exp)
   | ifExp (test body orelse : Exp)
-  | call (f : Exp) (typArgs : List Exp) (args : List Arg)
+  | call (f : Exp) (typArgs : List Typ) (args : List Arg)
   | access (e : Exp) (indices : List Index)
   | attr (e : Exp) (field : Ident)
 deriving ToJson
@@ -100,7 +156,7 @@ deriving ToJson
 
 structure Param where
   name : Ident
-  typ : Option Exp
+  typ : Option Typ
   dflt : Option Exp
 deriving ToJson
 
@@ -110,13 +166,14 @@ structure FuncDef where
   name : Ident
   typParams : List Ident
   params : List Param
-  returns : Option Exp
+  returns : Option Typ
   body : List Stmt
   decorators : List Exp
+  whereBounds : List Exp
 deriving ToJson
 
 structure Stmt where
-  pos : Pos := {}
+  span : Span := {}
   stmt : Stmt'
 deriving ToJson
 
@@ -125,7 +182,7 @@ inductive Stmt'
   | imprt (mod : QualifiedIdent) (as : Option Ident)
   | imprtFrom (mod : QualifiedIdent) (imp : Ident) (as : Option Ident)
   | ret (e : Exp)
-  | assign (lhs : Exp) (typ : Option Exp) (rhs : Exp)
+  | assign (lhs : Exp) (typ : Option Typ) (rhs : Exp)
   | assert (e : Exp)
   | funcDef (dfn : FuncDef)
   | ifStm (cond : Exp) (thn : List Stmt) (elifs : List (Exp × List Stmt)) (els : Option (List Stmt))
