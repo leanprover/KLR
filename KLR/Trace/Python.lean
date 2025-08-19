@@ -32,7 +32,7 @@ nki builtin.op.negate (t : Term) := do
   | _ => throw "cannot negate values of this type"
 
 nki builtin.op.not (t : Term) := do
-  return .bool t.isFalse
+  return .bool (<- t.isFalse)
 
 nki builtin.op.invert (t : Term) := do
   let i : Int <- fromNKI? t
@@ -43,7 +43,8 @@ nki builtin.python.slice (b : Int) (e : Int) (s : Int) := do
 
 nki builtin.python.len (t : Term) := do
   match t with
-  | .tuple l | .list l => return .int l.length
+  | .tuple l => return .int l.length
+  | .list a => return .int a.size
   | _ => throw "invalid argument"
 
 -- TODO: should take arbitrary number of arguments and work on more types
@@ -52,6 +53,80 @@ nki builtin.python.min (a : Term) (b : Term) := do
   | .int a, .int b => return .int (min a b)
   | _, _ => throw "invalid arguments"
 
+/-
+Python List object
+-/
+
+private def fetchIter (t : Term) : Trace (List Term) := do
+  let t <- match t with
+    | .ref name _ => lookup name
+    | _ => pure t
+  match t with
+  | .tuple l => return l
+  | .list a => return a.toList
+  | _ => throw "not an iterable object"
+
+private def fetchList (t : Term) : Trace (Name × Array Term) := do
+  let name <- match t with
+    | .ref name .list => pure name
+    | _ => throw "internal error: expecting list reference"
+  let arr <- match <- lookup name with
+    | .list arr => pure arr
+    | _ => throw "internal error: expecting reference to list"
+  return (name, arr)
+
+private def modifyList (t : Term) (f : Array Term -> Array Term) : Trace Unit := do
+  let (name, arr) <- fetchList t
+  extend name (.list (f arr))
+
+nki builtin.list.append (t : Term) (x : Term) := do
+  modifyList t fun arr => arr.push x
+  return .none
+
+nki builtin.list.clear (t : Term) := do
+  modifyList t fun _ => #[]
+  return .none
+
+nki builtin.list.copy (t : Term) := do
+  let (_, arr) <- fetchList t
+  let name <- genName `list
+  extend name (.list arr)
+  return .ref name .list
+
+nki builtin.list.count (t : Term) := do
+  let (_, arr) <- fetchList t
+  return .int arr.size
+
+nki builtin.list.extend (t : Term) (x : Term) := do
+  let l <- fetchIter x
+  modifyList t fun arr =>
+    arr.append l.toArray
+  return .none
+
+-- Note: does not raise ValueError as in Python, simply returns none
+nki builtin.list.index (t : Term) (value : Term) (start : Nat := 0) (stop : Nat := UInt64.size) := do
+  let (_, arr) <- fetchList t
+  match arr.findIdx? (. == value) with
+  | none => return .none
+  | some n => if n >= start && n < stop then return .int n else return .none
+
+-- Note: like above no exceptions
+nki builtin.list.pop (t : Term) := do
+  let (name, arr) <- fetchList t
+  let x := arr[arr.size - 1]!
+  extend name (.list arr.pop)
+  return x
+
+-- Note: like above no exceptions
+nki builtin.list.remove (t : Term) (v : Term) := do
+  modifyList t fun arr =>
+    arr.filter fun x => x != v
+  return .none
+
+nki builtin.list.reverse (t : Term) := do
+  modifyList t fun arr =>
+    arr.reverse
+  return .none
 
 /-
 Python math library

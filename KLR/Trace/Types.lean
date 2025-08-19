@@ -86,11 +86,15 @@ The ref variant is used to simulate mutable data types. The Name is a
 value in the local environment that will be shared by all references to
 the value.
 -/
+inductive RefType where
+  | list | dict | object
+  deriving Repr, BEq
+
 inductive Term where
   -- internals
   | module   : Name -> Term
   | builtin  : Name -> Option Term -> Term
-  | ref      : Name -> Term
+  | ref      : Name -> RefType -> Term
   | source   : NKI.Fun -> Term
   -- expressions / values
   | var      : Name -> Term
@@ -101,7 +105,7 @@ inductive Term where
   | string   : String -> Term
   | access   : Core.Access -> Term
   | tuple    : List Term -> Term
-  | list     : List Term -> Term
+  | list     : Array Term -> Term
   -- indexing
   | ellipsis : Term
   | slice    : Option Int -> Option Int -> Option Int -> Term
@@ -113,42 +117,12 @@ inductive Term where
 instance : Inhabited Term where
   default := .none
 
-namespace Term
-
--- Truthiness of Terms following Python
-
-def isTrue : Term -> Bool
-  | .none
-  | .tuple []
-  | .list []  => false
-  | .module _
-  | .ref _
-  | .mgrid
-  | .mgItem ..
-  | .builtin ..
-  | .source _
-  | .string _
-  | .tuple _
-  | .list _
-  | .ellipsis
-  | .slice ..
-  | .pointer .. => true
-  | .var _      => true  -- TODO: impossible?
-  | .bool b     => b
-  | .int i      => i != 0
-  | .float f    => f != 0.0
-  | .access _   => true
-
-def isFalse (t : Term) : Bool :=
-  not (t.isTrue)
-
 -- Only fully lowered terms are relevant
+-- (we don't need to look inside tuples, etc.)
 instance : Tensors Term where
   tensors
   | .access a => tensors a
   | _ => []
-
-end Term
 
 /-
 Our state has a number for generating fresh names, the current source location
@@ -363,3 +337,36 @@ where
       s!"warning: {pw.snd}\n{str}"
     else
       s!"warning:{pw.fst.line}: {pw.snd}\n{str}"
+
+-- Truthiness of Terms following Python
+namespace Term
+
+-- This is partial because the user could have created a heap graph
+partial def isTrue (t : Term) : Trace Bool := do
+  match t with
+  -- internals
+  | .module .. => return true
+  | .builtin .. => return true
+  | .ref name _ => isTrue (<- lookup name)
+  | .source .. => return true
+  -- expressions / values
+  | .var name => isTrue (<- lookup name)
+  | .none => return false
+  | .bool b => return b
+  | .int i => return i != 0
+  | .float f => return f != 0.0
+  | .string s => return s.length > 0
+  | .access .. => return true
+  | .tuple l => return l.length > 0
+  | .list a => return a.size > 0
+  -- indexing
+  | .ellipsis ..
+  | .slice ..
+  | .pointer ..
+  | .mgrid ..
+  | .mgItem .. => return true
+
+def isFalse (t : Term) : Trace Bool :=
+  return not (<- t.isTrue)
+
+end Term

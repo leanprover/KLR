@@ -160,17 +160,21 @@ partial def expr' (e' : Expr') : Trace Term := do
   | .value v => value v
   | .var n => lookupName n
   | .tuple es => return .tuple (<- es.mapM expr)
-  | .list es => return .list (<- es.mapM expr)
+  | .list es =>
+      let es <- es.mapM expr
+      let name <- genName `list
+      extend name (.list es.toArray)
+      return .ref name .list
   | .access e ix => access (<- expr e) (<- ix.mapM index)
   | .binOp op l r => binop op (<- expr l) (<- expr r)
   | .conj l r =>
       let l <- expr l
-      if l.isTrue then return l else expr r
+      if <- l.isTrue then return l else expr r
   | .disj l r =>
       let l <- expr l
-      if l.isFalse then return l else expr r
+      if <- l.isFalse then return l else expr r
   | .ifExp test tru fls =>
-      if (<- expr test).isTrue
+      if <- (<- expr test).isTrue
       then expr tru
       else expr fls
   | .call f args kwargs =>
@@ -218,6 +222,21 @@ partial def fnCall (f : Term) (args : List Expr) (kwargs : List Keyword) : Trace
 
 -- Statements
 
+partial def mutate (x e : Expr) : Trace Unit := do
+  match x.expr with
+  | .access x [i] =>
+    if let .ref name .list <- expr x then
+      if let .list a <- lookup name then
+        let i <- index i
+        let i : Nat <- fromNKI? i
+        let e <- expr e
+        if h : i < a.size then
+          extend name (.list (a.set i e h))
+          return ()
+        else throw "index out of range"
+    throw "mutation not supported"
+  | _ => throw "mutation not supported"
+
 partial def iterator (i : Iterator) : Trace (List Term) := do
   match i with
   | .expr e => fromNKI? (<- expr e)
@@ -242,16 +261,16 @@ partial def stmt' (s' : Stmt') : Trace Result := do
   match s' with
   | .expr e => let _ <- expr e; return .next
   | .assert e =>
-      if (<- expr e).isFalse then
+      if <- (<- expr e).isFalse then
         throw "assertion failed"
       return .next
   | .ret e => return .ret (<- expr e)
   | .declare .. => return .next
   | .letM (.var n) _ e => extend n (<- expr e); return .next
   | .letM (.tuple ..) .. => throw "internal error: complex pattern in trace"
-  | .setM .. => throw "mutation not supported"
+  | .setM x e _ => mutate x e; return .next
   | .ifStm e thn els =>
-      if (<- expr e).isTrue
+      if <- (<- expr e).isTrue
       then stmts thn
       else stmts els
   | .forLoop x iter body =>

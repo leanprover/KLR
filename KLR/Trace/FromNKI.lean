@@ -39,7 +39,8 @@ def fromNKI [FromNKI a] (dflt : a) (t : Term) : a :=
 
 instance [FromNKI a] : FromNKI (List a) where
   fromNKI?
-  | .tuple l | .list l => l.mapM fromNKI?
+  | .tuple l => l.mapM fromNKI?
+  | .list a => a.toList.mapM fromNKI?
   | _ => throw "expecting sequence (list or tuple)"
 
 instance [FromNKI a] : FromNKI (Option a) where

@@ -27,10 +27,6 @@ namespace KLR.Trace
 open KLR.Core
 open Lean Elab Command Term Meta
 
--- Use numeric names to create names that can't be spelled by users
--- This is mainly used to model object methods (see below)
-private def hidden (str : String) : Name := .num str.toName 0
-
 -- Build names in the nki namespaces
 
 def neuronxcc : Name := .str .anonymous "neuronxcc"
@@ -40,42 +36,6 @@ def nki_lang : Name := .str nki_ "language"
 
 def nl : String -> Name := .str nki_lang
 def nisa : String -> Name := .str nki_isa
-
-/-
-Special names for object methods
-
-In order to model built-in objects, we use Term.builtin with the optional extra
-Term value. For example, if a user has a Term.pointer, say called "sbuf", then
-they can call the method view `sbuf.view(...)`. This expression is an attribute
-projection of "view" followed by a call of whatever the projection returns.
-
-In response to the projection of "view" from Term.pointer, we return a builtin
-with the pointer embedded in it:
-
-  (pointer a).view  ==>  builtin name type (pointer a)
-
-Later when we get a call to this builtin, it is transformed to:
-
-  call (builtin name type (pointer a)) args => (lookup name) (pointer a) args
-
-So, we need a name to refer to the implementation of the builtin object method
-view. We do not want users to be able to call this method, so we use hidden
-names, which are just names that would be syntactically invalid in python.
-
-We define all of these special names here.
--/
-
-def memPtrName := `builtin.memPtr
-def memPtrBuiltin (a : Address) : Term :=
-  .builtin memPtrName (some (.pointer a))
-
-def memViewName := `builtin.memView
-def memViewBuiltin (a : Address) : Term :=
-  .builtin memViewName (some (.pointer a))
-
-def reshapeName := `builtin.reshape
-def reshapeBuiltin (t : Term) : Term :=
-  .builtin reshapeName (some t)
 
 -- conveience functions for creating environment entries
 

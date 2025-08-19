@@ -101,13 +101,13 @@ private def valueOp : BinOp -> Term -> Term -> Trace Term
 
 -- Binary operators on terms
 -- TODO mulseq on strings
-def termOp : BinOp -> Term -> Term -> Trace Term
+private def termOp : BinOp -> Term -> Term -> Trace Term
   -- lists and tuples
   | .add, .string l, .string r => return .string (l ++ r)
   | .add, .list   l, .list   r => return .list (l ++ r)
   | .add, .tuple  l, .tuple  r => return .tuple (l ++ r)
   | .mul, .list   l, v
-  | .mul, v        , .list l   => return .list (<- mulseq l v)
+  | .mul, v        , .list l   => return .list (<- mulseq l.toList v).toArray
   | .mul, .tuple  l, v
   | .mul, v        , .tuple l  => return .tuple (<- mulseq l v)
   -- mgrid
@@ -152,10 +152,17 @@ private def valueLt : Term -> Term -> Trace Bool
   -- errors
   | _, _ => throw "unsupported comparison"
 
-private def termLt : Term -> Term -> Trace Bool
+-- Note, this is partial because the user could have created
+-- a graph in the heap
+private partial def termLt : Term -> Term -> Trace Bool
+  -- references
+  | .ref l _, r => do termLt (<- lookup l) r
+  | l, .ref r _ => do termLt l (<- lookup r)
+  -- list-like types
   | .string l, .string r => return l < r
-  | .tuple l, .tuple r
-  | .list  l, .list  r => listLt l r
+  | .tuple l, .tuple r => listLt l r
+  | .list  l, .list  r => listLt l.toList r.toList
+  -- values
   | l, r => valueLt l r
 where
   listLt : List Term -> List Term -> Trace Bool
@@ -166,11 +173,11 @@ where
       if <- termLt x y then return true
       else return (x == y) && (<- listLt xs ys)
 
-def binop (op : BinOp) (l r : Term) : Trace Term := do
+private def binop' (op : BinOp) (l r : Term) : Trace Term := do
   match op with
   -- logical
-  | .land => return .bool (l.isTrue && r.isTrue)
-  | .lor  => return .bool (l.isTrue || r.isTrue)
+  | .land => return .bool ((<- l.isTrue) && (<- r.isTrue))
+  | .lor  => return .bool ((<- l.isTrue) || (<- r.isTrue))
   -- comparison
   | .eq => return .bool (l == r)
   | .ne => return .bool (l != r)
@@ -181,6 +188,14 @@ def binop (op : BinOp) (l r : Term) : Trace Term := do
   -- arithmetic / bitwise
   | _ => termOp op l r
 
+def binop (op : BinOp) (l r : Term) : Trace Term := do
+  let l <- match l with
+    | .ref name _ => lookup name
+    | _ => pure l
+  let r <- match r with
+    | .ref name _ => lookup name
+    | _ => pure r
+  binop' op l r
 
 /-
 # Evaluating index expressions
@@ -362,11 +377,13 @@ def mgrid (indexes : List Term) : Err Term := do
   | _ => return .tuple l
 
 -- Handle subscript expressions, t[i]
-def access (e : Term) (indexes : List Term) : Err Term := do
+-- Note: partial due to possible heap graphs
+partial def access (e : Term) (indexes : List Term) : Trace Term := do
   match e with
+  | .ref name _ => access (<- lookup name) indexes
   | .string _ => throw "string subscript not implemented"
-  | .tuple l
-  | .list l => listAccess l indexes
+  | .tuple l => listAccess l indexes
+  | .list l => listAccess l.toList indexes
   | .pointer addr => pointerAccess addr indexes
   | .mgrid => mgrid indexes
   | .access (.simple tensor) => do
@@ -395,21 +412,40 @@ private def pattern (a : Access) : Trace Term := do
     Term.tuple [.int p.step, .int p.num]
   return .tuple pairs
 
-def Term.attr : Term -> String -> Trace Term
-  | .module n, id => lookup (.str n id)
-  | .pointer addr, "name" => return .string addr.name
-  | .pointer addr, "start" => return tuple [addr.parOffset, addr.freeOffset]
-  | .pointer addr, "size" => return tuple [addr.parSize, addr.freeSize]
-  | .pointer addr, "ptr" => return memPtrBuiltin addr
-  | .pointer addr, "view" => return memViewBuiltin addr
-  | .access a, "dtype" => return (dtype a.tensor.dtype)
-  | .access a, "shape" => return (tuple $ a.shapePure.toList.map some)
-  | .access a, "address" => return .pointer a.tensor.address
-  | .access a, "offset" => offset a
-  | .access a, "pattern" => pattern a
-  | .access a, "reshape" => return reshapeBuiltin (.access a)
-  | .var n, id => lookup (.str n id)
-  | _, id => throw s!"unsupported attribute {id}"
+def Term.attr (t : Term) (id : String) : Trace Term :=
+  match t with
+  | .module n | .var n => lookup (.str n id)
+  | .ref _ .list =>
+      match id with
+      | "append"
+      | "clear"
+      | "copy"
+      | "count"
+      | "extend"
+      | "index"
+      | "pop"
+      | "remove"
+      | "reverse"
+      | "sort" => return .builtin (.str `builtin.list id) (some t)
+      |  _ => throw s!"unsupported attribute {id} (type is list)"
+  | .pointer addr =>
+      match id with
+      | "name" => return .string addr.name
+      | "start" => return tuple [addr.parOffset, addr.freeOffset]
+      | "size" => return tuple [addr.parSize, addr.freeSize]
+      | "ptr" => return .builtin `builtin.pointer.ptr t
+      | "view" => return .builtin `builtin.pointer.view t
+      |  _ => throw s!"unsupported attribute {id} (type is pointer)"
+  | .access a =>
+      match id with
+      | "dtype" => return (dtype a.tensor.dtype)
+      | "shape" => return (tuple $ a.shapePure.toList.map some)
+      | "address" => return .pointer a.tensor.address
+      | "offset" => offset a
+      | "pattern" => pattern a
+      | "reshape" => return .builtin `builtin.access.reshape t
+      | _ => throw s!"unsupported attribute {id} (type is tensor access)"
+  | _ => throw s!"unsupported attribute {id}"
 where
   dtype dty :=
     let name := nl (dstr dty)
@@ -424,7 +460,7 @@ where
     | .str _ s => s
     | _ => panic! "internal error (dtype name)"
 
-nki builtin.memPtr
+nki builtin.pointer.ptr
     (self : Address)
     (size : (Nat × Nat))
     (offset : Option (Nat × Nat) := none)
@@ -442,7 +478,7 @@ nki builtin.memPtr
     parOffset, freeOffset
   }
 
-nki builtin.memView
+nki builtin.pointer.view
     (self : Address)
     (dtype : Dtype)
     (shape : Shape)
@@ -455,7 +491,7 @@ nki builtin.memView
     else throw "shape is too large for memory region"
   else throw "partition size is too large for memory region"
 
-nki builtin.reshape
+nki builtin.access.reshape
     (self : Access)
     (shape : List Nat)
     (dtype : Option Dtype := none)
