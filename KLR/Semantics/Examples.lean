@@ -379,13 +379,6 @@ namespace example12
 
 
 
-omit [NMLEnv DataT] in
-theorem Iterators.bind_bind (Is : Iterators DataT) x (I : Iterator DataT) (I' : Option (Iterator DataT)):
-    (Is.bind x I |>.bind x I') = Is.bind x I' := by
-  unfold Iterators.bind
-  refine funext (fun _ => ?_)
-  split <;> rfl
-
 attribute [local simp] LocalContext.emp Iterators.emp Iterators.bind Iterator.peek
   TensorLib.Iterator.peek IteratorS.toIterator Option.bind Iterator.advance
   Iterators.bind_bind
@@ -452,7 +445,7 @@ variable (d₀ : DataT)
     .loop "z" (.val <| .iref 1) [
       .tsdunop (.var "ℓ") .add (.var "z"),
     ],
-    .ret <| .readp (.var "ℓ") (.val <| .iptr ⟨0, 0⟩)
+    .ret <| .val .unit,
   ], .emp⟩, []⟩
 
 @[simp] def sR : ProgState DataT := ⟨.run ⟨[
@@ -461,16 +454,62 @@ variable (d₀ : DataT)
     .tsdunop (.var "ℓ") .add (.val <| .int 1),
     .tsdunop (.var "ℓ") .add (.val <| .int 3),
     .tsdunop (.var "ℓ") .add (.val <| .int 5),
-    .ret <| .readp (.var "ℓ") (.val <| .iptr ⟨0, 0⟩),
+    .ret <| .val .unit,
   ], .emp⟩, []⟩
 
+-- TSDunop cst no frame L
 theorem dwp_step_1 :
       ℓₗ [S]⇉ₗ∅ ∗ ((ℓₗ [S]⇉ₗ (TSDunop.app_cst d₀)) -∗ dwp 0 0 2 3 ⟨.run ⟨pL, ctx⟩, []⟩ pR Φ )
     ⊢ dwp 0 0 3 4 ⟨.run ⟨.tsdunop (.val <| .uptr <| .sbufUnboundedIndex ℓₗ) .cst (.val <| .data d₀) :: pL, ctx⟩, []⟩ pR Φ := sorry
 
+-- TSDunop cst no frame R
 theorem dwp_step_2 :
       ℓᵣ [S]⇉ᵣ∅ ∗ ((ℓᵣ [S]⇉ᵣ (TSDunop.app_cst d₀)) -∗ dwp 0 0 1 2 pL ⟨.run ⟨pR, ctx⟩, []⟩ Φ )
     ⊢ dwp 0 0 2 3 pL ⟨.run ⟨.tsdunop (.val <| .uptr <| .sbufUnboundedIndex ℓᵣ) .cst (.val <| .data d₀) :: pR, ctx⟩, []⟩ Φ := sorry
+
+-- TSDunop add no frame
+theorem dwp_step_3 {s : LocalStore DataT} :
+      (ℓᵣ [S]⇉ᵣ s) ∗ ((ℓᵣ [S]⇉ᵣ (TSDunop.app_addZ s z)) -∗ dwp 1 0 7 5  pL ⟨.run ⟨pR, ctx⟩, []⟩ Φ )
+    ⊢ dwp 1 0 7 6 pL ⟨.run ⟨.tsdunop (.val <| .uptr <| .sbufUnboundedIndex ℓᵣ) .add (.val <| .int z) :: pR, ctx⟩, []⟩ Φ := sorry
+
+-- TSDunop add no frame
+theorem dwp_step_4 (H : LocalContext.getv ctx "ℓ" = some v) :
+    (dwp 0 0 5 5 (DataT := DataT) ⟨.run (.tsdunop (.val v) .add (.var "z") :: pL, ctx), F⟩ pR Φ)
+  ⊢ (dwp 0 0 6 5 (DataT := DataT) ⟨.run (.tsdunop (.var "ℓ") .add (.var "z") :: pL, ctx), F⟩ pR Φ) := sorry
+
+-- TSDunop add no frame
+theorem dwp_step_5 (H : LocalContext.getv ctx "z" = some v) :
+    (dwp 0 0 4 5 (DataT := DataT) ⟨.run (.tsdunop (.val (.uptr <| .sbufUnboundedIndex ℓₗ)) .add (.val v) :: pL, ctx), F⟩ pR Φ)
+  ⊢ (dwp 0 0 5 5 (DataT := DataT) ⟨.run (.tsdunop (.val (.uptr <| .sbufUnboundedIndex ℓₗ)) .add (.var "z") :: pL, ctx), F⟩ pR Φ) := sorry
+
+theorem dwp_step_6 {s : LocalStore DataT} :
+    (ℓₗ [S]⇉ₗ s) ∗ ((ℓₗ [S]⇉ₗ (TSDunop.app_addZ s z)) -∗ dwp 0 0 3 5 (DataT := DataT) ⟨.run (pL, ctx), F⟩ pR Φ)
+  ⊢ (dwp 0 0 4 5 (DataT := DataT) ⟨.run (.tsdunop (.val (.uptr <| .sbufUnboundedIndex ℓₗ)) .add (.val <| .int z) :: pL, ctx), F⟩ pR Φ) := sorry
+
+
+-- -- TSDunop add no frame
+-- theorem dwp_step_4 :
+--     ((ℓₗ [S]⇉ₗ TSDunop.app_cst d₀) ∗ dwp 0 0 6 5 (DataT := DataT) ⟨.run (.tsdunop (.var "ℓ") .add (.var "z") :: pL, ctx), F⟩ pR Φ)
+--   ⊢ (dwp 0 0 6 5 (DataT := DataT) ⟨.run (.tsdunop (.var "ℓ") .add (.var "z") :: pL, ctx), F⟩ pR Φ) := sorry
+
+
+
+/-
+theorem dwp_step_4 {s : LocalStore DataT} :
+  (⊢ dwp 0 0 6 5 (DataT := DataT)
+    ⟨ .run (.tsdunop (.var "ℓ") .add (Expr.var "z") :: pL,
+            { loc := (Locals.emp.bind "ℓ" (Value.uptr (ChipIndex.sbufUnboundedIndex ℓₗ))).bind "z" (NML.Value.int 1),
+              it :=
+                Iterators.emp.bind 1
+                  (some
+                    { I := AffineIter, instIIter := instIterAffineIter,
+                      car := { start := 1, peek := 1, num := 3, start_num := 3, step := 2 } }) }),
+      F ⟩ pR Φ) := sorry
+-/
+
+
+attribute [local simp] LocalContext.emp Iterators.emp Iterators.bind Iterator.peek
+  TensorLib.Iterator.peek IteratorS.toIterator Option.bind Iterator.advance
 
 example : ⊢ wp (DataT := DataT) 7 (sL d₀) (sR d₀) (ΦPure (· = ·)) := by
   istart
@@ -502,6 +541,108 @@ example : ⊢ wp (DataT := DataT) 7 (sL d₀) (sR d₀) (ΦPure (· = ·)) := by
   · iexact Hℓᵣ
   iintro Hℓₗ
   wp_resync
+
+
+  -- Loop desync blocks:
+  -- Left side:
+  --   - Open the loop body
+  --   - Step the var from "ℓ" to the pointer
+  --   - Step the value from "z" to the integer
+  --   - Step the tsdunop statement
+  --   - Close the loop body
+  -- Right side
+  --   - Step the var from "ℓ" to the pointer
+  --   - Step the tsdunop statement
+  wp_desync
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  uwp_right EPLift.uwpR EPLift.tsdunop_loc <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ)
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  refine .trans ?_ (dwp_step_3 (s := TSDunop.app_cst d₀))
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  isplit l [Hℓᵣ]
+  · iexact Hℓᵣ
+  iintro Hℓᵣ
+  uwp_left  SPure.uwpL (.loopContinue (v := .int 1)) (by simp)
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  refine .trans ?_ (dwp_step_4 (v := .uptr <| ChipIndex.sbufUnboundedIndex ℓₗ) (by simp))
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  refine .trans ?_ (dwp_step_5 (v := .int 1) (by simp))
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  refine .trans ?_ (dwp_step_6 (s := TSDunop.app_cst d₀) (ℓₗ := ℓₗ))
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  isplit l [Hℓₗ]
+  · iexact Hℓₗ
+  iintro Hℓₗ
+  uwp_left  SPure.uwpL .frameEmp (by simp)
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  wp_resync
+  rw [Iterators.bind_bind]
+
+  -- Do the block again
+  wp_desync
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  uwp_right EPLift.uwpR EPLift.tsdunop_loc <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ)
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  refine .trans ?_ (dwp_step_3 (s := TSDunop.app_addZ (TSDunop.app_cst d₀) 1))
+  iintro ⟨Hℓᵣ, Hℓₗ⟩
+  isplit l [Hℓᵣ]
+  · iexact Hℓᵣ
+  iintro Hℓᵣ
+  uwp_left  SPure.uwpL (.loopContinue (v := .int 3)) (by simp)
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  refine .trans ?_ (dwp_step_4 (v := .uptr <| ChipIndex.sbufUnboundedIndex ℓₗ) (by simp))
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  refine .trans ?_ (dwp_step_5 (v := .int 3) (by simp))
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  refine .trans ?_ (dwp_step_6 (s := TSDunop.app_addZ (TSDunop.app_cst d₀) 1) (ℓₗ := ℓₗ))
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  isplit l [Hℓₗ]
+  · iexact Hℓₗ
+  iintro Hℓₗ
+  uwp_left  SPure.uwpL .frameEmp (by simp)
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  wp_resync
+  rw [Iterators.bind_bind]
+
+  -- Do the block again
+  wp_desync
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  uwp_right EPLift.uwpR EPLift.tsdunop_loc <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ)
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  refine .trans ?_ (dwp_step_3 (s := TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3))
+  iintro ⟨Hℓᵣ, Hℓₗ⟩
+  isplit l [Hℓᵣ]
+  · iexact Hℓᵣ
+  iintro Hℓᵣ
+  uwp_left  SPure.uwpL (.loopContinue (v := .int 5)) (by simp)
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  refine .trans ?_ (dwp_step_4 (v := .uptr <| ChipIndex.sbufUnboundedIndex ℓₗ) (by simp))
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  refine .trans ?_ (dwp_step_5 (v := .int 5) (by simp))
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  refine .trans ?_ (dwp_step_6 (s := TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) (ℓₗ := ℓₗ))
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  isplit l [Hℓₗ]
+  · iexact Hℓₗ
+  iintro Hℓₗ
+  uwp_left  SPure.uwpL .frameEmp (by simp)
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  wp_resync
+  rw [Iterators.bind_bind]
+
+  -- This is now the last block.
+  -- Left:
+  -- - Exit the loop
+  -- - Evaluate the var of the readp
+  -- Right
+  -- - Evaluate the .var of the .readp
+
+
+
+  wp_desync
+
+
+
 
 
   sorry

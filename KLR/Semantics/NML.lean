@@ -78,6 +78,8 @@ relationships between them. -/
 | iref     (i : Nat)
 /-- [ lidx ] A logical index into a tensor. -/
 | lidx     (l : List Int)
+/-- [ tens ] (internal) The value of tensor  -/
+| tens     (s : LocalStore DataT)
 /-- (internal) A continuation -/
 | kont
 
@@ -128,6 +130,8 @@ in the sense that it does not perform any layout calculations. -/
 | chip          (ptr : Expr DataT)
 /-- [ ix ] Compute the raw location (iptr) of an address given a logical address. -/
 | ix            (ptr : Expr DataT) (index : Expr DataT)
+/-- (internal) Return the entire store behind a ChipIndex  -/
+| deref_store   (e : Expr DataT)
 
 /-- Iterator expressions -/
 inductive IteratorS where
@@ -197,6 +201,12 @@ def Iterators.emp : Iterators DataT := fun _ => .none
 def Iterators.bind (s : Iterators DataT) (x : Nat) (v : Option (Iterator DataT)) : Iterators DataT :=
   fun x' => if x = x' then v else s x'
 
+theorem Iterators.bind_bind (Is : Iterators DataT) x (I : Iterator DataT) (I' : Option (Iterator DataT)):
+    (Is.bind x I |>.bind x I') = Is.bind x I' := by
+  unfold Iterators.bind
+  refine funext (fun _ => ?_)
+  split <;> rfl
+
 structure LocalContext (DataT : Type _) where
   loc : Locals DataT
   it : Iterators DataT
@@ -247,7 +257,6 @@ iterators be values) to avoid difficult cases such as iterators of iterators. -/
 | loop         (x : String) (it : Expr DataT) (body : List (Stmt DataT))
 /-- [ setp ] Set a single memory location -/
 | setp         (chip index val : (Expr DataT))
--- | ret_assert   (_ : @Expr DataT) (_ : @State DataT → Prop)
 
 abbrev StackFrame (DataT : Type _) := (List (Stmt DataT)) × LocalContext DataT
 
@@ -345,6 +354,15 @@ def Dtype.Interp (DataT : Type _) (d : KLR.Core.Dtype) : Type _ :=
   | .ix ep ei =>
       ExprStep ep ctx s |>.bind fun ⟨ep', s'⟩ =>
       some ⟨.ix ep' ei, s'⟩
+
+  /- Store dereferencing -/
+  | .deref_store (.val <| .uptr i) =>
+      s.memory.get_store i |>.bind fun vs =>
+      some ⟨.val <| .tens vs, s⟩
+  | .deref_store e =>
+      ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
+      some ⟨.deref_store e', s'⟩
+
   | _ => none
 
 /- Execution is complete when there are no stack frames. -/
@@ -680,6 +698,9 @@ theorem EELift.ix_ptr : EELift (.ix (DataT := DataT) · elidx) := by
 theorem EELift.ix_lidx : EELift (.ix (DataT := DataT) (.val <| .ptr t) ·) := by
   solveEELift
 
+theorem EELift.deref_store : EELift (.deref_store (DataT := DataT) ·) := by
+  solveEELift
+
 /-- A pure step of expression reduction given some pure assumption -/
 def EPure (e e' : Expr DataT) (HP : LocalContext DataT → Prop) : Prop :=
   ∀ s loc, HP loc → ExprStep e loc s = some (e', s)
@@ -826,8 +847,8 @@ theorem SPure.mkiter : SPure (DataT := DataT)
     ⟨.run ⟨ps, loc.bindi n it.toIterator⟩, F⟩ True := by
   intro s _; simp [Step]
 
--- theorem SPure.frameEmp : SPure (DataT := DataT) (.run (.frame [] ctx :: ps) loc) (.run ps loc) True := by
---   intro s _; simp [Step]
+theorem SPure.frameEmp : SPure (DataT := DataT) ⟨.run ⟨[], loc⟩, F1 :: FS⟩ ⟨.run F1, FS⟩ True := by
+  intro s _; simp [Step]
 
 @[simp] abbrev PLoopExit (ctx : LocalContext DataT) (n : Nat) : Prop := ctx.peeki n = none
 
