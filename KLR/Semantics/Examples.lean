@@ -355,7 +355,6 @@ example : ⊢ wp (DataT := DataT) 5 s s (ΦPure ΦBothLoc) := by
 
 end example11
 
-
 namespace example12
 
 /- Not a real loop unrolling example but just one to test some tactics -/
@@ -445,7 +444,7 @@ variable (d₀ : DataT)
     .loop "z" (.val <| .iref 1) [
       .tsdunop (.var "ℓ") .add (.var "z"),
     ],
-    .ret <| .val .unit,
+    .ret <| (.deref_store (.var "ℓ")),
   ], .emp⟩, []⟩
 
 @[simp] def sR : ProgState DataT := ⟨.run ⟨[
@@ -454,7 +453,8 @@ variable (d₀ : DataT)
     .tsdunop (.var "ℓ") .add (.val <| .int 1),
     .tsdunop (.var "ℓ") .add (.val <| .int 3),
     .tsdunop (.var "ℓ") .add (.val <| .int 5),
-    .ret <| .val .unit,
+    .tsdunop (.var "ℓ") .add (.val <| .int 7),
+    .ret <| (.deref_store (.var "ℓ")),
   ], .emp⟩, []⟩
 
 -- TSDunop cst no frame L
@@ -487,29 +487,9 @@ theorem dwp_step_6 {s : LocalStore DataT} :
   ⊢ (dwp 0 0 4 5 (DataT := DataT) ⟨.run (.tsdunop (.val (.uptr <| .sbufUnboundedIndex ℓₗ)) .add (.val <| .int z) :: pL, ctx), F⟩ pR Φ) := sorry
 
 
--- -- TSDunop add no frame
--- theorem dwp_step_4 :
---     ((ℓₗ [S]⇉ₗ TSDunop.app_cst d₀) ∗ dwp 0 0 6 5 (DataT := DataT) ⟨.run (.tsdunop (.var "ℓ") .add (.var "z") :: pL, ctx), F⟩ pR Φ)
---   ⊢ (dwp 0 0 6 5 (DataT := DataT) ⟨.run (.tsdunop (.var "ℓ") .add (.var "z") :: pL, ctx), F⟩ pR Φ) := sorry
-
-
-
-/-
-theorem dwp_step_4 {s : LocalStore DataT} :
-  (⊢ dwp 0 0 6 5 (DataT := DataT)
-    ⟨ .run (.tsdunop (.var "ℓ") .add (Expr.var "z") :: pL,
-            { loc := (Locals.emp.bind "ℓ" (Value.uptr (ChipIndex.sbufUnboundedIndex ℓₗ))).bind "z" (NML.Value.int 1),
-              it :=
-                Iterators.emp.bind 1
-                  (some
-                    { I := AffineIter, instIIter := instIterAffineIter,
-                      car := { start := 1, peek := 1, num := 3, start_num := 3, step := 2 } }) }),
-      F ⟩ pR Φ) := sorry
--/
-
-
 attribute [local simp] LocalContext.emp Iterators.emp Iterators.bind Iterator.peek
   TensorLib.Iterator.peek IteratorS.toIterator Option.bind Iterator.advance
+
 
 example : ⊢ wp (DataT := DataT) 7 (sL d₀) (sR d₀) (ΦPure (· = ·)) := by
   istart
@@ -630,22 +610,72 @@ example : ⊢ wp (DataT := DataT) 7 (sL d₀) (sR d₀) (ΦPure (· = ·)) := by
   wp_resync
   rw [Iterators.bind_bind]
 
+  -- Do the block again
+  wp_desync
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  uwp_right EPLift.uwpR EPLift.tsdunop_loc <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ)
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  refine .trans ?_ (dwp_step_3 (s := TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) 5))
+  iintro ⟨Hℓᵣ, Hℓₗ⟩
+  isplit l [Hℓᵣ]
+  · iexact Hℓᵣ
+  iintro Hℓᵣ
+  uwp_left  SPure.uwpL (.loopContinue (v := .int 7)) (by simp)
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  refine .trans ?_ (dwp_step_4 (v := .uptr <| ChipIndex.sbufUnboundedIndex ℓₗ) (by simp))
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  refine .trans ?_ (dwp_step_5 (v := .int 7) (by simp))
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  refine .trans ?_ (dwp_step_6 (s := TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) 5) (ℓₗ := ℓₗ))
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  isplit l [Hℓₗ]
+  · iexact Hℓₗ
+  iintro Hℓₗ
+  uwp_left  SPure.uwpL .frameEmp (by simp)
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  wp_resync
+  rw [Iterators.bind_bind]
+
   -- This is now the last block.
   -- Left:
   -- - Exit the loop
-  -- - Evaluate the var of the readp
+  -- - Evaluate the var
+  -- - Evaluate the deref_store
   -- Right
-  -- - Evaluate the .var of the .readp
-
-
+  -- - Evaluate the var
+  -- - Evaluate the deref_store
 
   wp_desync
+  uwp_left  SPure.uwpL .loopExit (by simp)
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  uwp_left  EPLift.uwpL EPLift.ret_arg <| EELift.ewpL EELift.deref_store <| EPure.ewpL <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓₗ)
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  uwp_right EPLift.uwpR EPLift.ret_arg <| EELift.ewpR EELift.deref_store <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ)
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  uwp_left  EPLift.uwpL EPLift.ret_arg <| ewp.deref_storeL (ChipIndex.sbufUnboundedIndex ℓₗ) (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) 5) 7)
+  iintro ⟨Hℓᵣ, Hℓₗ⟩
+  isplit l [Hℓₗ]
+  · iexact Hℓₗ
+  iintro Hℓₗ
+  uwp_right EPLift.uwpR EPLift.ret_arg <| ewp.deref_storeR (ChipIndex.sbufUnboundedIndex ℓᵣ) (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) 5) 7)
+  iintro ⟨Hℓᵣ, Hℓₗ⟩
+  isplit l [Hℓᵣ]
+  · iexact Hℓᵣ
+  iintro Hℓᵣ
+  wp_resync
 
+  -- Perform the returns
+  iintro -
+  wp_desync
+  uwp_left  SPure.uwpL .ret trivial
+  uwp_right SPure.uwpR .ret trivial
+  wp_resync
 
-
-
-
-  sorry
+  -- Compare the returned values for equality
+  wp_sync_val
+  unfold ΦPure
+  ipure_intro
+  grind
 
 end example13
 

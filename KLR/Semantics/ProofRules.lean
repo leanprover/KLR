@@ -694,13 +694,16 @@ theorem dwpAllocR (Hx : 1 < Rx := by omega) :
   · iexact H
 -/
 
+-- theorem dwpTDunopCstL (Hx : 0 < Lx := by omega) :
+--      (ℓₗ [S]⇉ₗ∅) ∗ ((ℓₗ [S]⇉ₗ∅) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx ⟨.run ⟨p1', loc⟩, F⟩ p2 Φ)
+--     ⊢ dwp (DataT := DataT) Lm Rm Lx Rx ⟨.run ⟨.tsdunop (.var <| L) .cst (.val <| .data d₀):: p1', loc⟩, F⟩ p2 Φ := by
+--   sorry
+
+
 theorem dwpTDunopCstL (Hx : 0 < Lx := by omega) :
      (ℓₗ [S]⇉ₗ∅) ∗ ((ℓₗ [S]⇉ₗ∅) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx ⟨.run ⟨p1', loc⟩, F⟩ p2 Φ)
     ⊢ dwp (DataT := DataT) Lm Rm Lx Rx ⟨.run ⟨.tsdunop (.var <| L) .cst (.val <| .data d₀):: p1', loc⟩, F⟩ p2 Φ := by
   sorry
-
-
-
 
 
 
@@ -1423,7 +1426,6 @@ attribute [simp] ewpVarR
       iintro Hσ
       iexact Hσ
 
-
 @[simp] def EELift.ewpL [NMLEnv DataT] {p : Expr DataT → Expr DataT} (EL : EELift p) (E : ewpL DataT) : ewpL DataT where
   pre   := E.pre
   post  := E.post
@@ -1465,6 +1467,22 @@ attribute [simp] ewpVarR
     · iexact Hupd
 
 
+@[simp] def ewp.deref_storeL [NMLEnv DataT] (ℓ : ChipIndex) (s : LocalStore DataT) : ewpL DataT where
+  pre   := iprop(ℓ ⇉ₗ some s)
+  post  := iprop(ℓ ⇉ₗ some s)
+  expr  := .deref_store (.val <| .uptr ℓ)
+  expr' := .val <| .tens s
+  locP  := fun _ => True
+  spec  := by sorry
+
+
+@[simp] def ewp.deref_storeR [NMLEnv DataT] (ℓ : ChipIndex) (s : LocalStore DataT) : ewpR DataT where
+  pre   := iprop(ℓ ⇉ᵣ some s)
+  post  := iprop(ℓ ⇉ᵣ some s)
+  expr  := .deref_store (.val <| .uptr ℓ)
+  expr' := .val <| .tens s
+  locP  := fun _ => True
+  spec  := by sorry
 
 /-
 Remaining expressions
