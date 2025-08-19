@@ -497,7 +497,8 @@ nki builtin.isa.dropout
 
 nki builtin.isa.affine_select
  (dst: Access)
- (_pred : Int)
+ (pattern : List (Int × Nat))
+ (offset : Nat := 0)
  (on_true_tile : Access)
  (on_false_value : Immediate)
  -- kwargs
@@ -505,9 +506,10 @@ nki builtin.isa.affine_select
  (dtype : Option Dtype := none)
  (name : Option String := none) := do
     if mask.isSome then throw maskNotSupported
+    let pairs := pattern.map fun (i, n) => APPair.mk i n
     Trace.add_stmt $ .oper (.ncAffineSelect {
       dst := .abstract dst,
-      pred := ⟨ 0, [] ⟩,
+      pred := ⟨offset, pairs⟩ ,
       onTrueTile := .abstract on_true_tile,
       onFalseValue := on_false_value,
       dtype := dtype,
