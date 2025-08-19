@@ -122,7 +122,7 @@ in the sense that it does not perform any layout calculations. -/
 
 /-- Iterator expressions -/
 inductive IteratorS where
-| affineRange    (start step count : Int)
+| affineRange    (start step : Int) (num : Nat)
 
 /-- Locals: A context mapping variable names to values. -/
 def Locals (DataT : Type _) := String → Option (Value DataT)
@@ -137,9 +137,43 @@ structure Iterator (DataT : Type _) where
   [instIIter : TensorLib.Iterator I (Value DataT)]
   car : I
 
+structure AffineIter where
+  start     : Int
+  peek      : Int
+  num       : Nat
+  start_num : Nat
+  step      : Int
+
+instance instIterAffineIter {DataT : Type _} : TensorLib.Iterator AffineIter (NML.Value DataT) where
+  next r :=
+    match r.num with
+    | .zero      => .none
+    | .succ num' => .some ⟨r.start, r.peek + r.step, num', r.start_num, r.step⟩
+  peek r  := NML.Value.int r.peek
+  size r  := r.num
+  reset r := ⟨r.start, r.start, r.start_num, r.start_num, r.step⟩
+
+@[simp] def AffineIter.asList' (peek step : Int) (num : Nat) : List (@Value DataT) :=
+  match num with
+  | .zero      => [NML.Value.int peek]
+  | .succ num' => NML.Value.int peek :: AffineIter.asList' (peek + step) step num'
+
+@[simp] def AffineIter.asList (A : AffineIter) : List (@Value DataT) :=
+    asList' A.peek A.step A.num
+
+theorem AffineIter.asList_next_none {A : AffineIter} :
+    TensorLib.Iterator.next (iter := AffineIter) (value := @Value DataT) A = .none →
+    A.asList = [NML.Value.int (DataT := DataT) A.peek] := by
+  sorry
+
+theorem AffineIter.asList_next_some {A : AffineIter} :
+    (TensorLib.Iterator.next (iter := AffineIter) (value := @Value DataT) A = .some A') →
+    A.asList = (NML.Value.int (DataT := DataT) A.peek) :: A'.asList := by
+  sorry
+
 -- Right now: the IteratorS semantics work for all choices of DataT
 def IteratorS.toIterator {DataT : Type _} : IteratorS → Iterator DataT
-| .affineRange start stop step => sorry
+| .affineRange start step num => .mk AffineIter ⟨start, start, num, num, step⟩
 
 instance {i : Iterator DataT} : TensorLib.Iterator i.I (Value DataT) := Iterator.instIIter _
 
@@ -362,7 +396,7 @@ def Dtype.Interp (DataT : Type _) (d : KLR.Core.Dtype) : Type _ :=
         match ctx.peeki i with
         | .none => .some ⟨⟨.run ⟨ps, ctx⟩, F⟩, s⟩
         | .some itv =>
-            .some ⟨⟨.run ⟨b, ctx.bindv x itv⟩, ⟨.loop x (.val <| .iref i) b :: ps, ctx⟩ :: F⟩, s⟩
+            .some ⟨⟨.run ⟨b, ctx.bindv x itv⟩, ⟨.loop x (.val <| .iref i) b :: ps, ctx.nexti i⟩ :: F⟩, s⟩
     | .loop x e b =>
         ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
         some ⟨⟨.run ⟨(.loop x e' b :: ps), ctx⟩, F⟩, s'⟩
@@ -765,9 +799,16 @@ theorem SPure.loopExit : SPure (DataT := DataT)
 
 theorem SPure.loopContinue : SPure (DataT := DataT)
     ⟨.run ⟨(.loop x (.val <| .iref i) b :: ps), loc⟩, F⟩
-    ⟨.run ⟨b, loc.bindv x v⟩, ⟨.loop x (.val <| .iref i) b :: ps, loc⟩ :: F⟩
+    ⟨.run ⟨b, loc.bindv x v⟩, ⟨.loop x (.val <| .iref i) b :: ps, loc.nexti i⟩ :: F⟩
     (PLoopContinue loc i v) := by
   intro s H; simp only [Step, step]; rw [H]
+
+theorem SPure.frameExit : SPure (DataT := DataT)
+    ⟨.run ⟨[], ctx⟩, ftop :: frest⟩ ⟨.run ftop, frest⟩ True := by
+  intro s _; simp [Step]
+
+-- |  => .some
+
 
 -- Lifted head steps
 -- This is basically only frame
@@ -909,27 +950,7 @@ theorem LiftEValSetp : ExprLift (DataT := DataT) (NML.Stmt.setp (.val <| .uptr i
   exact NML.step.setpEVal He
 -/
 -/
-structure AffineIter where
-  start     : Int
-  peek      : Int
-  num       : Nat
-  start_num : Nat
-  step      : Int
-
-instance instIterAffineIter {DataT : Type _} : TensorLib.Iterator AffineIter (NML.Value DataT) where
-  next r :=
-    match r.num with
-    | .zero      => .none
-    | .succ num' => .some ⟨r.start, r.peek + r.step, num', r.start_num, r.step⟩
-  peek r  := NML.Value.int r.peek
-  size r  := r.num
-  reset r := ⟨r.start, r.start, r.start_num, r.start_num, r.step⟩
 
 
-
--- structure Iterator (DataT : Type _) where
---   I : Type
---   [instIIter : TensorLib.Iterator I (Value DataT)]
---   car : I
 
 end properties

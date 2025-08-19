@@ -56,7 +56,7 @@ theorem tac_uwp_elim_triv_post {P Q : @PROP DataT} (H : P ⊢ R -∗ Q) : P ⊢ 
 
 macro "uwp_left " u:term : tactic => `(tactic|
   apply Entails.trans ?_ (dwpL $u ?_) <;>
-  simp <;>
+  try simp <;>
   (first
    | apply tac_uwp_elim_triv_both
    | apply tac_uwp_elim_triv_pre
@@ -66,7 +66,7 @@ macro "uwp_left " u:term : tactic => `(tactic|
 
 macro "uwp_right " u:term : tactic => `(tactic|
   apply Entails.trans ?_ (dwpR $u (by simp)) <;>
-  simp <;>
+  try simp <;>
   (first
    | apply tac_uwp_elim_triv_both
    | apply tac_uwp_elim_triv_pre

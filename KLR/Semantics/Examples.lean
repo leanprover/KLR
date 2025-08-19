@@ -357,13 +357,83 @@ end example11
 
 
 namespace example12
-/-! Example: Loop unrolling -/
 
--- TODO: Finish the definition of simple loop bodies first
+/- Not a real loop unrolling example but just one to test some tactics -/
+
+@[simp] def sL : ProgState DataT := ⟨.run ⟨[
+    .mkiter 1 (.affineRange 1 2 4),
+    .loop "y" (.val <| .iref 1) [
+      .assign .none (.val .unit)
+     ],
+    .ret <| .val <| .unit
+  ], .emp⟩, []⟩
+
+@[simp] def sR : ProgState DataT := ⟨.run ⟨[
+    .assign .none <| .val .unit,
+    .assign .none <| .val .unit,
+    .assign .none <| .val .unit,
+    .assign .none <| .val .unit,
+    .assign .none <| .val .unit,
+    .ret <| .val <| .unit,
+  ], .emp⟩, []⟩
 
 
 
+omit [NMLEnv DataT] in
+theorem Iterators.bind_bind (Is : Iterators DataT) x (I : Iterator DataT) (I' : Option (Iterator DataT)):
+    (Is.bind x I |>.bind x I') = Is.bind x I' := by
+  unfold Iterators.bind
+  refine funext (fun _ => ?_)
+  split <;> rfl
 
+attribute [local simp] LocalContext.emp Iterators.emp Iterators.bind Iterator.peek
+  TensorLib.Iterator.peek IteratorS.toIterator Option.bind Iterator.advance
+  Iterators.bind_bind
+
+example : ⊢ wp (DataT := DataT) 5 sL sR (ΦPure (· = ·)) := by
+  unfold sL
+  unfold sR
+  istart
+  wp_desync
+  uwp_left  SPure.uwpL .mkiter trivial
+  uwp_left  SPure.uwpL (.loopContinue (v := .int 1)) (by simp)
+  uwp_left  SPure.uwpL .seq trivial
+  uwp_left  SPure.uwpL .frameExit trivial
+  uwp_right SPure.uwpR .seq trivial
+  wp_resync
+  wp_desync
+  uwp_left  SPure.uwpL (.loopContinue (v := .int 3)) (by simp)
+  uwp_left  SPure.uwpL .seq trivial
+  uwp_left  SPure.uwpL .frameExit trivial
+  uwp_right SPure.uwpR .seq trivial
+  wp_resync
+  wp_desync
+  uwp_left  SPure.uwpL (.loopContinue (v := .int 5)) (by simp)
+  uwp_left  SPure.uwpL .seq trivial
+  uwp_left  SPure.uwpL .frameExit trivial
+  uwp_right SPure.uwpR .seq trivial
+  wp_resync
+  wp_desync
+  uwp_left  SPure.uwpL (.loopContinue (v := .int 7)) (by simp)
+  uwp_left  SPure.uwpL .seq trivial
+  uwp_left  SPure.uwpL .frameExit trivial
+  uwp_right SPure.uwpR .seq trivial
+  wp_resync
+  wp_desync
+  uwp_left  SPure.uwpL (.loopContinue (v := .int 9)) (by simp)
+  uwp_left  SPure.uwpL .seq trivial
+  uwp_left  SPure.uwpL .frameExit trivial
+  uwp_right SPure.uwpR .seq trivial
+  wp_resync
+  wp_desync
+  uwp_left  SPure.uwpL .loopExit (by simp)
+  uwp_left  SPure.uwpL .ret trivial
+  uwp_right SPure.uwpR .ret trivial
+  wp_resync
+  wp_sync_val
+  unfold ΦPure
+  ipure_intro
+  grind
 
 end example12
 
@@ -373,8 +443,36 @@ namespace example13
 /-! Example: Loop equivalence -/
 
 
-section LoopRelSync
+section LoopRelSyncDefs
 
+/-- State of the iterator throughout the induction -/
+@[simp] def AffineIter.st (i : AffineIter) (pk : Int) (num : Nat) := { i with peek := pk, num := num }
+theorem AffineIter.eq_st_init (i : AffineIter) : i = AffineIter.st i i.peek i.num := rfl
+
+/-- The last `num` elements of i's list -/
+def IHpres  (i : AffineIter) (num : Nat) : List (NML.Value DataT) :=
+  i.asList |>.drop (i.num - num)
+
+omit [NMLEnv DataT]
+theorem st_zero_asList : (AffineIter.st i pk 0).asList (DataT := DataT) = [NML.Value.int pk] := by simp
+
+/-- The first `num` elements -/
+def IHposts (i : AffineIter) (num : Nat) : List (NML.Value DataT) :=
+  i.asList |>.take (i.num - num)
+
+variable (IPre IPost : @Value DataT → PROP DataT)
+
+def IHpreP (i : AffineIter) (num : Nat) : @PROP (DataT) :=
+  iprop([∗] (IHpres i num |>.map IPre))
+
+def IHpostP (i : AffineIter) (num : Nat) : @PROP (DataT) :=
+  iprop([∗] (IHposts i num |>.map IPost))
+
+theorem bigsep_singleton {P : PROP DataT} : iprop([∗] [P]) = P := by simp [bigSep, Std.bigOp]
+
+end LoopRelSyncDefs
+-- set_option maxHeartbeats 1000000
+-- set_option pp.notation false
 open TensorLib.Iterator in
 -- Loop rule to demonstrate separating conjunction
 -- For programs that are sampling from the same affine iterator,
@@ -382,18 +480,19 @@ open TensorLib.Iterator in
 --   - We can separate the resources out to each value of the iterate
 --   - The values of the iterates are verified independently
 --   - Side conditions like the loops being simple
-def wpAffineLoopRelSync [NMLEnv DataT] {p1 p2 : List (NML.Stmt DataT)} {locL locR} {FL FR} {xL xR}
-      {i : AffineIter} {bl br : String} {Φ : Value DataT → Value DataT → @PROP DataT}
-      (IPre IPost : @Value DataT → @PROP DataT) :
-    ⌜ locL.it iL = .some (Iterator.mk AffineIter i) ⌝ ∗
-    ⌜ locR.it iR = .some (Iterator.mk AffineIter i) ⌝ ∗
-    (([∗] (toList i |>.map IPost)) -∗ wp K ⟨.run ⟨pL, locL⟩, FL⟩ ⟨.run ⟨pR, locR⟩, FR⟩ Φ) ∗
+def wpAffineLoopRelSync' [NMLEnv DataT] {p1 p2 : List (NML.Stmt DataT)} {locL locR} {FL FR} {xL xR}
+      {i : AffineIter} {j : Nat} (Hij : j ≤ i.num) {pk : Int}
+      {bl br : String} {Φ : Value DataT → Value DataT → @PROP DataT}
+      (IPre IPost : @Value DataT → @PROP DataT) (HK : 1 < K) :
+    ⌜ locL.it iL = .some (Iterator.mk AffineIter <| AffineIter.st i pk j) ⌝ ∗
+    ⌜ locR.it iR = .some (Iterator.mk AffineIter <| AffineIter.st i pk j) ⌝ ∗
+    (([∗] ((AffineIter.st i pk j).asList |>.map IPost)) -∗ wp K ⟨.run ⟨pL, locL⟩, FL⟩ ⟨.run ⟨pR, locR⟩, FR⟩ Φ) ∗
     (□ ∀ v, IPre v -∗
       wp K
         ⟨.run ⟨bL, locL.bindv xL v⟩, []⟩
         ⟨.run ⟨bR, locR.bindv xR v⟩, []⟩
         (iprop(⌜· = .kont⌝ ∗ ⌜· = .kont⌝ ∗ IPost v))) ∗
-    ([∗] (toList i |>.map IPre))
+    ([∗] ((AffineIter.st i pk j).asList |>.map IPre))
     ⊢ wp K
         ⟨.run ⟨.loop xL (.val <| .iref iL) bL :: pL, locL⟩, FL⟩
         ⟨.run ⟨.loop xR (.val <| .iref iR) bR :: pR, locR⟩, FR⟩
@@ -403,6 +502,135 @@ def wpAffineLoopRelSync [NMLEnv DataT] {p1 p2 : List (NML.Stmt DataT)} {locL loc
   -- of the loops not done yet.
   -- For the inductive step:
 
+  revert pk
+  -- Induction over j
+  induction j
+  · intro pk
+    -- There is exactly one iterate remaining
+    rw [st_zero_asList]; simp only [List.map_cons, List.map_nil, bigsep_singleton]
+    iintro ⟨%HLocL, %HLocR, Hcont, □Hwp, Hpre⟩
+    have HContL : PLoopContinue locL iL (NML.Value.int pk) := by
+      unfold PLoopContinue; unfold LocalContext.peeki
+      rw [HLocL]; rfl
+    have HContR : PLoopContinue locR iR (NML.Value.int pk) := by
+      unfold PLoopContinue; unfold LocalContext.peeki
+      rw [HLocR]; rfl
+    wp_desync
+
+    -- TODO: Tactic
+    have X := dwpL (SPure.uwpL (.loopContinue (x := xL) (b := bL) (ps := pL) (F := FL)) HContL)
+      (Lx := K) (Lm := 1) (Rx := K) (Rm := 1)
+      (pr := ⟨ExecState.run (Stmt.loop xR (Expr.val (Value.iref iR)) bR :: pR, locR), FR⟩)
+      (Φ := (iprop(wp K · · Φ))) (by simp; omega)
+    refine .trans ?_ X; clear X
+    simp only [SPure.uwpL]
+    istart; iintro H
+    isplit r; exact true_intro
+    iintro -; istop
+
+    have X := dwpR (SPure.uwpR (.loopContinue (x := xR) (b := bR) (ps := pR) (F := FR)) HContR)
+      (Lx := K - 1) (Lm := 0) (Rx := K) (Rm := 1)
+      (pl :=
+      { current := ExecState.run (bL, locL.bindv xL (NML.Value.int pk)),
+        context := (Stmt.loop xL (Expr.val (Value.iref iL)) bL :: pL, locL.nexti iL) :: FL }
+      )
+      (Φ := (iprop(wp K · · Φ))) (by simp; omega)
+    refine .trans ?_ X; clear X
+    simp only [SPure.uwpR]
+    istart; iintro H
+    isplit r; exact true_intro
+    iintro -; istop
+
+    clear HContL
+    clear HContR
+
+    wp_resync
+
+    -- -- Now, use the frame stepping rule to verify the first step of the loop
+    refine .trans ?_ (wpFrameSync ?G1 ?G2 ?G3)
+    case G1 => omega
+    case G2 => sorry
+    case G3 => sorry
+
+    -- Specialize Hwp
+    refine .trans (sep_mono (sep_mono .rfl intuitionistically_elim) .rfl) ?_
+    iintro ⟨⟨Hcont, Hwp⟩, HHpre⟩
+    ispecialize Hwp (NML.Value.int pk) HHpre
+    istop
+
+    -- Apply wp using monotonicity
+    refine .trans (wpMono _) ?_
+    istart
+    iintro IH
+    refine .trans ?_ (wpMonoPost (P := fun x1 x2 =>
+      iprop((⌜x1 = Value.kont⌝ ∗ ⌜x2 = Value.kont⌝ ∗ IPost (NML.Value.int pk)) ∗
+          (IPost (NML.Value.int pk) -∗
+            wp K { current := ExecState.run (pL, locL), context := FL }
+              { current := ExecState.run (pR, locR), context := FR } Φ))))
+    iintro IH
+    isplit r  <;> try iexact IH
+     -- Obtain the resources
+    iintro vl vr ⟨⟨%Hvl, ⟨%Hvr, Hpost1⟩⟩, Hwp⟩
+    isplit r; ipure_intro; trivial
+    isplit r; ipure_intro; trivial
+    ispecialize Hwp Hpost1
+
+    -- Exit the loop
+
+    have HExitL : PLoopExit (locL.nexti iL) iL := by
+      unfold PLoopExit; unfold LocalContext.nexti
+      rw [HLocL]
+      simp [Iterator.advance, next, AffineIter.st, Option.bind, LocalContext.peeki]
+      -- Probs ok
+      sorry
+    have HExitR : PLoopExit (locL.nexti iR) iR := by sorry
+
+    istart
+    iintro ⟨-, Hwp⟩
+    wp_desync
+
+    have X := dwpL (SPure.uwpL (.loopExit (x := xL) (b := bL) (ps := pL) (F := FL)) HExitL)
+      (Lx := K) (Lm := 1) (Rx := K) (Rm := 1)
+      (pr := { current := ExecState.run (Stmt.loop xR (Expr.val (Value.iref iR)) bR :: pR, locR.nexti iR), context := FR })
+      (Φ := (iprop(wp K · · Φ))) (by simp; omega)
+    refine .trans ?_ X; clear X
+    simp only [SPure.uwpL, Nat.sub_self]
+    istart; iintro H
+    isplit r; exact true_intro
+    iintro -; istop
+
+    have X := dwpR (SPure.uwpR (.loopExit (x := xR) (b := bR) (ps := pR) (F := FR)) HExitR)
+      (Lx := K - 1) (Lm := 0) (Rx := K) (Rm := 1)
+      (pl := { current := ExecState.run (pL, locL.nexti iL), context := FL })
+      (Φ := (iprop(wp K · · Φ))) (by simp; omega)
+    simp only [SPure.uwpR] at X
+    refine (.trans ?_
+      (Q := (sep (BI.pure True)
+      (wand (BI.pure True)
+        (dwp 0 (HSub.hSub 1 1) (HSub.hSub K 1) (HSub.hSub K 1)
+          { current := ExecState.run (Prod.mk pL (locL.nexti iL)), context := FL }
+          { current := ExecState.run (Prod.mk pR (locL.nexti iR)), context := FR } fun x1 x2 => wp K x1 x2 Φ))))
+      ?G)
+    case G => sorry -- It's X, but I'm getting defeq timeouts now
+    clear X
+
+    istart; iintro H
+    isplit r; exact true_intro
+    iintro -; istop
+
+    wp_resync
+    -- Clean up hypothesis so that it takes locL with i bound to none
+    sorry
+
+
+  · rename_i n pk
+
+
+    sorry
+
+
+  /-
+
   -- Clean up some of the spec
   generalize HwpDef : iprop(□ ∀ v, IPre v -∗
       wp K ⟨.run (bL, locL.bindv xL v), []⟩ ⟨.run (bR, locR.bindv xR v), []⟩
@@ -410,8 +638,8 @@ def wpAffineLoopRelSync [NMLEnv DataT] {p1 p2 : List (NML.Stmt DataT)} {locL loc
 
   -- 1. Destruct i and tidy up the proof state
   rcases i with ⟨ist, ipk, inum, istn, istep⟩
-  let I inum ipk : AffineIter := { start := ist, peek := ipk, num := inum, start_num := istn, step := istep }
-  obtain X : { start := ist, peek := ipk, num := inum, start_num := istn, step := istep } = I inum ipk := by rfl
+  let I inum ipk := (⟨ist, ipk, inum, istn, istep⟩ : AffineIter)
+  obtain X : ⟨ist, ipk, inum, istn, istep⟩ = I inum ipk := by rfl
   rw [X]; clear X
   let II inum ipk : Iterator DataT := Iterator.mk AffineIter (I inum ipk)
   obtain X : Iterator.mk AffineIter (I inum ipk) = II inum ipk := by rfl
@@ -481,9 +709,7 @@ def wpAffineLoopRelSync [NMLEnv DataT] {p1 p2 : List (NML.Stmt DataT)} {locL loc
     -- Need to unvold InvPost and InvPre
 
     sorry
-
-end LoopRelSync
-
+  -/
 
 
 

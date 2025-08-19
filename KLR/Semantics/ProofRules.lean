@@ -218,6 +218,13 @@ theorem wpMono' {Φ : Value DataT → Value DataT → @PROP DataT} (P : PROP Dat
     isplit l [HP]; iexact HP
     iexact Hwp
 
+theorem wpMono {Φ : Value DataT → Value DataT → @PROP DataT} (P : PROP DataT) :
+    P ∗ wp k p1 p2 Φ ⊢ wp k p1 p2 (iprop(Φ · · ∗ P)) := by
+  sorry
+
+theorem wpMonoPost {P Q : Value DataT → Value DataT → @PROP DataT} :
+    (∀ vl vr, P vl vr -∗ Q vl vr) ∗ (wp k p1 p2 P) ⊢ wp k p1 p2 Q := by
+  sorry
 
 theorem wpFrameSync' {Φ : Value DataT → Value DataT → PROP DataT} (Hk : 1 ≤ k):
     ⊢ ∀ piL piR,
@@ -329,6 +336,17 @@ theorem wpFrameSync' {Φ : Value DataT → Value DataT → PROP DataT} (Hk : 1 �
       -- TODO: Prove that executing inside a simple frame leaves a simple frame
       sorry
     iexact IH
+
+
+theorem wpFrameSync {Φ : Value DataT → Value DataT → PROP DataT} (Hk : 1 ≤ k)
+    (HSL : NML.SimpleStackFrame piL) (HSR : NML.SimpleStackFrame piR) :
+    wp k ⟨.run piL, []⟩ ⟨.run piR, []⟩
+      (fun v1 v2 => iprop(⌜v1 = .kont⌝ ∗ ⌜v2 = .kont⌝ ∗ wp k ⟨.run poL, Fl⟩ ⟨.run poR, Fr⟩ Φ))
+    ⊢ wp k ⟨.run piL, poL :: Fl⟩ ⟨.run piR, poR :: Fr⟩ Φ := by
+  sorry
+
+
+
 
 /-
 
@@ -802,6 +820,28 @@ theorem dwpSetpR {v : DataT} (Hx : 0 < Rx := by omega) :
   refine ⟨_, ⟨stepN_1_iff_step.mpr ?_, SR⟩⟩
   simp only [Step, NML.step]
   congr
+
+
+
+-- @[simp] abbrev PLoopExit (ctx : LocalContext DataT) (n : Nat) : Prop := ctx.peeki n = none
+--
+-- theorem SPure.loopExit : SPure (DataT := DataT)
+--     ⟨.run ⟨(.loop x (.val <| .iref i) b :: ps), loc⟩, F⟩
+--     ⟨.run ⟨ps, loc⟩, F⟩ (PLoopExit loc i) := by
+--   intro s H; simp only [Step, step]; rw [H]
+--
+-- @[simp] abbrev PLoopContinue (ctx : LocalContext DataT) (n : Nat) (v : Value DataT) : Prop :=
+--   ctx.peeki n = some v
+--
+-- theorem SPure.loopContinue : SPure (DataT := DataT)
+--     ⟨.run ⟨(.loop x (.val <| .iref i) b :: ps), loc⟩, F⟩
+--     ⟨.run ⟨b, loc.bindv x v⟩, ⟨.loop x (.val <| .iref i) b :: ps, loc.nexti i⟩ :: F⟩
+--     (PLoopContinue loc i v) := by
+--   intro s H; simp only [Step, step]; rw [H]
+
+
+
+
 
 /-
 -- TODO: This is only used for an example right now, a less ad-hoc solution for
