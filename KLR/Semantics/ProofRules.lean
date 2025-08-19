@@ -621,7 +621,7 @@ open ChipIndex in
 /-- `dwp` for a single allocation step on the left. This is a little bit simpler
 than the `uwp` version since it quantifies over the generated location. -/
 theorem dwpAllocR (Hx : 1 < Rx := by omega) {loc : LocalContext DataT}:
-    (∀ ℓᵣ, (ℓᵣ [S]⇉ₗ∅) -∗
+    (∀ ℓᵣ, (ℓᵣ [S]⇉ᵣ∅) -∗
          dwp Lm (Rm - 2) Lx (Rx - 2) p1 ⟨.run ⟨p2', loc.bindv x (.uptr <| sbufUnboundedIndex ℓᵣ)⟩, F⟩ Φ)
     ⊢ dwp (DataT := DataT) Lm Rm Lx Rx p1 ⟨.run ⟨(.assign (.some x) (.alloc Memory.sbuf) :: p2'), loc⟩, F⟩ Φ := by
   sorry
@@ -693,6 +693,18 @@ theorem dwpAllocR (Hx : 1 < Rx := by omega) :
       · exact SR
   · iexact H
 -/
+
+theorem dwpTDunopCstL (Hx : 0 < Lx := by omega) :
+     (ℓₗ [S]⇉ₗ∅) ∗ ((ℓₗ [S]⇉ₗ∅) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx ⟨.run ⟨p1', loc⟩, F⟩ p2 Φ)
+    ⊢ dwp (DataT := DataT) Lm Rm Lx Rx ⟨.run ⟨.tsdunop (.var <| L) .cst (.val <| .data d₀):: p1', loc⟩, F⟩ p2 Φ := by
+  sorry
+
+
+
+
+
+
+
 
 /-
 theorem dwpSetpL {v : DataT} (Hx : 0 < Lx := by omega) :
@@ -823,6 +835,10 @@ theorem dwpSetpR {v : DataT} (Hx : 0 < Rx := by omega) :
 
 
 
+
+
+
+
 -- @[simp] abbrev PLoopExit (ctx : LocalContext DataT) (n : Nat) : Prop := ctx.peeki n = none
 --
 -- theorem SPure.loopExit : SPure (DataT := DataT)
@@ -830,14 +846,6 @@ theorem dwpSetpR {v : DataT} (Hx : 0 < Rx := by omega) :
 --     ⟨.run ⟨ps, loc⟩, F⟩ (PLoopExit loc i) := by
 --   intro s H; simp only [Step, step]; rw [H]
 --
--- @[simp] abbrev PLoopContinue (ctx : LocalContext DataT) (n : Nat) (v : Value DataT) : Prop :=
---   ctx.peeki n = some v
---
--- theorem SPure.loopContinue : SPure (DataT := DataT)
---     ⟨.run ⟨(.loop x (.val <| .iref i) b :: ps), loc⟩, F⟩
---     ⟨.run ⟨b, loc.bindv x v⟩, ⟨.loop x (.val <| .iref i) b :: ps, loc.nexti i⟩ :: F⟩
---     (PLoopContinue loc i v) := by
---   intro s H; simp only [Step, step]; rw [H]
 
 
 
@@ -1003,6 +1011,40 @@ structure uwpR (DataT : Type _) [NMLEnv DataT] extends uwp DataT where
   spec : ⊢ iprop(∀ σₗ σᵣ, pre -∗ state_interp σₗ σᵣ -∗
     (∃ σᵣ', ⌜SmallStep.StepN steps (prog, σᵣ) (prog', σᵣ')⌝ ∗ |==> (state_interp σₗ σᵣ' ∗ post)))
 
+/-- StackFrames that have a canonical UWP for symbolic head reduction -/
+structure SymbolicL (DataT : Type _) [NMLEnv DataT] (prog prog' : NML.StackFrame DataT) (pre post : PROP DataT) (steps : Nat) where
+  spec F : ⊢ iprop(∀ σₗ σᵣ, pre -∗ state_interp σₗ σᵣ -∗
+    (∃ σₗ', ⌜SmallStep.StepN (Val := Value DataT) (Prog := ProgState DataT) steps (⟨.run prog, F⟩, σₗ) (⟨.run prog', F⟩, σₗ')⌝ ∗
+       |==> (state_interp σₗ' σᵣ ∗ post)))
+
+def SymbolicL.uwpL {DataT : Type _} [NMLEnv DataT] {prog prog' : NML.StackFrame DataT}
+    {pre post : PROP DataT} (SL : SymbolicL DataT prog prog' pre post steps)
+    (F : List (StackFrame DataT)) : uwpL DataT where
+  pre := pre
+  post := post
+  prog := ⟨.run prog, F⟩
+  prog' := ⟨.run prog', F⟩
+  steps := steps
+  spec := SL.spec F
+
+/-- StackFrames that have a canonical UWP for symbolic execution -/
+structure SymbolicR (DataT : Type _) [NMLEnv DataT]  (prog prog' : NML.StackFrame DataT) (pre post : PROP DataT) (steps : Nat) where
+  spec F : ⊢ iprop(∀ σₗ σᵣ, pre -∗ state_interp σₗ σᵣ -∗
+    (∃ σᵣ', ⌜SmallStep.StepN (Val := Value DataT) (Prog := ProgState DataT) steps (⟨.run prog, F⟩, σᵣ) (⟨.run prog', F⟩, σᵣ')⌝ ∗
+      |==> (state_interp σₗ σᵣ' ∗ post)))
+
+def SymbolicR.uwpR {DataT : Type _} [NMLEnv DataT] {prog prog' : NML.StackFrame DataT}
+    {pre post : PROP DataT} (SR : SymbolicR DataT prog prog' pre post steps)
+    (F : List (StackFrame DataT)) : uwpR DataT where
+  pre := pre
+  post := post
+  prog := ⟨.run prog, F⟩
+  prog' := ⟨.run prog', F⟩
+  steps := steps
+  spec := SR.spec F
+
+-- TODO: Make SymbolicL/R instances for all of my uwp's if this turns out to be a good way to do things
+
 section uwp
 
 open Iris Iris.BI Iris.BI.BIBase KLR.Core Iris NML SmallStep
@@ -1136,40 +1178,82 @@ theorem dwpR (u : uwpR DataT) (Hx : u.steps ≤ Rx) :
       iintro Hσ
       iexact Hσ
 
-/-
--- TODO: Update example 10
-def uwpSetpL {i : ChipIndex} {x : Nat × Nat} {mv : Option DataT} {v : DataT} {loc : Locals DataT}
-    {p1 : List (NML.Task DataT)} : uwpL DataT where
-  pre   := iprop(⟨i, x⟩ ↦ₗ mv)
-  post  := iprop(⟨i, x⟩ ↦ₗ some v)
-  prog  := .run <| ⟨.setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v), loc⟩ :: p1
-  prog' := .run <| p1
-  steps := 1
-  spec  := by
-    sorry
--/
 
-/- Maybe I just use a dwp for this one too? Seems to not fit very gracefully into a uwp
+-- @[simp] def
+  -- dwp 0 0 2 3
+  --   {
+  --     current :=
+  --       ExecState.run
+  --         ([Stmt.tsdunop (Expr.var "ℓ") TSDunop.cst (Expr.val (Value.data d₀)),
+  --             Stmt.loop "z" (Expr.val (Value.iref 1)) [Stmt.tsdunop (Expr.var "ℓ") TSDunop.add (Expr.var "z")],
+  --             NML.Stmt.ret ((Expr.var "ℓ").readp (Expr.val (Value.iptr (0, 0))))],
+  --           { loc := LocalContext.emp.loc.bind "ℓ" (Value.uptr (ChipIndex.sbufUnboundedIndex ℓₗ)),
+  --             it := LocalContext.emp.it.bind 1 (some (IteratorS.affineRange 1 2 3).toIterator) }),
+  --     context := [] }
 
-@[simp] def uwpFrameLP (s : ExecState DataT) :=
-  ∃ (p : List (Stmt DataT)) (ctx : LocalContext DataT), s = .run p ctx
+-- .uwpL {p p' : Prog DataT} (H : SPure p p' H') (HH' : H') : uwpL DataT where
 
-@[simp] def uwpFrameLP.lift {s : ExecState DataT} (H : uwpFrameLP s)
-    (pout : List (Stmt DataT)) (ctxout : LocalContext DataT) : ExecState DataT :=
-  match s with
-  | .run pin ctxin => .run (.frame pin ctxin :: pout) ctxout
-  | .done _ => by simp at H
 
-@[simp] def uwpFrameL (U : uwpL DataT) (HU : uwpFrameLP U.prog := by simp)
-    {ps : List (Stmt DataT)} {ctx : LocalContext DataT} : uwpL DataT where
-  pre    := U.pre
-  post   := U.post
-  prog   := HU.lift ps ctx
-  prog'  := sorry
-  steps  := 1
-  spec   := by
-    sorry
--/
+def SPure.SymbolicL (sf sf' : StackFrame DataT) (H : ∀ F, SPure ⟨.run sf, F⟩ ⟨.run sf', F⟩ H') (HH' : H') :
+    SymbolicL DataT sf iprop(True) iprop(True) (prog' := sf') 1 where
+  spec := by
+    intro F
+    iintro σₗ σᵣ %_ Hσ
+    iexists σₗ
+    isplit r
+    · ipure_intro
+      exact stepN_1_iff_step.mpr <| H _ σₗ HH'
+    · refine .trans ?_ BIUpdate.intro
+      refine .trans ?_ sep_true.mpr
+      iintro Hσ
+      iexact Hσ
+
+def SPure.SymbolicR (sf sf' : StackFrame DataT) (H : ∀ F, SPure ⟨.run sf, F⟩ ⟨.run sf', F⟩ H') (HH' : H') :
+    SymbolicR DataT sf iprop(True) iprop(True) (prog' := sf') 1 where
+  spec := by
+    intro F
+    iintro σₗ σᵣ %_ Hσ
+    iexists σᵣ
+    isplit r
+    · ipure_intro
+      apply stepN_1_iff_step.mpr
+      apply H _ σᵣ HH'
+    · refine .trans ?_ BIUpdate.intro
+      refine .trans ?_ sep_true.mpr
+      iintro Hσ
+      iexact Hσ
+
+-- def SymbolicL.setp : SymbolicL DataT
+--       ⟨.setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v) :: pl, ctx⟩
+--       ⟨pl, ctx⟩
+--       (⟨i, x⟩ ↦ₗ mv)
+--       (⟨i, x⟩ ↦ₗ some v)
+--       1 where
+--   spec := sorry -- TODO: Copy over the below proof from dwp setpR
+--
+-- def SymbolicR.setp : SymbolicL DataT
+--       ⟨.setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v) :: pr, ctx⟩
+--       ⟨pl, ctx⟩
+--       (⟨i, x⟩ ↦ᵣ mv)
+--       (⟨i, x⟩ ↦ᵣ some v)
+--       1 where
+--   spec := sorry -- TODO: Copy over the below proof from dwp setpR
+
+-- def SymbolicL.tsdunop_add : SymbolicL DataT
+--       ⟨.tsdunop (.val <| .uptr i) .add (.val <| .int z) :: pl, ctx⟩
+--       ⟨pl, ctx⟩
+--       (i ⇉ₗ (.some st))
+--       (i ⇉ₗ (.some <| TSDunop.app_addZ st z))
+--       1 where
+--   spec := sorry -- TODO
+--
+-- def SymbolicL.tsdunop_cst : SymbolicL DataT
+--       ⟨.tsdunop (.val <| .uptr i) .cst (.val <| .data d) :: pl, ctx⟩
+--       ⟨pl, ctx⟩
+--       (i ⇉ₗ mz)
+--       (i ⇉ₗ (.some <| TSDunop.app_cst d))
+--       1 where
+--   spec := sorry -- TODO
 
 end uwp
 

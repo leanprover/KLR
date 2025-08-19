@@ -438,8 +438,80 @@ example : ⊢ wp (DataT := DataT) 5 sL sR (ΦPure (· = ·)) := by
 end example12
 
 
+-- Tensor scalar: nisa.tensor_scalar
+
 
 namespace example13
+
+variable (d₀ : DataT)
+
+@[simp] def sL : ProgState DataT := ⟨.run ⟨[
+    .assign (some "ℓ") (.alloc .sbuf),
+    .mkiter 1 (.affineRange 1 2 3),
+    .tsdunop (.var "ℓ") .cst (.val <| .data d₀),
+    .loop "z" (.val <| .iref 1) [
+      .tsdunop (.var "ℓ") .add (.var "z"),
+    ],
+    .ret <| .readp (.var "ℓ") (.val <| .iptr ⟨0, 0⟩)
+  ], .emp⟩, []⟩
+
+@[simp] def sR : ProgState DataT := ⟨.run ⟨[
+    .assign (some "ℓ") (.alloc .sbuf),
+    .tsdunop (.var "ℓ") .cst (.val <| .data d₀),
+    .tsdunop (.var "ℓ") .add (.val <| .int 1),
+    .tsdunop (.var "ℓ") .add (.val <| .int 3),
+    .tsdunop (.var "ℓ") .add (.val <| .int 5),
+    .ret <| .readp (.var "ℓ") (.val <| .iptr ⟨0, 0⟩),
+  ], .emp⟩, []⟩
+
+theorem dwp_step_1 :
+      ℓₗ [S]⇉ₗ∅ ∗ ((ℓₗ [S]⇉ₗ (TSDunop.app_cst d₀)) -∗ dwp 0 0 2 3 ⟨.run ⟨pL, ctx⟩, []⟩ pR Φ )
+    ⊢ dwp 0 0 3 4 ⟨.run ⟨.tsdunop (.val <| .uptr <| .sbufUnboundedIndex ℓₗ) .cst (.val <| .data d₀) :: pL, ctx⟩, []⟩ pR Φ := sorry
+
+theorem dwp_step_2 :
+      ℓᵣ [S]⇉ᵣ∅ ∗ ((ℓᵣ [S]⇉ᵣ (TSDunop.app_cst d₀)) -∗ dwp 0 0 1 2 pL ⟨.run ⟨pR, ctx⟩, []⟩ Φ )
+    ⊢ dwp 0 0 2 3 pL ⟨.run ⟨.tsdunop (.val <| .uptr <| .sbufUnboundedIndex ℓᵣ) .cst (.val <| .data d₀) :: pR, ctx⟩, []⟩ Φ := sorry
+
+example : ⊢ wp (DataT := DataT) 7 (sL d₀) (sR d₀) (ΦPure (· = ·)) := by
+  istart
+  -- First desync block:
+  -- - Step the left and right sides to allocate the variable ℓ
+  -- - Step the left side to allocate the iterator
+  -- - Step the left and right sides to apply the zeroing dunop
+  wp_desync
+  dwp_left dwpAllocL
+  iintro ℓₗ Hℓ₁
+  dwp_right dwpAllocR
+  iintro Hℓₗ ℓᵣ Hℓᵣ
+  uwp_left  SPure.uwpL .mkiter trivial
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  uwp_left  EPLift.uwpL EPLift.tsdunop_loc <| EPure.ewpL <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓₗ)
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  uwp_right EPLift.uwpR EPLift.tsdunop_loc <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ)
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+
+  refine .trans ?_ (dwp_step_1 d₀)
+  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  isplit l [Hℓₗ]
+  · iexact Hℓₗ
+  iintro Hℓₗ
+
+  refine .trans ?_ (dwp_step_2 d₀)
+  iintro ⟨Hℓᵣ, Hℓₗ⟩
+  isplit l [Hℓᵣ]
+  · iexact Hℓᵣ
+  iintro Hℓₗ
+  wp_resync
+
+
+  sorry
+
+end example13
+
+
+
+
+namespace example14
 /-! Example: Loop equivalence -/
 
 
@@ -712,10 +784,7 @@ def wpAffineLoopRelSync' [NMLEnv DataT] {p1 p2 : List (NML.Stmt DataT)} {locL lo
   -/
 
 
-
-
-
-end example13
+end example14
 
 
 

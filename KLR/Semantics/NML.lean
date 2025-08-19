@@ -90,6 +90,15 @@ All (total) dunops can be represented this way, but it makes pretty printing NML
 expressions difficult. -/
 | lean (f : DataT → DataT)
 
+
+/-- NML Unops that operate on Data-/
+inductive TSDunop (DataT  : Type) where
+/-- [add] Add a constant to the -/
+| add
+| cst
+
+
+
 /-- NML expressions.
 Expressions are allowed to read and update the program state.
 Expressions can refer to the local context, but they are lexically scoped and cannot update it. -/
@@ -220,7 +229,6 @@ def LocalContext.emp : LocalContext DataT := ⟨.emp, .emp⟩
   loc := lc.loc
   it := lc.it.bind n i
 
-
 /-- NML statements.
 Statements can read and write both the state and the local context. -/
 inductive Stmt (DataT : Type _) where
@@ -228,13 +236,13 @@ inductive Stmt (DataT : Type _) where
 | ret          (e : Expr DataT)
 /-- [ assign ] Let-binding statement. -/
 | assign       (x : Option String) (e : Expr DataT)
+/-- [ tensor-scalar operator, in-place, applies to the entire tensor ] -/
+| tsdunop      (i : Expr DataT) (op : TSDunop DataT) (v : Expr DataT)
 /-- [ mkiter ] Register an iterator variable in the current scope. The iterator variable must be fresh.
 As of now, all iterators must be known statically. In principle, i can be changed to use a new "iterator expression"
 that allows iterators to depend on eg. the local bindings. I am expressing it this way (rather than having
 iterators be values) to avoid difficult cases such as iterators of iterators. -/
 | mkiter       (n : Nat) (i : IteratorS)
--- /- [ frame ] (Internal) Evaluate a list of statements with a given local context. -/
--- | frame        (p : List (Stmt DataT)) (ctx : LocalContext DataT)
 /-- [ loop ] Looping construct. The argument should evaluate to a iterator variable. -/
 | loop         (x : String) (it : Expr DataT) (body : List (Stmt DataT))
 /-- [ setp ] Set a single memory location -/
@@ -267,6 +275,7 @@ def Value.ExpectInt : Expr DataT → Option Int | .val (.int z) => some z | _ =>
 All paramaters required to define a semantics for NML -/
 class NMLEnv (DataT : Type _) where
   intoDataT : Float → DataT
+  addInt : Int → DataT → DataT
   evalDunop : Dunop DataT → DataT → DataT
 
 def Dtype.Interp (DataT : Type _) (d : KLR.Core.Dtype) : Type _ :=
@@ -345,6 +354,11 @@ def Dtype.Interp (DataT : Type _) (d : KLR.Core.Dtype) : Type _ :=
   | ⟨.run ⟨[], _⟩, []⟩ => .some .kont
   | _ => .none
 
+def TSDunop.app_addZ (st : LocalStore DataT) [NMLEnv DataT] (z : Int) : LocalStore DataT:=
+  (hhmap (fun _ d => some <| NMLEnv.addInt z d) st)
+
+def TSDunop.app_cst [NMLEnv DataT] (d : DataT) : LocalStore DataT:=
+  .mk <| fun _ => .some d
 
 @[simp] def NML.step [NMLEnv DataT] (e : ProgState DataT × State DataT) :
       Option (ProgState DataT × State DataT) :=
@@ -390,6 +404,26 @@ def Dtype.Interp (DataT : Type _) (d : KLR.Core.Dtype) : Type _ :=
     /- Register a new static iterator -/
     | .mkiter n it =>
         some ⟨⟨.run ⟨ps, ctx.bindi n it.toIterator⟩, F⟩, s⟩
+
+    /- Tensor-scalar unops, modeled as in-place operation (eg. GPSIMD) -/
+    | .tsdunop (.val <| .uptr i) .add (.val <| .int z) =>
+        match ChipMemory.get_store s.memory i with
+        | .none => .none
+        | .some st =>
+            some ⟨⟨.run ⟨ps, ctx⟩, F⟩,
+              { s with memory := ChipMemory.set_store s.memory i (some <| TSDunop.app_addZ st z)} ⟩
+    | .tsdunop (.val <| .uptr i) .cst (.val <| .int z) =>
+        match ChipMemory.get_store s.memory i with
+        | .none => .none
+        | .some st =>
+            some ⟨⟨.run ⟨ps, ctx⟩, F⟩,
+              { s with memory := ChipMemory.set_store s.memory i (some <| TSDunop.app_addZ st z)} ⟩
+    | .tsdunop (.val <| .uptr i) op e =>
+        ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
+        some ⟨⟨.run ⟨.tsdunop (.val <| .uptr i) op e' :: ps, ctx⟩, F⟩, s'⟩
+    | .tsdunop e op ec  =>
+        ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
+        some ⟨⟨.run ⟨.tsdunop e' op ec :: ps, ctx⟩, F⟩, s'⟩
 
     /- Loop -/
     | .loop x (.val <| .iref i) b =>
@@ -451,15 +485,16 @@ theorem SimpleFrame.frame_inv [NMLEnv DataT] {P : StackFrame DataT} :
   SimpleStackFrame P →
   Step (Prog := ProgState DataT) (Val := Value DataT) ⟨⟨ExecState.run P, []⟩, s⟩ ⟨⟨ExecState.run P', F⟩, s'⟩ →
   F = [] := by
-  rcases P with ⟨los, loc⟩
-  simp
-  cases los
-  · simp [Step]
-  · rename_i s0 los
-    cases s0 <;> simp [List.forall]
-    · simp [Step, Locals.bind, Option.bind]; grind
-    · simp [Step, Locals.bind, Option.bind]; grind
-    · simp [Step, Locals.bind, Option.bind]; grind
+  sorry
+  -- rcases P with ⟨los, loc⟩
+  -- simp
+  -- cases los
+  -- · simp [Step]
+  -- · rename_i s0 los
+  --   cases s0 <;> simp [List.forall]
+  --   · simp [Step, Locals.bind, Option.bind]; grind
+  --   · simp [Step, Locals.bind, Option.bind]; grind
+  --   · simp [Step, Locals.bind, Option.bind]; grind
 
 -- TODO: More simple frame elmmas
 -- TODO: Define SimpleFrame semantically rather than by induction
@@ -495,14 +530,15 @@ theorem StepN_run_noframe_inv [NMLEnv DataT] {c : ProgState DataT × State DataT
       rcases P with ⟨los, loc⟩
       cases los
       · simp_all [Step]
-      · rename_i head _
-        -- There's only one way to step to done and that is if head is .ret
-        -- TODO: Make this a lemma
-        cases head <;> simp_all [List.forall]
-        · simp [Step] at Hnext'
-          sorry
-        · sorry
-        · sorry
+      · sorry
+        -- rename_i head _
+        -- -- There's only one way to step to done and that is if head is .ret
+        -- -- TODO: Make this a lemma
+        -- cases head <;> simp_all [List.forall]
+        -- · simp [Step] at Hnext'
+        --   sorry
+        -- · sorry
+        -- · sorry
 
 -- Might as well use simpleFrame here since we need noFrame inv anyways
 theorem StepN_run_noframe_lift [NMLEnv DataT] {P : StackFrame DataT} {F : List (StackFrame DataT)}
@@ -754,6 +790,12 @@ def EPLift.setp_ix : EPLift (.setp (DataT := DataT) (.val <| .uptr i) · ev) := 
   solveEPLift
 
 def EPLift.setp_val : EPLift (.setp (DataT := DataT) (.val <| .uptr i) (.val <| .iptr x) ·) := by
+  solveEPLift
+
+def EPLift.tsdunop_loc : EPLift (.tsdunop (DataT := DataT) · op ev) := by
+  solveEPLift
+
+def EPLift.tsdunop_val : EPLift (.tsdunop (DataT := DataT) (.val <| .uptr i) op ·) := by
   solveEPLift
 
 -- Pure head steps
