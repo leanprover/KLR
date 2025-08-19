@@ -89,6 +89,8 @@ partial def KLR.NKI.Expr.model (s : NKI.Expr) : Err (NML.Expr Float) :=
           Err.Bind' (KLR.NKI.Expr.model dst) <| fun edst =>
           .ok <| .view eshape edst
         | _ => .error "bad sbuf view call"
+      -- | .var (.str (.str .anonymous "nl") "zeros") =>
+      --     .error s!"wip {Lean.toJson args} {Lean.toJson kws}"
       | _ => .error s!"call not modeled {Lean.toJson f}"
 
 -- TODO: Add Iterator expression steps to the model.
@@ -101,7 +103,7 @@ def KLR.NKI.iterator.model : Iterator → Err NML.IteratorS
       Err.Bind' (KLR.NKI.Expr.model s) <| fun zs =>
       match zl, zu, zs with
       | .val (.int zl), .val (.int zu), .val (.int zs) =>
-        .ok <| IteratorS.affineRange zl zu zs
+        if (0 < zs) then .ok <| IteratorS.affineRange zl zu (zs - 1).toNat else .error "negative or zero number of steps"
       | _, _, _ => .error "bad call to iterator"
 -- TODO: Cleanup
 partial def KLR.NKI.Stmt.model (c : NKIModelCtx) (s : NKI.Stmt) : Err (NKIModelCtx × List (NML.Stmt Float)) :=
@@ -191,7 +193,7 @@ def NML.Stmt.pprint : NML.Stmt Float → List String
 | .mkiter n i => [s!".mkiter {n} ({i.pprint}),"]
 | .loop x it b =>
     let b' := b.map NML.Stmt.pprint |>.flatten  |>.map ("  " ++ ·)
-    (s!".loop \"{x}\" {it.pprint} [") :: b' ++ ["]"]
+    (s!".loop \"{x}\" ({it.pprint}) [") :: b' ++ ["],"]
 | _ => ["sorry /- NML.Stmt.pprint: Not implemented -/"]
 
 
