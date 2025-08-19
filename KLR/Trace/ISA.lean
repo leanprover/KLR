@@ -128,7 +128,7 @@ nki builtin.isa.nc_transpose
   | .pe =>
     let N := data.shapePure.freeDims.getLast!
     let id : TensorRef := <- match <- lookup_global? (.num `identity 0) with
-    | some (.expr (.value (.access acc))) => return .abstract acc
+    | some (.access acc) => return .abstract acc
     | some _ => throw "identity has wrong type"
     | none => throw "identity not defined"
     let idName <- match id with

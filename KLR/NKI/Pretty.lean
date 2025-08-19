@@ -22,6 +22,9 @@ open Std
 private def abracket (f : Format) : Format :=
   .bracket "<" f ">"
 
+private def sbracket (f : Format) : Format :=
+  .bracket "[" f "]"
+
 private def spaces [ToFormat a] (l : List a) : Format :=
   .joinSep l " "
 
@@ -60,6 +63,7 @@ private def expr' (e : Expr') (nested : Bool := false) : Format :=
   | .value v => format v
   | .var n => n.toString
   | .tuple es => parens (.joinSep (es.map expr) ",")
+  | .list es => sbracket (.joinSep (es.map expr) ",")
   | .access e i => expr e ++ sqArgs (i.map index)
   | .binOp op l r => parens $ spaces [expr l, format op, expr r]
   | .conj l r => parens (expr l true ++ " and " ++ expr r true)

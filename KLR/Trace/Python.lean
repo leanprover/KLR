@@ -27,29 +27,29 @@ open Core
 
 nki builtin.op.negate (t : Term) := do
   match t with
-  | (x : Int) => return x.neg
-  | (x : Float) => return x.neg
+  | .int x => return .int x.neg
+  | .float x => return .float x.neg
   | _ => throw "cannot negate values of this type"
 
 nki builtin.op.not (t : Term) := do
-  t.isFalse
+  return .bool t.isFalse
 
 nki builtin.op.invert (t : Term) := do
   let i : Int <- fromNKI? t
-  return i.toInt32.complement.toInt
+  return .int i.toInt32.complement.toInt
 
 nki builtin.python.slice (b : Int) (e : Int) (s : Int) := do
   return .slice b e s
 
 nki builtin.python.len (t : Term) := do
   match t with
-  | .tuple l | .list l => return .expr (.value (.int l.length))
+  | .tuple l | .list l => return .int l.length
   | _ => throw "invalid argument"
 
 -- TODO: should take arbitrary number of arguments and work on more types
 nki builtin.python.min (a : Term) (b : Term) := do
   match a, b with
-  | .expr (.value (.int a)), .expr (.value (.int b)) => return .int (min a b)
+  | .int a, .int b => return .int (min a b)
   | _, _ => throw "invalid arguments"
 
 
@@ -59,5 +59,5 @@ Python math library
 
 nki math.gcd (a : Term) (b : Term) := do
   match a, b with
-  | (x : Int), (y : Int) => return Int.ofNat (Int.gcd x y)
+  | .int x, .int y => return .int (Int.ofNat $ Int.gcd x y)
   | _, _ => throw "gcd not avaliable for these types"

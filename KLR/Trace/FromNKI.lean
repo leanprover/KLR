@@ -63,61 +63,36 @@ instance [FromNKI a] [FromNKI b] : FromNKI (a × b) where
 
 instance : FromNKI Term := ⟨ .ok ⟩
 
-instance : FromNKI Expr where
-  fromNKI? t :=
-    let err ty := throw s!"internal error: {ty} cannot be lowered"
-    match t with
-    | .module _    => err "module"
-    | .builtin n .. => return .value (.var n.toString)
-    | .ref _       => err "ref"
-    | .source _    => err "function"
-    | .mgrid       => err "mgrid"
-    | .mgItem ..   => err "mgItem"
-    | .none        => err "none"
-    | .string _    => err "string"
-    | .tuple _     => err "tuple"
-    | .list _      => err "list"
-    | .ellipsis    => err "ellipsis"
-    | .slice ..    => err "slice"
-    | .pointer ..  => err "pointer"
-    | .expr e      => return e
-
 instance : FromNKI Address where
   fromNKI?
   | .pointer addr => return addr
   | _ => throw "expecting pointer"
 
-instance : FromNKI Value where
-  fromNKI? t := do
-    match <- fromNKI? t with
-    | Expr.value v => return v
-    | _ => throw "expecting value"
-
 instance : FromNKI Bool where
   fromNKI?
-    | .expr (.value $ .bool b) => return b
+    | .bool b => return b
     | _ => throw "expecting boolean"
 
 instance : FromNKI Int where
   fromNKI?
-    | .expr (.value $ .bool true) => return 1
-    | .expr (.value $ .bool false) => return 0
-    | .expr (.value $ .int i) => return i
+    | .bool true => return 1
+    | .bool false => return 0
+    | .int i => return i
     | _ => throw "expecting integer"
 
 instance : FromNKI Nat where
   fromNKI?
-    | .expr (.value $ .bool true) => return 1
-    | .expr (.value $ .bool false) => return 0
-    | .expr (.value $ .int (.ofNat n)) => return n
+    | .bool true => return 1
+    | .bool false => return 0
+    | .int (.ofNat n) => return n
     | _ => throw "expecting positive integer"
 
 instance : FromNKI Float where
   fromNKI?
-    | .expr (.value $ .bool true) => return 1
-    | .expr (.value $ .bool false) => return 0
-    | .expr (.value $ .int i) => return Float.ofInt i
-    | .expr (.value $ .float f) => return f
+    | .bool true => return 1
+    | .bool false => return 0
+    | .int i => return Float.ofInt i
+    | .float f => return f
     | _ => throw "expecting float"
 
 instance : FromNKI Float32 where
@@ -127,10 +102,10 @@ instance : FromNKI Float32 where
 
 instance : FromNKI Immediate where
   fromNKI?
-    | .expr (.value $ .bool true) => return .int 1
-    | .expr (.value $ .bool false) => return .int 0
-    | .expr (.value $ .int i) => return .int i
-    | .expr (.value $ .float f) => return .float f.toFloat32
+    | .bool true => return .int 1
+    | .bool false => return .int 0
+    | .int i => return .int i
+    | .float f => return .float f.toFloat32
     | _ => throw "expecting int or float"
 
 instance : FromNKI String where
@@ -141,36 +116,38 @@ instance : FromNKI String where
 -- TODO: when new NKI API is settled, rewrite is a nicer way
 instance : FromNKI Dtype where
   fromNKI?
-    | .expr (.value $ .var name)
-    | .string name =>
+    | .var name =>
       match name with
       -- NKI variants (see table in NKI docs)
-      | "neuronxcc.nki.language.uint8" => .ok .uint8
-      | "neuronxcc.nki.language.int8" => .ok .int8
-      | "neuronxcc.nki.language.uint16" => .ok .uint16
-      | "neuronxcc.nki.language.int16" => .ok .int16
-      | "neuronxcc.nki.language.uint32" => .ok .int32
-      | "neuronxcc.nki.language.int32" => .ok .int32
-      | "neuronxcc.nki.language.float8e3" => .ok .float8e3
-      | "neuronxcc.nki.language.float8e4" => .ok .float8e4
-      | "neuronxcc.nki.language.float8e5" => .ok .float8e5
-      | "neuronxcc.nki.language.float8_e4m3" => .ok .float8e4
-      | "neuronxcc.nki.language.float8_e5m2" => .ok .float8e5
-      | "neuronxcc.nki.language.float16" => .ok .float16
-      | "neuronxcc.nki.language.bfloat16" => .ok .bfloat16
-      | "neuronxcc.nki.language.tfloat32" => .ok .float32r  -- TODO check this
-      | "neuronxcc.nki.language.float32" => .ok .float32
-      | "neuronxcc.nki.language.bool_" => .ok .uint8
+      | `neuronxcc.nki.language.uint8 => .ok .uint8
+      | `neuronxcc.nki.language.int8 => .ok .int8
+      | `neuronxcc.nki.language.uint16 => .ok .uint16
+      | `neuronxcc.nki.language.int16 => .ok .int16
+      | `neuronxcc.nki.language.uint32 => .ok .int32
+      | `neuronxcc.nki.language.int32 => .ok .int32
+      | `neuronxcc.nki.language.float8e3 => .ok .float8e3
+      | `neuronxcc.nki.language.float8e4 => .ok .float8e4
+      | `neuronxcc.nki.language.float8e5 => .ok .float8e5
+      | `neuronxcc.nki.language.float8_e4m3 => .ok .float8e4
+      | `neuronxcc.nki.language.float8_e5m2 => .ok .float8e5
+      | `neuronxcc.nki.language.float16 => .ok .float16
+      | `neuronxcc.nki.language.bfloat16 => .ok .bfloat16
+      | `neuronxcc.nki.language.tfloat32 => .ok .float32r  -- TODO check this
+      | `neuronxcc.nki.language.float32 => .ok .float32
+      | `neuronxcc.nki.language.bool_ => .ok .uint8
       -- numpy variants
-      | "numpy.uint8" => .ok .uint8
-      | "numpy.int8" => .ok .int8
-      | "numpy.uint16" => .ok .uint16
-      | "numpy.int16" => .ok .int16
-      | "numpy.uint32" => .ok .uint32
-      | "numpy.int32" => .ok .int32
-      | "numpy.float16" => .ok .float16
-      | "numpy.float32" => .ok .float32
-      | "numpy.bool" => .ok .uint8
+      | `numpy.uint8 => .ok .uint8
+      | `numpy.int8 => .ok .int8
+      | `numpy.uint16 => .ok .uint16
+      | `numpy.int16 => .ok .int16
+      | `numpy.uint32 => .ok .uint32
+      | `numpy.int32 => .ok .int32
+      | `numpy.float16 => .ok .float16
+      | `numpy.float32 => .ok .float32
+      | `numpy.bool => .ok .uint8
+      | _ => throw s!"unsupported dtype {name}"
+    | .string name =>
+      match name with
       -- imported and string variants
       | "uint8" => .ok .uint8
       | "int8" => .ok .int8
@@ -188,7 +165,7 @@ instance : FromNKI Dtype where
       | "tfloat32" => .ok .float32r  -- TODO check this
       | "float32" => .ok .float32
       | "bool" => .ok .uint8
-      | s => throw s!"unsupported dtype {s}"
+      | _ => throw s!"unsupported dtype {name}"
     | _ => throw s!"expecting dtype"
 
 instance : FromNKI Shape where
@@ -202,14 +179,14 @@ instance : FromNKI Memory where
   fromNKI? t :=
     let err := .error "expecting buffer type"
     match t with
-    | .expr (.value $ .var name) =>
+    | .var name =>
       match name with
       -- TODO: do we need to distinguish the different HBM types?
-      | "neuronxcc.nki.language.shared_hbm" => .ok .hbm
-      | "neuronxcc.nki.language.private_hbm" => .ok .hbm
-      | "neuronxcc.nki.language.hbm" => .ok .hbm
-      | "neuronxcc.nki.language.sbuf" => .ok .sbuf
-      | "neuronxcc.nki.language.psum" => .ok .psum
+      | `neuronxcc.nki.language.shared_hbm => .ok .hbm
+      | `neuronxcc.nki.language.private_hbm => .ok .hbm
+      | `neuronxcc.nki.language.hbm => .ok .hbm
+      | `neuronxcc.nki.language.sbuf => .ok .sbuf
+      | `neuronxcc.nki.language.psum => .ok .psum
       | _ => err
     | _ => err
 
@@ -217,77 +194,77 @@ instance : FromNKI Engine where
   fromNKI? t :=
     let err := .error "expecting engine type"
     match t with
-    | .expr (.value $ .var name) =>
+    | .var name =>
       match name with
-      | "neuronxcc.nki.isa.unknown_engine" => .ok .unassigned
-      | "neuronxcc.nki.isa.tensor_engine" => .ok .pe
-      | "neuronxcc.nki.isa.vector_engine" => .ok .dve
-      | "neuronxcc.nki.isa.scalar_engine" => .ok .sp
+      | `neuronxcc.nki.isa.unknown_engine => .ok .unassigned
+      | `neuronxcc.nki.isa.tensor_engine => .ok .pe
+      | `neuronxcc.nki.isa.vector_engine => .ok .dve
+      | `neuronxcc.nki.isa.scalar_engine => .ok .sp
       | _ => err
     | _ => err
 
 instance : FromNKI Access where
   fromNKI?
-    | .expr (.value $ .access a) => return a
+    | .access a => return a
     | _ => throw "expecting tensor access"
 
 instance : FromNKI TensorName where
   fromNKI?
-    | .expr (.value (.access (.simple t))) => return t
+    | .access (.simple t) => return t
     | _ => throw "expecting tensor"
 
 instance : FromNKI AluOp where
   fromNKI?
     | .none => return .bypass
-    | .expr (.value $ .var name) =>
+    | .var name =>
         match name with
         -- bitwise operations
-        | "neuronxcc.nki.language.invert" => return .bitwise_not
-        | "neuronxcc.nki.language.bitwise_and" => return .bitwise_and
-        | "neuronxcc.nki.language.bitwise_or" => return .bitwise_or
-        | "neuronxcc.nki.language.bitwise_xor" => return .bitwise_xor
-        | "neuronxcc.nki.language.left_shift" => return .logical_shift_left
-        | "neuronxcc.nki.language.right_shift" => return .logical_shift_right
+        | `neuronxcc.nki.language.invert => return .bitwise_not
+        | `neuronxcc.nki.language.bitwise_and => return .bitwise_and
+        | `neuronxcc.nki.language.bitwise_or => return .bitwise_or
+        | `neuronxcc.nki.language.bitwise_xor => return .bitwise_xor
+        | `neuronxcc.nki.language.left_shift => return .logical_shift_left
+        | `neuronxcc.nki.language.right_shift => return .logical_shift_right
         -- numpy variants
-        | "numpy.bitwise_not" => return .bitwise_not
-        | "numpy.bitwise_invert" => return .bitwise_not
-        | "numpy.bitwise_and" => return .bitwise_and
-        | "numpy.bitwise_or" => return .bitwise_or
-        | "numpy.bitwise_xor" => return .bitwise_xor
-        | "numpy.bitwise_left_shift" => return .logical_shift_left
-        | "numpy.bitwise_right_shift" => return .logical_shift_right
+        | `numpy.bitwise_not => return .bitwise_not
+        | `numpy.bitwise_invert => return .bitwise_not
+        | `numpy.bitwise_and => return .bitwise_and
+        | `numpy.bitwise_or => return .bitwise_or
+        | `numpy.bitwise_xor => return .bitwise_xor
+        | `numpy.bitwise_left_shift => return .logical_shift_left
+        | `numpy.bitwise_right_shift => return .logical_shift_right
         -- arithemetic operations
-        | "neuronxcc.nki.language.add" => return .add
-        | "neuronxcc.nki.language.subtract" => return .subtract
-        | "neuronxcc.nki.language.multiply" => return .mult
-        | "neuronxcc.nki.language.maximum" => return .max
-        | "neuronxcc.nki.language.minimum" => return .min
-        | "neuronxcc.nki.language.equal" => return .is_equal
-        | "neuronxcc.nki.language.not_equal" => return .not_equal
-        | "neuronxcc.nki.language.greater_equal" => return .is_ge
-        | "neuronxcc.nki.language.greater" => return .is_gt
-        | "neuronxcc.nki.language.less_equal" => return .is_le
-        | "neuronxcc.nki.language.less" => return .is_lt
-        | "neuronxcc.nki.language.logical_not" => throw "??"
-        | "neuronxcc.nki.language.logical_and" => return .logical_and
-        | "neuronxcc.nki.language.logical_or" => return .logical_or
-        | "neuronxcc.nki.language.logical_xor" => return .logical_xor
+        | `neuronxcc.nki.language.add => return .add
+        | `neuronxcc.nki.language.subtract => return .subtract
+        | `neuronxcc.nki.language.multiply => return .mult
+        | `neuronxcc.nki.language.maximum => return .max
+        | `neuronxcc.nki.language.minimum => return .min
+        | `neuronxcc.nki.language.equal => return .is_equal
+        | `neuronxcc.nki.language.not_equal => return .not_equal
+        | `neuronxcc.nki.language.greater_equal => return .is_ge
+        | `neuronxcc.nki.language.greater => return .is_gt
+        | `neuronxcc.nki.language.less_equal => return .is_le
+        | `neuronxcc.nki.language.less => return .is_lt
+        | `neuronxcc.nki.language.logical_not => throw "??"
+        | `neuronxcc.nki.language.logical_and => return .logical_and
+        | `neuronxcc.nki.language.logical_or => return .logical_or
+        | `neuronxcc.nki.language.logical_xor => return .logical_xor
         -- numpy variants
-        | "numpy.add" => return .add
-        | "numpy.subtract" => return .subtract
-        | "numpy.multiply" => return .mult
-        | "numpy.maximum" => return .max
-        | "numpy.minimum" => return .min
-        | "numpy.equal" => return .is_equal
-        | "numpy.not_equal" => return .not_equal
-        | "numpy.greater_equal" => return .is_ge
-        | "numpy.greater" => return .is_gt
-        | "numpy.less_equal" => return .is_le
-        | "numpy.less" => return .is_lt
-        | "numpy.logical_not" => throw "??"
-        | "numpy.logical_and" => return .logical_and
-        | "numpy.logical_or" => return .logical_or
-        | "numpy.logical_xor" => return .logical_xor
+        | `numpy.add => return .add
+        | `numpy.subtract => return .subtract
+        | `numpy.multiply => return .mult
+        | `numpy.maximum => return .max
+        | `numpy.minimum => return .min
+        | `numpy.equal => return .is_equal
+        | `numpy.not_equal => return .not_equal
+        | `numpy.greater_equal => return .is_ge
+        | `numpy.greater => return .is_gt
+        | `numpy.less_equal => return .is_le
+        | `numpy.less => return .is_lt
+        | `numpy.logical_not => throw "??"
+        | `numpy.logical_and => return .logical_and
+        | `numpy.logical_or => return .logical_or
+        | `numpy.logical_xor => return .logical_xor
         | _ => throw s!"unsupported operator {name}"
     | _ => throw "expecting operator"
 
@@ -295,45 +272,45 @@ instance : FromNKI ActivationFunc where
   fromNKI? t :=
     let err := .error "expecting activation function type"
     match t with
-    | .expr (.value $ .var name) =>
+    | .var name =>
       match name with
-        | "neuronxcc.nki.language.copy" | "numpy.copy" => return .copy
-        | "neuronxcc.nki.language.square" | "numpy.square" => return .sqrt
-        | "neuronxcc.nki.language.sigmoid" => return .sigmoid
-        | "neuronxcc.nki.language.relu" => return .relu
-        | "neuronxcc.nki.language.gelu" => return .gelu
-        | "neuronxcc.nki.language.gelu_dx" => return .gelu_dx
-        | "neuronxcc.nki.language.gelu_apprx_tanh" => return .gelu_apprx_tanh
-        | "neuronxcc.nki.language.silu" => return .silu
-        | "neuronxcc.nki.language.silu_dx" => return .silu_dx
-        | "neuronxcc.nki.language.tanh" | "numpy.tanh" => return .tanh
-        | "neuronxcc.nki.language.softplus" => return .softplus
-        | "neuronxcc.nki.language.mish" => return .mish
-        | "neuronxcc.nki.language.erf" => return .erf
-        | "neuronxcc.nki.language.erf_dx" => return .erf_dx
-        | "neuronxcc.nki.language.exp" | "numpy.exp" => return .exp
-        | "neuronxcc.nki.language.log" | "numpy.log" => return .log
-        | "neuronxcc.nki.language.sin" | "numpy.sin" => return .sin
-        | "neuronxcc.nki.language.arctan" | "numpy.arctan" => return .arctan
-        | "neuronxcc.nki.language.sqrt" | "numpy.sqrt" => return .sqrt
-        | "neuronxcc.nki.language.rsqrt" => return .rsqrt
-        | "neuronxcc.nki.language.reciprocal" | "numpy.reciprocal" => return .reciprocal
-        | "neuronxcc.nki.language.sign" | "numpy.sign" => return .sign
-        | "neuronxcc.nki.language.abs" | "numpy.abs" => return .abs
-        | _ => err
+      | `neuronxcc.nki.language.copy | `numpy.copy => return .copy
+      | `neuronxcc.nki.language.square | `numpy.square => return .sqrt
+      | `neuronxcc.nki.language.sigmoid => return .sigmoid
+      | `neuronxcc.nki.language.relu => return .relu
+      | `neuronxcc.nki.language.gelu => return .gelu
+      | `neuronxcc.nki.language.gelu_dx => return .gelu_dx
+      | `neuronxcc.nki.language.gelu_apprx_tanh => return .gelu_apprx_tanh
+      | `neuronxcc.nki.language.silu => return .silu
+      | `neuronxcc.nki.language.silu_dx => return .silu_dx
+      | `neuronxcc.nki.language.tanh | `numpy.tanh => return .tanh
+      | `neuronxcc.nki.language.softplus => return .softplus
+      | `neuronxcc.nki.language.mish => return .mish
+      | `neuronxcc.nki.language.erf => return .erf
+      | `neuronxcc.nki.language.erf_dx => return .erf_dx
+      | `neuronxcc.nki.language.exp | `numpy.exp => return .exp
+      | `neuronxcc.nki.language.log | `numpy.log => return .log
+      | `neuronxcc.nki.language.sin | `numpy.sin => return .sin
+      | `neuronxcc.nki.language.arctan | `numpy.arctan => return .arctan
+      | `neuronxcc.nki.language.sqrt | `numpy.sqrt => return .sqrt
+      | `neuronxcc.nki.language.rsqrt => return .rsqrt
+      | `neuronxcc.nki.language.reciprocal | `numpy.reciprocal => return .reciprocal
+      | `neuronxcc.nki.language.sign | `numpy.sign => return .sign
+      | `neuronxcc.nki.language.abs | `numpy.abs => return .abs
       | _ => err
+    | _ => err
 
 
 instance : FromNKI AccumCmd where
   fromNKI? t :=
     let err := .error "expecting activation function type"
     match t with
-    | .expr (.value $ .var name) =>
+    | .var name =>
       match name with
-        | "neuronxcc.nki.isa.reduce_cmd.idle" => return .Idle
-        | "neuronxcc.nki.isa.reduce_cmd.reset" => return .Zero
-        | "neuronxcc.nki.isa.reduce_cmd.reduce" => return .Accumulate
-        | "neuronxcc.nki.isa.reduce_cmd.reset_reduce" => return .ZeroAccumulate
-        -- Something should emit LoadAccumulate? Not sure what
-        | _ => err
+      | `neuronxcc.nki.isa.reduce_cmd.idle => return .Idle
+      | `neuronxcc.nki.isa.reduce_cmd.reset => return .Zero
+      | `neuronxcc.nki.isa.reduce_cmd.reduce => return .Accumulate
+      | `neuronxcc.nki.isa.reduce_cmd.reset_reduce => return .ZeroAccumulate
+      -- Something should emit LoadAccumulate? Not sure what
       | _ => err
+    | _ => err

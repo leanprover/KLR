@@ -73,10 +73,6 @@ export NKI (Pos BinOp)
 abbrev SharedConstant := String × TensorLib.Tensor
 abbrev SharedConstants := Array SharedConstant
 
--- TODO: maybe change main instance?
-scoped instance : BEq NKI.Fun where
-  beq f1 f2 := f1.name == f2.name
-
 /-
 A term contains KLR expressions plus things that may exists at trace time.
 References to modules, built-ins or user functions are only valid during
@@ -91,18 +87,25 @@ value in the local environment that will be shared by all references to
 the value.
 -/
 inductive Term where
+  -- internals
   | module   : Name -> Term
   | builtin  : Name -> Option Term -> Term
   | ref      : Name -> Term
   | source   : NKI.Fun -> Term
+  -- expressions / values
+  | var      : Name -> Term
   | none     : Term
+  | bool     : Bool -> Term
+  | int      : Int -> Term
+  | float    : Float -> Term
   | string   : String -> Term
+  | access   : Core.Access -> Term
   | tuple    : List Term -> Term
   | list     : List Term -> Term
+  -- indexing
   | ellipsis : Term
   | slice    : Option Int -> Option Int -> Option Int -> Term
   | pointer  : Core.Address -> Term
-  | expr     : Expr -> Term
   | mgrid    : Term
   | mgItem   : Int -> Int -> Int -> Term
   deriving Repr, BEq
@@ -112,22 +115,12 @@ instance : Inhabited Term where
 
 namespace Term
 
-def bool (x : Bool) : Term := .expr (.value (.bool x))
-def nat (x : Nat) : Term := .expr (.value (.int x))
-def int (x : Int) : Term := .expr (.value (.int x))
-def float (x : Float) : Term := .expr (.value (.float x))
-
-instance : Coe Bool Term where coe := bool
-instance : Coe Nat Term where coe := nat
-instance : Coe Int Term where coe := int
-instance : Coe Float Term where coe := float
-
 -- Truthiness of Terms following Python
 
-def isTrue : Term -> Err Bool
+def isTrue : Term -> Bool
   | .none
   | .tuple []
-  | .list []  => return false
+  | .list []  => false
   | .module _
   | .ref _
   | .mgrid
@@ -139,21 +132,20 @@ def isTrue : Term -> Err Bool
   | .list _
   | .ellipsis
   | .slice ..
-  | .pointer .. => return true
-  | .expr (.value (.var _)) => return true
-  | .expr (.value (.bool b)) => return b
-  | .expr (.value (.int i)) => return i != 0
-  | .expr (.value (.float f)) => return f != 0.0
-  | .expr (.value (.access _)) => return true
-  | .expr _ => throw "non-constant expression"
+  | .pointer .. => true
+  | .var _      => true  -- TODO: impossible?
+  | .bool b     => b
+  | .int i      => i != 0
+  | .float f    => f != 0.0
+  | .access _   => true
 
-def isFalse (t : Term) : Err Bool :=
-  return not (<- t.isTrue)
+def isFalse (t : Term) : Bool :=
+  not (t.isTrue)
 
 -- Only fully lowered terms are relevant
 instance : Tensors Term where
   tensors
-  | .expr e => tensors e
+  | .access a => tensors a
   | _ => []
 
 end Term
@@ -327,7 +319,7 @@ def addId : Trace Unit := do
     body := #[initStmt] ++ s.body,
     sharedConstants := s.sharedConstants.push (hbmInitName.toString, idTensor)
   }
-  extend_global idName (.expr (.value (.access (.simple tensorName))))
+  extend_global idName (.access (.simple tensorName))
 
 -- emit a warning
 def warn (msg : String) : Trace Unit :=

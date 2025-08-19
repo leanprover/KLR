@@ -76,16 +76,15 @@ def bindArgs (f : Fun)
 
 -- range, but only in a for-loop context
 private def range (start stop step : Int) : List Term :=
-  let int i := Term.expr (.value (.int i))
   if step = 0 then []
   else if 0 < step then
     if stop <= start then [] else
-    if stop <= start + step then [int start] else
-    int start :: range (start + step) stop step
+    if stop <= start + step then [.int start] else
+    .int start :: range (start + step) stop step
   else -- step < 0
     if start <= stop then [] else
-    if start + step <= stop then [int start] else
-    int start :: range (start + step) stop step
+    if start + step <= stop then [.int start] else
+    .int start :: range (start + step) stop step
   termination_by (stop - start).natAbs
 
 -- Lookup a name, falling back to attribute if not found
@@ -112,7 +111,7 @@ arguments.
 -/
 private def checkAccess (t : Term) (warnOnly : Bool := true) : Trace Unit := do
   match t with
-  | .expr (.value (.access (.basic b))) => do
+  | .access (.basic b) => do
     let shape <- b.shape
     for (dim, ndx) in shape.toList.zip b.indexes do
       if dim < ndx.size then
@@ -130,7 +129,7 @@ def value : Value -> Trace Term
   | .string s  => return .string s
   | .tensor s dty (some name) => do
       let shape <- Core.Shape.fromList s
-      let dtype <- fromNKI? (.expr (.value $ .var dty))
+      let dtype <- fromNKI? (.string dty)
       let addr : Core.Address := {
         name := name
         memory := .hbm
@@ -138,7 +137,7 @@ def value : Value -> Trace Term
         freeSize := shape.freeElements * dtype.size
       }
       let tensor <- Core.TensorName.make name dtype shape (some addr)
-      return .expr (.value $ .access $ .simple tensor)
+      return .access (.simple tensor)
   | .tensor _ _ none =>
       throw "internal error: tensor argument does not have a name"
 
@@ -161,16 +160,17 @@ partial def expr' (e' : Expr') : Trace Term := do
   | .value v => value v
   | .var n => lookupName n
   | .tuple es => return .tuple (<- es.mapM expr)
+  | .list es => return .list (<- es.mapM expr)
   | .access e ix => access (<- expr e) (<- ix.mapM index)
   | .binOp op l r => binop op (<- expr l) (<- expr r)
   | .conj l r =>
       let l <- expr l
-      if <- l.isTrue then return l else expr r
+      if l.isTrue then return l else expr r
   | .disj l r =>
       let l <- expr l
-      if <- l.isFalse then return l else expr r
+      if l.isFalse then return l else expr r
   | .ifExp test tru fls =>
-      if <- (<- expr test).isTrue
+      if (<- expr test).isTrue
       then expr tru
       else expr fls
   | .call f args kwargs =>
@@ -242,7 +242,7 @@ partial def stmt' (s' : Stmt') : Trace Result := do
   match s' with
   | .expr e => let _ <- expr e; return .next
   | .assert e =>
-      if <- (<- expr e).isFalse then
+      if (<- expr e).isFalse then
         throw "assertion failed"
       return .next
   | .ret e => return .ret (<- expr e)
@@ -251,7 +251,7 @@ partial def stmt' (s' : Stmt') : Trace Result := do
   | .letM (.tuple ..) .. => throw "internal error: complex pattern in trace"
   | .setM .. => throw "mutation not supported"
   | .ifStm e thn els =>
-      if <- (<- expr e).isTrue
+      if (<- expr e).isTrue
       then stmts thn
       else stmts els
   | .forLoop x iter body =>

@@ -27,7 +27,7 @@ Basic tracing definitions only deal with Terms (not Python sources)
 -/
 
 namespace KLR.Trace
-open Core
+open Core (Access Address Dtype Index Shape Slice TensorName)
 
 -- Binary Operators
 
@@ -40,7 +40,7 @@ open Core
 --   [1,2] * True  => [1,2]
 --   [1,2] * False => []
 
-private def mulseq (l : List a) : Value -> Err (List a)
+private def mulseq (l : List a) : Term -> Err (List a)
   | .bool false => return []
   | .bool true  => return l
   | .int i      => return List.flatten $ List.replicate i.toNat l
@@ -49,7 +49,7 @@ private def mulseq (l : List a) : Value -> Err (List a)
 -- Binary operators on constants
 
 private def uintOp (op : BinOp) (l r : UInt64) : Trace Term :=
-  let ret (x : UInt64) : Trace Term := return (Int.ofNat x.toNat)
+  let ret (x : UInt64) : Trace Term := return .int (Int.ofNat x.toNat)
   match op with
   | .lshift => ret (l <<< r)
   | .rshift => ret (l >>> r)
@@ -60,30 +60,31 @@ private def uintOp (op : BinOp) (l r : UInt64) : Trace Term :=
 
 private def intOp (op : BinOp) (l r : Int) : Trace Term :=
   match op with
-  | .add => return l + r
-  | .sub => return l - r
-  | .mul => return l * r
+  | .add => return .int (l + r)
+  | .sub => return .int (l - r)
+  | .mul => return .int (l * r)
   | .div => if r = 0 then throw "division by zero" else
-            return Float.ofInt l / Float.ofInt r
-  | .mod => return l % r
-  | .pow => return l.pow r.toNat
+            return .float (Float.ofInt l / Float.ofInt r)
+  | .mod => return .int (l % r)
+  | .pow => return .int (l.pow r.toNat)
   | .floor => if r = 0 then throw "division by zero" else
-              return l / r
+              return .int (l / r)
   | _ => uintOp op (UInt64.ofInt l) (UInt64.ofInt r)
 
 private def floatOp (op : BinOp) (l r : Float) : Trace Term :=
+  let ret (x : Float) : Trace Term := return .float x
   match op with
-  | .add => return l + r
-  | .sub => return l - r
-  | .mul => return l * r
-  | .div => return l / r
-  | .pow => return l.pow r
-  | .floor => return (l / r).floor
+  | .add => ret (l + r)
+  | .sub => ret (l - r)
+  | .mul => ret (l * r)
+  | .div => ret (l / r)
+  | .pow => ret (l.pow r)
+  | .floor => ret (l / r).floor
   | _ => throw "unsupported operator on floating point numbers"
 
 -- Note: both Lean and Python use big integers
 -- TODO: imcomplete
-private def valueOp : BinOp -> Value -> Value -> Trace Term
+private def valueOp : BinOp -> Term -> Term -> Trace Term
   -- tensors
   | _, .access _, _
   | _, _, .access _ =>
@@ -98,31 +99,25 @@ private def valueOp : BinOp -> Value -> Value -> Trace Term
   | op, .int l, .float r => floatOp op (Float.ofInt l) r
   | op,_,_ => throw s!"unimplemented operator {op}"
 
--- Binary operators on tensors (see Tensor.lean)
-private def exprOp : BinOp -> Expr -> Expr -> Trace Term
-  | op, .value l, .value r => valueOp op l r
-  | _ , _       , _        => throw "non-constant expression"
-
 -- Binary operators on terms
 -- TODO mulseq on strings
 def termOp : BinOp -> Term -> Term -> Trace Term
   -- lists and tuples
-  | .add, .string l,        .string r => return .string (l ++ r)
-  | .add, .list   l,        .list   r => return .list (l ++ r)
-  | .add, .tuple  l,        .tuple  r => return .tuple (l ++ r)
-  | .mul, .list   l,        .expr (.value  v)
-  | .mul, .expr (.value v), .list l   => return .list (<- mulseq l v)
-  | .mul, .tuple  l,        .expr (.value  v)
-  | .mul, .expr (.value v), .tuple l  => return .tuple (<- mulseq l v)
+  | .add, .string l, .string r => return .string (l ++ r)
+  | .add, .list   l, .list   r => return .list (l ++ r)
+  | .add, .tuple  l, .tuple  r => return .tuple (l ++ r)
+  | .mul, .list   l, v
+  | .mul, v        , .list l   => return .list (<- mulseq l v)
+  | .mul, .tuple  l, v
+  | .mul, v        , .tuple l  => return .tuple (<- mulseq l v)
   -- mgrid
-  | .add, .expr (.value (.int i)), .mgItem a b s
-  | .add, .mgItem a b s, .expr (.value (.int i)) => return .mgItem (a+i) (b+i) (s+1)
+  | .add, .int i, .mgItem a b s
+  | .add, .mgItem a b s, .int i => return .mgItem (a+i) (b+i) (s+1)
   | .add, .mgItem a b c, .mgItem x y z => return .mgItem (a+x) (b+y) (c+z)
-  | .mul, .expr (.value (.int i)), .mgItem a b s
-  | .mul, .mgItem a b s, .expr (.value (.int i)) => return .mgItem (a*i) (b*i) (s*1)
+  | .mul, .int i, .mgItem a b s
+  | .mul, .mgItem a b s, .int i => return .mgItem (a*i) (b*i) (s*1)
   -- expressions
-  | op, .expr l, .expr r => exprOp op l r
-  | _, _, _ => throw "unsupported operator"
+  | op, l, r => valueOp op l r
 
 /-
 Comparison operators
@@ -141,33 +136,7 @@ We only need Eq (==) and Lt (<), other operators are implemted in terms of
 these two.
 -/
 
-private def exprEq : Expr -> Expr -> Trace Bool
-  | .value l, .value r => return l == r
-  | _, _ => return false
-
-private def termEq : Term -> Term -> Trace Bool
-  | .module m₁, .module m₂ => return m₁ == m₂
-  | .builtin n₁ .., .builtin n₂ .. => return n₁ == n₂
-  | .none, .none => return true
-  | .string s₁, .string s₂ => return s₁ == s₂
-  | .tuple l₁, .tuple l₂
-  | .list  l₁, .list  l₂ => teq l₁ l₂
-  | .ellipsis, .ellipsis => return true
-  | .expr e₁, .expr e₂ => exprEq e₁ e₂
-  | _, _ => return false
-where
-  teq : List Term -> List Term -> Trace Bool
-    | [], [] => return true
-    | x :: xs, y :: ys => return (<- termEq x y) && (<- teq xs ys)
-    | _, _ => return false
-
--- Python: contains operator: 1 in [1,2,3]
--- TODO: strings
-private def termIn (x : Term) : Term -> Trace Bool
-  | .tuple l | .list l => l.anyM (termEq x)
-  | _ => throw "invalid use of in"
-
-private def valueLt : Value -> Value -> Trace Bool
+private def valueLt : Term -> Term -> Trace Bool
   -- comparison between same types
   | .bool b₁, .bool b₂ => return !b₁ && b₂
   | .int l, .int r => return l < r
@@ -187,8 +156,7 @@ private def termLt : Term -> Term -> Trace Bool
   | .string l, .string r => return l < r
   | .tuple l, .tuple r
   | .list  l, .list  r => listLt l r
-  | .expr (.value l), .expr (.value r) => valueLt l r
-  | _, _ => throw "unsupported comparison"
+  | l, r => valueLt l r
 where
   listLt : List Term -> List Term -> Trace Bool
   | [], [] => return false
@@ -196,20 +164,20 @@ where
   | _, [] => return false
   | x :: xs, y :: ys => do
       if <- termLt x y then return true
-      else return (<- termEq x y) && (<- listLt xs ys)
+      else return (x == y) && (<- listLt xs ys)
 
 def binop (op : BinOp) (l r : Term) : Trace Term := do
   match op with
   -- logical
-  | .land => return ((<- l.isTrue) && (<- r.isTrue))
-  | .lor  => return ((<- l.isTrue) || (<- r.isTrue))
+  | .land => return .bool (l.isTrue && r.isTrue)
+  | .lor  => return .bool (l.isTrue || r.isTrue)
   -- comparison
-  | .eq => termEq l r
-  | .ne => return not (<- termEq l r)
-  | .lt => termLt l r
-  | .le => return (<- termEq l r) || (<- termLt l r)
-  | .gt => return not (<- termEq l r) && not (<- termLt l r)
-  | .ge => return not (<- termLt l r)
+  | .eq => return .bool (l == r)
+  | .ne => return .bool (l != r)
+  | .lt => return .bool (<- termLt l r)
+  | .le => return .bool (l == r || (<- termLt l r))
+  | .gt => return .bool (not (l == r && not (<- termLt l r)))
+  | .ge => return .bool (not (<- termLt l r))
   -- arithmetic / bitwise
   | _ => termOp op l r
 
@@ -238,8 +206,8 @@ lists as indexes e.g. t[1,(2,3),4] is disallowed
 -/
 
 -- Convert a shape and list of Terms to an list of Indexes (if possible)
-def toIndex (shape : List Nat) (ts : List Term) : Err (List Core.Index) := do
-  let slice (d : Nat) := (Core.Slice.make 0 d 1).map .slice
+def toIndex (shape : List Nat) (ts : List Term) : Err (List Index) := do
+  let slice (d : Nat) := (Slice.make 0 d 1).map .slice
   match shape, ts with
   | [], []
   | [], [.ellipsis] => return []
@@ -261,10 +229,10 @@ def toIndex (shape : List Nat) (ts : List Term) : Err (List Core.Index) := do
         let y := if y < 0 then d + y else y
         if x < 0 || x >= d || y < 0 || y > d || z <= 0 then
           throw "index out of range of tensor dimension"
-        return .slice (<- Core.Slice.make x.toNat y.toNat z) :: (<- toIndex ds ts)
+        return .slice (<- Slice.make x.toNat y.toNat z) :: (<- toIndex ds ts)
     | .tuple _ | .list  _ => throw "nested tuple/list indexes not supported"
     | .mgItem s e t =>
-        return .slice (<- Core.Slice.make s.toNat e.toNat t) :: (<- toIndex ds ts)
+        return .slice (<- Slice.make s.toNat e.toNat t) :: (<- toIndex ds ts)
     | t => do
         let i : Int <- fromNKI? t
         if i < 0 || i >= d then
@@ -276,13 +244,13 @@ def toIndex (shape : List Nat) (ts : List Term) : Err (List Core.Index) := do
 -- Python also allows l[True] and l[False]
 -- TODO: add case for slice
 def listAccess (l : List Term) : List Term -> Err Term
-  | [.expr (.value (.bool false))] => do
+  | [.bool false] => do
       if h:l.length > 0 then return l.get (Fin.mk 0 h)
       else throw "index out of bounds"
-  | [.expr (.value (.bool true))] => do
+  | [.bool true] => do
       if h:l.length > 1 then return l.get (Fin.mk 1 h)
       else throw "index out of bounds"
-  | [.expr (.value (.int i))] => do
+  | [.int i] => do
       let i := if i < 0 then l.length + i else i
       if i < 0 then throw "index out of bounds"
       let n := i.toNat
@@ -302,7 +270,7 @@ Initially, the regions `sbuf` and `psum` are defined. For example:
 https://awsdocs-neuron.readthedocs-hosted.com/en/latest/general/nki/nki_arch_guides.html
 -/
 
-def pointerAccess (addr : Core.Address) (i : List Term) : Err Term := do
+def pointerAccess (addr : Address) (i : List Term) : Err Term := do
   let chkPdim (p : Nat) : Err Nat := do
     if p != 0 && p != 32 && p != 64 && p != 96 then
       throw "partition dimension must be 0, 32, 64, or 96"
@@ -319,7 +287,7 @@ def pointerAccess (addr : Core.Address) (i : List Term) : Err Term := do
       throw s!"free dimension {f} is larger than pointer size {addr.freeSize}"
     return f
 
-  let chkPslice (s : Core.Slice) : Err (Option Nat × Nat) := do
+  let chkPslice (s : Slice) : Err (Option Nat × Nat) := do
     if s.u < 0 then
       throw s!"partition size {s.u} must be positive"
     if s.u > addr.parSize then
@@ -331,7 +299,7 @@ def pointerAccess (addr : Core.Address) (i : List Term) : Err Term := do
       throw s!"partition start {a} is larger than partition end {s.u}"
     return (a, s.u - a)
 
-  let chkFslice (s : Core.Slice) : Err (Option Nat × Nat) := do
+  let chkFslice (s : Slice) : Err (Option Nat × Nat) := do
     let b <- chkFdim s.u
     if s.step != 1 then
       throw "pointer step size must be 1"
@@ -401,12 +369,11 @@ def access (e : Term) (indexes : List Term) : Err Term := do
   | .list l => listAccess l indexes
   | .pointer addr => pointerAccess addr indexes
   | .mgrid => mgrid indexes
-  | .expr _ => do
+  | .access (.simple tensor) => do
       -- TODO: support Access
-      let tensor : Core.TensorName <- fromNKI? e
       let indices <- toIndex tensor.shape.toList indexes
-      let access <- Core.Access.mkBasic tensor indices
-      return .expr (.value (.access access))
+      let access <- Access.mkBasic tensor indices
+      return .access access
   | _ => throw "subscript not supported"
 
 /-
@@ -420,12 +387,12 @@ Once the Python APIs are updated we can stop doing this.
 
 private def offset (a : Access) : Trace Term := do
   let bap <- a.lowerAccessPattern
-  return bap.offset
+  return .int bap.offset
 
 private def pattern (a : Access) : Trace Term := do
   let bap <- a.lowerAccessPattern
   let pairs := bap.pattern.map fun p =>
-    Term.tuple [Term.int p.step, Term.nat p.num]
+    Term.tuple [.int p.step, .int p.num]
   return .tuple pairs
 
 def Term.attr : Term -> String -> Trace Term
@@ -435,22 +402,22 @@ def Term.attr : Term -> String -> Trace Term
   | .pointer addr, "size" => return tuple [addr.parSize, addr.freeSize]
   | .pointer addr, "ptr" => return memPtrBuiltin addr
   | .pointer addr, "view" => return memViewBuiltin addr
-  | .expr (.value (.access a)), "dtype" => return (dtype a.tensor.dtype)
-  | .expr (.value (.access a)), "shape" => return (tuple $ a.shapePure.toList.map some)
-  | .expr (.value (.access a)), "address" => return .pointer a.tensor.address
-  | .expr (.value (.access a)), "offset" => offset a
-  | .expr (.value (.access a)), "pattern" => pattern a
-  | t@(.expr (.value (.access _))), "reshape" => return reshapeBuiltin t
-  | .expr (.value (.var n)), id => lookup (.str n.toName id)
+  | .access a, "dtype" => return (dtype a.tensor.dtype)
+  | .access a, "shape" => return (tuple $ a.shapePure.toList.map some)
+  | .access a, "address" => return .pointer a.tensor.address
+  | .access a, "offset" => offset a
+  | .access a, "pattern" => pattern a
+  | .access a, "reshape" => return reshapeBuiltin (.access a)
+  | .var n, id => lookup (.str n id)
   | _, id => throw s!"unsupported attribute {id}"
 where
   dtype dty :=
-    let name := "neuronxcc.nki.language." ++ dstr dty
-    .expr (.value $ .var name)
+    let name := nl (dstr dty)
+    .var name
   tuple (l : List (Option Nat)) : Term :=
     Term.tuple $ l.map fun
       | Option.none => Term.none
-      | some x => .expr (.value (.int x))
+      | some x => .int x
   dstr dty :=
     let s := reprStr dty
     match s.toName with
@@ -484,7 +451,7 @@ nki builtin.memView
   if parWF: shape.parDim <= self.parSize then
     if freeWF: shape.freeElements * dtype.size <= self.freeSize then
       let tensor := ⟨ name, dtype, shape, self, shape.freeElements, parWF, freeWF ⟩
-      return .expr (.value (.access (.simple tensor)))
+      return .access (.simple tensor)
     else throw "shape is too large for memory region"
   else throw "partition size is too large for memory region"
 
@@ -500,7 +467,7 @@ nki builtin.reshape
   let name <- tensorName name
   let shape <- Shape.fromList shape
   let t <- TensorName.make name dtype shape tensor.address
-  return .expr (.value (.access (.simple t)))
+  return .access (.simple t)
 
 /-
 # Static environment of builtins

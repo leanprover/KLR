@@ -39,7 +39,7 @@ nki builtin.lang.ndarray
     let name <- tensorName name
     let address := { name, memory, parSize, freeSize, parOffset, freeOffset : Address }
     let tensor <- TensorName.make name dtype shape address
-    return .expr (.value $ .access (.simple tensor))
+    return .access (.simple tensor)
 
 nki builtin.lang.par_dim (t : Term) := do
   warn "par_dim is deprecated"
@@ -74,7 +74,7 @@ nki builtin.lang.load
   (mask : Term := .none)
   (dtype : Option Dtype := none) := do
   warn "load is not supported"
-  return .expr (.value (.access src))
+  return .access src
 
 nki builtin.lang.store (dst : Access) (src : Access) := do
   warn "store is not supported"
@@ -86,4 +86,4 @@ nki builtin.lang.copy (src : Access) (dst : Access) := do
 
 nki builtin.lang.transpose (src : Access) := do
   warn "transpose is not supported"
-  return .expr (.value (.access src))
+  return .access src

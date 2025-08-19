@@ -152,8 +152,8 @@ private def expr' (e' : Python.Expr') : Simplify Expr' :=
   | .const c => return .value (<- value c)
   | .name s _ => return .var s.toName
   | .attr e id _ => return .var (.str (<- letBind (<- expr e)) id)
-  | .tuple l _
-  | .list l _ => return .tuple (<- exprs l)
+  | .tuple l _ => return .tuple (<- exprs l)
+  | .list l _ => return .list (<- exprs l)
   | .subscript e ndx _ => return .access (<- expr e) (<- indexes ndx)
   | .slice .. => throw "invalid use of slice"
   | .boolOp op l => return (<- booleanOp op (<- exprs l)).expr

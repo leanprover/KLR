@@ -83,10 +83,10 @@ def module (name : Name) : Name × Term :=
   (name, .module name)
 
 def const_var (name: Name) : Name × Term :=
-  (name, .expr (.value $ .var name.toString))
+  (name, .var name)
 
 def const_int (name: Name) (i : Int) : Name × Term :=
-  (name, .expr (.value $ .int i))
+  (name, .int i)
 
 -- Type of builtin functions; since these are called from python,
 -- they take a list of positional argument and a list of keyword

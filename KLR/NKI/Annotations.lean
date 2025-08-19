@@ -60,6 +60,7 @@ private def expr' (e' : Expr') : Ann Expr' :=
   | .value v => return .value v
   | .var n => return .var (<- checkName n)
   | .tuple es => return .tuple (<- exprs es)
+  | .list es => return .list (<- exprs es)
   | .access e l => return .access (<- expr e) (<- l.mapM index)
   | .binOp op l r => return .binOp op (<- expr l) (<- expr r)
   | .conj l r => return .conj (<- expr l) (<- expr r)

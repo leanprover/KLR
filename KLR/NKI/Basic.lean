@@ -74,6 +74,7 @@ inductive Expr' where
   | value (value : Value)
   | var (name : Name)
   | tuple (elements : List Expr)
+  | list (elements : List Expr)
   | access (expr : Expr) (indices : List Index)
   | binOp (op : BinOp) (left right : Expr)
   | conj (left right : Expr)
@@ -158,7 +159,11 @@ structure Fun where
   source : String
   body : List Stmt
   args : List Param
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+  deriving FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+-- Names are fully qualified and unique
+instance : BEq Fun where
+  beq l r := l.name == r.name
 
 @[serde tag = 14]
 structure Arg where
