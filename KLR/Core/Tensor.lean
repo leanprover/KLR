@@ -58,7 +58,38 @@ inductive Dtype where
     | .int8 | .int16 | .int64 | .int32
     | .uint8 | .uint16 | .uint32 | .uint64 => true
     | _ => false
+    @[computed_field]
+    toTensorLibDtype : Dtype -> TensorLib.Dtype
+    | .uint8 => TensorLib.Dtype.uint8
+    | .uint16 => TensorLib.Dtype.uint16
+    | .uint32 => TensorLib.Dtype.uint32
+    | .uint64 => TensorLib.Dtype.uint64
+    | .int8 => TensorLib.Dtype.int8
+    | .int16 => TensorLib.Dtype.int16
+    | .int32 => TensorLib.Dtype.int32
+    | .int64 => TensorLib.Dtype.int64
+    | .float16 => TensorLib.Dtype.float32
+    | .float32 => TensorLib.Dtype.float32
+    | .float32r => TensorLib.Dtype.float32
+    | .bfloat16 => TensorLib.Dtype.float32
+    | _ => TensorLib.Dtype.float32
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+namespace Dtype
+
+def fromTensorLibDtype : TensorLib.Dtype -> Dtype
+  | TensorLib.Dtype.uint8 => .uint8
+  | TensorLib.Dtype.uint16 => .uint16
+  | TensorLib.Dtype.uint32 => .uint32
+  | TensorLib.Dtype.uint64 => .uint64
+  | TensorLib.Dtype.int8 => .int8
+  | TensorLib.Dtype.int16 => .int16
+  | TensorLib.Dtype.int32 => .int32
+  | TensorLib.Dtype.int64 => .int64
+  | TensorLib.Dtype.float32 => .float32
+  | _ => .float32
+
+end Dtype
 
 /-
 A tensor shape is a list of the sizes of each dimension of the tensor. By

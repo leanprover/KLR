@@ -24,16 +24,17 @@ open Lean (FromJson ToJson)
 def eprintln [ToString a] (debug : Bool) (x : a) : IO Unit := do
   if debug then IO.eprintln x
 
-private def sharedConstant (c : String × TensorLib.Tensor) : IO (String × String) := do
+private def sharedConstant (outfolder : String) (c : String × TensorLib.Tensor) : IO (String × String) := do
   let (name, tensor) := c
-  let fName := s!"shared_constants/{name}.npy"
+  let dst := s!"{outfolder}/shared_constants"
+  IO.FS.createDirAll dst
+  let fName := s!"{dst}/{name}.npy"
   let data := tensor.toNpy
-  IO.FS.createDirAll "shared_constants"
   data.save! (System.FilePath.mk fName)
   return (name, fName)
 
 -- TODO: preserve warnings and errors
-def compilePython (kernel : Python.Kernel) : IO Core.LncKernel := do
+def compilePython (kernel : Python.Kernel) (outfolder : Option String) : IO Core.LncKernel := do
   let (kernel, warnings) := kernel.inferArguments
   warnings.forM IO.eprintln
   let kernel : KLR.NKI.Kernel <- KLR.NKI.simplify kernel
@@ -48,7 +49,9 @@ def compilePython (kernel : Python.Kernel) : IO Core.LncKernel := do
   let (warnings, kernels, sharedConstants) <- KLR.Trace.runLncKernels kernel
   if !warnings.isEmpty then
     IO.eprintln warnings
-  let cs <- sharedConstants.mapM sharedConstant
+  let cs <- match outfolder with
+  | some p => sharedConstants.mapM (fun c => sharedConstant p c)
+  | none => .ok #[]
   let kernels <- Core.lowerAccessPatterns kernels
   return {kernels with sharedConstants := (cs.map fun (name, fileName) => {name := name, fileName := fileName}).toList}
 
@@ -68,7 +71,7 @@ structure KernelInfo where
 @[export klr_frontend_trace]
 def frontend_trace (srcPythonAstFileName dstKlrFileName : String) : IO String := do
   let kernel <- KLR.File.readKLRFile srcPythonAstFileName
-  let kernel <- compilePython kernel
+  let kernel <- compilePython kernel none
   let f := FilePath.mk (dstKlrFileName)
   File.writeKLRFile f .cbor kernel
 

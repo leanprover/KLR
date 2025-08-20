@@ -115,6 +115,11 @@ instance : FromNKI String where
     | .string s => return s
     | _ => throw "expecting string"
 
+instance : FromNKI TensorLib.Tensor where
+  fromNKI?
+  | .tensor t => return t
+  | _ => throw "expecting a tensor"
+
 -- TODO: when new NKI API is settled, rewrite is a nicer way
 instance : FromNKI Dtype where
   fromNKI?

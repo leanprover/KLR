@@ -106,6 +106,7 @@ inductive Term where
   | access   : Core.Access -> Term
   | tuple    : List Term -> Term
   | list     : Array Term -> Term
+  | tensor   : TensorLib.Tensor -> Term
   -- indexing
   | ellipsis : Term
   | slice    : Option Int -> Option Int -> Option Int -> Term
@@ -371,6 +372,14 @@ partial def isTrue (t : Term) : Trace Bool := do
   | .pointer ..
   | .mgrid ..
   | .mgItem .. => return true
+  | .tensor t =>
+    if t.shape.count == 0 then
+     return t.toList.toBool
+    else if t.shape.count > 1 then
+     throw "The truth value of an array with more than one element is ambiguous"
+    else
+     throw "The truth value of an empty array is ambiguous"
+
 
 def isFalse (t : Term) : Trace Bool :=
   return not (<- t.isTrue)

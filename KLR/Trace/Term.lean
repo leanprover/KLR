@@ -19,6 +19,7 @@ import KLR.Trace.ISA
 import KLR.Trace.Lang
 import KLR.Trace.Python
 import KLR.Trace.Types
+import KLR.Trace.Tensor
 
 /-
 # Basic tracing facilities
@@ -82,6 +83,14 @@ private def floatOp (op : BinOp) (l r : Float) : Trace Term :=
   | .floor => ret (l / r).floor
   | _ => throw "unsupported operator on floating point numbers"
 
+private def tensorBinOp(op : BinOp) (l r : TensorLib.Tensor) : Trace Term := do
+  let dt := l.dtype
+  match op with
+  | .add => return .tensor $ <- iterBinOp l r (fun x y => dt.add! x y)
+  | .sub => return .tensor $ <- iterBinOp l r (fun x y => dt.sub! x y)
+  -- TODO : implement multiplication and division
+  | _ => throw "unsupported scalar operator on tensor"
+
 -- Note: both Lean and Python use big integers
 -- TODO: imcomplete
 private def valueOp : BinOp -> Term -> Term -> Trace Term
@@ -97,6 +106,10 @@ private def valueOp : BinOp -> Term -> Term -> Trace Term
   | op, .float l, .float r => floatOp op l r
   | op, .float l, .int r => floatOp op l (Float.ofInt r)
   | op, .int l, .float r => floatOp op (Float.ofInt l) r
+  -- tensors
+  | op, .tensor l, .float r => tensorOpScalarFloat op l r
+  | op, .tensor l, .int r => tensorOpScalarInt op l r
+  | op, .tensor l, .tensor r => tensorBinOp op l r
   | op,_,_ => throw s!"unimplemented operator {op}"
 
 -- Binary operators on terms
