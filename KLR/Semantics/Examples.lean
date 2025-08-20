@@ -468,141 +468,79 @@ example : ⊢ wp (DataT := DataT) 7 (sL d₀) (sR d₀) (ΦPure (· = ·)) := by
   -- - Step the left side to allocate the iterator
   -- - Step the left and right sides to apply the zeroing dunop
   wp_desync
-  dwp_left dwpAllocL
-  iintro ℓₗ Hℓ₁
-  dwp_right dwpAllocR
-  iintro Hℓₗ ℓᵣ Hℓᵣ
-  uwp_left  SPure.uwpL .mkiter trivial
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  uwp_left  EPLift.uwpL EPLift.tsdunop_loc <| EPure.ewpL <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓₗ)
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  uwp_right EPLift.uwpR EPLift.tsdunop_loc <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ)
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-
-  refine .trans ?_ (dwp_step_1 (by omega))
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  isplit l [Hℓₗ]
-  · iexact Hℓₗ
-  iintro Hℓₗ
-
-  refine .trans ?_ (dwp_step_2 (by omega))
-  iintro ⟨Hℓᵣ, Hℓₗ⟩
-  isplit l [Hℓᵣ]
-  · iexact Hℓᵣ
-  iintro Hℓₗ
+  dwp_left   dwpAllocL; iintro ℓₗ Hℓ₁
+  dwp_right  dwpAllocR; iintro Hℓₗ ℓᵣ Hℓᵣ
+  uwp_left   SPure.uwpL .mkiter trivial; iintro ⟨Hℓₗ, Hℓᵣ⟩
+  uwp_left   EPLift.uwpL EPLift.tsdunop_loc <| EPure.ewpL <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓₗ); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  uwp_right  EPLift.uwpR EPLift.tsdunop_loc <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  dwp_left   (dwpTSDunopLCst (by omega)); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  isplit l   [Hℓₗ]; iexact Hℓₗ; iintro Hℓₗ
+  dwp_right  (dwpTSDunopRCst (by omega)); iintro ⟨Hℓᵣ, Hℓₗ⟩
+  isplit l   [Hℓᵣ]; iexact Hℓᵣ; iintro Hℓₗ
   wp_resync
 
-
   -- Loop desync blocks:
-  -- Left side:
+  -- Left:
   --   - Open the loop body
   --   - Step the var from "ℓ" to the pointer
   --   - Step the value from "z" to the integer
   --   - Step the tsdunop statement
   --   - Close the loop body
-  -- Right side
+  -- Right:
   --   - Step the var from "ℓ" to the pointer
   --   - Step the tsdunop statement
-  wp_desync
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  uwp_right EPLift.uwpR EPLift.tsdunop_loc <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ)
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_3 (s := TSDunop.app_cst d₀) (by omega))
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  isplit l [Hℓᵣ]
-  · iexact Hℓᵣ
-  iintro Hℓᵣ
-  uwp_left  SPure.uwpL (.loopContinue (v := .int 1)) (by simp)
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_4 (v := .uptr <| ChipIndex.sbufUnboundedIndex ℓₗ) (by simp) (by omega))
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_5 (v := .int 1) (by simp) (by omega))
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_6 (s := TSDunop.app_cst d₀) (ℓₗ := ℓₗ) (by omega))
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  isplit l [Hℓₗ]
-  · iexact Hℓₗ
-  iintro Hℓₗ
-  uwp_left  SPure.uwpL .frameEmp (by simp)
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  wp_desync; iintro ⟨Hℓₗ, Hℓᵣ⟩
+  uwp_right  EPLift.uwpR EPLift.tsdunop_loc <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  dwp_left   (dwpTSDunopAddR (s := TSDunop.app_cst d₀) (by omega)); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  isplit l   [Hℓᵣ]; iexact Hℓᵣ; iintro Hℓᵣ
+  uwp_left   SPure.uwpL (.loopContinue (v := .int 1)) (by simp); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  dwp_left   (dwpTSDunopAddLocL  (v := .uptr <| ChipIndex.sbufUnboundedIndex ℓₗ) (by simp) (by omega)); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  dwp_left   (dwpTSDunopAddValL (v := .int 1) (by simp) (by omega)); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  dwp_left   (dwpTSDunopAddL  (s := TSDunop.app_cst d₀) (ℓₗ := ℓₗ) (by omega)); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  isplit l   [Hℓₗ]; iexact Hℓₗ; iintro Hℓₗ
+  uwp_left   SPure.uwpL .frameEmp (by simp); iintro ⟨Hℓₗ, Hℓᵣ⟩
   wp_resync
   rw [Iterators.bind_bind]
 
   -- Do the block again
-  wp_desync
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  uwp_right EPLift.uwpR EPLift.tsdunop_loc <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ)
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_3 (s := TSDunop.app_addZ (TSDunop.app_cst d₀) 1) (by omega))
-  iintro ⟨Hℓᵣ, Hℓₗ⟩
-  isplit l [Hℓᵣ]
-  · iexact Hℓᵣ
-  iintro Hℓᵣ
-  uwp_left  SPure.uwpL (.loopContinue (v := .int 3)) (by simp)
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_4 (v := .uptr <| ChipIndex.sbufUnboundedIndex ℓₗ) (by simp) (by omega))
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_5 (v := .int 3) (by simp) (by omega))
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_6 (s := TSDunop.app_addZ (TSDunop.app_cst d₀) 1) (ℓₗ := ℓₗ) (by omega))
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  isplit l [Hℓₗ]
-  · iexact Hℓₗ
-  iintro Hℓₗ
-  uwp_left  SPure.uwpL .frameEmp (by simp)
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  wp_desync; iintro ⟨Hℓₗ, Hℓᵣ⟩
+  uwp_right  EPLift.uwpR EPLift.tsdunop_loc <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  dwp_right  (dwpTSDunopAddR (s := TSDunop.app_addZ (TSDunop.app_cst d₀) 1) (by omega)); iintro ⟨Hℓᵣ, Hℓₗ⟩
+  isplit l   [Hℓᵣ]; iexact Hℓᵣ; iintro Hℓᵣ
+  uwp_left   SPure.uwpL (.loopContinue (v := .int 3)) (by simp); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  dwp_left   (dwpTSDunopAddLocL (v := .uptr <| ChipIndex.sbufUnboundedIndex ℓₗ) (by simp) (by omega)); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  dwp_left   (dwpTSDunopAddValL  (v := .int 3) (by simp) (by omega)); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  dwp_left   (dwpTSDunopAddL  (s := TSDunop.app_addZ (TSDunop.app_cst d₀) 1) (ℓₗ := ℓₗ) (by omega)); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  isplit l   [Hℓₗ]; iexact Hℓₗ; iintro Hℓₗ
+  uwp_left   SPure.uwpL .frameEmp (by simp); iintro ⟨Hℓₗ, Hℓᵣ⟩
   wp_resync
   rw [Iterators.bind_bind]
 
   -- Do the block again
-  wp_desync
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  uwp_right EPLift.uwpR EPLift.tsdunop_loc <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ)
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_3 (s := TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) (by omega))
-  iintro ⟨Hℓᵣ, Hℓₗ⟩
-  isplit l [Hℓᵣ]
-  · iexact Hℓᵣ
-  iintro Hℓᵣ
-  uwp_left  SPure.uwpL (.loopContinue (v := .int 5)) (by simp)
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_4 (v := .uptr <| ChipIndex.sbufUnboundedIndex ℓₗ) (by simp) (by omega))
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_5 (v := .int 5) (by simp) (by omega))
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_6 (s := TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) (ℓₗ := ℓₗ) (by omega))
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  isplit l [Hℓₗ]
-  · iexact Hℓₗ
-  iintro Hℓₗ
-  uwp_left  SPure.uwpL .frameEmp (by simp)
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  wp_desync; iintro ⟨Hℓₗ, Hℓᵣ⟩
+  uwp_right  EPLift.uwpR EPLift.tsdunop_loc <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  dwp_right  (dwpTSDunopAddR (s := TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) (by omega)); iintro ⟨Hℓᵣ, Hℓₗ⟩
+  isplit l   [Hℓᵣ]; iexact Hℓᵣ; iintro Hℓᵣ
+  uwp_left   SPure.uwpL (.loopContinue (v := .int 5)) (by simp); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  dwp_left   (dwpTSDunopAddLocL (v := .uptr <| ChipIndex.sbufUnboundedIndex ℓₗ) (by simp) (by omega)); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  dwp_left   (dwpTSDunopAddValL (v := .int 5) (by simp) (by omega)); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  dwp_left   (dwpTSDunopAddL   (s := TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) (ℓₗ := ℓₗ) (by omega)); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  isplit l   [Hℓₗ]; iexact Hℓₗ; iintro Hℓₗ;
+  uwp_left   SPure.uwpL .frameEmp (by simp); iintro ⟨Hℓₗ, Hℓᵣ⟩
   wp_resync
   rw [Iterators.bind_bind]
 
   -- Do the block again
-  wp_desync
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  uwp_right EPLift.uwpR EPLift.tsdunop_loc <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ)
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_3 (s := TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) 5) (by omega))
-  iintro ⟨Hℓᵣ, Hℓₗ⟩
-  isplit l [Hℓᵣ]
-  · iexact Hℓᵣ
-  iintro Hℓᵣ
-  uwp_left  SPure.uwpL (.loopContinue (v := .int 7)) (by simp)
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_4 (v := .uptr <| ChipIndex.sbufUnboundedIndex ℓₗ) (by simp) (by omega))
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_5 (v := .int 7) (by simp) (by omega))
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_6 (s := TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) 5) (ℓₗ := ℓₗ) (by omega))
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  isplit l [Hℓₗ]
-  · iexact Hℓₗ
-  iintro Hℓₗ
-  uwp_left  SPure.uwpL .frameEmp (by simp)
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
+  wp_desync; iintro ⟨Hℓₗ, Hℓᵣ⟩
+  uwp_right  EPLift.uwpR EPLift.tsdunop_loc <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  dwp_right  (dwpTSDunopAddR (s := TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) 5) (by omega)); iintro ⟨Hℓᵣ, Hℓₗ⟩;
+  isplit l   [Hℓᵣ]; iexact Hℓᵣ; iintro Hℓᵣ
+  uwp_left   SPure.uwpL (.loopContinue (v := .int 7)) (by simp); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  dwp_left   (dwpTSDunopAddLocL  (v := .uptr <| ChipIndex.sbufUnboundedIndex ℓₗ) (by simp) (by omega)); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  dwp_left   (dwpTSDunopAddValL (v := .int 7) (by simp) (by omega)); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  dwp_left   (dwpTSDunopAddL   (s := TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) 5) (ℓₗ := ℓₗ) (by omega)); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  isplit l   [Hℓₗ]; iexact Hℓₗ; iintro Hℓₗ
+  uwp_left   SPure.uwpL .frameEmp (by simp); iintro ⟨Hℓₗ, Hℓᵣ⟩
   wp_resync
   rw [Iterators.bind_bind]
 
@@ -614,23 +552,14 @@ example : ⊢ wp (DataT := DataT) 7 (sL d₀) (sR d₀) (ΦPure (· = ·)) := by
   -- Right
   -- - Evaluate the var
   -- - Evaluate the deref_store
-
   wp_desync
-  uwp_left  SPure.uwpL .loopExit (by simp)
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  uwp_left  EPLift.uwpL EPLift.ret_arg <| EELift.ewpL EELift.deref_store <| EPure.ewpL <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓₗ)
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  uwp_right EPLift.uwpR EPLift.ret_arg <| EELift.ewpR EELift.deref_store <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ)
-  iintro ⟨Hℓₗ, Hℓᵣ⟩
-  uwp_left  EPLift.uwpL EPLift.ret_arg <| ewp.deref_storeL (ChipIndex.sbufUnboundedIndex ℓₗ) (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) 5) 7)
-  iintro ⟨Hℓᵣ, Hℓₗ⟩
-  isplit l [Hℓₗ]
-  · iexact Hℓₗ
-  iintro Hℓₗ
-  uwp_right EPLift.uwpR EPLift.ret_arg <| ewp.deref_storeR (ChipIndex.sbufUnboundedIndex ℓᵣ) (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) 5) 7)
-  iintro ⟨Hℓᵣ, Hℓₗ⟩
-  isplit l [Hℓᵣ]
-  · iexact Hℓᵣ
+  uwp_left   SPure.uwpL .loopExit (by simp); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  uwp_left   EPLift.uwpL EPLift.ret_arg <| EELift.ewpL EELift.deref_store <| EPure.ewpL <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓₗ); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  uwp_right  EPLift.uwpR EPLift.ret_arg <| EELift.ewpR EELift.deref_store <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ); iintro ⟨Hℓₗ, Hℓᵣ⟩
+  uwp_left   EPLift.uwpL EPLift.ret_arg <| ewp.deref_storeL (ChipIndex.sbufUnboundedIndex ℓₗ) (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) 5) 7); iintro ⟨Hℓᵣ, Hℓₗ⟩
+  isplit l   [Hℓₗ]; iexact Hℓₗ; iintro Hℓₗ
+  uwp_right  EPLift.uwpR EPLift.ret_arg <| ewp.deref_storeR (ChipIndex.sbufUnboundedIndex ℓᵣ) (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) 5) 7)
+  iintro ⟨Hℓᵣ, Hℓₗ⟩; isplit l [Hℓᵣ]; iexact Hℓᵣ
   iintro Hℓᵣ
   wp_resync
 
