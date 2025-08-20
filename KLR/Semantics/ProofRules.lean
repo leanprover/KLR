@@ -103,6 +103,16 @@ theorem update_set_lemma_right (σₗ σᵣ : NML.State DataT) (mv mv' : Option 
     |==> ((ℓ ↦ᵣ mv') ∗ state_interp σₗ { σᵣ with memory := Store.set σᵣ.memory ℓ mv' } ) :=
   sorry
 
+theorem update_chip_left (σₗ σᵣ : NML.State DataT) (mv mv' : Option (LocalStore DataT)) :
+  ⊢ (ℓ ⇉ₗ mv) -∗ state_interp σₗ σᵣ -∗
+    |==> ((ℓ ⇉ₗ mv') ∗ state_interp { σₗ with memory := ChipMemory.set_store σₗ.memory ℓ mv' } σᵣ ) :=
+  sorry
+
+theorem update_chip_right (σₗ σᵣ : NML.State DataT) (mv mv' : Option (LocalStore DataT)) :
+  ⊢ (ℓ ⇉ᵣ mv) -∗ state_interp σₗ σᵣ -∗
+    |==> ((ℓ ⇉ᵣ mv') ∗ state_interp σₗ { σᵣ with memory := ChipMemory.set_store σᵣ.memory ℓ mv' }) :=
+  sorry
+
 
 end algebra
 
@@ -770,39 +780,222 @@ theorem wp_gen_loc (R : LocalContext DataT → LocalContext DataT → Prop) :
 
 -- TSDunop cst no frame L
 theorem dwpTSDunopLCst (H : 0 < Lx) :
-      ℓₗ [S]⇉ₗ∅ ∗ ((ℓₗ [S]⇉ₗ (TSDunop.app_cst d₀)) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx ⟨.run ⟨pL, ctx⟩, []⟩ pR Φ )
-    ⊢ dwp (DataT:=DataT) Lm Rm Lx Rx ⟨.run ⟨.tsdunop (.val <| .uptr <| .sbufUnboundedIndex ℓₗ) .cst (.val <| .data d₀) :: pL, ctx⟩, []⟩ pR Φ := by
-  sorry
+      ℓₗ [S]⇉ₗ∅ ∗ ((ℓₗ [S]⇉ₗ (TSDunop.app_cst (NMLEnv.intoDataT 0))) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx ⟨.run ⟨pL, ctx⟩, []⟩ pR Φ )
+    ⊢ dwp (DataT:=DataT) Lm Rm Lx Rx ⟨.run ⟨.tsdunop (.val <| .uptr <| .sbufUnboundedIndex ℓₗ) .cst (.val <| .int 0) :: pL, ctx⟩, []⟩ pR Φ := by
+  iintro ⟨Hmv, Hdwp⟩
+  conv => rhs; unfold dwp
+  iintro sl sr Hs
+  refine include_sep (@update_chip_left DataT (.sbufUnboundedIndex ℓₗ) sl sr none (some <| TSDunop.app_cst (NMLEnv.intoDataT 0))) ?_
+  iintro ⟨Hupd, ⟨Hmv, Hdqp⟩, Hσ⟩
+  ispecialize Hupd Hmv Hσ
+  -- Eliminate bupds from the hypotheses but not the conclusion, by duplicating the bupd in the conclusion.
+  istop
+  refine .trans ?_ bupd_idem.mp
+  refine .trans bupd_frame_l (BIUpdate.mono ?_)
+  iintro ⟨Hdwp, ⟨Hfrac, Hauth⟩⟩
+  -- Specialize, unfold, and specialize the dwp
+  ispecialize Hdwp Hfrac
+  unfold dwp
+  ispecialize Hdwp _ sr Hauth
+  -- Eliminate the bupd
+  refine .trans emp_sep.mp (BIUpdate.mono ?_)
+  -- Conclude using the current hypotheses
+  iintro ⟨p1', p2', HΦ, s1, s2, ⟨n1, n2, %Hstep⟩, H⟩
+  iexists p1'
+  iexists p2'
+  isplit l [HΦ]
+  · iexact HΦ
+  iexists s1
+  iexists s2
+  isplit r [H] <;> try iexact H
+  iexists (n1 + 1)
+  iexists n2
+  ipure_intro
+  obtain ⟨_, _, _, _, SL, _⟩ := Hstep
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
+  rw [Nat.add_comm _ _, StepN_add_iff]
+  refine ⟨_, ⟨stepN_1_iff_step.mpr ?_, SL⟩⟩
+  simp only [Step, NML.step]
 
 -- TSDunop cst no frame R
 theorem dwpTSDunopRCst (H : 0 < Rx) :
-      ℓᵣ [S]⇉ᵣ∅ ∗ ((ℓᵣ [S]⇉ᵣ (TSDunop.app_cst d₀)) -∗ dwp Lm (Rm - 1) Lx (Rx - 1) pL ⟨.run ⟨pR, ctx⟩, []⟩ Φ )
-    ⊢ dwp (DataT:=DataT) Lm Rm Lx Rx pL ⟨.run ⟨.tsdunop (.val <| .uptr <| .sbufUnboundedIndex ℓᵣ) .cst (.val <| .data d₀) :: pR, ctx⟩, []⟩ Φ := by
+      ℓᵣ [S]⇉ᵣ∅ ∗ ((ℓᵣ [S]⇉ᵣ (TSDunop.app_cst (NMLEnv.intoDataT 0))) -∗ dwp Lm (Rm - 1) Lx (Rx - 1) pL ⟨.run ⟨pR, ctx⟩, []⟩ Φ )
+    ⊢ dwp (DataT:=DataT) Lm Rm Lx Rx pL ⟨.run ⟨.tsdunop (.val <| .uptr <| .sbufUnboundedIndex ℓᵣ) .cst (.val <| .int 0) :: pR, ctx⟩, []⟩ Φ := by
+  -- Unfold the dwp in the conclusion
+  iintro ⟨Hmv, Hdwp⟩
+  conv => rhs; unfold dwp
+  iintro sl sr Hs
+  -- Add the update lemma to the context
+  refine include_sep (@update_chip_right DataT (.sbufUnboundedIndex ℓᵣ) sl sr none (some <| TSDunop.app_cst (NMLEnv.intoDataT 0))) ?_
+  iintro ⟨Hupd, ⟨Hmv, Hdwp⟩, Hσ⟩
+  ispecialize Hupd Hmv Hσ
+  -- Eliminate bupds from the hypotheses but not the conclusion, by duplicating the bupd in the conclusion.
+  istop
+  refine .trans ?_ bupd_idem.mp
+  refine .trans bupd_frame_l (BIUpdate.mono ?_)
+  iintro ⟨Hdwp, ⟨Hfrac, Hauth⟩⟩
+  -- Specialize, unfold, and specialize the dwp
+  ispecialize Hdwp Hfrac
+  unfold dwp
+  ispecialize Hdwp sl _ Hauth
+  -- Eliminate the bupd
+  refine .trans emp_sep.mp (BIUpdate.mono ?_)
+  -- Conclude using the current hypotheses
+  iintro ⟨p1', p2', HΦ, s1, s2, ⟨n1, n2, %Hstep⟩, H⟩
+  iexists p1'
+  iexists p2'
+  isplit l [HΦ]
+  · iexact HΦ
+  iexists s1
+  iexists s2
+  isplit r [H] <;> try iexact H
+  iexists n1
+  iexists (n2 + 1)
+  ipure_intro
+  obtain ⟨_, _, _, _, _, SR⟩ := Hstep
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
+  rw [Nat.add_comm _ _, StepN_add_iff]
+  refine ⟨_, ⟨stepN_1_iff_step.mpr ?_, SR⟩⟩
+  simp only [Step, NML.step]
+
+theorem dwpTSDunopAddL {s : LocalStore DataT} (Hx : 0 < Lx):
+    (ℓₗ [S]⇉ₗ s) ∗ ((ℓₗ [S]⇉ₗ (TSDunop.app_addZ s z)) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx (DataT := DataT) ⟨.run (pL, ctx), F⟩ pR Φ)
+  ⊢ (dwp Lm Rm Lx Rx (DataT := DataT) ⟨.run (.tsdunop (.val (.uptr <| .sbufUnboundedIndex ℓₗ)) .add (.val <| .int z) :: pL, ctx), F⟩ pR Φ) := by
+  iintro ⟨Hmv, Hdwp⟩
+  conv => rhs; unfold dwp
+  iintro sl sr Hs
+  refine include_sep (@update_chip_left DataT (.sbufUnboundedIndex ℓₗ) sl sr (some s) (some <| TSDunop.app_addZ s z)) ?_
+  iintro ⟨Hupd, ⟨Hmv, Hdqp⟩, Hσ⟩
+  ispecialize Hupd Hmv Hσ
+  -- Eliminate bupds from the hypotheses but not the conclusion, by duplicating the bupd in the conclusion.
+  istop
+  refine .trans ?_ bupd_idem.mp
+  refine .trans bupd_frame_l (BIUpdate.mono ?_)
+  iintro ⟨Hdwp, ⟨Hfrac, Hauth⟩⟩
+  -- Specialize, unfold, and specialize the dwp
+  ispecialize Hdwp Hfrac
+  unfold dwp
+  ispecialize Hdwp _ sr Hauth
+  -- Eliminate the bupd
+  refine .trans emp_sep.mp (BIUpdate.mono ?_)
+  -- Conclude using the current hypotheses
+  iintro ⟨p1', p2', HΦ, s1, s2, ⟨n1, n2, %Hstep⟩, H⟩
+  iexists p1'
+  iexists p2'
+  isplit l [HΦ]
+  · iexact HΦ
+  iexists s1
+  iexists s2
+  isplit r [H] <;> try iexact H
+  iexists (n1 + 1)
+  iexists n2
+  ipure_intro
+  obtain ⟨_, _, _, _, SL, _⟩ := Hstep
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
+  rw [Nat.add_comm _ _, StepN_add_iff]
+  refine ⟨_, ⟨stepN_1_iff_step.mpr ?_, SL⟩⟩
+  simp only [Step, NML.step]
+  -- TODO: Get pure fact out of sep above to case on this
   sorry
 
 -- TSDunop add no frame
 theorem dwpTSDunopAddR {s : LocalStore DataT} (H : 0 < Rx) :
       (ℓᵣ [S]⇉ᵣ s) ∗ ((ℓᵣ [S]⇉ᵣ (TSDunop.app_addZ s z)) -∗ dwp Lm (Rm - 1) Lx (Rx - 1)  pL ⟨.run ⟨pR, ctx⟩, []⟩ Φ )
     ⊢ dwp Lm Rm Lx Rx pL ⟨.run ⟨.tsdunop (.val <| .uptr <| .sbufUnboundedIndex ℓᵣ) .add (.val <| .int z) :: pR, ctx⟩, []⟩ Φ := by
+  -- Unfold the dwp in the conclusion
+  iintro ⟨Hmv, Hdwp⟩
+  conv => rhs; unfold dwp
+  iintro sl sr Hs
+  -- Add the update lemma to the context
+  refine include_sep (@update_chip_right DataT (.sbufUnboundedIndex ℓᵣ) sl sr (some s) (some <| TSDunop.app_addZ s z)) ?_
+  iintro ⟨Hupd, ⟨Hmv, Hdwp⟩, Hσ⟩
+  ispecialize Hupd Hmv Hσ
+  -- Eliminate bupds from the hypotheses but not the conclusion, by duplicating the bupd in the conclusion.
+  istop
+  refine .trans ?_ bupd_idem.mp
+  refine .trans bupd_frame_l (BIUpdate.mono ?_)
+  iintro ⟨Hdwp, ⟨Hfrac, Hauth⟩⟩
+  -- Specialize, unfold, and specialize the dwp
+  ispecialize Hdwp Hfrac
+  unfold dwp
+  ispecialize Hdwp sl _ Hauth
+  -- Eliminate the bupd
+  refine .trans emp_sep.mp (BIUpdate.mono ?_)
+  -- Conclude using the current hypotheses
+  iintro ⟨p1', p2', HΦ, s1, s2, ⟨n1, n2, %Hstep⟩, H⟩
+  iexists p1'
+  iexists p2'
+  isplit l [HΦ]
+  · iexact HΦ
+  iexists s1
+  iexists s2
+  isplit r [H] <;> try iexact H
+  iexists n1
+  iexists (n2 + 1)
+  ipure_intro
+  obtain ⟨_, _, _, _, _, SR⟩ := Hstep
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
+  rw [Nat.add_comm _ _, StepN_add_iff]
+  refine ⟨_, ⟨stepN_1_iff_step.mpr ?_, SR⟩⟩
+  simp only [Step, NML.step]
+  -- TODO: Get pure fact out of sep above to case on this
   sorry
 
 -- TSDunop add no frame
 theorem dwpTSDunopAddLocL (H : LocalContext.getv ctx "ℓ" = some v) (H : 1 < Lx) :
     (dwp (Lm - 1) Rm (Lx - 1) Rx (DataT := DataT) ⟨.run (.tsdunop (.val v) .add (.var "z") :: pL, ctx), F⟩ pR Φ)
   ⊢ (dwp Lm Rm Lx Rx (DataT := DataT) ⟨.run (.tsdunop (.var "ℓ") .add (.var "z") :: pL, ctx), F⟩ pR Φ) := by
+  iintro Hdwp
+  unfold dwp
+  iintro sl sr Hσ
+  ispecialize Hdwp _ _ Hσ
+  istop
+  refine .trans emp_sep.mp ?_
+  apply  BIUpdate.mono
+  iintro ⟨p1', p2', HΦ, s1, s2, ⟨n1, n2, %Hstep⟩, H⟩
+  iexists p1'
+  iexists p2'
+  isplit l [HΦ]; iexact HΦ
+  iexists s1
+  iexists s2
+  isplit r [H] <;> try iexact H
+  iexists (n1 + 1)
+  iexists n2
+  ipure_intro
+  obtain ⟨_, _, _, _, SL, SR⟩ := Hstep
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
+  rw [Nat.add_comm _ _, StepN_add_iff]
+  refine ⟨_, ⟨stepN_1_iff_step.mpr ?_, SL⟩⟩
+  simp [Step, NML.step]
   sorry
 
 -- TSDunop add no frame
 theorem dwpTSDunopAddValL (H : LocalContext.getv ctx "z" = some v) (H : 0 < Lx) :
     (dwp (Lm - 1) Rm (Lx - 1) Rx (DataT := DataT) ⟨.run (.tsdunop (.val (.uptr <| .sbufUnboundedIndex ℓₗ)) .add (.val v) :: pL, ctx), F⟩ pR Φ)
   ⊢ (dwp Lm Rm Lx Rx (DataT := DataT) ⟨.run (.tsdunop (.val (.uptr <| .sbufUnboundedIndex ℓₗ)) .add (.var "z") :: pL, ctx), F⟩ pR Φ) := by
+  iintro Hdwp
+  unfold dwp
+  iintro sl sr Hσ
+  ispecialize Hdwp _ _ Hσ
+  istop
+  refine .trans emp_sep.mp ?_
+  apply  BIUpdate.mono
+  iintro ⟨p1', p2', HΦ, s1, s2, ⟨n1, n2, %Hstep⟩, H⟩
+  iexists p1'
+  iexists p2'
+  isplit l [HΦ]; iexact HΦ
+  iexists s1
+  iexists s2
+  isplit r [H] <;> try iexact H
+  iexists (n1 + 1)
+  iexists n2
+  ipure_intro
+  obtain ⟨_, _, _, _, SL, SR⟩ := Hstep
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
+  rw [Nat.add_comm _ _, StepN_add_iff]
+  refine ⟨_, ⟨stepN_1_iff_step.mpr ?_, SL⟩⟩
+  simp [Step, NML.step]
   sorry
-
-theorem dwpTSDunopAddL {s : LocalStore DataT} (Hx : 0 < Lx):
-    (ℓₗ [S]⇉ₗ s) ∗ ((ℓₗ [S]⇉ₗ (TSDunop.app_addZ s z)) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx (DataT := DataT) ⟨.run (pL, ctx), F⟩ pR Φ)
-  ⊢ (dwp Lm Rm Lx Rx (DataT := DataT) ⟨.run (.tsdunop (.val (.uptr <| .sbufUnboundedIndex ℓₗ)) .add (.val <| .int z) :: pL, ctx), F⟩ pR Φ) := by
-  sorry
-
 
 end dwp
 

@@ -378,7 +378,7 @@ def Dtype.Interp (DataT : Type _) (d : KLR.Core.Dtype) : Type _ :=
 def TSDunop.app_addZ (st : LocalStore DataT) [NMLEnv DataT] (z : Int) : LocalStore DataT:=
   (hhmap (fun _ d => some <| NMLEnv.addInt z d) st)
 
-def TSDunop.app_cst [NMLEnv DataT] (d : DataT) : LocalStore DataT:=
+def TSDunop.app_cst [NMLEnv DataT] (d : DataT) : LocalStore DataT :=
   .mk <| fun _ => .some d
 
 @[simp] def NML.step [NMLEnv DataT] (e : ProgState DataT × State DataT) :
@@ -433,12 +433,9 @@ def TSDunop.app_cst [NMLEnv DataT] (d : DataT) : LocalStore DataT:=
         | .some st =>
             some ⟨⟨.run ⟨ps, ctx⟩, F⟩,
               { s with memory := ChipMemory.set_store s.memory i (some <| TSDunop.app_addZ st z)} ⟩
-    | .tsdunop (.val <| .uptr i) .cst (.val <| .int z) =>
-        match ChipMemory.get_store s.memory i with
-        | .none => .none
-        | .some st =>
-            some ⟨⟨.run ⟨ps, ctx⟩, F⟩,
-              { s with memory := ChipMemory.set_store s.memory i (some <| TSDunop.app_addZ st z)} ⟩
+    | .tsdunop (.val <| .uptr i) .cst (.val <| .int 0) =>
+          some ⟨⟨.run ⟨ps, ctx⟩, F⟩,
+              { s with memory := ChipMemory.set_store s.memory i (some <| TSDunop.app_cst (NMLEnv.intoDataT 0))} ⟩
     | .tsdunop (.val <| .uptr i) op e =>
         ExprStep e ctx s |>.bind fun ⟨e', s'⟩ =>
         some ⟨⟨.run ⟨.tsdunop (.val <| .uptr i) op e' :: ps, ctx⟩, F⟩, s'⟩
