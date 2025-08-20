@@ -218,6 +218,7 @@ theorem wpMono' {Φ : Value DataT → Value DataT → @PROP DataT} (P : PROP Dat
     isplit l [HP]; iexact HP
     iexact Hwp
 
+/-
 theorem wpMono {Φ : Value DataT → Value DataT → @PROP DataT} (P : PROP DataT) :
     P ∗ wp k p1 p2 Φ ⊢ wp k p1 p2 (iprop(Φ · · ∗ P)) := by
   sorry
@@ -226,7 +227,6 @@ theorem wpMonoPost {P Q : Value DataT → Value DataT → @PROP DataT} :
     (∀ vl vr, P vl vr -∗ Q vl vr) ∗ (wp k p1 p2 P) ⊢ wp k p1 p2 Q := by
   sorry
 
-/-
 theorem wpFrameSync' {Φ : Value DataT → Value DataT → PROP DataT} (Hk : 1 ≤ k):
     ⊢ ∀ piL piR,
         ⌜NML.SimpleStackFrame piL ∧ NML.SimpleStackFrame piR⌝ ∗
@@ -702,12 +702,12 @@ theorem dwpAllocR (Hx : 1 < Rx := by omega) :
 --     ⊢ dwp (DataT := DataT) Lm Rm Lx Rx ⟨.run ⟨.tsdunop (.var <| L) .cst (.val <| .data d₀):: p1', loc⟩, F⟩ p2 Φ := by
 --   sorry
 
-
+/-
 theorem dwpTDunopCstL (Hx : 0 < Lx := by omega) :
      (ℓₗ [S]⇉ₗ∅) ∗ ((ℓₗ [S]⇉ₗ∅) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx ⟨.run ⟨p1', loc⟩, F⟩ p2 Φ)
     ⊢ dwp (DataT := DataT) Lm Rm Lx Rx ⟨.run ⟨.tsdunop (.var <| L) .cst (.val <| .data d₀):: p1', loc⟩, F⟩ p2 Φ := by
   sorry
-
+-/
 
 
 
@@ -981,10 +981,37 @@ theorem wp_gen_loc (R : LocalContext DataT → LocalContext DataT → Prop) :
   ispecialize H _ _ HR
   iexact H
 
+-- TSDunop cst no frame L
+theorem dwp_step_1  (H : 0 < Lx) :
+      ℓₗ [S]⇉ₗ∅ ∗ ((ℓₗ [S]⇉ₗ (TSDunop.app_cst d₀)) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx ⟨.run ⟨pL, ctx⟩, []⟩ pR Φ )
+    ⊢ dwp (DataT:=DataT) Lm Rm Lx Rx ⟨.run ⟨.tsdunop (.val <| .uptr <| .sbufUnboundedIndex ℓₗ) .cst (.val <| .data d₀) :: pL, ctx⟩, []⟩ pR Φ := sorry
+
+-- TSDunop cst no frame R
+theorem dwp_step_2 (H : 0 < Rx) :
+      ℓᵣ [S]⇉ᵣ∅ ∗ ((ℓᵣ [S]⇉ᵣ (TSDunop.app_cst d₀)) -∗ dwp Lm (Rm - 1) Lx (Rx - 1) pL ⟨.run ⟨pR, ctx⟩, []⟩ Φ )
+    ⊢ dwp (DataT:=DataT) Lm Rm Lx Rx pL ⟨.run ⟨.tsdunop (.val <| .uptr <| .sbufUnboundedIndex ℓᵣ) .cst (.val <| .data d₀) :: pR, ctx⟩, []⟩ Φ := sorry
+
+-- TSDunop add no frame
+theorem dwp_step_3 {s : LocalStore DataT} (H : 0 < Rx) :
+      (ℓᵣ [S]⇉ᵣ s) ∗ ((ℓᵣ [S]⇉ᵣ (TSDunop.app_addZ s z)) -∗ dwp Lm (Rm - 1) Lx (Rx - 1)  pL ⟨.run ⟨pR, ctx⟩, []⟩ Φ )
+    ⊢ dwp Lm Rm Lx Rx pL ⟨.run ⟨.tsdunop (.val <| .uptr <| .sbufUnboundedIndex ℓᵣ) .add (.val <| .int z) :: pR, ctx⟩, []⟩ Φ := sorry
+
+-- TSDunop add no frame
+theorem dwp_step_4 (H : LocalContext.getv ctx "ℓ" = some v) (H : 1 < Lx) :
+    (dwp (Lm - 1) Rm (Lx - 1) Rx (DataT := DataT) ⟨.run (.tsdunop (.val v) .add (.var "z") :: pL, ctx), F⟩ pR Φ)
+  ⊢ (dwp Lm Rm Lx Rx (DataT := DataT) ⟨.run (.tsdunop (.var "ℓ") .add (.var "z") :: pL, ctx), F⟩ pR Φ) := sorry
+
+-- TSDunop add no frame
+theorem dwp_step_5 (H : LocalContext.getv ctx "z" = some v) (H : 0 < Lx) :
+    (dwp (Lm - 1) Rm (Lx - 1) Rx (DataT := DataT) ⟨.run (.tsdunop (.val (.uptr <| .sbufUnboundedIndex ℓₗ)) .add (.val v) :: pL, ctx), F⟩ pR Φ)
+  ⊢ (dwp Lm Rm Lx Rx (DataT := DataT) ⟨.run (.tsdunop (.val (.uptr <| .sbufUnboundedIndex ℓₗ)) .add (.var "z") :: pL, ctx), F⟩ pR Φ) := sorry
+
+theorem dwp_step_6 {s : LocalStore DataT} (Hx : 0 < Lx):
+    (ℓₗ [S]⇉ₗ s) ∗ ((ℓₗ [S]⇉ₗ (TSDunop.app_addZ s z)) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx (DataT := DataT) ⟨.run (pL, ctx), F⟩ pR Φ)
+  ⊢ (dwp Lm Rm Lx Rx (DataT := DataT) ⟨.run (.tsdunop (.val (.uptr <| .sbufUnboundedIndex ℓₗ)) .add (.val <| .int z) :: pL, ctx), F⟩ pR Φ) := sorry
+
 
 end dwp
-
-
 
 
 /-- Unary weakest preconditions
