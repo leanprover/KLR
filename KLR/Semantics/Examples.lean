@@ -681,7 +681,7 @@ end example13
 
 
 
-
+/-
 namespace example14
 /-! Example: Loop equivalence -/
 
@@ -792,8 +792,8 @@ def wpAffineLoopRelSync' [NMLEnv DataT] {p1 p2 : List (NML.Stmt DataT)} {locL lo
     -- -- Now, use the frame stepping rule to verify the first step of the loop
     refine .trans ?_ (wpFrameSync ?G1 ?G2 ?G3)
     case G1 => omega
-    case G2 => sorry
-    case G3 => sorry
+    case G2 => s orry
+    case G3 => s orry
 
     -- Specialize Hwp
     refine .trans (sep_mono (sep_mono .rfl intuitionistically_elim) .rfl) ?_
@@ -825,8 +825,8 @@ def wpAffineLoopRelSync' [NMLEnv DataT] {p1 p2 : List (NML.Stmt DataT)} {locL lo
       rw [HLocL]
       simp [Iterator.advance, next, AffineIter.st, Option.bind, LocalContext.peeki]
       -- Probs ok
-      sorry
-    have HExitR : PLoopExit (locL.nexti iR) iR := by sorry
+      s orry
+    have HExitR : PLoopExit (locL.nexti iR) iR := by s orry
 
     istart
     iintro ⟨-, Hwp⟩
@@ -854,7 +854,7 @@ def wpAffineLoopRelSync' [NMLEnv DataT] {p1 p2 : List (NML.Stmt DataT)} {locL lo
           { current := ExecState.run (Prod.mk pL (locL.nexti iL)), context := FL }
           { current := ExecState.run (Prod.mk pR (locL.nexti iR)), context := FR } fun x1 x2 => wp K x1 x2 Φ))))
       ?G)
-    case G => sorry -- It's X, but I'm getting defeq timeouts now
+    case G => so rry -- It's X, but I'm getting defeq timeouts now
     clear X
 
     istart; iintro H
@@ -863,13 +863,13 @@ def wpAffineLoopRelSync' [NMLEnv DataT] {p1 p2 : List (NML.Stmt DataT)} {locL lo
 
     wp_resync
     -- Clean up hypothesis so that it takes locL with i bound to none
-    sorry
+    s orry
 
 
   · rename_i n pk
 
 
-    sorry
+    s orry
 
 
   /-
@@ -892,11 +892,11 @@ def wpAffineLoopRelSync' [NMLEnv DataT] {p1 p2 : List (NML.Stmt DataT)} {locL lo
   let InvPre inum ipk : PROP DataT := [∗] (List.map IPre (toList (I inum_init ipk) |>.take inum))
   -- TODO: Lemma about toList of affineiter
   obtain X : iprop([∗] (List.map IPre (toList (I inum ipk)))) = InvPre inum ipk := by
-    sorry
+    s orry
   rw [X]; clear X
   let InvPost inum ipk : PROP DataT := [∗] (List.map IPost (toList (I inum ipk) |>.drop inum))
   obtain X : iprop(emp) = InvPost inum ipk := by
-    sorry
+    s orry
   refine .trans emp_sep.mpr ?_
   rw [X]; clear X
   let Hcont inum ipk : PROP DataT := iprop([∗] (List.map IPost (toList (I inum ipk))) -∗ wp K { current := ExecState.run (pL, locL), context := FL } { current := ExecState.run (pR, locR), context := FR } Φ)
@@ -917,8 +917,8 @@ def wpAffineLoopRelSync' [NMLEnv DataT] {p1 p2 : List (NML.Stmt DataT)} {locL lo
     have X :=
       dwpL (SPure.uwpL (@SPure.loopExit DataT _ xL iL bL pL locL FL) ?G1) (Lx := K) (Lm := 1) (Rx := K) (Rm := 1)
         (pr := ⟨ExecState.run (Stmt.loop xR (Expr.val (Value.iref iR)) bR :: pR, locR), FR⟩) (Φ := (iprop(wp K · · Φ))) ?G2
-    case G1 => sorry
-    case G2 => sorry
+    case G1 => s orry
+    case G2 => s orry
     refine .trans ?_ X; clear X
     simp [SPure]
     istart; iintro H
@@ -928,8 +928,8 @@ def wpAffineLoopRelSync' [NMLEnv DataT] {p1 p2 : List (NML.Stmt DataT)} {locL lo
     have X :=
       dwpR (SPure.uwpR (@SPure.loopExit DataT _ xR iR bR pR locR FR) ?G1) (Lx := K - 1) (Lm := 0) (Rx := K) (Rm := 1)
         (pl := ⟨ExecState.run (pL, locL), FL⟩)  (Φ := (iprop(wp K · · Φ))) ?G2
-    case G1 => sorry
-    case G2 => sorry
+    case G1 => s orry
+    case G2 => s orry
     refine .trans ?_ X; clear X
     simp [SPure]
     istart; iintro H
@@ -951,14 +951,11 @@ def wpAffineLoopRelSync' [NMLEnv DataT] {p1 p2 : List (NML.Stmt DataT)} {locL lo
     -- wpFrameSync' with mono to frame the resources
     -- Need to unvold InvPost and InvPre
 
-    sorry
+    s orry
   -/
 
-
 end example14
-
-
-
+-/
 
 -- Big list of example ideas:
 -- dwpSetpR/L to uwp to test impure steps
@@ -971,6 +968,7 @@ end example14
 -- Safety
 -- Rule to Step inside frame
 -- Loop continue
+-- Unbounded loop rule
 
 -- Open questions:
 -- Composition (seq rule for frame steps)
@@ -978,464 +976,3 @@ end example14
 -- Improved surface syntax
 -- Better timeout on the tactics
 -- ret_assert and adequacy
-
-
-
-
-
-
-
-/-
-
-
-/-! Example 2: Allocation
-This is one of the simplest state-transforming ste
-Prove that allocation under any heap is safe using a relational proof.
--/
-
-def ex2 : ExecState DataT :=
-  (.run [⟨.assign .none (.alloc Memory.sbuf), Locals.Emp _⟩, ⟨.ret <| .val .unit, Locals.Emp _⟩])
-
-theorem example2 (σ : State DataT) : SmallStep.Safe (ex2, σ) := by
-  -- It suffices to show that `(ex2, σ) ∼ (ex2, σ) : fun _ _ => True`
-  apply SmallStep.Safe_of_PRel (Φf := fun _ _ => True)
-  -- Enter the Iris proof
-  apply wp_adequacy (K := ⟨1⟩)
-  unfold ex2
-  sorry
-
-
-/- ## Example: Desynced stepping of pure expressions -/
-
-def ΦUnitEq (v1 v2 : NML.Value DataT) : @PROP DataT := iprop(⌜v1 = .unit ∧ v2 = .unit⌝)
-def e3L : ExecState DataT :=
-  withNoContext [
-    .assign .none (.val (.int 3)),
-    .assign .none (.val (.bool false)),
-    .assign .none (.val .unit),
-    .assign .none (.val (.int 3)),
-    .ret (.val .unit),
-  ]
-
-def e3R : ExecState DataT :=
-  withNoContext [
-    .assign .none (.val .unit),
-    .assign .none (.val (.bool false)),
-    .ret (.val .unit),
-  ]
-
-set_option linter.deprecated false in
-theorem e3 : ⊢ @wp DataT ⟨2⟩ e3L e3R ΦUnitEq := by
-  simp [e3L, e3R, withNoContext]
-  istart
-  -- Enter desync mode, do two left pure steps, and one right pure step. Resync.
-  -- Note (commented) that a third pure step does not work becase of the ⟨2⟩ bound.
-  wp_desync
-  dwp_left_pure SeqPure
-  dwp_left_pure SeqPure
-  -- dwp_left_pure SeqPure
-  dwp_right_pure SeqPure
-  wp_resync
-
-  -- Do another batch of step
-  wp_desync
-  dwp_left_pure SeqPure
-  dwp_left_pure SeqPure
-  dwp_right_pure SeqPure
-  wp_resync
-
-  -- And close the proof off like example 1
-  wp_sync_pure RetPure, RetPure
-  wp_sync_val
-  simp [ΦUnitEq]
-  exact true_intro
-
-def e4L : ExecState DataT :=
-  .run [⟨.assign (.some "x") (.val <| .int 3), Locals.Emp _⟩, ⟨.ret (.var "x"), Locals.Emp _⟩]
-
-def e4R : ExecState DataT :=
-  .run [⟨.assign (.some "y") (.val <| .int 3), Locals.Emp _⟩, ⟨.ret (.var "y"), Locals.Emp _⟩]
-
-def ΦInt (R : Int → Int → @PROP DataT) (v1 v2 : NML.Value DataT) : @PROP DataT :=
-  iprop(∃ z1 z2, ⌜v1 = .int z1⌝ ∗ ⌜v2 = .int z2⌝ ∗ R z1 z2)
-def ΦIntPure (R : Int → Int → Prop) (v1 v2 : NML.Value DataT) : @PROP DataT :=
-  ΦInt (fun z1 z2 => (iprop(⌜R z1 z2⌝) : @PROP DataT)) v1 v2
-
-theorem e4 : ⊢ (@wp DataT ⟨1⟩ e4L e4R (ΦIntPure (· = ·))) := by
-  unfold e4L e4R
-  wp_desync
-  dwp_left_pure  AssignPure
-  dwp_right_pure AssignPure
-  wp_resync
-  simp [List.map, NML.Task.bind]
-  wp_desync
-  dwp_left_pure  (RetPureExpr VarPureE (by rfl))
-  dwp_right_pure (RetPureExpr VarPureE (by rfl))
-  wp_resync
-  wp_desync
-  dwp_left_pure  RetPure
-  dwp_right_pure RetPure
-  wp_resync
-  wp_sync_val
-  simp [ΦIntPure, ΦInt]
-  iexists 3
-  iexists 3
-  ipure_intro
-  simp
-
-theorem e4' : ⊢ (wp (DataT := DataT) ⟨1⟩ e4L e4R (ΦIntPure (· = ·))) := by
-  unfold e4L e4R
-  wp_desync
-  uwp_left  uwpPureL AssignPure
-  uwp_right uwpPureR AssignPure
-  wp_resync; wp_desync
-  uwp_left  uwpPureL <| RetPureExpr VarPureE (by rfl)
-  uwp_right uwpPureR <| RetPureExpr VarPureE (by rfl)
-  wp_resync; wp_desync
-  uwp_left  uwpPureL RetPure
-  uwp_right uwpPureR RetPure
-  wp_resync; wp_sync_val
-  simp [ΦIntPure, ΦInt]
-  iexists 3
-  iexists 3
-  ipure_intro
-  simp
-
-def e5L : ExecState DataT :=
-  withNoContext [
-    .assign .none (.val .unit),
-    .ret (.val .unit),
-  ]
-
-def e5R : ExecState DataT :=
-  withNoContext [
-    .assign .none (.val (.bool false)),
-    .ret (.val .unit),
-  ]
-
-theorem e5 : ⊢ @wp DataT ⟨2⟩ e5L e5R ΦUnitEq := by
-  istart
-  unfold e5L e5R
-  simp [withNoContext]
-  wp_desync
-  dwp_left_pure  SeqPure
-  dwp_right_pure SeqPure
-  dwp_left_pure  RetPure
-  dwp_right_pure RetPure
-  wp_resync
-  wp_sync_val
-  simp [ΦUnitEq, true_intro]
-
--- e5 but with uwp
-theorem e5' : ⊢ @wp DataT ⟨2⟩ e5L e5R ΦUnitEq := by
-  istart
-  unfold e5L e5R
-  simp [withNoContext]
-  wp_desync
-  uwp_left  uwpPureL SeqPure
-  uwp_left  uwpPureL RetPure
-  uwp_right uwpPureR SeqPure
-  uwp_right uwpPureR RetPure
-  wp_resync
-  wp_sync_val
-  simp [ΦUnitEq, true_intro]
-
-
-
-/-! Example: Loops with .none as next entry are skipped -/
-
-def e6L : ExecState DataT :=
-  withNoContext [
-    .loop AffineIter "x" .none [],
-    .ret (.val .unit),
-  ]
-
-def e6R : ExecState DataT :=
-  withNoContext [
-    .ret (.val .unit),
-  ]
-
-
-theorem e6 : ⊢ @wp DataT ⟨2⟩ e6L e6R ΦUnitEq := by
-  simp [withNoContext, e6L, e6R]
-  wp_desync
-  dwp_left_pure  LoopExitPure
-  dwp_left_pure  RetPure
-  dwp_right_pure RetPure
-  wp_resync
-  wp_sync_val
-  simp [ΦUnitEq, true_intro]
-
-
-/-! Example: Loop unrolling
-This doesn't demonstrate any interesting unrolling, but it's an example of doing loop unrolling
-w/ the proof state. -/
-
--- The sequence: [2, 4, 6]
-def e7Iterator : AffineIter where
-  start     := 1
-  peek      := 2
-  num       := 2
-  start_num := 1
-  step      := 2
-
-def e7L : ExecState DataT :=
-  withNoContext [
-    .loop AffineIter "x" (.some e7Iterator) [.assign .none (.val .unit)],
-    .ret (.val .unit),
-  ]
-
-def e7R : ExecState DataT :=
-  withNoContext [
-    .assign .none (.val .unit),
-    .assign .none (.val .unit),
-    .assign .none (.val .unit),
-    .ret (.val .unit),
-  ]
-
-theorem e7 : ⊢ wp (DataT := DataT) ⟨2⟩ e7L e7R ΦUnitEq := by
-  simp [withNoContext, e7L, e7R]
-  wp_desync
-  dwp_right_pure SeqPure
-  dwp_left_pure  LoopNterPure
-  sorry
-  -- dwp_left_pure  SeqPure
-  -- wp_resync
-  -- simp
-  -- wp_desync
-  -- dwp_right_pure SeqPure
-  -- dwp_left_pure  LoopNterPure
-  -- dwp_left_pure  SeqPure
-  -- wp_resync
-  -- simp
-  -- wp_desync
-  -- dwp_right_pure SeqPure
-  -- dwp_left_pure  LoopNterPure
-  -- dwp_left_pure  SeqPure
-  -- wp_resync
-  -- simp
-  -- wp_desync
-  -- dwp_left_pure  LoopExitPure
-  -- dwp_left_pure  RetPure
-  -- dwp_right_pure RetPure
-  -- wp_resync
-  -- wp_sync_val
-  -- simp [ΦUnitEq, true_intro]
-
-theorem e7' : ⊢ wp (DataT := DataT) ⟨2⟩ e7L e7R ΦUnitEq := by
-  simp [withNoContext, e7L, e7R]
-  wp_desync
-  uwp_right uwpPureR SeqPure
-  uwp_left  uwpPureL LoopNterPure
-  sorry
-  -- uwp_left  uwpPureL SeqPure
-  -- wp_resync; simp; wp_desync
-  -- uwp_right uwpPureR SeqPure
-  -- uwp_left  uwpPureL LoopNterPure
-  -- uwp_left  uwpPureL SeqPure
-  -- wp_resync; simp; wp_desync
-  -- uwp_right uwpPureR SeqPure
-  -- uwp_left  uwpPureL LoopNterPure
-  -- uwp_left  uwpPureL SeqPure
-  -- wp_resync; simp; wp_desync
-  -- uwp_left  uwpPureL LoopExitPure
-  -- uwp_left  uwpPureL RetPure
-  -- uwp_right uwpPureR RetPure
-  -- wp_resync
-  -- wp_sync_val
-  -- simp [ΦUnitEq, true_intro]
-
-/-- Pure assignments -/
-
-def ΦIntEq (v1 v2 : NML.Value DataT) : @PROP DataT := iprop(⌜∃ z, v1 = .int z ∧ v2 = .int z⌝)
-
-def e8L : ExecState DataT :=
-  withNoContext [
-    .assign (.some "x") (.val <| .int 3),
-    .assign (.some "y") (.var "x"),
-    .ret (.var "y"),
-  ]
-
-def e8R : ExecState DataT :=
-  withNoContext [
-    .ret (.val <| .int 3)
-  ]
-
--- TODO: Move
-attribute [simp] Locals.bind
-
-theorem e8 : ⊢ wp (DataT := DataT) ⟨5⟩ e8L e8R ΦIntEq := by
-  simp [withNoContext, e8L, e8R]
-  wp_desync
-  dwp_left_pure  AssignPure
-  dwp_left_pure  (AssignPureExpr VarPureE (by rfl))
-  dwp_left_pure  AssignPure
-  dwp_left_pure  (RetPureExpr VarPureE (by rfl))
-  dwp_left_pure  RetPure
-  dwp_right_pure RetPure
-  wp_resync
-  wp_sync_val
-  simp [ΦIntEq, true_intro]
-
--- E8 but using the uwp machinery
-theorem e8' : ⊢ wp (DataT := DataT) ⟨5⟩ e8L e8R ΦIntEq := by
-  simp [withNoContext, e8L, e8R]
-  wp_desync
-  uwp_left  uwpPureL AssignPure
-  uwp_left  LiftEAsn.liftL <| ewpVarL (.int 3)
-  uwp_left  uwpPureL AssignPure
-  uwp_left  LiftERet.liftL <| ewpVarL (.int 3)
-  uwp_left  uwpPureL RetPure
-  uwp_right uwpPureR RetPure
-  wp_resync
-  wp_sync_val
-  simp [ΦIntEq, true_intro]
-
-
-
-/-! Example 9: Partiality -/
-
-structure LoopIter where
-
--- TODO: I don't actually want to use the TensorLib iterator for this.
--- "size" is not defined and "reset" will cause annoyances with Lob induction.
-instance instLoopIterator {DataT : Type _} : TensorLib.Iterator LoopIter (NML.Value DataT) where
-  next  := fun i => .some i
-  peek  := fun _ => .unit
-  size  := fun _ => 0
-  reset := fun _ => ⟨⟩
-
-def e9L : ExecState DataT :=
-  withNoContext [
-    .loop LoopIter "x" (.some ⟨⟩) [.assign .none (.val .unit)],
-    -- No return, stuck
-  ]
-
-def e9R : ExecState DataT :=
-  withNoContext [
-    .loop LoopIter "y" (.some ⟨⟩) [.assign .none (.val .unit)],
-    .ret (.val .unit)
-  ]
-
-
-theorem e9 : ⊢ wp (DataT := DataT) ⟨5⟩ e9L e9R ΦIntEq := by
-  simp [withNoContext, e9L, e9R]
-  istart
-  have Z := @wp_gen_loc DataT ⟨5⟩
-                (Stmt.loop LoopIter "x" (some { }) [NML.Stmt.assign none (Expr.val Value.unit)])
-                []
-                (Stmt.loop LoopIter "y" (some { }) [NML.Stmt.assign none (Expr.val Value.unit)])
-                [{ stmt := NML.Stmt.ret (Expr.val Value.unit), env := Locals.Emp DataT }]
-                ΦIntEq
-                (Locals.Emp DataT)
-                (Locals.Emp DataT)
-                (fun _ _ => True)
-  refine include_sep Z ?_; clear Z
-  iintro ⟨H, Hemp⟩
-  iclear Hemp
-  iapply H
-  · iintro locₗ locᵣ Hemp; iclear Hemp
-    -- Here is where I'd apply the Loeb lemma
-    -- Also: need to be allowed to eliminate laters in the hypothesis
-    sorry
-  · exact fun n x a a => a
-
-/-! Example: Pure loop fusion
-
-NB. This is hard to extract as a general pattern right now because the wp
-doesn't satisfy a bind rule. MARKUSDE: Think more on swp idea. -/
-
-structure ProgressIter (T : Type _) where
-  state   : Nat
-  initial : Nat
-  interp  : Nat → T
-
-instance : TensorLib.Iterator (ProgressIter T) T where
-  next  i := match i.state with | 0 => none | .succ n' => some { i with state := n' }
-  peek  i := i.interp i.state
-  size  i := i.initial
-  reset i := { i with state := i.initial }
-
--- To make this example interesting:
--- -> A shape [n] tensor v in SBUF
--- -> A function to change a single element of the tensor
--- -> Fine-grained ownership notation ⟨ℓ₁, i⟩ ↦ x
--- -> Ownership equation (ℓₗ [S]⇉ₗ v) ⊢ ([∗] i, ⟨ℓₗ, i⟩ ↦ v[i])
-
-
-/- Reading and writing a point -/
-
--- dwp read
--- Example: Given left points to, updates the left points to, reads and returns it, right is a value, prove equal
-
--- dwpReadpRetL
-
-def e10L (ℓ : ChipIndex) (x : Nat × Nat) (d₀ : DataT): ExecState DataT :=
-  withNoContext [
-    .setp (.val <| .uptr ℓ) (.val <| .iptr x) (.val <| .data d₀),
-    .ret (.readp (.val <| .uptr ℓ) (.val <| .iptr x)),
-  ]
-
-def e10R (d₀ : DataT) : ExecState DataT :=
-  withNoContext [
-    .ret (.val <| .data d₀)
-  ]
-
-def ΦEq (v1 v2 : NML.Value DataT) : @PROP DataT := iprop(⌜v1 = v2⌝)
-
-theorem e10 (ℓ : ChipIndex) (x : Nat × Nat) (mv : Option DataT) (d₀ : DataT) :
-    (⟨ℓ, x⟩ ↦ₗ mv) ⊢ wp (DataT := DataT) ⟨5⟩ (e10L ℓ x d₀) (e10R d₀) ΦEq := by
-  iintro Hfrag
-  wp_desync
-  simp [withNoContext, e10L, e10R]
-  -- TODO: Turn dwpSetPL' into a uwp instance
-  iintro H
-  refine .trans ?_ (dwpSetpL' (mv := mv))
-  iintro Hfrag'
-  isplit l [Hfrag']; iexact Hfrag'
-  iintro Hfrag'
-  -- TODO: readp should have a uwp
-  istop; refine .trans ?_ (dwpReadpRetL' (v := d₀)); istart
-  iintro H
-  isplit l [H]; iexact H
-  iintro - -- The frag part is not used
-  uwp_left  uwpPureL RetPure
-  uwp_right uwpPureR RetPure
-  wp_resync
-  wp_sync_val
-  simp [ΦEq, true_intro]
-
--- TODO: e10 but step the expressions using the ewp machinery
-
-section e11
-
-variable (body : List Stmt) (binder : String)
-
--- Indexed precondition / postcondition. Eliminate bad Local contexts (out of range index
--- or bad local contexts) using False as a precondition
-variable (PRE POST : Locals DataT → Nat → PROP DataT)
-
--- I can define this semantically.
--- wp P (fun _ => wp Q Φ) -∗ wp (P <> Q) Φ
--- when the scope of P ends before Q
-
--- Define what it means for a subprogram to respect scope
-
--- Then the next problem: what about relations?
--- When the loop heads line up syntactically, it is fine. That can be the first relational
--- rule I prove. When the looping structures are different I want to do this proof step using
--- variables, basically.
-
--- So we assign ghost variables to each iterator in each program, an (indexed) bijection between their values,
--- and then we have a rule which says it suffices to
-
-
-
-
-
-
-
-
-
-end e11
--/

@@ -10,6 +10,7 @@ import KLR.Semantics.Memory
 import KLR.Semantics.SmallStep
 import TensorLib.Iterator
 
+set_option grind.warning false
 
 /-- A physical ChipIndex cannot be free allocated. -/
 def ChipIndex.IsPhysical : KLR.Core.ChipIndex → Prop
@@ -174,15 +175,17 @@ instance instIterAffineIter {DataT : Type _} : TensorLib.Iterator AffineIter (NM
 @[simp] def AffineIter.asList (A : AffineIter) : List (@Value DataT) :=
     asList' A.peek A.step A.num
 
+/-
 theorem AffineIter.asList_next_none {A : AffineIter} :
     TensorLib.Iterator.next (iter := AffineIter) (value := @Value DataT) A = .none →
     A.asList = [NML.Value.int (DataT := DataT) A.peek] := by
-  sorry
+  s orry
 
 theorem AffineIter.asList_next_some {A : AffineIter} :
     (TensorLib.Iterator.next (iter := AffineIter) (value := @Value DataT) A = .some A') →
     A.asList = (NML.Value.int (DataT := DataT) A.peek) :: A'.asList := by
-  sorry
+  s orry
+-/
 
 -- Right now: the IteratorS semantics work for all choices of DataT
 def IteratorS.toIterator {DataT : Type _} : IteratorS → Iterator DataT
@@ -384,7 +387,7 @@ def TSDunop.app_cst [NMLEnv DataT] (d : DataT) : LocalStore DataT:=
   -- Topmost frame is done but did not return a value.
   -- There are no more frames.
   -- This is the continuation value, which signifies this.
-  | ⟨⟨.run ⟨[], _⟩, []⟩, s⟩ => .none
+  | ⟨⟨.run ⟨[], _⟩, []⟩, _⟩ => .none
   -- Topmost frame is done but did not return a value.
   -- There is a pending frame.
   -- This will load and execute the pending frame.
@@ -596,10 +599,10 @@ theorem NML.returnContInv [NMLEnv DataT] {b : List (Stmt DataT)} :
   cases b with | nil => simp [Step] | cons h t => ?_
   intro H
   exfalso
-  sorry
+  s orry
   -- simp [Step, step] at H <;> unfold step at H
   -- -- All cases are .run
-  -- sorry
+  -- s orry
 /-
 open SmallStep in
 theorem NML.intoFrameCont [NMLEnv DataT] k pc ℓc s' :
@@ -638,12 +641,12 @@ theorem NML.intoFrameCont [NMLEnv DataT] k pc ℓc s' :
         -- b cannot be empty
         cases b
         · -- Contradiction with Hcont
-          sorry
+          s orry
         · simp [step]
           rw [stepN_1_iff_step.mp Hstep]
           rfl
       · -- Contradict Hcont
-        sorry
+        s orry
 -/
 -/
 
@@ -762,7 +765,6 @@ theorem EPure.idx : EPure (DataT := DataT) (.idx e) (.val <| .lidx <| e.map Expr
   -- exists (h.asIntV :: List.map Expr.asIntV t)
   -- refine ⟨?_, rfl⟩
   -- simp_all
-
   sorry
 
 

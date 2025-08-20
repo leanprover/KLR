@@ -9,6 +9,7 @@ import KLR.Core.Basic
 import KLR.Util
 import Iris.Instances.heProp
 
+set_option grind.warning false
 
 namespace KLR.Core
 
@@ -232,7 +233,8 @@ structure ChipCellIndex where
   ChipMemory.set_store c i.chip (some <| Store.set tgt i.cell v)
 
 @[simp] def ChipMemory.empty : ChipMemory α :=
-  ⟨Heap.empty, Heap.empty, Heap.empty, Heap.empty, Heap.empty, sorry, sorry, sorry⟩
+  ⟨Heap.empty, Heap.empty, Heap.empty, Heap.empty, Heap.empty,
+   by simp [Heap.empty], by simp [Heap.empty], by simp [Heap.empty]⟩
 
 @[simp] def ChipMemory.hmap (f : ChipCellIndex → α → Option α) (t : ChipMemory α) : ChipMemory α :=
   ChipMemory.hmap_store (fun i s => some <| Heap.hmap (f ⟨i, ·⟩ ·) s) t
