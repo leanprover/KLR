@@ -3,6 +3,11 @@ Copyright (c) 2025 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 */
 
+// Forward declare private APIs that used to be in public headers, but later moved to internal headers
+Py_ssize_t _PyUnicode_ScanIdentifier(PyObject *); // hidden in https://github.com/python/cpython/commit/8a73b57b
+PyObject* _PyUnicode_DecodeUnicodeEscapeInternal(const char *, Py_ssize_t, const char *, Py_ssize_t *, const char **); // hidden in https://github.com/python/cpython/commit/d8c5d76d
+PyObject* _PyBytes_DecodeEscape(const char *, Py_ssize_t, const char *, const char **); // hidden in https://github.com/python/cpython/commit/7d41ead9
+
 // These functions were introduced in Python 3.10 and are used by the parser.
 #if PY_MINOR_VERSION < 10
 static inline PyObject *_Py_NewRef(PyObject *obj) {
@@ -21,6 +26,8 @@ static PyObject *_PyImport_GetModuleAttrString(const char *modname,
   Py_DECREF(mod);
   return result;
 }
+#else
+PyObject* _PyImport_GetModuleAttrString(const char *, const char *); // hidden in https://github.com/python/cpython/commit/2e92edbf
 #endif
 
 // An alternate implementation of PyArena which uses our region allocator.

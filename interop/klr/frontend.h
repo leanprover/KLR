@@ -9,11 +9,6 @@ Authors: Paul Govereau, Sean McLaughlin
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
-static_assert(
-    PY_MAJOR_VERSION == 3 &&
-    PY_MINOR_VERSION >= 9 &&
-    PY_MINOR_VERSION <= 12,
-    "Unsupported Python Version");
 
 #if PY_MINOR_VERSION == 9
 #define Py_IsNone(x) ((x) == Py_None)
