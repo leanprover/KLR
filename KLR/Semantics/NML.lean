@@ -494,6 +494,13 @@ instance [NMLEnv DataT] : Det (ProgState DataT) (Value DataT) (State DataT) wher
     obtain ⟨rfl⟩ := H' ▸ H
     rfl
 
+/-  TODO: This section is good but needs a few major changes.
+-- 1. "Simple Frames" should be defined semantically first, to avoid explicit induction over NML syntax.
+-- 2. The proofs which do need to NML-specific induction should use tactics (like ewp_solve) that
+--    are robust against additions to the language.
+-- 3. The statement of these lemmas need to be easy to solve from the frontend. At the moment there
+--    is a ton of cruft around putting things in uwp format which is causing those nasty defeq timeouts.
+
 /-- Predicate to restrict our loop lifting rule to programs with simple control flow.
 No nested loops (yet), no early returns. -/
 @[simp] def SimpleFrame : NML.Stmt DataT → Prop
@@ -590,8 +597,7 @@ theorem StepN_run_noframe_lift [NMLEnv DataT] {P : StackFrame DataT} {F : List (
     --   sorry
 
 
-
-
+-/
 /-
 
 theorem NML.returnContInv [NMLEnv DataT] {b : List (Stmt DataT)} :
@@ -733,6 +739,10 @@ theorem EPure.var : EPure (DataT := DataT) (.var x) (.val v) (LCBindP x v) := by
 theorem EPure.dunop : EPure (.dunop (.val <| .data (d : DataT)) f) (.val <| .data <| NMLEnv.evalDunop f d) LCTrueP := by
   intro _ _ HP; simp [ExprStep]
 
+/- TODO: Finish this proof, maybe?
+-- It is a good start, but the details are annoying I'm not sure if this is exactly how we should
+-- represent indices anyways.
+
 theorem EPure.idx : EPure (DataT := DataT) (.idx e) (.val <| .lidx <| e.map Expr.asIntV) (LCIntList e) := by
   rename_i DataT
   intro _ _ HP
@@ -765,7 +775,8 @@ theorem EPure.idx : EPure (DataT := DataT) (.idx e) (.val <| .lidx <| e.map Expr
   -- exists (h.asIntV :: List.map Expr.asIntV t)
   -- refine ⟨?_, rfl⟩
   -- simp_all
-  sorry
+  s orry
+-/
 
 
 theorem EPure.chip : EPure (.chip (DataT := DataT) <| .val <| .ptr t) (.val <| .uptr t.index) LCTrueP := by

@@ -226,6 +226,7 @@ theorem wpMonoPost {P Q : Value DataT → Value DataT → @PROP DataT} :
     (∀ vl vr, P vl vr -∗ Q vl vr) ∗ (wp k p1 p2 P) ⊢ wp k p1 p2 Q := by
   sorry
 
+/-
 theorem wpFrameSync' {Φ : Value DataT → Value DataT → PROP DataT} (Hk : 1 ≤ k):
     ⊢ ∀ piL piR,
         ⌜NML.SimpleStackFrame piL ∧ NML.SimpleStackFrame piR⌝ ∗
@@ -336,14 +337,16 @@ theorem wpFrameSync' {Φ : Value DataT → Value DataT → PROP DataT} (Hk : 1 �
       -- TODO: Prove that executing inside a simple frame leaves a simple frame
       sorry
     iexact IH
+-/
 
-
+/-
 theorem wpFrameSync {Φ : Value DataT → Value DataT → PROP DataT} (Hk : 1 ≤ k)
     (HSL : NML.SimpleStackFrame piL) (HSR : NML.SimpleStackFrame piR) :
     wp k ⟨.run piL, []⟩ ⟨.run piR, []⟩
       (fun v1 v2 => iprop(⌜v1 = .kont⌝ ∗ ⌜v2 = .kont⌝ ∗ wp k ⟨.run poL, Fl⟩ ⟨.run poR, Fr⟩ Φ))
     ⊢ wp k ⟨.run piL, poL :: Fl⟩ ⟨.run piR, poR :: Fr⟩ Φ := by
   sorry
+-/
 
 
 
