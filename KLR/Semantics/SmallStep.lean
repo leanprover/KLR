@@ -337,10 +337,34 @@ def PRelS (n K : Nat) (c1 c2 : Prog × State) (Φf : Val → Val → Prop) : Pro
 -- TODO: Transitivity of PRel
 
 theorem PRelS.mono_Φ {c1 c2 : Prog × State} {Φf1 Φf2: Val → Val → Prop}
-  (Hmono : ∀ v1 v2, Φf1 v1 v2 → Φf2 v1 v2) : PRelS n K c1 c2 Φf1 → PRelS n K c1 c2 Φf2 := sorry
+    (Hmono : ∀ v1 v2, Φf1 v1 v2 → Φf2 v1 v2) : PRelS n K c1 c2 Φf1 → PRelS n K c1 c2 Φf2 := by
+  revert c1 c2
+  induction n
+  · simp [PRelS]
+  · rename_i IH
+    intro c1 c2
+    simp [PRelS]
+    split
+    · apply Hmono
+    · rintro ⟨n, _,n2, _, _, _,a,b, _,a',b1, _, _⟩
+      refine ⟨n,?_,n2,?_,?_,?_,a,b,?_,a',b1,?_,?_⟩ <;> try trivial
+      apply IH
+      trivial
 
-theorem PRelS.mono_K {c1 c2 : Prog × State} {Φf1 Φf2: Val → Val → Prop}
-  (Hmono : K' ≤ K) : PRelS n K' c1 c2 Φf1 → PRelS n K c1 c2 Φf2 := sorry
+theorem PRelS.mono_K {c1 c2 : Prog × State} {Φf1 : Val → Val → Prop}
+    (Hmono : K' ≤ K) : PRelS n K' c1 c2 Φf1 → PRelS n K c1 c2 Φf1 := by
+  revert c1 c2
+  induction n
+  · simp [PRelS]
+  · rename_i IH
+    intro c1 c2
+    simp [PRelS]
+    split
+    · exact (·)
+    · rintro ⟨n, _,n2, _, _, _,a,b, _,a',b1, _, _⟩
+      refine ⟨n,?_,n2,?_,?_,?_,a,b,?_,a',b1,?_,?_⟩ <;> try omega
+      apply IH
+      trivial
 
 end equivdefs
 
