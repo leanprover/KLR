@@ -286,6 +286,7 @@ def modelKLR (p : Parsed) : IO UInt32 := do
   w.forM IO.println
   let kernel <- KLR.NKI.annotate kernel
   let kernel <- KLR.NKI.simplifyPatterns kernel
+  -- IO.println s!"{Lean.toJson kernel}"
   match (NKI.model kernel : Err NMLModel) with
   | .error s => throw <| (IO.userError s)
   | .ok m =>

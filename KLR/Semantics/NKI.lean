@@ -89,8 +89,17 @@ partial def KLR.NKI.Expr.model (s : NKI.Expr) : Err (NML.Expr Float) :=
           Err.Bind' (KLR.NKI.Expr.model dst) <| fun edst =>
           .ok <| .view eshape edst
         | _ => .error "bad sbuf view call"
-      -- | .var (.str (.str .anonymous "nl") "zeros") =>
-      --     .error s!"wip {Lean.toJson args} {Lean.toJson kws}"
+      | .var (.str (.str .anonymous "nisa") "tensor_scalar") =>
+        Err.Bind' (kws.hasKW "data") <| fun v =>
+        Err.Bind' (kws.hasKW "op0") <| fun op0 =>
+        Err.Bind' (kws.hasKW "operand0") <| fun oper0 =>
+        Err.Bind' (KLR.NKI.Expr.model v) <| fun data =>
+        match op0, oper0 with
+        | ⟨.var x, _⟩, ⟨.var s, _⟩ =>
+          if x.toString = "np.add"
+            then  .error s!"TODO: emit an .tsdunop statement here."
+            else  .error s!"unsupported operand {x}"
+        | _, _ => .error s!"bad operands to tensor_scalar:\n{Lean.toJson op0}\n \n {Lean.toJson oper0}"
       | _ => .error s!"call not modeled {Lean.toJson f}"
 
 -- TODO: Add Iterator expression steps to the model.
@@ -108,6 +117,14 @@ def KLR.NKI.iterator.model : Iterator → Err NML.IteratorS
 -- TODO: Cleanup
 partial def KLR.NKI.Stmt.model (c : NKIModelCtx) (s : NKI.Stmt) : Err (NKIModelCtx × List (NML.Stmt Float)) :=
   match s.stmt with
+  -- TODO: This right now is special-cased because it is modeled as two statements
+  | .letM (.var x) _ ⟨.call ⟨.var (.str (.str .anonymous "nl") "zeros"), _⟩ args _, _⟩ =>
+      match args with
+      | [_, _, _] => .ok ⟨c, [
+          .assign (some x.toString) (.alloc .sbuf),
+          .tsdunop (.var "ℓ") .cst (.val <| .int 0) -- TODO: This should be float
+        ]⟩
+      | _ => .error s!"Special case in nl.zeroes not modeled"
   | .expr e => match e.model with | .error s => .error s | .ok e' => .ok (c, [.assign none e'])
   | .assert _ => .error ".assert statement not modeled"
   | .ret e => match e.model with | .error s => .error s | .ok e' => .ok (c, [.ret e'])
