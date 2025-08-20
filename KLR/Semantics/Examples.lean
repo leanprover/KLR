@@ -458,33 +458,33 @@ variable (d₀ : DataT)
   ], .emp⟩, []⟩
 
 -- TSDunop cst no frame L
-theorem dwp_step_1 :
-      ℓₗ [S]⇉ₗ∅ ∗ ((ℓₗ [S]⇉ₗ (TSDunop.app_cst d₀)) -∗ dwp 0 0 2 3 ⟨.run ⟨pL, ctx⟩, []⟩ pR Φ )
-    ⊢ dwp 0 0 3 4 ⟨.run ⟨.tsdunop (.val <| .uptr <| .sbufUnboundedIndex ℓₗ) .cst (.val <| .data d₀) :: pL, ctx⟩, []⟩ pR Φ := sorry
+theorem dwp_step_1 (H : 0 < Lx) :
+      ℓₗ [S]⇉ₗ∅ ∗ ((ℓₗ [S]⇉ₗ (TSDunop.app_cst d₀)) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx ⟨.run ⟨pL, ctx⟩, []⟩ pR Φ )
+    ⊢ dwp Lm Rm Lx Rx ⟨.run ⟨.tsdunop (.val <| .uptr <| .sbufUnboundedIndex ℓₗ) .cst (.val <| .data d₀) :: pL, ctx⟩, []⟩ pR Φ := sorry
 
 -- TSDunop cst no frame R
-theorem dwp_step_2 :
-      ℓᵣ [S]⇉ᵣ∅ ∗ ((ℓᵣ [S]⇉ᵣ (TSDunop.app_cst d₀)) -∗ dwp 0 0 1 2 pL ⟨.run ⟨pR, ctx⟩, []⟩ Φ )
-    ⊢ dwp 0 0 2 3 pL ⟨.run ⟨.tsdunop (.val <| .uptr <| .sbufUnboundedIndex ℓᵣ) .cst (.val <| .data d₀) :: pR, ctx⟩, []⟩ Φ := sorry
+theorem dwp_step_2 (H : 0 < Rx) :
+      ℓᵣ [S]⇉ᵣ∅ ∗ ((ℓᵣ [S]⇉ᵣ (TSDunop.app_cst d₀)) -∗ dwp Lm (Rm - 1) Lx (Rx - 1) pL ⟨.run ⟨pR, ctx⟩, []⟩ Φ )
+    ⊢ dwp Lm Rm Lx Rx pL ⟨.run ⟨.tsdunop (.val <| .uptr <| .sbufUnboundedIndex ℓᵣ) .cst (.val <| .data d₀) :: pR, ctx⟩, []⟩ Φ := sorry
 
 -- TSDunop add no frame
-theorem dwp_step_3 {s : LocalStore DataT} :
-      (ℓᵣ [S]⇉ᵣ s) ∗ ((ℓᵣ [S]⇉ᵣ (TSDunop.app_addZ s z)) -∗ dwp 1 0 7 5  pL ⟨.run ⟨pR, ctx⟩, []⟩ Φ )
-    ⊢ dwp 1 0 7 6 pL ⟨.run ⟨.tsdunop (.val <| .uptr <| .sbufUnboundedIndex ℓᵣ) .add (.val <| .int z) :: pR, ctx⟩, []⟩ Φ := sorry
+theorem dwp_step_3 {s : LocalStore DataT} (H : 0 < Rx) :
+      (ℓᵣ [S]⇉ᵣ s) ∗ ((ℓᵣ [S]⇉ᵣ (TSDunop.app_addZ s z)) -∗ dwp Lm (Rm - 1) Lx (Rx - 1)  pL ⟨.run ⟨pR, ctx⟩, []⟩ Φ )
+    ⊢ dwp Lm Rm Lx Rx pL ⟨.run ⟨.tsdunop (.val <| .uptr <| .sbufUnboundedIndex ℓᵣ) .add (.val <| .int z) :: pR, ctx⟩, []⟩ Φ := sorry
 
 -- TSDunop add no frame
-theorem dwp_step_4 (H : LocalContext.getv ctx "ℓ" = some v) :
-    (dwp 0 0 5 5 (DataT := DataT) ⟨.run (.tsdunop (.val v) .add (.var "z") :: pL, ctx), F⟩ pR Φ)
-  ⊢ (dwp 0 0 6 5 (DataT := DataT) ⟨.run (.tsdunop (.var "ℓ") .add (.var "z") :: pL, ctx), F⟩ pR Φ) := sorry
+theorem dwp_step_4 (H : LocalContext.getv ctx "ℓ" = some v) (H : 1 < Lx) :
+    (dwp (Lm - 1) Rm (Lx - 1) Rx (DataT := DataT) ⟨.run (.tsdunop (.val v) .add (.var "z") :: pL, ctx), F⟩ pR Φ)
+  ⊢ (dwp Lm Rm Lx Rx (DataT := DataT) ⟨.run (.tsdunop (.var "ℓ") .add (.var "z") :: pL, ctx), F⟩ pR Φ) := sorry
 
 -- TSDunop add no frame
-theorem dwp_step_5 (H : LocalContext.getv ctx "z" = some v) :
-    (dwp 0 0 4 5 (DataT := DataT) ⟨.run (.tsdunop (.val (.uptr <| .sbufUnboundedIndex ℓₗ)) .add (.val v) :: pL, ctx), F⟩ pR Φ)
-  ⊢ (dwp 0 0 5 5 (DataT := DataT) ⟨.run (.tsdunop (.val (.uptr <| .sbufUnboundedIndex ℓₗ)) .add (.var "z") :: pL, ctx), F⟩ pR Φ) := sorry
+theorem dwp_step_5 (H : LocalContext.getv ctx "z" = some v) (H : 0 < Lx) :
+    (dwp (Lm - 1) Rm (Lx - 1) Rx (DataT := DataT) ⟨.run (.tsdunop (.val (.uptr <| .sbufUnboundedIndex ℓₗ)) .add (.val v) :: pL, ctx), F⟩ pR Φ)
+  ⊢ (dwp Lm Rm Lx Rx (DataT := DataT) ⟨.run (.tsdunop (.val (.uptr <| .sbufUnboundedIndex ℓₗ)) .add (.var "z") :: pL, ctx), F⟩ pR Φ) := sorry
 
-theorem dwp_step_6 {s : LocalStore DataT} :
-    (ℓₗ [S]⇉ₗ s) ∗ ((ℓₗ [S]⇉ₗ (TSDunop.app_addZ s z)) -∗ dwp 0 0 3 5 (DataT := DataT) ⟨.run (pL, ctx), F⟩ pR Φ)
-  ⊢ (dwp 0 0 4 5 (DataT := DataT) ⟨.run (.tsdunop (.val (.uptr <| .sbufUnboundedIndex ℓₗ)) .add (.val <| .int z) :: pL, ctx), F⟩ pR Φ) := sorry
+theorem dwp_step_6 {s : LocalStore DataT} (Hx : 0 < Lx):
+    (ℓₗ [S]⇉ₗ s) ∗ ((ℓₗ [S]⇉ₗ (TSDunop.app_addZ s z)) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx (DataT := DataT) ⟨.run (pL, ctx), F⟩ pR Φ)
+  ⊢ (dwp Lm Rm Lx Rx (DataT := DataT) ⟨.run (.tsdunop (.val (.uptr <| .sbufUnboundedIndex ℓₗ)) .add (.val <| .int z) :: pL, ctx), F⟩ pR Φ) := sorry
 
 
 attribute [local simp] LocalContext.emp Iterators.emp Iterators.bind Iterator.peek
@@ -509,13 +509,13 @@ example : ⊢ wp (DataT := DataT) 7 (sL d₀) (sR d₀) (ΦPure (· = ·)) := by
   uwp_right EPLift.uwpR EPLift.tsdunop_loc <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ)
   iintro ⟨Hℓₗ, Hℓᵣ⟩
 
-  refine .trans ?_ (dwp_step_1 d₀)
+  refine .trans ?_ (dwp_step_1 d₀ (by omega))
   iintro ⟨Hℓₗ, Hℓᵣ⟩
   isplit l [Hℓₗ]
   · iexact Hℓₗ
   iintro Hℓₗ
 
-  refine .trans ?_ (dwp_step_2 d₀)
+  refine .trans ?_ (dwp_step_2 d₀ (by omega))
   iintro ⟨Hℓᵣ, Hℓₗ⟩
   isplit l [Hℓᵣ]
   · iexact Hℓᵣ
@@ -537,18 +537,18 @@ example : ⊢ wp (DataT := DataT) 7 (sL d₀) (sR d₀) (ΦPure (· = ·)) := by
   iintro ⟨Hℓₗ, Hℓᵣ⟩
   uwp_right EPLift.uwpR EPLift.tsdunop_loc <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ)
   iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_3 (s := TSDunop.app_cst d₀))
+  refine .trans ?_ (dwp_step_3 (s := TSDunop.app_cst d₀) (by omega))
   iintro ⟨Hℓₗ, Hℓᵣ⟩
   isplit l [Hℓᵣ]
   · iexact Hℓᵣ
   iintro Hℓᵣ
   uwp_left  SPure.uwpL (.loopContinue (v := .int 1)) (by simp)
   iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_4 (v := .uptr <| ChipIndex.sbufUnboundedIndex ℓₗ) (by simp))
+  refine .trans ?_ (dwp_step_4 (v := .uptr <| ChipIndex.sbufUnboundedIndex ℓₗ) (by simp) (by omega))
   iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_5 (v := .int 1) (by simp))
+  refine .trans ?_ (dwp_step_5 (v := .int 1) (by simp) (by omega))
   iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_6 (s := TSDunop.app_cst d₀) (ℓₗ := ℓₗ))
+  refine .trans ?_ (dwp_step_6 (s := TSDunop.app_cst d₀) (ℓₗ := ℓₗ) (by omega))
   iintro ⟨Hℓₗ, Hℓᵣ⟩
   isplit l [Hℓₗ]
   · iexact Hℓₗ
@@ -563,18 +563,18 @@ example : ⊢ wp (DataT := DataT) 7 (sL d₀) (sR d₀) (ΦPure (· = ·)) := by
   iintro ⟨Hℓₗ, Hℓᵣ⟩
   uwp_right EPLift.uwpR EPLift.tsdunop_loc <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ)
   iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_3 (s := TSDunop.app_addZ (TSDunop.app_cst d₀) 1))
+  refine .trans ?_ (dwp_step_3 (s := TSDunop.app_addZ (TSDunop.app_cst d₀) 1) (by omega))
   iintro ⟨Hℓᵣ, Hℓₗ⟩
   isplit l [Hℓᵣ]
   · iexact Hℓᵣ
   iintro Hℓᵣ
   uwp_left  SPure.uwpL (.loopContinue (v := .int 3)) (by simp)
   iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_4 (v := .uptr <| ChipIndex.sbufUnboundedIndex ℓₗ) (by simp))
+  refine .trans ?_ (dwp_step_4 (v := .uptr <| ChipIndex.sbufUnboundedIndex ℓₗ) (by simp) (by omega))
   iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_5 (v := .int 3) (by simp))
+  refine .trans ?_ (dwp_step_5 (v := .int 3) (by simp) (by omega))
   iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_6 (s := TSDunop.app_addZ (TSDunop.app_cst d₀) 1) (ℓₗ := ℓₗ))
+  refine .trans ?_ (dwp_step_6 (s := TSDunop.app_addZ (TSDunop.app_cst d₀) 1) (ℓₗ := ℓₗ) (by omega))
   iintro ⟨Hℓₗ, Hℓᵣ⟩
   isplit l [Hℓₗ]
   · iexact Hℓₗ
@@ -589,18 +589,18 @@ example : ⊢ wp (DataT := DataT) 7 (sL d₀) (sR d₀) (ΦPure (· = ·)) := by
   iintro ⟨Hℓₗ, Hℓᵣ⟩
   uwp_right EPLift.uwpR EPLift.tsdunop_loc <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ)
   iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_3 (s := TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3))
+  refine .trans ?_ (dwp_step_3 (s := TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) (by omega))
   iintro ⟨Hℓᵣ, Hℓₗ⟩
   isplit l [Hℓᵣ]
   · iexact Hℓᵣ
   iintro Hℓᵣ
   uwp_left  SPure.uwpL (.loopContinue (v := .int 5)) (by simp)
   iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_4 (v := .uptr <| ChipIndex.sbufUnboundedIndex ℓₗ) (by simp))
+  refine .trans ?_ (dwp_step_4 (v := .uptr <| ChipIndex.sbufUnboundedIndex ℓₗ) (by simp) (by omega))
   iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_5 (v := .int 5) (by simp))
+  refine .trans ?_ (dwp_step_5 (v := .int 5) (by simp) (by omega))
   iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_6 (s := TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) (ℓₗ := ℓₗ))
+  refine .trans ?_ (dwp_step_6 (s := TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) (ℓₗ := ℓₗ) (by omega))
   iintro ⟨Hℓₗ, Hℓᵣ⟩
   isplit l [Hℓₗ]
   · iexact Hℓₗ
@@ -615,18 +615,18 @@ example : ⊢ wp (DataT := DataT) 7 (sL d₀) (sR d₀) (ΦPure (· = ·)) := by
   iintro ⟨Hℓₗ, Hℓᵣ⟩
   uwp_right EPLift.uwpR EPLift.tsdunop_loc <| EPure.ewpR <| EPure.var (v := .uptr <| .sbufUnboundedIndex ℓᵣ)
   iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_3 (s := TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) 5))
+  refine .trans ?_ (dwp_step_3 (s := TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) 5) (by omega))
   iintro ⟨Hℓᵣ, Hℓₗ⟩
   isplit l [Hℓᵣ]
   · iexact Hℓᵣ
   iintro Hℓᵣ
   uwp_left  SPure.uwpL (.loopContinue (v := .int 7)) (by simp)
   iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_4 (v := .uptr <| ChipIndex.sbufUnboundedIndex ℓₗ) (by simp))
+  refine .trans ?_ (dwp_step_4 (v := .uptr <| ChipIndex.sbufUnboundedIndex ℓₗ) (by simp) (by omega))
   iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_5 (v := .int 7) (by simp))
+  refine .trans ?_ (dwp_step_5 (v := .int 7) (by simp) (by omega))
   iintro ⟨Hℓₗ, Hℓᵣ⟩
-  refine .trans ?_ (dwp_step_6 (s := TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) 5) (ℓₗ := ℓₗ))
+  refine .trans ?_ (dwp_step_6 (s := TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_addZ (TSDunop.app_cst d₀) 1) 3) 5) (ℓₗ := ℓₗ) (by omega))
   iintro ⟨Hℓₗ, Hℓᵣ⟩
   isplit l [Hℓₗ]
   · iexact Hℓₗ
