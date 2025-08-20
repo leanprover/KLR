@@ -30,7 +30,8 @@ theorem include_sep {P Q : @PROP DataT} (L : ⊢ P) (H : P ∗ Q ⊢ R) : Q ⊢ 
     · exact sep_mono L fun n x a a => a
   · exact H
 
-
+-- TODO: The "free" BiLoeb instance from BILaterContractive (which we have done for UPred)
+instance : BILoeb (PROP DataT) := sorry
 
 section algebra
 
@@ -70,7 +71,7 @@ theorem update_lemma_left (σₗ σᵣ : NML.State DataT) (HL : ChipMemory.get_s
 
 theorem update_lemma_right (σₗ σᵣ : NML.State DataT)
       (HL : ChipMemory.get_store σᵣ.memory (.sbufUnboundedIndex ℓ₂) = none):
-  state_interp σₗ σᵣ ⊢ |==> ((ChipMemory.freshSBUFStore σᵣ.1).1 ⇉ₗ∅ ∗ state_interp σₗ ⟨(ChipMemory.freshSBUFStore σᵣ.1).2⟩) :=
+  state_interp σₗ σᵣ ⊢ |==> ((ChipMemory.freshSBUFStore σᵣ.1).1 ⇉ᵣ∅ ∗ state_interp σₗ ⟨(ChipMemory.freshSBUFStore σᵣ.1).2⟩) :=
   sorry
 
 -- TODO: Port updates for heaps
@@ -168,9 +169,6 @@ theorem wpPureSync {Φ : Value DataT → Value DataT → @PROP DataT}
   -- Conclude
   exact sep_symm
 
--- TODO: The "free" BiLoeb instance from BILaterContractive (which we have done for UPred)
-instance : BILoeb (PROP DataT) := sorry
-
 theorem wpMono' {Φ : Value DataT → Value DataT → @PROP DataT} (P : PROP DataT) :
     ⊢ ∀ p1 p2, P ∗ wp k p1 p2 Φ -∗ wp k p1 p2 (iprop(Φ · · ∗ P)) := by
   refine BI.wand_entails (Entails.trans ?_ loeb)
@@ -218,14 +216,14 @@ theorem wpMono' {Φ : Value DataT → Value DataT → @PROP DataT} (P : PROP Dat
     isplit l [HP]; iexact HP
     iexact Hwp
 
-/-
+/- -- TODO: These rules are good, but need the definitions for simple frames to be refined.
 theorem wpMono {Φ : Value DataT → Value DataT → @PROP DataT} (P : PROP DataT) :
     P ∗ wp k p1 p2 Φ ⊢ wp k p1 p2 (iprop(Φ · · ∗ P)) := by
-  sorry
+  s orry
 
 theorem wpMonoPost {P Q : Value DataT → Value DataT → @PROP DataT} :
     (∀ vl vr, P vl vr -∗ Q vl vr) ∗ (wp k p1 p2 P) ⊢ wp k p1 p2 Q := by
-  sorry
+  s orry
 
 theorem wpFrameSync' {Φ : Value DataT → Value DataT → PROP DataT} (Hk : 1 ≤ k):
     ⊢ ∀ piL piR,
@@ -335,24 +333,21 @@ theorem wpFrameSync' {Φ : Value DataT → Value DataT → PROP DataT} (Hk : 1 �
     isplit r
     · ipure_intro
       -- TODO: Prove that executing inside a simple frame leaves a simple frame
-      sorry
+      s orry
     iexact IH
--/
 
-/-
 theorem wpFrameSync {Φ : Value DataT → Value DataT → PROP DataT} (Hk : 1 ≤ k)
     (HSL : NML.SimpleStackFrame piL) (HSR : NML.SimpleStackFrame piR) :
     wp k ⟨.run piL, []⟩ ⟨.run piR, []⟩
       (fun v1 v2 => iprop(⌜v1 = .kont⌝ ∗ ⌜v2 = .kont⌝ ∗ wp k ⟨.run poL, Fl⟩ ⟨.run poR, Fr⟩ Φ))
     ⊢ wp k ⟨.run piL, poL :: Fl⟩ ⟨.run piR, poR :: Fr⟩ Φ := by
-  sorry
+  s orry
+
 -/
 
 
 
-
 /-
-
 -- NB. Keeping this code in the repo as an example for writing basic proof rules.
 open ChipMemory in
 @[deprecated "Use dwpDesync/dwpResync instead. " (since:="2025/07/31") ]
@@ -558,11 +553,8 @@ open ChipIndex in
 /-- `dwp` for a single allocation step on the left. This is a little bit simpler
 than the `uwp` version since it quantifies over the generated location. -/
 theorem dwpAllocL (Hx : 1 < Lx := by omega) {loc : LocalContext DataT}:
-    (∀ ℓₗ, (ℓₗ [S]⇉ₗ∅) -∗
-         dwp (Lm - 2) Rm (Lx - 2) Rx ⟨.run ⟨p1', (loc.bindv x (.uptr <| sbufUnboundedIndex ℓₗ))⟩, F⟩ p2 Φ)
+    (∀ ℓₗ, (ℓₗ [S]⇉ₗ∅) -∗ dwp (Lm - 2) Rm (Lx - 2) Rx ⟨.run ⟨p1', (loc.bindv x (.uptr <| sbufUnboundedIndex ℓₗ))⟩, F⟩ p2 Φ)
     ⊢ dwp (DataT := DataT) Lm Rm Lx Rx ⟨.run ⟨(.assign (.some x) (.alloc Memory.sbuf) :: p1'), loc⟩, F⟩ p2 Φ := by
-  sorry
-  /-
   -- Unfold the dwp in the conclusion
   iintro Hdwp
   conv => rhs; unfold dwp
@@ -574,7 +566,7 @@ theorem dwpAllocL (Hx : 1 < Lx := by omega) {loc : LocalContext DataT}:
     rw [← AllocHeap.get_fresh (t := sl.memory.sbufUnbounded) (H := sl.memory.sbuf_wf)]
     rfl
   iintro ⟨Hdwp, Hupd⟩
-  -- Eliminate bupds from the hypotheses but not the conclusion, by duplicating the bupd in the conclusion.
+  -- Eliminate bupds from the hypotheses and the conclusion
   istop
   refine .trans ?_ bupd_idem.mp
   refine .trans bupd_frame_l (BIUpdate.mono ?_)
@@ -608,17 +600,16 @@ theorem dwpAllocL (Hx : 1 < Lx := by omega) {loc : LocalContext DataT}:
     have Htwo : 1 + 1 = 2 := by rfl
     rw [Nat.add_comm _ _, ← Htwo, Nat.add_assoc, StepN_add_iff]
     rename_i pi _ _ _ _ _
-    exists (ExecState.run ({ stmt := NML.Stmt.assign (some x) (.val (.uptr (ChipMemory.freshSBUFStore sl.memory).1)), env := locₗ } :: pi), State.mk (ChipMemory.freshSBUFStore sl.memory).2)
+    exists ⟨⟨ExecState.run (NML.Stmt.assign (some x) (.val (.uptr (ChipMemory.freshSBUFStore sl.memory).1)) :: pi, loc), F⟩, { memory := (ChipMemory.freshSBUFStore sl.memory).snd }⟩
     refine ⟨?_, ?_⟩
-    · exact stepN_1_iff_step.mpr <| .asnE <| .sbuf_alloc rfl
+    · apply stepN_1_iff_step.mpr; rfl
     rw [StepN_add_iff]
-    exists (ExecState.run (List.map (fun x_1 => NML.Task.bind DataT x_1 x (Value.uptr (sbufUnboundedIndex ℓ₁))) pi), { memory := (ChipMemory.freshSBUFStore sl.memory).snd })
+    exists ⟨⟨ExecState.run ⟨pi, loc.bindv x (Value.uptr (sbufUnboundedIndex ℓ₁))⟩, F⟩, { memory := (ChipMemory.freshSBUFStore sl.memory).snd }⟩
     refine ⟨?_, SL⟩
     apply stepN_1_iff_step.mpr
     rw [Hℓ₁]
-    exact step.asnV
+    simp [Step]
   · iexact H
--/
 
 open ChipIndex in
 /-- `dwp` for a single allocation step on the left. This is a little bit simpler
@@ -627,15 +618,6 @@ theorem dwpAllocR (Hx : 1 < Rx := by omega) {loc : LocalContext DataT}:
     (∀ ℓᵣ, (ℓᵣ [S]⇉ᵣ∅) -∗
          dwp Lm (Rm - 2) Lx (Rx - 2) p1 ⟨.run ⟨p2', loc.bindv x (.uptr <| sbufUnboundedIndex ℓᵣ)⟩, F⟩ Φ)
     ⊢ dwp (DataT := DataT) Lm Rm Lx Rx p1 ⟨.run ⟨(.assign (.some x) (.alloc Memory.sbuf) :: p2'), loc⟩, F⟩ Φ := by
-  sorry
-
-/-
-
-open ChipIndex in
-theorem dwpAllocR (Hx : 1 < Rx := by omega) :
-    ⊢ (∀ ℓᵣ, (ℓᵣ [S]⇉ₗ∅) -∗
-        dwp Lm (Rm - 2) Lx (Rx - 2) p1 (.run <| p2'.map (.bind DataT · x (.uptr <| sbufUnboundedIndex ℓᵣ))) Φ) -∗
-      dwp Lm Rm Lx Rx p1 (.run <| ⟨.assign (.some x) (.alloc Memory.sbuf), locₗ⟩ :: p2') Φ := by
   -- Unfold the dwp in the conclusion
   iintro Hdwp
   conv => rhs; unfold dwp
@@ -681,79 +663,17 @@ theorem dwpAllocR (Hx : 1 < Rx := by omega) :
     have Htwo : 1 + 1 = 2 := by rfl
     rw [Nat.add_comm _ _, ← Htwo, Nat.add_assoc, StepN_add_iff]
     rename_i pi _ _ _ _ _
-    exists (ExecState.run ({ stmt := NML.Stmt.assign (some x) (.val (.uptr (ChipMemory.freshSBUFStore sr.memory).1)), env := locₗ } :: pi), State.mk (ChipMemory.freshSBUFStore sr.memory).2)
+
+    exists ⟨⟨ExecState.run (NML.Stmt.assign (some x) (.val (.uptr (ChipMemory.freshSBUFStore sr.memory).1)) :: pi, loc), F⟩, { memory := (ChipMemory.freshSBUFStore sr.memory).snd }⟩
     refine ⟨?_, ?_⟩
-    · apply stepN_1_iff_step.mpr  ?_
-      apply step.asnE
-      apply ExprStep.sbuf_alloc
-      rfl
-    · rw [StepN_add_iff]
-      exists (ExecState.run (List.map (fun x_1 => NML.Task.bind DataT x_1 x (Value.uptr (sbufUnboundedIndex ℓ₂))) pi), { memory := (ChipMemory.freshSBUFStore sr.memory).snd })
-      refine ⟨?_, ?_⟩
-      · apply stepN_1_iff_step.mpr
-        rw [Hℓ₂]
-        exact step.asnV
-      · exact SR
+    · apply stepN_1_iff_step.mpr; rfl
+    rw [StepN_add_iff]
+    exists ⟨⟨ExecState.run ⟨pi, loc.bindv x (Value.uptr (sbufUnboundedIndex ℓ₂))⟩, F⟩, { memory := (ChipMemory.freshSBUFStore sr.memory).snd }⟩
+    refine ⟨?_, SR⟩
+    apply stepN_1_iff_step.mpr
+    rw [Hℓ₂]
+    simp [Step]
   · iexact H
--/
-
--- theorem dwpTDunopCstL (Hx : 0 < Lx := by omega) :
---      (ℓₗ [S]⇉ₗ∅) ∗ ((ℓₗ [S]⇉ₗ∅) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx ⟨.run ⟨p1', loc⟩, F⟩ p2 Φ)
---     ⊢ dwp (DataT := DataT) Lm Rm Lx Rx ⟨.run ⟨.tsdunop (.var <| L) .cst (.val <| .data d₀):: p1', loc⟩, F⟩ p2 Φ := by
---   sorry
-
-/-
-theorem dwpTDunopCstL (Hx : 0 < Lx := by omega) :
-     (ℓₗ [S]⇉ₗ∅) ∗ ((ℓₗ [S]⇉ₗ∅) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx ⟨.run ⟨p1', loc⟩, F⟩ p2 Φ)
-    ⊢ dwp (DataT := DataT) Lm Rm Lx Rx ⟨.run ⟨.tsdunop (.var <| L) .cst (.val <| .data d₀):: p1', loc⟩, F⟩ p2 Φ := by
-  sorry
--/
-
-
-
-
-/-
-theorem dwpSetpL {v : DataT} (Hx : 0 < Lx := by omega) :
-    ⊢ ((⟨i, x⟩ ↦ₗ some v) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx (.run <| p1) p2 Φ) -∗
-       (⟨i, x⟩ ↦ₗ mv) -∗
-       (dwp Lm Rm Lx Rx (.run <| ⟨.setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v), loc⟩ :: p1) p2 Φ) := by
-  -- Unfold the dwp in the conclusion
-  iintro Hdwp
-  conv => rhs; unfold dwp
-  iintro Hmv sl sr Hs
-  -- Add the update lemma to the context
-  refine include_sep (@update_set_lemma_left DataT ⟨i, x⟩ sl sr mv (some v)) ?_
-  iintro ⟨Hupd, ⟨Hdwp, Hmv⟩, Hσ⟩
-  ispecialize Hupd Hmv Hσ
-  -- Eliminate bupds from the hypotheses but not the conclusion, by duplicating the bupd in the conclusion.
-  istop
-  refine .trans ?_ bupd_idem.mp
-  refine .trans bupd_frame_l (BIUpdate.mono ?_)
-  iintro ⟨Hdwp, ⟨Hfrac, Hauth⟩⟩
-  -- Specialize, unfold, and specialize the dwp
-  ispecialize Hdwp Hfrac
-  unfold dwp
-  ispecialize Hdwp _ sr Hauth
-  -- Eliminate the bupd
-  refine .trans emp_sep.mp (BIUpdate.mono ?_)
-  -- Conclude using the current hypotheses
-  iintro ⟨p1', p2', HΦ, s1, s2, ⟨n1, n2, %Hstep⟩, H⟩
-  iexists p1'
-  iexists p2'
-  isplit l [HΦ]
-  · iexact HΦ
-  iexists s1
-  iexists s2
-  isplit r [H] <;> try iexact H
-  iexists (n1 + 1)
-  iexists n2
-  ipure_intro
-  obtain ⟨_, _, _, _, SL, _⟩ := Hstep
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
-  rw [Nat.add_comm _ _, StepN_add_iff]
-  refine ⟨_, ⟨stepN_1_iff_step.mpr step.setp, SL⟩⟩
--/
-
 
 -- TODO: Turn this into a uwp
 theorem dwpSetpL {v : DataT} (Hx : 0 < Lx := by omega) :
@@ -838,139 +758,6 @@ theorem dwpSetpR {v : DataT} (Hx : 0 < Rx := by omega) :
   refine ⟨_, ⟨stepN_1_iff_step.mpr ?_, SR⟩⟩
   simp only [Step, NML.step]
   congr
-
-
-
-
-
-
-
--- @[simp] abbrev PLoopExit (ctx : LocalContext DataT) (n : Nat) : Prop := ctx.peeki n = none
---
--- theorem SPure.loopExit : SPure (DataT := DataT)
---     ⟨.run ⟨(.loop x (.val <| .iref i) b :: ps), loc⟩, F⟩
---     ⟨.run ⟨ps, loc⟩, F⟩ (PLoopExit loc i) := by
---   intro s H; simp only [Step, step]; rw [H]
---
-
-
-
-
-
-/-
--- TODO: This is only used for an example right now, a less ad-hoc solution for
--- ExprSteps that use state is necessary.
-theorem dwpReadpRetL {v : DataT} (Hx : 0 < Lx := by omega) :
-    ⊢ ((⟨i, x⟩ ↦ₗ some v) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx (.run <| ⟨.ret (.val <| .data v), loc⟩ :: p1) p2 Φ) -∗
-      (⟨i, x⟩ ↦ₗ some v) -∗
-      (dwp Lm Rm Lx Rx (.run <| ⟨.ret <| .readp (.val <| .uptr i) (.val <| .iptr x), loc⟩ :: p1) p2 Φ) := by
-  iintro Hdwp Hfrag
-  conv => rhs; unfold dwp
-  iintro sl sr Hs
-  -- Use one of the validity lemmas to get...
-  istop
-  have Hstore : Store.get sl.memory (⟨i, x⟩ : ChipCellIndex) = some v := sorry
-  istart
-  iintro ⟨⟨Hdwp, Hfrag⟩, Hs⟩
-  unfold dwp
-  ispecialize Hdwp Hfrag _ _ Hs
-  refine .trans emp_sep.mp (BIUpdate.mono ?_)
-  iintro ⟨p1', p2', HΦ, s1, s2, ⟨n1, n2, %Hstep⟩, H⟩
-  iexists p1'
-  iexists p2'
-  isplit l [HΦ]
-  · iexact HΦ
-  iexists s1
-  iexists s2
-  isplit r [H] <;> try iexact H
-  iexists (n1 + 1)
-  iexists n2
-  ipure_intro
-  obtain ⟨_, _, _, _, SL, _⟩ := Hstep
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
-  rw [Nat.add_comm _ _, StepN_add_iff]
-  refine ⟨_, ⟨stepN_1_iff_step.mpr ?_, SL⟩⟩
-  apply NML.step.retE
-  exact ExprStep.readp Hstore
-
-
-theorem dwpReadpRetL' {v : DataT} (Hx : 0 < Lx := by omega) :
-    (⟨i, x⟩ ↦ₗ some v) ∗ ((⟨i, x⟩ ↦ₗ some v) -∗ dwp (Lm - 1) Rm (Lx - 1) Rx (.run <| ⟨.ret (.val <| .data v), loc⟩ :: p1) p2 Φ)
-    ⊢ (dwp Lm Rm Lx Rx (.run <| ⟨.ret <| .readp (.val <| .uptr i) (.val <| .iptr x), loc⟩ :: p1) p2 Φ) := by
-  apply BI.wand_entails
-  apply Entails.trans (dwpReadpRetL (v := v))
-  istart
-  iintro H1 ⟨H2, H3⟩
-  iapply H1 with [H3]
-  · iexact H3
-  · iexact H2
-
-/-- Proof rule for a completed loop on the left -/
-theorem dwpLoopDoneL (Hx : 1 < Lx := by omega) :
-    ⊢ dwp (Lm - 1) Rm (Lx - 1) Rx (.run p1') p2 Φ -∗
-      dwp Lm Rm Lx Rx (.run <| (⟨NML.Stmt.loop AffineIter s .none body, loc⟩ :: p1')) p2 Φ := by
-  iintro Hdwp
-  unfold dwp
-  iintro sl sr Hs
-  ispecialize Hdwp sl sr Hs
-  refine .trans emp_sep.mp (BIUpdate.mono ?_)
-  iintro ⟨p1', p2', HΦ, sl', sr', ⟨nl, nr, %Hstep⟩, Hσ⟩
-  iexists p1'
-  iexists p2'
-  isplit l [HΦ]
-  · iexact HΦ
-  iexists sl'
-  iexists sr'
-  isplit r [Hσ]
-  · iexists (nl + 1)
-    iexists nr
-    ipure_intro
-    obtain ⟨_, _, _, _, SL, _⟩ := Hstep
-    refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
-    rw [Nat.add_comm, StepN_add_iff]
-    refine ⟨_, ?_, SL⟩
-    refine stepN_1_iff_step.mpr ?_
-    exact step.loop_exit
-  · iexact Hσ
-
-/-- Proof rule for a completed loop on the left -/
-theorem dwpLoopDoneR (Hx : 1 < Rx := by omega) :
-    ⊢ dwp Lm (Rm - 1) Lx (Rx - 1) p1 (.run p2') Φ -∗
-      dwp Lm Rm Lx Rx p1 (.run <| (⟨NML.Stmt.loop AffineIter s .none body, loc⟩ :: p2')) Φ := by
-  iintro Hdwp
-  unfold dwp
-  iintro sl sr Hs
-  ispecialize Hdwp sl sr Hs
-  refine .trans emp_sep.mp (BIUpdate.mono ?_)
-  iintro ⟨p1', p2', HΦ, sl', sr', ⟨nl, nr, %Hstep⟩, Hσ⟩
-  iexists p1'
-  iexists p2'
-  isplit l [HΦ]
-  · iexact HΦ
-  iexists sl'
-  iexists sr'
-  isplit r [Hσ]
-  · iexists nl
-    iexists nr + 1
-    ipure_intro
-    obtain ⟨_, _, _, _, _, SR⟩ := Hstep
-    refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> try omega
-    rw [Nat.add_comm, StepN_add_iff]
-    refine ⟨_, ?_, SR⟩
-    refine stepN_1_iff_step.mpr ?_
-    exact step.loop_exit
-  · iexact Hσ
-
--/
-
--- /- Proposition over locals. Used for generalization.
--- LocProp should be solvable by `simp` for good automation. -/
--- def LocProp (DataT : Type _) := @NML.Locals DataT → Prop
--- @[simp] nonrec def LocProp.True : LocProp DataT := fun _ => True
--- @[simp] def LocProp.And (p1 p2 : LocProp DataT) : LocProp DataT := fun loc => p1 loc ∧ p2 loc
--- @[simp] def LocProp.Inc (s : String) (v : @Value DataT) : LocProp DataT := fun loc => loc s = some v
--- @[simp] def LocProp.Emp (s : String) : LocProp DataT := fun loc => loc s = none
-
 
 /-- Generalize a wp by a relationship on its locations -/
 theorem wp_gen_loc (R : LocalContext DataT → LocalContext DataT → Prop) :
@@ -1211,22 +998,6 @@ theorem dwpR (u : uwpR DataT) (Hx : u.steps ≤ Rx) :
       iintro Hσ
       iexact Hσ
 
-
--- @[simp] def
-  -- dwp 0 0 2 3
-  --   {
-  --     current :=
-  --       ExecState.run
-  --         ([Stmt.tsdunop (Expr.var "ℓ") TSDunop.cst (Expr.val (Value.data d₀)),
-  --             Stmt.loop "z" (Expr.val (Value.iref 1)) [Stmt.tsdunop (Expr.var "ℓ") TSDunop.add (Expr.var "z")],
-  --             NML.Stmt.ret ((Expr.var "ℓ").readp (Expr.val (Value.iptr (0, 0))))],
-  --           { loc := LocalContext.emp.loc.bind "ℓ" (Value.uptr (ChipIndex.sbufUnboundedIndex ℓₗ)),
-  --             it := LocalContext.emp.it.bind 1 (some (IteratorS.affineRange 1 2 3).toIterator) }),
-  --     context := [] }
-
--- .uwpL {p p' : Prog DataT} (H : SPure p p' H') (HH' : H') : uwpL DataT where
-
-
 def SPure.SymbolicL (sf sf' : StackFrame DataT) (H : ∀ F, SPure ⟨.run sf, F⟩ ⟨.run sf', F⟩ H') (HH' : H') :
     SymbolicL DataT sf iprop(True) iprop(True) (prog' := sf') 1 where
   spec := by
@@ -1255,38 +1026,6 @@ def SPure.SymbolicR (sf sf' : StackFrame DataT) (H : ∀ F, SPure ⟨.run sf, F�
       refine .trans ?_ sep_true.mpr
       iintro Hσ
       iexact Hσ
-
--- def SymbolicL.setp : SymbolicL DataT
---       ⟨.setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v) :: pl, ctx⟩
---       ⟨pl, ctx⟩
---       (⟨i, x⟩ ↦ₗ mv)
---       (⟨i, x⟩ ↦ₗ some v)
---       1 where
---   spec := sorry -- TODO: Copy over the below proof from dwp setpR
---
--- def SymbolicR.setp : SymbolicL DataT
---       ⟨.setp (.val <| .uptr i) (.val <| .iptr x) (.val <| .data v) :: pr, ctx⟩
---       ⟨pl, ctx⟩
---       (⟨i, x⟩ ↦ᵣ mv)
---       (⟨i, x⟩ ↦ᵣ some v)
---       1 where
---   spec := sorry -- TODO: Copy over the below proof from dwp setpR
-
--- def SymbolicL.tsdunop_add : SymbolicL DataT
---       ⟨.tsdunop (.val <| .uptr i) .add (.val <| .int z) :: pl, ctx⟩
---       ⟨pl, ctx⟩
---       (i ⇉ₗ (.some st))
---       (i ⇉ₗ (.some <| TSDunop.app_addZ st z))
---       1 where
---   spec := sorry -- TODO
---
--- def SymbolicL.tsdunop_cst : SymbolicL DataT
---       ⟨.tsdunop (.val <| .uptr i) .cst (.val <| .data d) :: pl, ctx⟩
---       ⟨pl, ctx⟩
---       (i ⇉ₗ mz)
---       (i ⇉ₗ (.some <| TSDunop.app_cst d))
---       1 where
---   spec := sorry -- TODO
 
 end uwp
 
