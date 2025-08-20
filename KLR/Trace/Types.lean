@@ -141,6 +141,7 @@ structure State where
   refs : Env := ∅
   body : Array Stmt := #[]
   warnings : Array (Pos × String) := #[]
+  messages : Array String := #[]
   tensorNames : Std.HashSet String := ∅
   sharedConstants : SharedConstants := #[]
 deriving Repr
@@ -299,6 +300,10 @@ def addId : Trace Unit := do
 def warn (msg : String) : Trace Unit :=
   modify fun s => { s with warnings := s.warnings.push (s.pos, msg) }
 
+-- emit a message
+def message (msg : String) : Trace Unit :=
+  modify fun s => { s with messages := s.messages.push msg }
+
 -- check and register a tensor name
 def checkTensorName (name : String) : Trace Unit := do
   let st <- get
@@ -326,10 +331,11 @@ def tensorName : Option String -> Trace String
 -- Run a `Trace` monad computation, and handle any generated warnings or errors.
 def tracer (g : List (Name × Term)) (m : Trace a) (showWarnings := true) : Err (String × a × SharedConstants) :=
   match m { globals := .ofList g } with
-  | .ok x s => .ok (addWarnings s "", x, s.sharedConstants)
+  | .ok x s => .ok (getMessages s ++ addWarnings s "", x, s.sharedConstants)
   | .error (.formatted str) s => .error (addWarnings s ("error:" ++ str))
   | .error (.located _ str) s => .error (addWarnings s ("error:" ++ str))
 where
+  getMessages s := "\n".intercalate s.messages.toList ++ "\n"
   addWarnings s str := if showWarnings then addWarn s str else str
   addWarn s str := s.warnings.foldl warnStr str
   warnStr str pw :=

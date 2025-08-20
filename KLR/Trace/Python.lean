@@ -41,6 +41,31 @@ nki builtin.op.invert (t : Term) := do
 nki builtin.python.slice (b : Int) (e : Int) (s : Int) := do
   return .slice b e s
 
+private partial def termStr : Term -> Trace String
+  | .module name => return name.toString
+  | .builtin name _ => return name.toString
+  | .ref name _ => do termStr (<- lookup name)
+  | .source f => return f.name
+  | .var name => do termStr (<- lookup name)
+  | .none => return "None"
+  | .bool true => return "True"
+  | .bool false => return "False"
+  | .int i => return toString i
+  | .float f => return toString f
+  | .string s => return s
+  | .access .. => return "<Access>"
+  | .tuple ts => return "("++ ",".intercalate (<- ts.mapM termStr) ++")"
+  | .list ts => return "["++ ",".intercalate (<- ts.toList.mapM termStr) ++"]"
+  | .ellipsis => return "..."
+  | .slice .. => return "<slice>"
+  | .pointer .. => return "<ptr>"
+  | .mgrid => return "<mgrid>"
+  | .mgItem .. => return "<mgrid_item>"
+
+nki builtin.python.print (t : Term) := do
+  message (<- termStr t)
+  return .none
+
 nki builtin.python.len (t : Term) := do
   match t with
   | .tuple l => return .int l.length
