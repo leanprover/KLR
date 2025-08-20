@@ -24,7 +24,7 @@ keywords = ["trainium", "tpu", "pallas", "triton", "gpu"]
 dependencies = [
   "numpy",
 ]
-requires-python = ">= 3.9, < 3.13"
+requires-python = ">= 3.9"
 
 [project.urls]
 Repository = "https://github.com/leanprover/KLR"
