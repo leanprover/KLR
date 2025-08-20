@@ -61,6 +61,7 @@ private partial def termStr : Term -> Trace String
   | .pointer .. => return "<ptr>"
   | .mgrid => return "<mgrid>"
   | .mgItem .. => return "<mgrid_item>"
+  | .tensor .. => return "<tensor>"
 
 nki builtin.python.print (t : Term) := do
   message (<- termStr t)

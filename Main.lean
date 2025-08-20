@@ -203,7 +203,7 @@ def info (p : Parsed) : IO UInt32 := do
 def compile (p : Parsed) : IO UInt32 := do
   let debug := p.hasFlag "debug"
   let kernel : KLR.Python.Kernel <- gatherTmp p
-  let kernel <- compilePython kernel
+  let kernel <- compilePython kernel none
   IO.println "OK."
   if debug then
     IO.println s!"Kernel:\n {repr kernel}"
@@ -214,10 +214,20 @@ def typecheck (p : Parsed) : IO UInt32 := do
   IO.println "unimplemented"
   return 1
 
+private def outfolder (outfile : Option Parsed.Flag) : IO (Option String) := do
+  match outfile with
+  | some p =>
+    let path := FilePath.mk (p.as! String)
+    if path.parent == none then return "."
+    if path.parent == FilePath.mk "." then return "."
+    return path.parent.map toString
+  | none => return none
+
 def trace (p : Parsed) : IO UInt32 := do
   let file := p.positionalArg! "file" |>.as! String
   let kernel <- KLR.File.readKLRFile file
-  let kernel <- compilePython kernel
+  let outDir := <- outfolder (p.flag? "outfile")
+  let kernel <- compilePython kernel outDir
   match p.flag? "outfile" with
   | some arg =>
     let f := FilePath.mk (arg.as! String)
