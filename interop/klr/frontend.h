@@ -19,8 +19,11 @@ Authors: Paul Govereau, Sean McLaughlin
 #define KLR_VERSION 1
 
 // The place where we live
-//#define MODULE_ROOT "neuronxcc.nki"
-#define MODULE_ROOT ""
+#ifdef IS_NKI_REPO
+#define MODULE_ROOT "nki._klr"
+#else
+#define MODULE_ROOT "klr"
+#endif
 
 // The front-end is accessed through the class Kernel; one instance
 // per kernel. Each instance has a `struct kernel` on the C side.
@@ -73,3 +76,19 @@ struct DesResult deserialize_python(const u8 *buf, u64 size);
 
 struct SerResult serialize_nki(const char *file, struct NKI_Kernel *k);
 struct DesResult deserialize_nki(const u8 *buf, u64 size);
+
+#ifdef IS_NKI_REPO
+
+// klr_ffi.c
+
+// Initialize Lean and the KLR module.
+// On failure, returns false with a Python exception set.
+bool initialize_KLR_lean_ffi(void);
+
+PyObject* klr_trace(PyObject *self, PyObject *args);
+
+// Sanity tests
+PyObject* lean_ffi_hello(PyObject *self, PyObject *args);
+PyObject* lean_ffi_fail(PyObject *self, PyObject *args);
+
+#endif // IS_NKI_REPO

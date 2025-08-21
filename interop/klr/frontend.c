@@ -195,6 +195,11 @@ static PyTypeObject KernelType = {
 
 static PyMethodDef methods[] = {
   {"version", version, METH_NOARGS, "Return NKI Version"},
+#ifdef IS_NKI_REPO
+  {"_klr_trace", klr_trace, METH_VARARGS, "Trace Python to KLR"},
+  {"_lean_ffi_hello", lean_ffi_hello, METH_NOARGS, "Sanity check of Lean FFI"},
+  {"_lean_ffi_fail", lean_ffi_fail, METH_NOARGS, "Sanity check of Lean FFI error handling"},
+#endif
   {NULL, NULL, 0, NULL}
 };
 
@@ -211,34 +216,47 @@ static struct PyModuleDef module = {
 };
 
 PyMODINIT_FUNC PyInit_frontend(void) {
-  if (PyType_Ready(&KernelType) < 0)
-    return NULL;
+  // goto error if anything goes wrong
+  PyObject *m = NULL;
 
-  PyObject *m = PyModule_Create(&module);
-  if (!m)
-    return NULL;
+  if (PyType_Ready(&KernelType) < 0) {
+    goto error;
+  }
+
+  m = PyModule_Create(&module); // New reference
+  if (!m) {
+    goto error;
+  }
 
   // This really can't fail, CPython will assert in debug builds
   // and segfault in production builds if dict is NULL.
-  PyObject *dict = PyModule_GetDict(m);
+  PyObject *dict = PyModule_GetDict(m); // Borrowed reference
   if (!dict) {
-    PyErr_SetString(PyExc_SystemError, "frontend module has no dictionary");
-    return NULL;
+    goto error;
   }
 
   // Add Kernel object, do not decrement reference
   if (PyDict_SetItemString(dict, "Kernel", (PyObject*) &KernelType) < 0) {
-    Py_DECREF(m);
-    return NULL;
+    goto error;
   }
 
   // Add python utility functions
-  PyObject *res = PyRun_String(utils, Py_file_input, dict, dict);
-  Py_DECREF(dict);
-  if (!res) {
-    Py_DECREF(m);
-    return NULL;
-  }
+  PyObject *res = PyRun_String(utils, Py_file_input, dict, dict); // New reference
+  if (!res)
+    goto error;
   Py_DECREF(res);
+
+#ifdef IS_NKI_REPO
+  // Initialize Lean stuff
+  if (initialize_KLR_lean_ffi() == false) {
+    goto error;
+  }
+#endif
+
+  // Success!
   return m;
+
+error:
+  Py_XDECREF(m);
+  return NULL;
 }
