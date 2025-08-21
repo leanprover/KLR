@@ -506,29 +506,19 @@ nki builtin.access.reshape
   let t <- TensorName.make name dtype shape tensor.address
   return .access (.simple t)
 
--- TODO: do we need to handle nesting here?
 nki builtin.access.ap
     (self : Access)
-    (par_pattern : List (Int × Nat))
-    (free_pattern : List (Int × Nat))
-    (par_offset : Nat := 0)
-    (free_offset : Nat := 0) := do
+    (pattern : List (Int × Nat))
+    (offset : Nat := 0) := do
   match self with
   | .simple t =>
-      let parNum <- match par_pattern with
-        | [] => throw "no partition pattern specified"
-        | [(1, count)] => pure count
-        | [(_,_)] => throw "partition step size must be 1"
-        | _ => throw "partition pattern must be 1 dimensional"
-      let freePattern := free_pattern.map fun (s,c) => Core.APPair.mk s c
-      let ap : Core.AccessPattern := {
+      let pattern := pattern.map fun (s,c) => Core.APPair.mk s c
+      let ap : Core.BirAccessPattern := {
         tensor := t
-        parNum
-        freePattern
-        parOffset := par_offset
-        freeOffset := free_offset
+        offset
+        pattern
       }
-      return .access (.pattern ap)
+      return .access (.birPattern ap)
   | _ => throw "cannot specify an access pattern on an already indexed tensor"
 
 /-
