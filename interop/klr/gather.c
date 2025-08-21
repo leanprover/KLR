@@ -1054,7 +1054,7 @@ static struct Python_Stmt_List* stmts(struct state *st, asdl_stmt_seq *python) {
 
 static PyObject* get_util(const char *name) {
   PyObject *f = NULL;
-  PyObject *fe = PyUnicode_FromString("klr.frontend");
+  PyObject *fe = PyUnicode_FromString(MODULE_ROOT ".frontend");
   if (fe) {
     PyObject *m = PyImport_GetModule(fe);
     if (m) {
