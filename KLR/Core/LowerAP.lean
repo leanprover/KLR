@@ -25,6 +25,10 @@ namespace KLR.Core
 Note: This lowering does not work in all cases, for example, if the Access in an AccessBasic whose
 Par dimension takes steps that are not equal to 1. Returns a None in this case. -/
 def Access.lowerAccessPattern (a : Access) : KLR.Err BirAccessPattern := do
+  -- Don't violate invariants of proved code
+  if let .birPattern b := a then
+    return b
+
   -- The layout of a tensor in memory
   -- Note that because accesses are values, we have are forced to assume that all tensors are
   -- laid out in row major form.
