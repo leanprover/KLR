@@ -19,6 +19,16 @@ import KLR
 import KLR.Compile
 import TensorLib.Npy
 import TensorLib.Tensor
+import SHerLOC
+import KLR.TGR.Basic
+import SHerLOC.Analysis.Graph
+import KLR.K.K3.CompileK3
+import KLR.K.K2.CompileK2
+import KLR.K.K2.AST
+import KLR.K.K3.DotK3
+import KLR.K.K1.CompileK1
+import KLR.K.K1.AST
+import KLR.K.K1.InterpK1
 
 open Cli
 open KLR
@@ -267,6 +277,123 @@ def evalKLR (p : Parsed) : IO UInt32 := do
     TensorLib.Npy.Ndarray.save! arr filename
   return 0
 
+def hloToTGR (p : Parsed) : IO UInt32 := do
+  let file := p.positionalArg! "file" |>.as! String
+  let s <- IO.FS.readFile file
+  match StableHLO.Parsing.parse s with
+  | .ok (hlo, _) =>
+    let tgr := KLR.TGR.Compile.compile hlo
+    match tgr with
+    | (.ok _, s) => do
+      let tgr := s.program
+      IO.println (toString tgr)
+      let headFunction := s.program.functions.head!
+      -- print graph of function
+      let g := KLR.TGR.Graph.graph headFunction |> toString
+      writeContent "dot" p g
+      -- print TGR program as Python program
+      let py := KLR.TGR.Py.compile tgr
+      writeContent "py" p py
+      return 0
+    | (.error e, s) => do
+      IO.eprintln s!"Error compiling HLO to TGR: {e}"
+      IO.eprintln s!"{repr s}"
+      return 1
+  | .error e =>
+    IO.eprintln e
+    return 1
+
+def hloToKLR (p : Parsed) : IO UInt32 := do
+  let file := p.positionalArg! "file" |>.as! String
+  let s <- IO.FS.readFile file
+  match StableHLO.Parsing.parse s with
+  | .ok (hlo, _) =>
+    let tgr := KLR.TGR.Compile.compile hlo
+    match tgr with
+    | (.ok _, s) => do
+      --IO.println (toString s.program)
+      let headFunction := s.program.functions.head!
+      writeContent "tgr.txt" p (toString s.program)
+      writeContent "tgr.dot" p s!"{KLR.TGR.Graph.graph headFunction}"
+      writeContent "py" p (KLR.TGR.Py.compile s.program)
+      -- compile TGR to K3
+      let klr3 := KLR.K.K3.compile headFunction
+      match klr3 with
+      | (.ok func, _) =>
+        writeContent "k3.txt" p s!"{func}"
+        writeContent "k3.dot" p (KLR.K.K3.graph func |> toString)
+        -- compile K3 to K2
+        dbg_trace s!"Compiling K3 to K2"
+        let klr2 := KLR.K.K2.compile func
+        match klr2 with
+        | (.ok func, _) =>
+          writeContent "k2.txt" p s!"{KLR.K.K2.formatProgramK2 func}"
+          -- compile K2 to K1
+          dbg_trace s!"Compiling K2 to K1"
+          match KLR.K.K1.compile func with
+          | (.ok func, _) =>
+            writeContent "k1.txt" p s!"{KLR.K.K1.formatProgramK1 func}"
+            -- interpret K1
+            match KLR.K.K1.Interp.interp func with
+            | (.ok (), ctx) =>
+              writeContent "k1.result" p s!"{ctx}"
+            | (.error e, ctx) =>
+              IO.eprintln s!"Error interpreting K1: {e}"
+              writeContent "k1.err" p s!"{ctx}"
+            return 1
+          | (.error e, ctx) =>
+            IO.eprintln s!"Error compiling K2 to K1: {e}"
+            IO.eprintln s!"{repr ctx}"
+            return 0
+        | (.error e, ctx) =>
+          IO.eprintln s!"Error compiling HLO to K2: {e}"
+          IO.eprintln s!"{repr ctx}"
+          return 0
+      | (.error e, ctx) =>
+        IO.eprintln s!"Error compiling HLO to K3: {e}"
+        IO.eprintln s!"{repr ctx}"
+        return 0
+    | (.error e, s) => do
+      IO.eprintln s!"Error compiling HLO to TGR: {e}"
+      IO.eprintln s!"{repr s}"
+      return 1
+  | .error e =>
+    IO.eprintln e
+    return 1
+
+def unwrap {T Q : Type} [Inhabited T] [Inhabited Q] (x : Except String T × Q) : T × Q:= match x with
+  | (.ok a, s)  => (a, s)
+  | (.error e, _) => panic! s!"Error: {e}"
+
+def compileHlo (p : Parsed) : IO UInt32 := do
+  let file := p.positionalArg! "file" |>.as! String
+  let s <- IO.FS.readFile file
+  match StableHLO.Parsing.parse s with
+  | .ok (hlo, _) =>
+    -- compile HLO to TGR
+    let (_, s) := KLR.TGR.Compile.compile hlo |> unwrap
+    let func := s.program.functions.head!
+    if p.hasFlag "intermediates" then
+      writeContent "tgr.txt" p (toString s.program)
+    -- compile TGR to K3
+    dbg_trace s!"Compiling TGR to K3"
+    let (func, _) := KLR.K.K3.compile func |> unwrap
+    if p.hasFlag "intermediates" then
+      writeContent "k3.txt" p s!"{func}"
+    -- compile K3 to K2
+    dbg_trace s!"Compiling K3 to K2"
+    let (func, _) := KLR.K.K2.compile func |> unwrap
+    if p.hasFlag "intermediates" then
+      writeContent "k2.txt" p s!"{KLR.K.K2.formatProgramK2 func}"
+    -- compile K2 to K1
+    dbg_trace s!"Compiling K2 to K1"
+    let (func, _) := KLR.K.K1.compile func |> unwrap
+    writeContent "k1.txt" p s!"{KLR.K.K1.formatProgramK1 func}"
+    return 0
+  | .error e =>
+    IO.eprintln s!"Error parsing HLO: {e}"
+    return 1
+
 -- -- Command configuration
 
 def gatherCmd := `[Cli|
@@ -341,6 +468,16 @@ def evalKLRCmd := `[Cli|
     kernelFunctionName : String;  "Name of the kernel function"
     ...inputFiles : String;       ".npy files corresponding to the inputs to the kernel, in positional order"
 ]
+def hloToKLRCmd := `[Cli|
+  "hlo-to-klr" VIA hloToKLR;
+  "Compile HLO graph to KLR graph"
+
+  FLAGS:
+    o, outfile : String; "Name of output file"
+    i, intermediates : Unit; "Write intermediate files"
+  ARGS:
+    file : String;      "File of HLO graph in .mlir format"
+]
 
 def klrCmd : Cmd := `[Cli|
   klr NOOP; ["0.0.12"]
@@ -351,6 +488,8 @@ def klrCmd : Cmd := `[Cli|
     evalKLRCmd;
     gatherCmd;
     infoCmd;
+    typecheckCmd;
+    hloToKLRCmd;
     traceCmd
 ]
 

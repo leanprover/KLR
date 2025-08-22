@@ -40,6 +40,13 @@ private def hexCharToUInt8 (high : Char) (low : Char) : Option UInt8 := do
   let lowNibble ← hexCharToNibble low
   return (highNibble <<< 4) + lowNibble
 
+def hexCharsToBitVecBE (c0 c1 c2 c3 c4 c5 c6 c7: Char) : Option (BitVec 32) := do
+  let b0 := (← hexCharToUInt8 c0 c1).toBitVec
+  let b1 := (← hexCharToUInt8 c2 c3).toBitVec
+  let b2 := (← hexCharToUInt8 c4 c5).toBitVec
+  let b3 := (← hexCharToUInt8 c6 c7).toBitVec
+  pure (b0 ++ b1 ++ b2 ++ b3)
+
 def decode (s : String) : Option ByteArray := Id.run do
   let rec split : List Char -> List (Char × Char)
   | [] | [_] => []

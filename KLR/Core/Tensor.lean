@@ -58,7 +58,24 @@ inductive Dtype where
     | .int8 | .int16 | .int64 | .int32
     | .uint8 | .uint16 | .uint32 | .uint64 => true
     | _ => false
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+  deriving BEq, Inhabited, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+instance : ToString Dtype where
+  toString
+    | .bfloat16 => "bfloat16"
+    | .float8e3 => "float8e3"
+    | .float8e4 => "float8e4"
+    | .float8e5 => "float8e5"
+    | .float16 => "f16"
+    | .float32 => "f32"
+    | .float32r => "float32r"
+    | .int8 => "i8"
+    | .int16 => "i16"
+    | .int32 => "i32"
+    | .int64 => "i64"
+    | .uint8 => "u8"
+    | .uint16 => "u16"
+    | .uint32 => "u32"
+    | .uint64 => "u64"
 
 /-
 A tensor shape is a list of the sizes of each dimension of the tensor. By
@@ -373,7 +390,10 @@ which is equivalent to the basic index [0:2,0:3] for a standard tensor layout.
 structure APPair where
   step : Int := 1
   num : Nat := 1
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+  deriving Inhabited, BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+def accessSize (pairs : List APPair) : Nat :=
+  pairs.foldl (fun acc p => acc * p.num) 1
 
 /--
 Complete access patterns
@@ -525,7 +545,6 @@ structure TensorHbm where
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 namespace TensorHbm
-
 def fromAccessPattern (ap : AccessPattern) : Err TensorHbm := do
   let parOffset <-
     match ap.tensor.address.parOffset with
@@ -543,6 +562,18 @@ def fromAccessPattern (ap : AccessPattern) : Err TensorHbm := do
    }
 
 end TensorHbm
+
+@[serde tag = 1010]
+inductive SramMemory where
+  | sbuf
+  | psum
+  | unknown
+deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+instance : ToString SramMemory where
+  toString
+    | .sbuf => "Sbuf"
+    | .psum => "Psum"
+    | .unknown => "Unknown"
 
 /-
 A structure representing the layout of a tensor in SRam. This maps very closely
@@ -567,9 +598,14 @@ parQuadrant─►96│    ┌───────┐│        │
 structure TensorSram where
   name : String
   dtype : Dtype
+  memory : SramMemory
+  -- The size of this tensor in the parallel dimension
   parNum : Nat
+  -- The length and stride of each dimension besides the first
   freePattern: List APPair
+  -- Which parallel dimension channel this tensor starts at
   parOffset : Nat := 0
+  -- The offset in the partition channel of this tensor
   freeOffset : Nat := 0
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
@@ -587,6 +623,7 @@ def fromAccessPattern (ap : AccessPattern) : Err TensorSram := do
   return {
      name := ap.tensor.name
      dtype := ap.tensor.dtype
+     memory := .unknown,
      parNum := ap.parNum
      freePattern := ap.freePattern
      parOffset
