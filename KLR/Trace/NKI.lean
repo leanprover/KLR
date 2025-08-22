@@ -264,7 +264,13 @@ partial def stmt' (s' : Stmt') : Trace Result := do
       if <- (<- expr e).isFalse then
         throw "assertion failed"
       return .next
-  | .ret e => return .ret (<- expr e)
+  | .ret e =>
+    let res <- expr e
+    match res with
+      | .ref name _ =>
+        extend_global name $ <- lookupName name
+      | _ => .ok ()
+    return .ret res
   | .declare .. => return .next
   | .letM (.var n) _ e => extend n (<- expr e); return .next
   | .letM (.tuple ..) .. => throw "internal error: complex pattern in trace"
@@ -338,6 +344,15 @@ private def processArgs (args : List Arg) : List Value × List Keyword := Id.run
     | _ => kws := .mk name e :: kws
   return (inputs.reverse, kws.reverse)
 
+
+partial def lowerRes (t: Term) : Trace (List Core.Access) := do
+  match t with
+  | .access a => return [a]
+  | .tuple ts => return <- ts.flatMapM lowerRes
+  | .list l => return <- l.toList.flatMapM lowerRes
+  | .ref r _ => return <- lowerRes (<- lookupName r)
+  | _ => return [] -- all others invariants should not contain tensors
+
 def traceKernel (k : Kernel) : Trace Core.Kernel := do
   addId
   globals k
@@ -348,7 +363,7 @@ def traceKernel (k : Kernel) : Trace Core.Kernel := do
       let res <- fnCall (.source f) [] args
       let inputs <- inputs.mapM value
       let inputs := Core.tensors inputs
-      let outputs := Core.tensors res
+      let outputs := Core.tensors $ <- lowerRes res
       return {
         name := k.entry
         inputs := inputs
