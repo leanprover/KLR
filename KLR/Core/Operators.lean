@@ -367,6 +367,7 @@ structure DmaTranspose where
   src : TensorRef
   axes : TransposeOps
   dtype : Option Dtype
+  dgeMode : Nat
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- Transpose Instruction

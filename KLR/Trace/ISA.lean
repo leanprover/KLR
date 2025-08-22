@@ -91,8 +91,8 @@ def getTransposeOps(op: Option (List Int)) : Trace TransposeOps :=
 nki builtin.isa.nc_matmul
  (dst : Access)
  (stationary : Access)
- -- kwargs
  (moving : Access)
+ -- kwargs
  (is_stationary_onezero : Bool := false)
  (is_moving_zero : Bool := false)
  (is_transpose : Bool := false)
@@ -422,9 +422,9 @@ nki builtin.isa.tensor_copy
     return .none
 
 nki builtin.isa.tensor_copy_dynamic_src
+ -- kwargs
  (dst : Access)
  (src : Access)
- -- kwargs
  (mask : Option Immediate := none)
  (dtype : Option Dtype := none)
  (engine : Engine := Engine.unassigned)
@@ -456,8 +456,8 @@ nki builtin.isa.tensor_copy_dynamic_dst
     return .none
 
 nki builtin.isa.tensor_copy_predicated
- (dst : Access)
  -- kwargs
+ (dst : Access)
  (src : Access)
  (predicate : Access)
  (mask : Option Immediate := none)
@@ -493,6 +493,7 @@ nki builtin.isa.iota
  (dst: Access)
  (pattern : List (Int × Nat))
  (offset : Nat := 0)
+ -- kwargs
  (name : Option String := none) := do
     let pairs := pattern.map fun (i, n) => APPair.mk i n
     Trace.add_stmt $ .oper (.iota {
@@ -546,12 +547,12 @@ nki builtin.isa.affine_select
 
 nki builtin.isa.range_select
  (dst: Access)
+ -- kwargs
  (on_true_tile : Access)
  (comp_op0 : AluOp)
  (comp_op1 : AluOp)
  (bound0 : Access)
  (bound1 : Access)
- -- kwargs
  (reduce_cmd : AccumCmd := AccumCmd.Idle)
  (reduce_res : Option Access := none)
  (reduce_op : Option AluOp := some .max)
@@ -649,7 +650,7 @@ nki builtin.isa.dma_copy
  -- kwargs
  (mask: Option Immediate := none)
  (dst_rmw_op : Option AluOp := none)
- (mode : Nat := 0)
+ (oob_mode : Nat := 0)
  (dge_mode : Nat := 0)
  (name : Option String := none) := do
   if mask.isSome then throw maskNotSupported
@@ -658,12 +659,12 @@ nki builtin.isa.dma_copy
     | some rmw_op => match rmw_op with
       | .add => .ok .add
       | _ => throw "Unsupported operation"
-  if mode > 1 then throw "unsupported oob mode"
+  if oob_mode > 1 then throw "unsupported oob mode"
   Trace.add_stmt $ .oper (.ncDmaCopy {
       dst := .abstract dst,
       src := .abstract src,
       compute_op := op,
-      oobMode := match mode with
+      oobMode := match oob_mode with
         | 0 => .enable
         | 1 => .disable
         | _ => .disable,
@@ -678,6 +679,7 @@ nki builtin.isa.dma_transpose
   (axes : Option (List Int) := none)
   (mask : Option Immediate := none)
   (dtype : Option Dtype := none)
+  (dge_mode : Nat := 0)
   (name : Option String := none) := do
   if mask.isSome then throw maskNotSupported
   Trace.add_stmt $ .oper (.dmaTranspose {
@@ -685,6 +687,7 @@ nki builtin.isa.dma_transpose
     src := .abstract src,
     axes := <- getTransposeOps axes,
     dtype := dtype
+    dgeMode := dge_mode
   }) name
   return .none
 
@@ -745,8 +748,8 @@ nki builtin.isa.nc_match_replace8
 
 
 nki builtin.isa.nc_stream_shuffle
- (src : Access)
  (dst : Access)
+ (src : Access)
  (shuffle_mask : List Immediate)
  -- kwargs
  (dtype: Option Dtype := none)
@@ -792,8 +795,8 @@ nki builtin.isa.select_reduce
 
 nki builtin.isa.sequence_bounds
   (dst : Access)
-  (segment_ids : Access)
   -- kwargs
+  (segment_ids : Access)
   (dtype : Option Dtype := none)
   (name : Option String := none) := do
     Trace.add_stmt $ .oper (.sequenceBounds {
