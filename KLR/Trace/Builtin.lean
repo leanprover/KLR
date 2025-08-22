@@ -58,12 +58,19 @@ This function is used by the nki macro (see below) to convert
 Python arguments to Lean arguments.
 -/
 
-partial def fromNKIOpt [FromNKI a] (opt : Option a) (t : Term) : Trace a := do
-  if let .ref name _ := t then
-    fromNKIOpt opt (<- lookup name)
-  else match opt with
+partial def resolveRefs (t : Term) : Trace Term :=
+  match t with
+  | .ref name _ => do resolveRefs (<- lookup name)
+  | .builtin name (some t) => return .builtin name (some (<- resolveRefs t))
+  | .tuple l => return .tuple (<- l.mapM resolveRefs)
+  | .list l => return .list (<- l.mapM resolveRefs)
+  | _ => return t
+
+def fromNKIOpt [FromNKI a] (opt : Option a) (t : Term) : Trace a := do
+  let t <- resolveRefs t
+  match opt with
   | .none => fromNKI? t
-  | .some a => return (fromNKI a t)
+  | .some a => return fromNKI a t
 
 def getArg (a : Type) [FromNKI a]
            (args : List Term)
