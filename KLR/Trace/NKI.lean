@@ -234,7 +234,7 @@ partial def mutate (x e : Expr) : Trace Unit := do
           extend name (.list (a.set i e h))
           return ()
         else throw "index out of range"
-    throw "mutation not supported"
+    throw "Updating a tile with lvalue assignment is not allowed"
   | _ => throw "mutation not supported"
 
 partial def iterator (i : Iterator) : Trace (List Term) := do
