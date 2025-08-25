@@ -6,8 +6,9 @@
 lean_object* initialize_KLR_Compile(uint8_t builtin, lean_object* w);
 void lean_initialize_runtime_module();
 lean_object* lean_io_error_to_string(lean_object*);
-lean_object* klr_frontend_fail(lean_object*);
 lean_object* klr_frontend_hello(lean_object*);
+lean_object* klr_frontend_panic(lean_object*);
+lean_object* klr_frontend_throw(lean_object*);
 lean_object* klr_frontend_trace(lean_object*, lean_object*, lean_object*);
 
 // Given a lean_io_result, sets a Python exception.
@@ -35,14 +36,25 @@ static void set_pyerr_from_lean_io_result(lean_obj_arg l_io_result) {
   set_pyerr_from_lean_io_result_wprefix(l_io_result, NULL/*err_msg_prefix*/);
 }
 
+// Given an "IO Uint32" (lean_io_result with uint32 value), return a new PyLongObject.
+// If the lean_io_result is error, sets a Python exception and returns NULL.
+// Steals the reference to the lean_io_result.
+static PyObject *pylong_from_uint32_lean_io_result(lean_obj_arg l_io_result) {
+  if (!lean_io_result_is_ok(l_io_result)) {
+    set_pyerr_from_lean_io_result(l_io_result); // steals reference to arg
+    return NULL;
+  }
+
+  uint32_t u32 = lean_unbox_uint32(lean_io_result_get_value(l_io_result));
+  lean_dec_ref(l_io_result);
+  return PyLong_FromUnsignedLong(u32);
+}
+
+
 // Initialize Lean and the KLR module.
 // Returns true if successful.
 // Otherwise returns false and sets a Python exception
 bool initialize_KLR_lean_ffi() {
-  // Abort if Lean panics.
-  // Better to be dead than living in a world of undefined behavior.
-  setenv("LEAN_ABORT_ON_PANIC", "1", 1);
-
   // See:
   // https://lean-lang.org/doc/reference/4.22.0-rc2//Run-Time-Code/Foreign-Function-Interface/
   // https://github.com/leanprover/lean4/blob/master/src/lake/examples/reverse-ffi/main.c
@@ -65,27 +77,23 @@ PyObject* lean_ffi_hello(PyObject *self, PyObject *args) {
   (void)args;
 
   lean_obj_res l_io_result = klr_frontend_hello(lean_io_mk_world());
-  if (!lean_io_result_is_ok(l_io_result)) {
-    set_pyerr_from_lean_io_result(l_io_result);
-    return NULL;
-  }
-
-  lean_dec_ref(l_io_result);
-  Py_RETURN_NONE;
+  return pylong_from_uint32_lean_io_result(l_io_result);
 }
 
-PyObject* lean_ffi_fail(PyObject *self, PyObject *args) {
+PyObject* lean_ffi_throw(PyObject *self, PyObject *args) {
   (void)self;
   (void)args;
 
-  lean_obj_res l_io_result = klr_frontend_fail(lean_io_mk_world());
-  if (!lean_io_result_is_ok(l_io_result)) {
-    set_pyerr_from_lean_io_result(l_io_result);
-    return NULL;
-  }
+  lean_obj_res l_io_result = klr_frontend_throw(lean_io_mk_world());
+  return pylong_from_uint32_lean_io_result(l_io_result);
+}
 
-  lean_dec_ref(l_io_result);
-  Py_RETURN_NONE;
+PyObject* lean_ffi_panic(PyObject *self, PyObject *args) {
+  (void)self;
+  (void)args;
+
+  lean_obj_res l_io_result = klr_frontend_panic(lean_io_mk_world());
+  return pylong_from_uint32_lean_io_result(l_io_result);
 }
 
 PyObject* klr_trace(PyObject *self, PyObject *args) {

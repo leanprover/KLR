@@ -89,6 +89,7 @@ PyObject* klr_trace(PyObject *self, PyObject *args);
 
 // Sanity tests
 PyObject* lean_ffi_hello(PyObject *self, PyObject *args);
-PyObject* lean_ffi_fail(PyObject *self, PyObject *args);
+PyObject* lean_ffi_throw(PyObject *self, PyObject *args);
+PyObject* lean_ffi_panic(PyObject *self, PyObject *args);
 
 #endif // IS_NKI_REPO

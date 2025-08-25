@@ -198,7 +198,8 @@ static PyMethodDef methods[] = {
 #ifdef IS_NKI_REPO
   {"_klr_trace", klr_trace, METH_VARARGS, "Trace Python to KLR"},
   {"_lean_ffi_hello", lean_ffi_hello, METH_NOARGS, "Sanity check of Lean FFI"},
-  {"_lean_ffi_fail", lean_ffi_fail, METH_NOARGS, "Sanity check of Lean FFI error handling"},
+  {"_lean_ffi_throw", lean_ffi_throw, METH_NOARGS, "Sanity check of Lean FFI error handling"},
+  {"_lean_ffi_panic", lean_ffi_panic, METH_NOARGS, "Sanity check of Lean FFI error handling"},
 #endif
   {NULL, NULL, 0, NULL}
 };
