@@ -67,13 +67,18 @@ structure KernelInfo where
   name : String
   inputs : List TensorInfo
   outputs : List TensorInfo
+  sharedConstants : List Core.SharedConstantFile
   deriving ToJson
+
+private def outfolder (outfile : String) : String :=
+  let path := FilePath.mk outfile
+  (path.parent.map (·.toString)).getD "."
 
 -- reads srcPythonAstFileName, writes dstKlrFileName, returns kernel info as string of json
 @[export klr_frontend_trace]
 def frontend_trace (srcPythonAstFileName dstKlrFileName : String) : IO String := do
   let kernel <- KLR.File.readKLRFile srcPythonAstFileName
-  let kernel <- compilePython kernel none
+  let kernel <- compilePython kernel (some $ outfolder dstKlrFileName)
   let f := FilePath.mk (dstKlrFileName)
   File.writeKLRFile f .cbor kernel
 
@@ -89,6 +94,7 @@ def frontend_trace (srcPythonAstFileName dstKlrFileName : String) : IO String :=
       dtype := reprStr out.dtype,
       shape := out.shape.toList
     },
+    sharedConstants := kernel.sharedConstants
   }
   return toString (Lean.toJson kernelInfo)
 
