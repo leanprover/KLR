@@ -332,12 +332,14 @@ def tensorName : Option String -> Trace String
 -- Run a `Trace` monad computation, and handle any generated warnings or errors.
 def tracer (g : List (Name × Term)) (m : Trace a) (showWarnings := true) : Err (String × a × SharedConstants) :=
   match m { globals := .ofList g } with
-  | .ok x s => .ok (getMessages s ++ addWarnings s "", x, s.sharedConstants)
+  | .ok x s => .ok (addWarnings s "", x, s.sharedConstants)
   | .error (.formatted str) s => .error (addWarnings s ("error:" ++ str))
   | .error (.located _ str) s => .error (addWarnings s ("error:" ++ str))
 where
   getMessages s := "\n".intercalate s.messages.toList ++ "\n"
-  addWarnings s str := if showWarnings then addWarn s str else str
+  addWarnings s str :=
+    if showWarnings then addWarn s str else str ++
+    getMessages s
   addWarn s str := s.warnings.foldl warnStr str
   warnStr str pw :=
     if pw.fst == { line := 0 } then
