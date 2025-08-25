@@ -94,9 +94,16 @@ def frontend_trace (srcPythonAstFileName dstKlrFileName : String) : IO String :=
 @[export klr_frontend_hello]
 def frontend_hello : IO UInt32 := do
   IO.println ("hello from Lean")
-  return 0
+  return 123
 
--- for testing FFI error handling
-@[export klr_frontend_fail]
-def frontend_fail : IO UInt32 := do
-  throw (IO.userError "frontend_fail 😵")
+-- for testing FFI error handling when Lean code does a throw
+@[export klr_frontend_throw]
+def frontend_throw : IO UInt32 := do
+  throw (IO.userError "frontend_throw 🙁")
+  return 123
+
+-- for testing FFI error handling when Lean code does a panic!
+@[export klr_frontend_panic]
+def frontend_panic : IO UInt32 := do
+  panic! "frontend_panic 😵"
+  return 123
