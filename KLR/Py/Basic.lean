@@ -72,8 +72,8 @@ inductive Index
   | slice (l u step : Option Exp)
 
 structure Exp where
-  pos : Pos := {}
-  exp : Exp'
+  span : Span := {}
+  exp  : Exp'
 deriving ToJson
 
 inductive Exp'
@@ -116,7 +116,7 @@ structure FuncDef where
 deriving ToJson
 
 structure Stmt where
-  pos : Pos := {}
+  span : Span := {}
   stmt : Stmt'
 deriving ToJson
 
