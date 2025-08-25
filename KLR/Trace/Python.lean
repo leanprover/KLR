@@ -17,6 +17,7 @@ limitations under the License.
 import KLR.Core
 import KLR.Trace.ISA
 import KLR.Trace.Types
+import Util.Float
 
 /-
 Python related builtins
@@ -78,6 +79,40 @@ nki builtin.python.min (a : Term) (b : Term) := do
   match a, b with
   | .int a, .int b => return .int (min a b)
   | _, _ => throw "invalid arguments"
+
+nki builtin.python.bool (t : Term) := do
+ return .bool (<- t.isTrue)
+
+nki builtin.python.int (t : Term) := do
+  match t with
+  | .none       => throw "None cannot be converted to an integer"
+  | .bool true  => return .int 1
+  | .bool false => return .int 0
+  | .int i      => return .int i
+  | .float f    =>
+      -- Python is a bit strange here, it truncates both
+      -- positive and negative numbers toward zero
+      if f < 0.0 then
+        return .int (Int.ofNat (Float.floor (-f)).toUInt64.toNat).neg
+      else
+        return .int (Int.ofNat (Float.floor f).toUInt64.toNat)
+  | .string s   =>
+      -- Fortunately, Lean's String.toInt appears to be compatible
+      -- with Python's int(string) conversion.
+      match s.toInt? with
+      | .none  => throw s!"string {s} cannot be converted to an integer"
+      | .some i => return .int i
+  | _ => throw "value cannot be converted to an integer"
+
+nki builtin.python.float (t : Term) := do
+  match t with
+  | .none       => throw "None cannot be converted to an number"
+  | .bool true  => return .float 1.0
+  | .bool false => return .float 0.0
+  | .int i      => return .float (Float.ofInt i)
+  | .float f    => return .float f
+  | .string s   => return .float (KLR.Util.parseFloat s)
+  | _ => throw "value cannot be converted to an number"
 
 /-
 Python List object
