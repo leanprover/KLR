@@ -169,10 +169,10 @@ partial def expr' (e' : Expr') : Trace Term := do
   | .binOp op l r => binop op (<- expr l) (<- expr r)
   | .conj l r =>
       let l <- expr l
-      if <- l.isTrue then return l else expr r
+      if <- l.isFalse then return l else expr r
   | .disj l r =>
       let l <- expr l
-      if <- l.isFalse then return l else expr r
+      if <- l.isTrue then return l else expr r
   | .ifExp test tru fls =>
       if <- (<- expr test).isTrue
       then expr tru
