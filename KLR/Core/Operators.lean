@@ -66,6 +66,7 @@ LEA in x86.
 structure DataPattern where
   offset  : Nat
   pattern  : List APPair
+  channelMultiplier : Int
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /-
