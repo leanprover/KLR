@@ -532,7 +532,8 @@ static struct Python_Const* value(struct state *st, PyObject *obj) {
     const char* tp_name = ((PyTypeObject*)obj)->tp_name;
     if (strncmp("numpy", tp_name, 5) == 0) {
       c->tag = Python_Const_string;
-      c->s.value = strdup(tp_name); 
+      const char* dot = strchr(tp_name, '.');
+      c->s.value = strdup(dot ? dot + 1 : tp_name);
       } else {
         return NULL;
       }
