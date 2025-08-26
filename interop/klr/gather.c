@@ -528,17 +528,17 @@ static struct Python_Const* value(struct state *st, PyObject *obj) {
   else if (Py_IS_TYPE(obj, &PyEllipsis_Type)) {
     c->tag = Python_Const_ellipsis;
   }
-  else {
-    PyObject *module = PyObject_GetAttrString((PyObject*)Py_TYPE(obj), "__module__");
-    if (module && PyUnicode_Check(module)) {
-      const char *module_name = PyUnicode_AsUTF8(module);
-      if (module_name && strcmp(module_name, "builtins") == 0) {
-        Py_DECREF(module);
+  else if (PyType_Check(obj)) {
+    const char* tp_name = ((PyTypeObject*)obj)->tp_name;
+    if (strncmp("numpy", tp_name, 5) == 0) {
+      c->tag = Python_Const_string;
+      c->s.value = strdup(tp_name); 
       } else {
-        Py_DECREF(module);
         return NULL;
       }
     }
+  else {
+    return NULL;
   }
   return c;
 }
