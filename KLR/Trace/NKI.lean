@@ -20,6 +20,7 @@ import KLR.Trace.Builtin
 import KLR.Trace.ISA
 import KLR.Trace.Term
 import KLR.Trace.Types
+import KLR.Trace.Lang
 
 /-
 # NKI built-ins
@@ -44,12 +45,11 @@ def NKIEnv : List (Name × Term) :=
   , const_int (.str (nisa "nc_version") "gen2") 2
   , const_int (.str (nisa "nc_version") "gen3") 3
   , (nl "mgrid", .mgrid)
-  , const_var (nl "sbuf")
-  , const_var (nl "shared_hbm")
-  , const_var (nl "less")
-  , const_var (nl "int8")
-  , const_var (nisa "tensor_engine")
-  ]
+  -- , const_var (nl "sbuf")
+  -- , const_var (nl "shared_hbm")
+  -- , const_var (nl "less")
+  -- , const_var (nisa "tensor_engine")
+  ] ++ langSyms.map fun s => const_var (nl s)
 
 -- The result of a statement evaluation
 inductive Result where
