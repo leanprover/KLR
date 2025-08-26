@@ -206,6 +206,138 @@ static struct Nat_List* nat_list(struct state *st, PyObject *obj);
                          obj->lineno, obj->end_lineno, \
                          obj->col_offset, obj->end_col_offset)
 
+// Check if object is a tensor type
+static bool is_tensor(PyObject *obj) {
+  PyTypeObject *t = Py_TYPE(obj);
+  if (!t) return 0;
+  
+  return strcmp(t->tp_name, "tensor") == 0 ||        // nki
+         strcmp(t->tp_name, "numpy.ndarray") == 0 ||  // numpy
+         strcmp(t->tp_name, "Tensor") == 0 ||         // PyTorch
+         strcmp(t->tp_name, "ShapedArray") == 0;      // JAX
+}
+
+// Handle tensor objects
+static struct Python_Const* tensor_const(struct state *st, PyObject *obj) {
+  PyObject *shape = PyObject_GetAttrString(obj, "shape");
+
+  struct Nat_List *sh = nat_list(st, shape);
+  Py_DECREF(shape);
+  if (!sh && PyErr_Occurred()) return NULL; // empty list is also == NULL. So check the error
+
+  PyObject *dtype = PyObject_GetAttrString(obj, "dtype");
+  if (!dtype) return NULL;
+
+  PyObject *dstr = PyObject_Str(dtype);
+  Py_DECREF(dtype);
+  if (!dstr) return NULL;
+
+  const char *dtype_str = PyUnicode_AsUTF8(dstr);
+  if (!dtype_str) {
+    Py_DECREF(dstr);
+    return NULL;
+  }
+
+  // use "uint32" instead of "torch.uint32"
+  if (strncmp(dtype_str, "torch.", 6) == 0) {
+    dtype_str += 6;
+  }
+  char *dt = region_strdup(st->region, dtype_str);
+  Py_DECREF(dstr);
+
+  struct Python_Const* value = region_alloc(st->region, sizeof(struct Python_Const));
+  value->tag = Python_Const_tensor;
+  value->tensor.shape = sh;
+  value->tensor.dtype = dt;
+  return value;
+}
+
+// This function never raises exceptions
+// Returns a new reference
+static PyObject* get_numpy_generic_dtype() {
+  // Try to get already imported numpy module
+  PyObject *numpy_name = PyUnicode_FromString("numpy");
+  PyErr_Clear();
+  if (!numpy_name) return NULL;
+  
+  PyObject *numpy = PyImport_GetModule(numpy_name);
+  Py_DECREF(numpy_name);
+  if (!numpy) {
+    PyErr_Clear();
+    return NULL;
+  }
+  
+  // Get numpy.generic class
+  PyObject *generic_class = PyObject_GetAttrString(numpy, "generic");
+  Py_DECREF(numpy);
+  if (!generic_class) {
+    PyErr_Clear();
+    return NULL;
+  }
+  return generic_class;
+}
+
+// Check if object is numpy dtype, if it is, then return the object
+// This function never raises exceptions
+static bool is_numpy_dtype(PyObject *obj) {
+  PyObject *generic_dtype = get_numpy_generic_dtype();
+  if (!generic_dtype) return NULL;
+  
+  // Check if obj is instance of numpy.generic or subclass
+  int result = PyObject_IsSubclass(obj, generic_dtype);
+  Py_DECREF(generic_dtype);
+  return result == 1;
+}
+
+// Check if object is numpy dtype instance, if it is, then return dtype object
+// The user is responsible for decrementing a ref count on object returned
+// if object is not null
+// 
+// This function never raises exceptions
+// Returns a new reference
+static PyObject* numpy_dtype_instance(PyObject *obj) {
+  // NOTE: order matters here. If attemting to get type attr from
+  // object before attempting to import numpy the object comes out
+  // blank
+  PyObject *generic_dtype = get_numpy_generic_dtype();
+  if (!generic_dtype) return NULL;
+
+  PyObject* obj_type = PyObject_GetAttrString(obj, "type");
+
+  if (!obj_type) {
+    PyErr_Clear();
+    return NULL;
+  }
+
+  // Check if obj is instance of numpy.generic or subclass
+  int result = PyObject_IsSubclass(obj_type, generic_dtype);
+  Py_DECREF(generic_dtype);
+
+  if (result == 1) { // it's -1 when it's false
+    return obj_type;
+  }
+
+  Py_DECREF(obj_type);
+  return NULL;
+}
+
+static const char* suggest_nki_dtype(PyObject *obj) {
+  const char* t = ((PyTypeObject*)obj)->tp_name;
+  if (!t) return NULL;
+
+  if (strstr(t, "numpy.uint8")) return "neuronxcc.nki.language.uint8";
+  if (strstr(t, "numpy.int8")) return "neuronxcc.nki.language.int8";
+  if (strstr(t, "numpy.uint16")) return "neuronxcc.nki.language.uint16";
+  if (strstr(t, "numpy.int16")) return "neuronxcc.nki.language.int16";
+  if (strstr(t, "numpy.uint32")) return "neuronxcc.nki.language.uint32";
+  if (strstr(t, "numpy.int32")) return "neuronxcc.nki.language.int32";
+  if (strstr(t, "numpy.float16")) return "neuronxcc.nki.language.float16";
+  if (strstr(t, "numpy.float32")) return "neuronxcc.nki.language.float32";
+  if (strstr(t, "numpy.bool")) return "neuronxcc.nki.language.bool";
+
+  return NULL;
+}
+
 static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
   struct Python_Expr *e = region_alloc(st->region, sizeof(*e));
   e->expr = region_alloc(st->region, sizeof(*e->expr));
@@ -221,6 +353,7 @@ static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
   // value may have set an exception, clear it
   PyErr_Clear();
 
+  PyObject *numpy_dt;
   // Check for other types of supported global values
   if (PyTuple_Check(obj)) {
     e->expr->tag = Python_Expr_tuple;
@@ -245,52 +378,33 @@ static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
     e->expr->name.ctx = Python_Ctx_load;
     return e;
   }
-  else {
-    // Handle Numpy & Torch tensors
-    // Note: t is borrowed
-    PyTypeObject *t = Py_TYPE(obj);
-    if (!t) return NULL;
-
-    if (strcmp(t->tp_name, "tensor" /*nki*/) != 0 &&
-        strcmp(t->tp_name, "numpy.ndarray" /*numpy*/) != 0 &&
-        strcmp(t->tp_name, "Tensor" /*PyTorch*/) != 0 &&
-        strcmp(t->tp_name, "ShapedArray" /*JAX*/) != 0)
-      return NULL;
-
-    PyObject *shape = PyObject_GetAttrString(obj, "shape");
-    if (!shape) return NULL;
-
-    struct Nat_List *sh = nat_list(st, shape);
-    Py_DECREF(shape);
-    if (!sh) return NULL;
-
-    PyObject *dtype = PyObject_GetAttrString(obj, "dtype");
-    if (!dtype) return NULL;
-
-    PyObject *dstr = PyObject_Str(dtype);
-    Py_DECREF(dtype);
-    if (!dstr)
-      return NULL;
-
-    const char *dtype_str = PyUnicode_AsUTF8(dstr);
-    if (!dtype_str) {
-      Py_DECREF(dstr);
-      return NULL;
-    }
-
-    // use "uint32" instead of "torch.uint32" which is not a recognized type.
-    if (strncmp(dtype_str, "torch.", 6) == 0) {
-      dtype_str += 6;
-    }
-    char *dt = region_strdup(st->region, dtype_str);
-    Py_DECREF(dstr);
-
+  else if (is_tensor(obj)) {
     e->expr->tag = Python_Expr_const;
-    e->expr->c.value = region_alloc(st->region, sizeof(struct Python_Const));
-    e->expr->c.value->tag = Python_Const_tensor;
-    e->expr->c.value->tensor.shape = sh;
-    e->expr->c.value->tensor.dtype = dt;
+    e->expr->c.value = tensor_const(st, obj);
     return e;
+  }
+  else if (is_numpy_dtype(obj)) {
+    const char* nki_dtype = suggest_nki_dtype(obj);
+    if (nki_dtype) {
+      char error_msg[256];
+      snprintf(error_msg, sizeof(error_msg), "numpy dtypes are not supported as arguments. Use %s instead", nki_dtype);
+      syntax_error(st, error_msg);    
+    } else {
+      syntax_error(st, "numpy dtypes are not supported as arguments");
+    }
+    return NULL;
+  }
+  else if ((numpy_dt = numpy_dtype_instance(obj)) && numpy_dt) {
+    const char* nki_dtype = suggest_nki_dtype(numpy_dt); 
+    if (nki_dtype) {
+      char error_msg[256];
+      snprintf(error_msg, sizeof(error_msg), "numpy dtypes are not supported as arguments. Use %s instead", nki_dtype);
+      syntax_error(st, error_msg);    
+      Py_DECREF(numpy_dt);
+    } else {
+      syntax_error(st, "numpy dtypes are not supported as arguments");
+    }
+    return NULL;
   }
 
   return NULL;
@@ -530,7 +644,6 @@ static struct Python_Const* value(struct state *st, PyObject *obj) {
   else {
     return NULL;
   }
-
   return c;
 }
 
@@ -1313,7 +1426,9 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *grid,
       PyObject *arg = PyTuple_GetItem(args, i);
       struct Python_Expr *e = const_expr(&st, arg);
       if (!e) {
-        PyErr_Format(PyExc_ValueError, "%S is not a supported NKI type", arg);
+        if (!PyErr_Occurred()) {
+          PyErr_Format(PyExc_ValueError, "%S is not a supported NKI type", arg);
+        }
         return false;
       }
       *es = region_alloc(st.region, sizeof(**es));
@@ -1334,7 +1449,9 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *grid,
 
       struct Python_Expr *e = const_expr(&st, val);
       if (!e) {
-        PyErr_Format(PyExc_ValueError, "%S is not a supported NKI type", val);
+        if (!PyErr_Occurred()) {
+          PyErr_Format(PyExc_ValueError, "%S is not a supported NKI type", arg);
+        }
         return false;
       }
 

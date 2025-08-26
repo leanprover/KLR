@@ -9,6 +9,11 @@ PY_CFLAGS  := -I${PY_DIR}/include/python${PY_VER}
 PY_LDFLAGS := $(shell ${PY_CFG} --ldflags)
 PY_LIBS    := "-lpython${PY_VER}"
 
+CFLAGS := -std=c17 -Wall -Wextra
+ifdef DEBUG
+CFLAGS += -O0 -g
+endif
+
 C := cbor.c serde_common.c serde_python_core.c serde_file.c serde.c
 C += region.c peg_parser.c gather.c frontend.c
 O := $(patsubst %.c,%.${PY_VER}.o,$C)
@@ -37,13 +42,13 @@ clean:
 peg_parser.${PY_VER}.o: $(wildcard *.c)
 
 %.${PY_VER}.o: %.c $(wildcard *.h)
-	clang -std=c17 -Wall -Wextra ${PY_CFLAGS} -c $< -o $@
+	clang ${CFLAGS} ${PY_CFLAGS} -c $< -o $@
 
 frontend${PY_EXT}: $(O)
-	clang -std=c17 $^ -dynamiclib -o $@ ${PY_LDFLAGS} ${PY_LIBS}
+	clang ${CFLAGS} $^ -dynamiclib -o $@ ${PY_LDFLAGS} ${PY_LIBS}
 
 %_test: %_test.c %.c
-	clang -std=c17 -Wall -Wextra ${PY_CFLAGS} $< -o $@
+	clang ${CFLAGS} ${PY_CFLAGS} $< -o $@
 	./$@
 
 # Simulate production build
