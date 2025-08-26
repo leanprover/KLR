@@ -515,8 +515,18 @@ nki builtin.access.reshape
     | _ => throw "cannot reshape a complex access pattern"
   let dtype := dtype.getD tensor.dtype
   let name <- tensorName name
-  let shape <- Shape.fromList shape
-  let t <- TensorName.make name dtype shape tensor.address
+  let shape' <- Shape.fromList shape
+  let addr <- if tensor.address.memory == .hbm then
+      let shape_sz := shape.foldl (. * .) tensor.dtype.size
+      let addr_sz := tensor.address.parSize * tensor.address.freeSize
+      if addr_sz < shape_sz then
+        throw s!"shape has size {shape_sz} (bytes), \
+                 which is too large for buffer of size {addr_sz} (bytes)"
+      let addr := Address.withDefaultSize tensor.address shape' dtype
+      pure addr
+    else
+      pure tensor.address
+  let t <- TensorName.make name dtype shape' addr
   return .access (.simple t)
 
 nki builtin.access.ap
