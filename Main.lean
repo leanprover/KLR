@@ -16,7 +16,6 @@ limitations under the License.
 
 import Cli
 import KLR
-import KLR.Compile
 import TensorLib.Npy
 import TensorLib.Tensor
 
@@ -27,6 +26,9 @@ open System(FilePath)
 inductive Form where
 | json
 | pretty
+
+def eprintln [ToString a] (debug : Bool) (x : a) : IO Unit := do
+  if debug then IO.eprintln x
 
 def asString [Lean.ToJson a] [Repr a] (p : Parsed) (x : a) (defaultForm : Form := .pretty) : String :=
   let fm := if p.hasFlag "pretty" then .pretty
@@ -203,7 +205,7 @@ def info (p : Parsed) : IO UInt32 := do
 def compile (p : Parsed) : IO UInt32 := do
   let debug := p.hasFlag "debug"
   let kernel : KLR.Python.Kernel <- gatherTmp p
-  let kernel <- compilePython kernel none
+  let kernel <- KLR.Compile.compilePython kernel none
   IO.println "OK."
   if debug then
     IO.println s!"Kernel:\n {repr kernel}"
@@ -229,7 +231,7 @@ def trace (p : Parsed) : IO UInt32 := do
   let file := p.positionalArg! "file" |>.as! String
   let kernel <- KLR.File.readKLRFile file
   let outDir := <- outfolder (p.flag? "outfile")
-  let kernel <- compilePython kernel outDir
+  let kernel <- KLR.Compile.compilePython kernel outDir
   match p.flag? "outfile" with
   | some arg =>
     let f := FilePath.mk (arg.as! String)

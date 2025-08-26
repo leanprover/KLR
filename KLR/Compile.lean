@@ -16,13 +16,15 @@ limitations under the License.
 
 import KLR.Compile.Pass
 
-import KLR
-open KLR
+import KLR.Core
+import KLR.File
+import KLR.NKI
+import KLR.Python
+import KLR.Trace
+
+namespace KLR.Compile
 open System(FilePath)
 open Lean (FromJson ToJson)
-
-def eprintln [ToString a] (debug : Bool) (x : a) : IO Unit := do
-  if debug then IO.eprintln x
 
 private def sharedConstant (outfolder : String) (c : String × TensorLib.Tensor) : IO (String × String) := do
   let (name, tensor) := c

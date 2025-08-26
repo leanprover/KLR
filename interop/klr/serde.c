@@ -131,9 +131,6 @@ read_file(const u8 *buf, u64 size, enum File_Contents_Tag tag) {
   case File_Contents_python:
     res.python = contents->python.kernel;
     break;
-  case File_Contents_nki:
-    res.nki = contents->nki.kernel;
-    break;
   default:
     ERR("unsupported kernel contents");
   }
@@ -169,22 +166,5 @@ serialize_python(const char *file, struct Python_Kernel *k) {
 struct DesResult
 deserialize_python(const u8 *buf, u64 size) {
   struct DesResult res = read_file(buf, size, File_Contents_python);
-  res.isNki = false;
-  return res;
-}
-
-struct SerResult
-serialize_nki(const char *file, struct NKI_Kernel *k) {
-  struct File_Contents contents = {
-    .tag = File_Contents_nki,
-    .nki = { .kernel = k }
-  };
-  return write_file(file, &contents);
-}
-
-struct DesResult
-deserialize_nki(const u8 *buf, u64 size) {
-  struct DesResult res = read_file(buf, size, File_Contents_nki);
-  res.isNki = true;
   return res;
 }

@@ -78,17 +78,6 @@ static PyObject* kernel_specialize(struct kernel *self, PyObject *args_tuple) {
   if (!specialize(self, args, kwargs, internal_kwargs))
     return NULL;
 
-  /*
-  struct SimpResult res = simplify(self->python_kernel);
-  if (!res.ok) {
-    PyErr_SetString(PyExc_RuntimeError, res.err);
-    return NULL;
-  }
-
-  self->nki_region = res.region;
-  self->nki_kernel = res.kernel;
-  self->specialized = true;
-  */
   return Py_None;
 }
 
@@ -112,31 +101,6 @@ static PyObject* kernel_serialize_python(struct kernel *self, PyObject *args) {
 
   free(res.bytes);
   return Py_None;
-}
-
-// frontend.Kernel.serialize
-static PyObject* kernel_serialize(struct kernel *self, PyObject *args) {
-  if (!self->specialized) {
-    PyErr_SetString(PyExc_RuntimeError, "specialize must be called before serialize");
-    return NULL;
-  }
-  const char *file = NULL;
-  if (!PyArg_ParseTuple(args, "s", &file)) {
-    // Exception set by ParseTuple
-    return NULL;
-  }
-
-  PyErr_SetString(PyExc_RuntimeError, "serialize not available");
-  return NULL;
-  //struct SerResult res = serialize_nki(file, self->nki_kernel);
-  //if (!res.ok) {
-  //  PyErr_SetString(PyExc_RuntimeError, res.err);
-  //  return NULL;
-  //}
-
-  //PyObject *arr = PyByteArray_FromStringAndSize((const char*)res.bytes, res.size);
-  //free(res.bytes);
-  //return arr;
 }
 
 // frontend.version
@@ -163,18 +127,11 @@ def _get_src(f):\n\
   file = inspect.getsourcefile(f)\n\
   src, line = inspect.getsourcelines(f)\n\
   return file, line, textwrap.dedent(''.join(src))\n\
-def _bind_args(f, args, kwargs):\n\
-  s = inspect.signature(f)\n\
-  a = s.bind(*args, **kwargs)\n\
-  a.apply_defaults()\n\
-  return a.arguments\n\
 ";
 
 static PyMethodDef KernelMethods[] = {
   { "_serialize_python", (void*)kernel_serialize_python, METH_VARARGS,
     "Serialize the intermediate Python Kernel to a ByteArray" },
-  { "serialize", (void*)kernel_serialize, METH_VARARGS,
-    "Serialize a NKI Kernel to a ByteArray" },
   { "specialize", (void*)kernel_specialize, METH_VARARGS,
     "Provide arguments for specializing kernel" },
   { NULL, NULL, 0, NULL }

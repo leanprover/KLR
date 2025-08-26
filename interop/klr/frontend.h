@@ -44,15 +44,6 @@ void free_python_ast(struct _mod *m);
 bool gather(struct kernel *k);
 bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *internal_kws);
 
-// simplify.c
-struct SimpResult {
-  bool ok;
-  const char *err;
-  struct region *region;
-  struct NKI_Kernel *kernel;
-};
-struct SimpResult simplify(struct Python_Kernel *py);
-
 // serde.c
 struct SerResult {
   bool ok;
@@ -62,20 +53,13 @@ struct SerResult {
 };
 struct DesResult {
   bool ok;
-  bool isNki;
   const char *err;
   struct region *region;
-  union {
-    struct Python_Kernel *python;
-    struct NKI_Kernel *nki;
-  };
+  struct Python_Kernel *python;
 };
 
 struct SerResult serialize_python(const char *file, struct Python_Kernel *k);
 struct DesResult deserialize_python(const u8 *buf, u64 size);
-
-struct SerResult serialize_nki(const char *file, struct NKI_Kernel *k);
-struct DesResult deserialize_nki(const u8 *buf, u64 size);
 
 #ifdef IS_NKI_REPO
 

@@ -25,6 +25,7 @@ versions:
 	$(MAKE) PY_VER=3.10
 	$(MAKE) PY_VER=3.11
 	$(MAKE) PY_VER=3.12
+	$(MAKE) PY_VER=3.13
 
 test: ${TESTS}
 

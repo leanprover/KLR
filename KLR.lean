@@ -14,14 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -/
 
+import KLR.Compile
 import KLR.Core
--- TODO: fix eval after big change to Core Operators
---import KLR.Eval
 import KLR.File
+import KLR.KLR
 import KLR.NKI
 import KLR.Py
 import KLR.Python
 import KLR.Serde
 import KLR.Trace
 import KLR.Util
-import KLR.KLR
