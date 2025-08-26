@@ -493,12 +493,13 @@ nki builtin.isa.iota
  (dst: Access)
  (pattern : List (Int × Nat))
  (offset : Nat := 0)
+ (channel_multiplier : Int := 0)
  -- kwargs
  (name : Option String := none) := do
     let pairs := pattern.map fun (i, n) => APPair.mk i n
     Trace.add_stmt $ .oper (.iota {
       dst := .abstract dst,
-      pattern := ⟨ offset, pairs ⟩
+      pattern := ⟨ offset, pairs, channel_multiplier ⟩
       dtype := dst.tensor.dtype
     }) name
     return .none
@@ -527,6 +528,7 @@ nki builtin.isa.affine_select
  (dst: Access)
  (pattern : List (Int × Nat))
  (offset : Nat := 0)
+ (channel_multiplier : Int := 0)
  (on_true_tile : Access)
  (on_false_value : Immediate)
  -- kwargs
@@ -537,7 +539,7 @@ nki builtin.isa.affine_select
     let pairs := pattern.map fun (i, n) => APPair.mk i n
     Trace.add_stmt $ .oper (.ncAffineSelect {
       dst := .abstract dst,
-      pred := ⟨offset, pairs⟩ ,
+      pred := ⟨offset, pairs, channel_multiplier⟩ ,
       onTrueTile := .abstract on_true_tile,
       onFalseValue := on_false_value,
       dtype := dtype,

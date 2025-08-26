@@ -165,3 +165,4 @@ LEA in x86.
 structure DataPattern where
   offset  : Nat
   pattern  : List APPair
+  channelMultiplier : Int
