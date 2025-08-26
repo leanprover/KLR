@@ -529,9 +529,18 @@ static struct Python_Const* value(struct state *st, PyObject *obj) {
     c->tag = Python_Const_ellipsis;
   }
   else {
-    return NULL;
+    PyObject *module = PyObject_GetAttrString((PyObject*)Py_TYPE(obj), "__module__");
+    if (module && PyUnicode_Check(module)) {
+      const char *module_name = PyUnicode_AsUTF8(module);
+      printf("Obj module name: %s\n", module_name);
+      if (module_name && strcmp(module_name, "builtins") == 0) {
+        Py_DECREF(module);
+      } else {
+        Py_DECREF(module);
+        return NULL;
+      }
+    }
   }
-
   return c;
 }
 
@@ -1054,14 +1063,10 @@ static struct Python_Stmt_List* stmts(struct state *st, asdl_stmt_seq *python) {
 
 static PyObject* get_util(const char *name) {
   PyObject *f = NULL;
-  PyObject *fe = PyUnicode_FromString(MODULE_ROOT ".frontend");
-  if (fe) {
-    PyObject *m = PyImport_GetModule(fe);
-    if (m) {
-      f = PyObject_GetAttrString(m, name);
-      Py_DECREF(m);
-    }
-    Py_DECREF(fe);
+  PyObject *m = PyImport_ImportModule(MODULE_ROOT ".frontend");
+  if (m) {
+    f = PyObject_GetAttrString(m, name);
+    Py_DECREF(m);
   }
   return f;
 }
