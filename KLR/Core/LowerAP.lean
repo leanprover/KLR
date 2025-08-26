@@ -39,9 +39,9 @@ def Access.lowerAccessPattern (a : Access) : KLR.Err BirAccessPattern := do
        ap1.start != 32 &&
        ap1.start != 64 &&
        ap1.start != 96
-    then throw s!"Cannot lower AccessPatterns with partition start of {ap1.start}."
+    then throw s!"Invalid partition start offset {ap1.start} for non-HBM memory. Valid offsets are: 0, 32, 64, 96"
     if ap1.step != 1
-    then throw "Cannot lower AccessPattern with partition step size not equal to 1."
+    then throw s!"Invalid partition step size {ap1.step} for non-HBM memory. Step size must be 1"
 
   let ap := CompileIndex.freePairs a.tensor ap1.num layout
   let ap := { ap with parOffset := ap1.start }
