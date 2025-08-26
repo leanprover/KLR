@@ -55,12 +55,17 @@ static PyObject *pylong_from_uint32_lean_io_result(lean_obj_arg l_io_result) {
 // Returns true if successful.
 // Otherwise returns false and sets a Python exception
 bool initialize_KLR_lean_ffi() {
-  // See:
+  // This code initially copied from:
   // https://lean-lang.org/doc/reference/4.22.0-rc2//Run-Time-Code/Foreign-Function-Interface/
   // https://github.com/leanprover/lean4/blob/master/src/lake/examples/reverse-ffi/main.c
   lean_initialize_runtime_module();
-  uint8_t builtin = 1;
-  lean_obj_res l_io_result = initialize_KLR_Compile(builtin, lean_io_mk_world());
+
+  // Disable panic messages during initialization.
+  // The Lean compiler also does this when generating Main functions.
+  // See: https://github.com/leanprover/lean4/commit/2018dc0
+  lean_set_panic_messages(false);
+  lean_obj_res l_io_result = initialize_KLR_Compile(1 /*builtin*/, lean_io_mk_world());
+  lean_set_panic_messages(true);
   if (lean_io_result_is_ok(l_io_result)) {
     lean_dec_ref(l_io_result);
   } else {
