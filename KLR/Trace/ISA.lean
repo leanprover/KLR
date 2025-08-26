@@ -119,7 +119,6 @@ nki builtin.isa.nc_transpose
  (data : Access)
  -- kwargs
  (mask : Option Immediate := none)
- (dtype : Option Dtype := none)
  (engine : Engine := Engine.unassigned)
  (name : Option String := none) := do
   if mask.isSome then
@@ -154,7 +153,7 @@ nki builtin.isa.nc_transpose
     Trace.add_stmt $ .oper (.transpose {
       dst := .abstract dst,
       src := .abstract data,
-      dtype := dtype,
+      dtype := dst.tensor.dtype,
       engine := engine,
     }) name
   return .none
@@ -170,7 +169,6 @@ nki builtin.isa.activation
  (reduce_res : Option Access := none)
  (reduce_cmd : AccumCmd := .Idle)
  (mask : Option Immediate := none)
- (dtype : Option Dtype := none)
  (name : Option String := none) := do
   if mask.isSome then
     throw maskNotSupported
@@ -183,7 +181,7 @@ nki builtin.isa.activation
     bias := bias,
     reduceOp := reduce_op,
     reduceRes := reduce_res.map .abstract,
-    dtype := dtype,
+    dtype := dst.tensor.dtype,
   }) name
   return .none
 
@@ -198,7 +196,6 @@ nki builtin.isa.activation_reduce
  (bias : Immediate := .float 0)
  (scale : Sum Immediate Access := .inl (.float 1.0))
  (mask : Option Immediate := none)
- (dtype : Option Dtype := none)
  (name : Option String := none) := do
     if mask.isSome then
       throw maskNotSupported
@@ -213,7 +210,7 @@ nki builtin.isa.activation_reduce
       reduceRes := reduce_res.map .abstract,
       accumulatorCmd := reduce_cmd,
       scale := <- scale.getLeft?,
-      dtype := dtype,
+      dtype := dst.tensor.dtype,
     }) name
     return .none
 
@@ -224,7 +221,6 @@ nki builtin.isa.tensor_reduce
   (axis : Sum Int (List Int))
   -- kwargs
   (mask : Option Immediate := none)
-  (dtype : Option Dtype := none)
   (negate : Bool := false)
   (keepdims : Bool := false)
   (name : Option String := none) := do
@@ -235,7 +231,7 @@ nki builtin.isa.tensor_reduce
       src  := .abstract data,
       op   := op,
       opDim := <- dimsFromPythonDefs axis,
-      dtype := dtype,
+      dtype := dst.tensor.dtype,
       negated := negate,
       keepdims := keepdims
     }) name
@@ -247,7 +243,6 @@ nki builtin.isa.tensor_partition_reduce
   (data : Access)
   -- kwargs
   (mask : Option Immediate := none)
-  (dtype : Option Dtype := none)
   (name : Option String := none) := do
     if mask.isSome then
       throw maskNotSupported
@@ -255,7 +250,7 @@ nki builtin.isa.tensor_partition_reduce
       dst := .abstract dst,
       op := op,
       data := .abstract data
-      dtype := dtype
+      dtype := dst.tensor.dtype
     }) name
     return .none
 
@@ -265,7 +260,6 @@ nki builtin.isa.tensor_tensor
  (data2 : Access)
  (op : AluOp)
  -- kwargs
- (dtype : Option Dtype := none)
  (mask : Option Immediate := none)
  (engine : Engine := Engine.unassigned)
  (name : Option String := none) := do
@@ -276,7 +270,7 @@ nki builtin.isa.tensor_tensor
       src0 := .abstract data1,
       src1 := .abstract data2,
       op := op,
-      dtype := dtype,
+      dtype := dst.tensor.dtype,
       engine := engine
     }) name
     return .none
@@ -291,7 +285,6 @@ nki builtin.isa.tensor_tensor_scan
  (reverse0 : Bool := false)
  (reverse1 : Bool := false)
  -- kwargs
- (dtype : Option Dtype := none)
  (mask : Option Immediate := none)
  (name : Option String := none) := do
     if mask.isSome then
@@ -307,7 +300,7 @@ nki builtin.isa.tensor_tensor_scan
         imm0 := match initial with
           | .inl l => .imm l
           | .inr t => .tile $ .abstract t,
-        dtype := dtype
+        dtype := dst.tensor.dtype
         accumulatorCmd := .Idle
     }) name
     return .none
@@ -322,7 +315,6 @@ nki builtin.isa.scalar_tensor_tensor
  (operand1 : Sum Immediate Access)
  (reverse0 : Bool := false)
  (reverse1 : Bool := false)
- (dtype : Option Dtype := none)
  (mask : Option Immediate := none)
  (name : Option String := none) := do
     if mask.isSome then throw maskNotSupported
@@ -339,7 +331,7 @@ nki builtin.isa.scalar_tensor_tensor
         op0  := op0
         op1  := op1
         reverseOperands := rev
-        dtype := dtype
+        dtype := dst.tensor.dtype
     }) name
     return .none
 
@@ -353,7 +345,6 @@ nki builtin.isa.tensor_scalar
  (operand1 : Option (Sum Immediate Access) := none)
  (reverse1 : Bool := false)
  -- kwargs
- (dtype : Option Dtype := none)
  (mask : Option Immediate := none)
  (engine : Engine := Engine.unassigned)
  (name : Option String := none) := do
@@ -373,7 +364,7 @@ nki builtin.isa.tensor_scalar
       op1 := op1
       reverse := rev
       engine := engine
-      dtype := dtype
+      dtype := dst.tensor.dtype
     }) name
     return .none
 
@@ -386,7 +377,6 @@ nki builtin.isa.tensor_scalar_reduce
  (reduce_op : AluOp)
  (reduce_res : Access)
  (reverse0 : Bool := false)
- (dtype : Option Dtype := none)
  (mask : Option Immediate := none)
  (name : Option String := none) := do
     if mask.isSome then throw maskNotSupported
@@ -400,7 +390,7 @@ nki builtin.isa.tensor_scalar_reduce
         reduceOp := reduce_op
         reduceRes := .abstract reduce_res
         reverse0 := reverse0
-        dtype := dtype
+        dtype := dst.tensor.dtype
     }) name
     return .none
 
@@ -426,14 +416,13 @@ nki builtin.isa.tensor_copy_dynamic_src
  (dst : Access)
  (src : Access)
  (mask : Option Immediate := none)
- (dtype : Option Dtype := none)
  (engine : Engine := Engine.unassigned)
  (name : Option String := none) := do
     if mask.isSome then throw maskNotSupported
     Trace.add_stmt $ .oper (.ncCopy {
       dst := .abstract dst
       src := .abstract src
-      dtype := dtype
+      dtype := dst.tensor.dtype
       engine := engine
     }) name
     return .none
@@ -443,14 +432,13 @@ nki builtin.isa.tensor_copy_dynamic_dst
  (src : Access)
  -- kwargs
  (mask : Option Immediate := none)
- (dtype : Option Dtype := none)
  (engine : Engine := Engine.unassigned)
  (name : Option String := none) := do
     if mask.isSome then throw maskNotSupported
     Trace.add_stmt $ .oper (.ncCopy {
       dst := .abstract dst
       src := .abstract src
-      dtype := dtype
+      dtype := dst.tensor.dtype
       engine := engine
     }) name
     return .none
@@ -461,7 +449,6 @@ nki builtin.isa.tensor_copy_predicated
  (src : Access)
  (predicate : Access)
  (mask : Option Immediate := none)
- (dtype : Option Dtype := none)
  (reverse_pred : Bool := false)
  (name : Option String := none) := do
     if mask.isSome then throw maskNotSupported
@@ -469,7 +456,7 @@ nki builtin.isa.tensor_copy_predicated
       dst := .abstract dst,
       src := .abstract src,
       predicate := .abstract predicate,
-      dtype := dtype,
+      dtype := dst.tensor.dtype,
       reversePred := reverse_pred,
     }) name
     return .none
@@ -478,14 +465,13 @@ nki builtin.isa.reciprocal
  (dst: Access)
  (data : Access)
  -- kwargs
- (dtype : Option Dtype := none)
  (mask : Option Immediate := none)
  (name : Option String := none) := do
     if mask.isSome then throw maskNotSupported
     Trace.add_stmt $ .oper (.reciprocal {
       dst := .abstract dst,
       src := .abstract data,
-      dtype := dtype
+      dtype := dst.tensor.dtype
     }) name
     return .none
 
@@ -510,7 +496,6 @@ nki builtin.isa.dropout
  (prob : Sum Immediate Access)
  -- kwargs
  (mask : Option Immediate := none)
- (dtype : Option Dtype := none)
  (name : Option String := none) := do
     if mask.isSome then throw maskNotSupported
     Trace.add_stmt $ .oper (.dropout {
@@ -520,7 +505,7 @@ nki builtin.isa.dropout
           | .inl i => .imm i
           | .inr t => .tile $ .abstract t
         thresholdType := .KeepRate
-        dtype         := dtype,
+        dtype         := dst.tensor.dtype,
     }) name
     return .none
 
@@ -533,7 +518,6 @@ nki builtin.isa.affine_select
  (on_false_value : Immediate)
  -- kwargs
  (mask : Option Immediate := none)
- (dtype : Option Dtype := none)
  (name : Option String := none) := do
     if mask.isSome then throw maskNotSupported
     let pairs := pattern.map fun (i, n) => APPair.mk i n
@@ -542,7 +526,7 @@ nki builtin.isa.affine_select
       pred := ⟨offset, pairs, channel_multiplier⟩ ,
       onTrueTile := .abstract on_true_tile,
       onFalseValue := on_false_value,
-      dtype := dtype,
+      dtype := dst.tensor.dtype,
       cmpOp := .is_equal,
     }) name
     return .none
@@ -561,7 +545,6 @@ nki builtin.isa.range_select
  (range_start : Immediate := .float 0)
  (on_false_value : Immediate := .float 0)
  (mask : Option Immediate := none)
- (dtype : Option Dtype := none)
  (name : Option String := none) := do
     if mask.isSome then throw maskNotSupported
     Trace.add_stmt $ .oper (.ncRangeSelect {
@@ -576,14 +559,13 @@ nki builtin.isa.range_select
       rangeStart := range_start,
       onTrueTile := .abstract on_true_tile,
       onFalseValue := on_false_value,
-      dtype := dtype
+      dtype := dst.tensor.dtype
     }) name
     return .none
 
 nki builtin.isa.memset
  (dst: Access)
  (value : Immediate)
- (dtype : Dtype)
  -- kwargs
  (mask : Option Immediate := none)
  (engine : Engine := Engine.unassigned)
@@ -592,7 +574,7 @@ nki builtin.isa.memset
     Trace.add_stmt $ .oper (.memSet {
       dst    := .abstract dst,
       value  := value,
-      dtype  := dtype,
+      dtype  := dst.tensor.dtype,
       engine := engine
     }) name
     return .none
@@ -602,13 +584,12 @@ nki builtin.isa.bn_stats
  (data : Access)
  -- kwargs
  (mask: Option Immediate := none)
- (dtype: Option Dtype := none)
  (name : Option String := none) := do
     if mask.isSome then throw maskNotSupported
     Trace.add_stmt $ .oper (.batchNormStats {
       dst := .abstract dst,
       src := .abstract data,
-      dtype := dtype
+      dtype := dst.tensor.dtype
     }) name
     return .none
 
@@ -617,13 +598,12 @@ nki builtin.isa.bn_aggr
  (data : Access)
  -- kwargs
  (mask : Option Immediate := none)
- (dtype : Option Dtype := none)
  (name : Option String := none) := do
     if mask.isSome then throw maskNotSupported
     Trace.add_stmt $ .oper (.batchNormAggregate {
       dst := .abstract dst,
       src := .abstract data,
-      dtype := dtype
+      dtype := dst.tensor.dtype
     }) name
     return .none
 
@@ -680,7 +660,6 @@ nki builtin.isa.dma_transpose
   -- kwargs
   (axes : Option (List Int) := none)
   (mask : Option Immediate := none)
-  (dtype : Option Dtype := none)
   (dge_mode : Nat := 0)
   (name : Option String := none) := do
   if mask.isSome then throw maskNotSupported
@@ -688,7 +667,7 @@ nki builtin.isa.dma_transpose
     dst := .abstract dst,
     src := .abstract src,
     axes := <- getTransposeOps axes,
-    dtype := dtype
+    dtype := dst.tensor.dtype
     dgeMode := dge_mode
   }) name
   return .none
@@ -698,13 +677,12 @@ nki builtin.isa.max8
  -- kwargs
  (src : Access)
  (mask : Option Immediate := none)
- (dtype : Option Dtype := none)
  (name : Option String := none) := do
     if mask.isSome then throw maskNotSupported
     Trace.add_stmt $ .oper (.max8  {
         dst := .abstract dst,
         src := .abstract src,
-        dtype := dtype
+        dtype := dst.tensor.dtype
     }) name
     return .none
 
@@ -714,7 +692,6 @@ nki builtin.isa.nc_find_index8
  (data : Access)
  (vals : Access)
  (mask : Option Immediate := none)
- (dtype : Option Dtype := none)
  (name : Option String := none) := do
     if mask.isSome then throw maskNotSupported
     -- TODO assert that vals is a tensor containing the 8 values per partition
@@ -722,7 +699,7 @@ nki builtin.isa.nc_find_index8
       dst := .abstract dst,
       src := .abstract data,
       vals := .abstract vals,
-      dtype := dtype
+      dtype := dst.tensor.dtype
     }) name
     return .none
 
@@ -734,7 +711,6 @@ nki builtin.isa.nc_match_replace8
  (imm : Immediate)
  (dst_idx : Option Access := none)
  (mask: Option Immediate := none)
- (dtype: Option Dtype := none)
  (name : Option String := none) := do
     if mask.isSome then throw maskNotSupported
     -- TODO assert that vals is a tensor containing the 8 values per partition
@@ -744,7 +720,7 @@ nki builtin.isa.nc_match_replace8
       vals          := .abstract vals,
       replaceValue  := imm,
       dstIdx        := dst_idx.map .abstract
-      dtype         := dtype
+      dtype         := dst.tensor.dtype
     }) name
     return .none
 
@@ -754,7 +730,6 @@ nki builtin.isa.nc_stream_shuffle
  (src : Access)
  (shuffle_mask : List Immediate)
  -- kwargs
- (dtype: Option Dtype := none)
  (mask: Option Immediate := none)
  (name : Option String := none) := do
     if mask.isSome then throw maskNotSupported
@@ -762,7 +737,7 @@ nki builtin.isa.nc_stream_shuffle
       dst := .abstract dst,
       src := .abstract src,
       shuffleMask := shuffle_mask,
-      dtype := dtype,
+      dtype := dst.tensor.dtype,
     }) name
     return .none
 
@@ -777,7 +752,6 @@ nki builtin.isa.select_reduce
   (reduce_op : AluOp := .max)
   (reverse_pred : Bool := false)
   (mask : Option Immediate := none)
-  (dtype : Option Dtype := none)
   (name : Option String := none) := do
     if mask.isSome then throw maskNotSupported
     Trace.add_stmt $ .oper (.selectReduce {
@@ -791,7 +765,7 @@ nki builtin.isa.select_reduce
       reduceCmd := reduce_cmd,
       reduceOp := reduce_op,
       reversePred := reverse_pred,
-      dtype := dtype,
+      dtype := dst.tensor.dtype,
     }) name
     return .none
 
