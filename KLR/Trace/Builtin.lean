@@ -66,21 +66,18 @@ partial def resolveRefs (t : Term) : Trace Term :=
   | .list l => return .list (<- l.mapM resolveRefs)
   | _ => return t
 
-def fromNKIOpt [FromNKI a] (opt : Option a) (t : Term) : Trace a := do
-  let t <- resolveRefs t
-  match opt with
-  | .none => fromNKI? t
-  | .some a => return fromNKI a t
+def fromNKIResolve [FromNKI a] (t : Term) : Trace a := do
+  fromNKI? (<- resolveRefs t)
 
 def getArg (a : Type) [FromNKI a]
            (args : List Term)
            (kw : List (String × Term))
            (pos : Nat) (name : String) (dflt : Option a) : Trace a := do
   if h:pos < args.length then
-    fromNKIOpt dflt (args[pos]'h)
+    fromNKIResolve (args[pos]'h)
   else
     match kw.find? fun (n,_) => n == name with
-    | .some (_,x) => fromNKIOpt dflt x
+    | .some (_,x) => fromNKIResolve x
     | .none => match dflt with
               | .some a => return a
               | .none => throw s!"argument {name} not found"

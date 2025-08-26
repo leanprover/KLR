@@ -195,6 +195,7 @@ instance : FromNKI Memory where
       | `neuronxcc.nki.language.sbuf => .ok .sbuf
       | `neuronxcc.nki.language.psum => .ok .psum
       | _ => err
+    | .pointer p => return p.memory
     | _ => err
 
 instance : FromNKI Engine where
