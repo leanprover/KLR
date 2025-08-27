@@ -355,6 +355,14 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
     if (!Python_Keyword_List_ser(out, x->call.keywords))
       return false;
     break;
+  case Python_Expr_starred:
+    if (!cbor_encode_tag(out, 8, 14, 2))
+      return false;
+    if (!Python_Expr_ser(out, x->starred.e))
+      return false;
+    if (!Python_Ctx_ser(out, x->starred.ctx))
+      return false;
+    break;
   default:
     return false;
   }
@@ -374,7 +382,7 @@ bool Python_Expr_ser(FILE *out, struct Python_Expr *x) {
 bool Python_Keyword_ser(FILE *out, struct Python_Keyword *x) {
   if (!cbor_encode_tag(out, 9, 0, 3))
     return false;
-  if (!String_ser(out, x->id))
+  if (!String_Option_ser(out, x->id))
     return false;
   if (!Python_Expr_ser(out, x->value))
     return false;
@@ -1056,6 +1064,15 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     (*x)->tag = Python_Expr_call;
     break;
+  case 14:
+    if (l != 2)
+      return false;
+    if (!Python_Expr_des(in, region, &(*x)->starred.e))
+      return false;
+    if (!Python_Ctx_des(in, region, &(*x)->starred.ctx))
+      return false;
+    (*x)->tag = Python_Expr_starred;
+    break;
   default:
     return false;
   }
@@ -1084,7 +1101,7 @@ bool Python_Keyword_des(FILE *in, struct region *region,
   if (t != 9 || c != 0 || l != 3)
     return false;
   *x = region_alloc(region, sizeof(**x));
-  if (!String_des(in, region, &(*x)->id))
+  if (!String_Option_des(in, region, &(*x)->id))
     return false;
   if (!Python_Expr_des(in, region, &(*x)->value))
     return false;

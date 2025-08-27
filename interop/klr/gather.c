@@ -776,6 +776,13 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
       break;
     }
 
+    case Starred_kind: {
+      e->tag = Python_Expr_starred;
+      e->starred.e = expr(st, python->v.Starred.value);
+      e->name.ctx = context(python->v.Starred.ctx);
+      break;
+    }
+
     default:
       syntax_error(st, "unsupported expression");
       res = NULL;
@@ -822,7 +829,11 @@ static struct Python_Keyword* keyword(struct state *st, keyword_ty python) {
   struct Python_Keyword *kw = region_alloc(st->region, sizeof(*kw));
   Pos(kw->pos, python);
 
-  kw->id = py_strdup(st, python->arg);
+  // NULL means **kwarg
+  if (python->arg == NULL)
+    kw->id = NULL;
+  else
+    kw->id = py_strdup(st, python->arg);
   kw->value = expr(st, python->value);
   if (!kw->id || !kw->value)
     return NULL;

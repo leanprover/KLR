@@ -112,6 +112,7 @@ enum Python_Expr_Tag {
   Python_Expr_compare,
   Python_Expr_ifExp,
   Python_Expr_call,
+  Python_Expr_starred,
 };
 struct Python_Expr_const {
   struct Python_Const *value;
@@ -175,6 +176,10 @@ struct Python_Expr_call {
   struct Python_Expr_List *args;
   struct Python_Keyword_List *keywords;
 };
+struct Python_Expr_starred {
+  struct Python_Expr *e;
+  enum Python_Ctx ctx;
+};
 struct Python_Expr_ {
   enum Python_Expr_Tag tag;
   union {
@@ -192,6 +197,7 @@ struct Python_Expr_ {
     struct Python_Expr_compare compare;
     struct Python_Expr_ifExp ifExp;
     struct Python_Expr_call call;
+    struct Python_Expr_starred starred;
   };
 };
 

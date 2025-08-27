@@ -171,6 +171,7 @@ private def expr' (e' : Python.Expr') : Simplify Expr' :=
       let args <- exprs args
       let kws <- keywords kws
       return .call f args kws
+  | .starred .. => throw "tuple expansion is not supported"
   termination_by sizeOf e'
 
 private def index (e : Python.Expr) : Simplify Index := do
@@ -201,7 +202,10 @@ private def indexes (e : Python.Expr) : Simplify (List Index) := do
 private def keywords (ks : List Python.Keyword) : Simplify (List Keyword) := do
   match ks with
   | [] => return []
-  | ⟨ n, e, p ⟩ :: ks => withPos p do return ⟨ n, <- expr e ⟩ :: (<- keywords ks)
+  | ⟨ none, _e, p ⟩ :: _ks =>
+    withPos p do throw "keyword expansion is not supported"
+  | ⟨ some n, e, p ⟩ :: ks =>
+    withPos p do return ⟨ n, <- expr e ⟩ :: (<- keywords ks)
   termination_by sizeOf ks
 end
 
@@ -328,6 +332,11 @@ arguments). So, technically we allow a variable keyword argument parameter, as
 long as it is always empty.
 -/
 
+-- TODO: for now generate an empty string for **kwargs case
+-- We should not see any here as it would ne a syntax error in Python
+
+private def kwName (kw : Python.Keyword) : String := kw.id.getD ""
+
 private def params (args : Python.Args) : Simplify (List Param) := do
   if args.vararg.isSome then
     throw "varargs are not supported in NKI"
@@ -340,7 +349,7 @@ private def params (args : Python.Args) : Simplify (List Param) := do
   let defaults := args.all_defaults
   let mut params := []
   for name in args.names do
-    if let some kw := defaults.find? fun k => k.id == name then
+    if let some kw := defaults.find? fun k => kwName k == name then
       params := Param.mk name (some (<- expr kw.value)) :: params
     else
       params := Param.mk name none :: params
@@ -358,12 +367,10 @@ private def func (f : Python.Fun) : Simplify Fun :=
 
 /-
 # Kernel Simplification
-
-TODO: handle undefined symbols
 -/
 
 private def kwargs (kws : List Python.Keyword) : Simplify (List Arg) := do
-  kws.mapM fun kw => return Arg.mk kw.id (<- expr kw.value)
+  kws.mapM fun kw => return Arg.mk (kwName kw) (<- expr kw.value)
 
 private def args (params : List Param)
                  (args : List Python.Expr)
@@ -373,7 +380,7 @@ private def args (params : List Param)
   let p2 := params.drop p1.length
   let mut result := p1.reverse
   for p in p2 do
-    match kws.find? fun kw => kw.id == p.name with
+    match kws.find? fun kw => kwName kw == p.name with
     | none => throw s!"argument {p.name} not supplied"
     | some kw => result := (p, kw.value) :: result
   -- map and reverse list

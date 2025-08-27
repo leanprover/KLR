@@ -186,7 +186,7 @@ def info (p : Parsed) : IO UInt32 := do
     IO.println s!"AST summary for Python Core kernel {kernel.entry}"
     let fs := String.intercalate "," $ kernel.funcs.map fun f => f.name
     IO.println s!"Source Functions: {fs}"
-    let gs := String.intercalate "," $ kernel.globals.map fun kw => kw.id
+    let gs := String.intercalate "," $ kernel.globals.map fun kw => kw.id.get!
     IO.println s!"Globals: {gs}"
   | .nki kernel =>
     IO.println s!"AST summary for NKI kernel {kernel.entry}"

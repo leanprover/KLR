@@ -112,11 +112,12 @@ inductive Expr' where
   | compare (left : Expr) (ops : List CmpOp) (comparators : List Expr)
   | ifExp (test body orelse : Expr)
   | call (f: Expr) (args: List Expr) (keywords : List Keyword)
+  | starred (e : Expr) (ctx : Ctx)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 9]
 structure Keyword where
-  id : String
+  id : Option String  -- none means **value from Python parser
   value : Expr
   pos : Pos
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
