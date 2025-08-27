@@ -528,10 +528,36 @@ static struct Python_Const* value(struct state *st, PyObject *obj) {
   else if (Py_IS_TYPE(obj, &PyEllipsis_Type)) {
     c->tag = Python_Const_ellipsis;
   }
+  // This handles raw dtype passed in by user
+  // I.e:
+  // k.specialize((np.int8))
+  else if (PyType_Check(obj)) {
+    const char* tp_name = ((PyTypeObject*)obj)->tp_name;
+    if (strncmp("numpy.", tp_name, 6) == 0) {
+      c->tag = Python_Const_string;
+      c->s.value = strdup(tp_name + 6);
+    } else {
+      return NULL;
+    }
+  }
+  // This handles dtypes coming from intatinated objects
+  // I.e:
+  // m = np.matrix(0, dtype=np.int8)
+  // k.specialize((m.dtype,))
+  else if (strstr(Py_TYPE(obj)->tp_name, "numpy.dtypes")) {
+    PyObject* str_obj = PyObject_Str(obj);
+    if (str_obj && PyUnicode_Check(str_obj)) {
+      c->tag = Python_Const_string;
+      c->s.value = py_strdup(st, str_obj);
+      Py_DECREF(str_obj);
+    } else {
+      if (str_obj) Py_DECREF(str_obj);
+      return NULL;
+    }
+  }
   else {
     return NULL;
   }
-
   return c;
 }
 
