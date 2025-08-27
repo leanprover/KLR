@@ -114,7 +114,7 @@ inductive BinOp
   | floor
   -- other
   | matmul
-deriving BEq, ToJson, Inhabited
+deriving BEq, ToJson, Inhabited, Repr
 
 mutual
 

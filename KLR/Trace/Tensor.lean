@@ -47,7 +47,7 @@ def tensorScalarOpByteArray (op : BinOp) (l : TensorLib.Tensor) (r : ByteArray) 
   | .sub => return .tensor $ <- iterUnOp l (fun x => dt.sub! x r)
   | .mul => return .tensor $ <- iterUnOp l (fun x => dt.mul! x r)
   | .div => return .tensor $ <- iterUnOp l (fun x => dt.div! x r)
-  | _ => throw "unsupported scalar operator on tensor"
+  | op => throw s!"tensors do not support scalar operator '{repr op}'"
 
 def tensorOpScalarFloat (op : BinOp) (l : TensorLib.Tensor) (r : Float) : Trace Term := do
   let dt := l.dtype
@@ -98,8 +98,7 @@ nki builtin.lang.identity
   return .tensor { dtype := tlDtype, shape := tlShape, data := data }
 
 nki builtin.lang.shared_constant
-  (t : TensorLib.Tensor)
-  (dtype : Option Dtype := none) := do
+  (t : TensorLib.Tensor) := do
   let name <- genName
   let dtype := Dtype.fromTensorLibDtype t.dtype
   let shape := Shape.mk t.shape.val.head! t.shape.val.tail!
