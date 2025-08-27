@@ -41,7 +41,7 @@ instance [FromNKI a] : FromNKI (List a) where
   fromNKI?
   | .tuple l => l.mapM fromNKI?
   | .list a => a.toList.mapM fromNKI?
-  | _ => throw "expecting sequence (list or tuple)"
+  | t => throw s!"expecting sequence ('list' or 'tuple'), got '{Term.kindStr t}'"
 
 instance [FromNKI a] : FromNKI (Option a) where
   fromNKI?
@@ -61,33 +61,33 @@ instance [FromNKI a] [FromNKI b] : FromNKI (a × b) where
   fromNKI?
   | .tuple [x, y]
   | .list #[x, y] => do return (<- fromNKI? x, <- fromNKI? y)
-  | _ => throw "expecting pair"
+  | t => throw s!"expecting 'pair', got '{Term.kindStr t}'"
 
 instance : FromNKI Term := ⟨ .ok ⟩
 
 instance : FromNKI Address where
   fromNKI?
   | .pointer addr => return addr
-  | _ => throw "expecting pointer"
+  | t => throw s!"expecting 'pointer', got '{Term.kindStr t}'"
 
 instance : FromNKI Bool where
   fromNKI?
     | .bool b => return b
-    | _ => throw "expecting boolean"
+    | t => throw s!"expecting 'boolean', got '{Term.kindStr t}'"
 
 instance : FromNKI Int where
   fromNKI?
     | .bool true => return 1
     | .bool false => return 0
     | .int i => return i
-    | _ => throw "expecting integer"
+    | t => throw s!"expecting 'integer', got '{Term.kindStr t}'"
 
 instance : FromNKI Nat where
   fromNKI?
     | .bool true => return 1
     | .bool false => return 0
     | .int (.ofNat n) => return n
-    | _ => throw "expecting positive integer"
+    | t => throw s!"expecting positive 'integer', got '{Term.kindStr t}'"
 
 instance : FromNKI Float where
   fromNKI?
@@ -95,7 +95,7 @@ instance : FromNKI Float where
     | .bool false => return 0
     | .int i => return Float.ofInt i
     | .float f => return f
-    | _ => throw "expecting float"
+    | t => throw s!"expecting 'float', got '{Term.kindStr t}'"
 
 instance : FromNKI Float32 where
   fromNKI? t := do
@@ -108,17 +108,17 @@ instance : FromNKI Immediate where
     | .bool false => return .int 0
     | .int i => return .int i
     | .float f => return .float f.toFloat32
-    | _ => throw "expecting int or float"
+    | t => throw s!"expecting int or 'float', got '{Term.kindStr t}'"
 
 instance : FromNKI String where
   fromNKI?
     | .string s => return s
-    | _ => throw "expecting string"
+    | t => throw s!"expecting 'string', got '{Term.kindStr t}'"
 
 instance : FromNKI TensorLib.Tensor where
   fromNKI?
   | .tensor t => return t
-  | _ => throw "expecting a tensor"
+  | t => throw s!"expecting a 'tensor', got '{Term.kindStr t}'"
 
 -- TODO: when new NKI API is settled, rewrite is a nicer way
 instance : FromNKI Dtype where
@@ -152,7 +152,7 @@ instance : FromNKI Dtype where
       | `numpy.float16 => .ok .float16
       | `numpy.float32 => .ok .float32
       | `numpy.bool => .ok .uint8
-      | _ => throw s!"unsupported dtype {name}"
+      | _ => throw s!"unsupported dtype '{name}'"
     | .string name =>
       match name with
       -- imported and string variants
@@ -172,8 +172,8 @@ instance : FromNKI Dtype where
       | "tfloat32" => .ok .float32r  -- TODO check this
       | "float32" => .ok .float32
       | "bool" => .ok .uint8
-      | _ => throw s!"unsupported dtype {name}"
-    | _ => throw s!"expecting dtype"
+      | _ => throw s!"unsupported dtype '{name}'"
+    | t => throw s!"expecting 'dtype', got '{Term.kindStr t}'"
 
 instance : FromNKI Shape where
   fromNKI? t := do
@@ -214,12 +214,12 @@ instance : FromNKI Engine where
 instance : FromNKI Access where
   fromNKI?
     | .access a => return a
-    | _ => throw "expecting tensor access"
+    | t => throw s!"expecting tensor access, got '{Term.kindStr t}'"
 
 instance : FromNKI TensorName where
   fromNKI?
     | .access (.simple t) => return t
-    | _ => throw "expecting tensor"
+    | t => throw s!"expecting 'tensor', got '{Term.kindStr t}'"
 
 instance : FromNKI AluOp where
   fromNKI?
@@ -253,7 +253,7 @@ instance : FromNKI AluOp where
         | `neuronxcc.nki.language.greater => return .is_gt
         | `neuronxcc.nki.language.less_equal => return .is_le
         | `neuronxcc.nki.language.less => return .is_lt
-        | `neuronxcc.nki.language.logical_not => throw "??"
+        | `neuronxcc.nki.language.logical_not => throw "'logical_not' operator not supported"
         | `neuronxcc.nki.language.logical_and => return .logical_and
         | `neuronxcc.nki.language.logical_or => return .logical_or
         | `neuronxcc.nki.language.logical_xor => return .logical_xor
@@ -269,12 +269,12 @@ instance : FromNKI AluOp where
         | `numpy.greater => return .is_gt
         | `numpy.less_equal => return .is_le
         | `numpy.less => return .is_lt
-        | `numpy.logical_not => throw "??"
+        | `numpy.logical_not => throw "'logical_not' operator not supported"
         | `numpy.logical_and => return .logical_and
         | `numpy.logical_or => return .logical_or
         | `numpy.logical_xor => return .logical_xor
         | _ => throw s!"unsupported operator {name}"
-    | _ => throw "expecting operator"
+    | t => throw s!"expecting operator, got '{Term.kindStr t}'"
 
 instance : FromNKI ActivationFunc where
   fromNKI? t :=

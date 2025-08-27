@@ -45,7 +45,7 @@ private def mulseq (l : List a) : Term -> Err (List a)
   | .bool false => return []
   | .bool true  => return l
   | .int i      => return List.flatten $ List.replicate i.toNat l
-  | _           => throw "invalid multiply"
+  | t           => throw s!"can't multiply sequence by '{Term.kindStr t}'"
 
 -- Binary operators on constants
 
@@ -57,7 +57,7 @@ private def uintOp (op : BinOp) (l r : UInt64) : Trace Term :=
   | .or => ret (l ||| r)
   | .xor => ret (l ^^^ r)
   | .and => ret (l &&& r)
-  | _ => throw "unsupported operator on integers"
+  | op => throw s!"integers do not support operator '{repr op}'"
 
 private def intOp (op : BinOp) (l r : Int) : Trace Term :=
   match op with
@@ -81,7 +81,7 @@ private def floatOp (op : BinOp) (l r : Float) : Trace Term :=
   | .div => ret (l / r)
   | .pow => ret (l.pow r)
   | .floor => ret (l / r).floor
-  | _ => throw "unsupported operator on floating point numbers"
+  | _ => throw s!"floating point numbers do not support operator '{repr op}'"
 
 private def tensorBinOp(op : BinOp) (l r : TensorLib.Tensor) : Trace Term := do
   let dt := l.dtype
@@ -89,7 +89,7 @@ private def tensorBinOp(op : BinOp) (l r : TensorLib.Tensor) : Trace Term := do
   | .add => return .tensor $ <- iterBinOp l r (fun x y => dt.add! x y)
   | .sub => return .tensor $ <- iterBinOp l r (fun x y => dt.sub! x y)
   -- TODO : implement multiplication and division
-  | _ => throw "unsupported scalar operator on tensor"
+  | _ => throw s!"tensors do not support scalar operator '{repr op}'"
 
 -- Note: both Lean and Python use big integers
 -- TODO: imcomplete
@@ -110,7 +110,7 @@ private def valueOp : BinOp -> Term -> Term -> Trace Term
   | op, .tensor l, .float r => tensorOpScalarFloat op l r
   | op, .tensor l, .int r => tensorOpScalarInt op l r
   | op, .tensor l, .tensor r => tensorBinOp op l r
-  | op,_,_ => throw s!"unimplemented operator {op}"
+  | op,_,_ => throw s!"unimplemented operator '{op}'"
 
 -- Binary operators on terms
 -- TODO mulseq on strings
@@ -163,7 +163,7 @@ private def valueLt : Term -> Term -> Trace Bool
   | .bool b, .int i => return (if b then 1 else 0) < i
   | .int i, .bool b => return i < (if b then 1 else 0)
   -- errors
-  | _, _ => throw "unsupported comparison"
+  | l, r => throw s!"unsupported comparison between '{Term.kindStr l}' and '{Term.kindStr r}'"
 
 -- Note, this is partial because the user could have created
 -- a graph in the heap
@@ -383,7 +383,7 @@ def mgrid (indexes : List Term) : Err Term := do
       let b := b.get!
       let c := c.getD 1
       l := l ++ [.mgItem a b c]
-    | _ => throw "expecting slice"
+    | t => throw s!"expecting slice, got '{Term.kindStr t}'"
   match l with
   | [] => throw "mgrid must have at least 1 dimension"
   | [t] => return t
@@ -404,7 +404,7 @@ partial def access (e : Term) (indexes : List Term) : Trace Term := do
       let indices <- toIndex tensor.shape.toList indexes
       let access <- Access.mkBasic tensor indices
       return .access access
-  | _ => throw "subscript not supported"
+  | t => throw s!"subscript not supported, for term '{Term.kindStr t}'"
 
 /-
 # Attributes

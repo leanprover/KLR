@@ -115,6 +115,29 @@ inductive Term where
   | mgItem   : Int -> Int -> Int -> Term
   deriving Repr, BEq
 
+namespace Term
+def kindStr : Term → String
+  | .module _ => "module"
+  | .builtin _ _ => "builtin"
+  | .ref _ _ => "ref"
+  | .source _ => "source"
+  | .var _ => "var"
+  | .none => "none"
+  | .bool _ => "bool"
+  | .int _ => "int"
+  | .float _ => "float"
+  | .string _ => "string"
+  | .access _ => "access"
+  | .tuple _ => "tuple"
+  | .list _ => "list"
+  | .tensor _ => "tensor"
+  | .ellipsis => "ellipsis"
+  | .slice _ _ _ => "slice"
+  | .pointer _ => "pointer"
+  | .mgrid => "mgrid"
+  | .mgItem _ _ _ => "mgItem"
+end Term
+
 instance : Inhabited Term where
   default := .none
 

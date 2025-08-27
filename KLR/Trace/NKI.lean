@@ -116,7 +116,7 @@ private def checkAccess (t : Term) (warnOnly : Bool := true) : Trace Unit := do
     for (dim, ndx) in shape.toList.zip b.indexes do
       if dim < ndx.size then
         if warnOnly then warn "index overflow"
-        else throw "inddex overflow"
+        else throw "index overflow"
   | _ => return ()
 
 -- Values
@@ -218,7 +218,7 @@ partial def fnCall (f : Term) (args : List Expr) (kwargs : List Keyword) : Trace
         match <- stmts f.body with
         | .ret t => return t
         | _ => return .none
-  | _ => throw "not a callable type"
+  | t => throw s!"'{Term.kindStr t}' not a callable type"
 
 -- Statements
 
