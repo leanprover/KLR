@@ -680,7 +680,7 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
       break;
     }
 
-    // Sequences: Tuple and List
+    // Containers: Tuple and List and Dict
     case Tuple_kind: {
       e->tag = Python_Expr_tuple;
       e->tuple.xs = exprs(st, python->v.Tuple.elts);
@@ -691,6 +691,12 @@ static struct Python_Expr* expr(struct state *st, struct _expr *python) {
       e->tag = Python_Expr_list;
       e->list.xs = exprs(st, python->v.List.elts);
       e->list.ctx = context(python->v.List.ctx);
+      break;
+    }
+    case Dict_kind: {
+      e->tag = Python_Expr_dict;
+      e->dict.keys = exprs(st, python->v.Dict.keys);
+      e->dict.values = exprs(st, python->v.Dict.values);
       break;
     }
 
@@ -1014,8 +1020,15 @@ static struct Python_Stmt* stmt(struct state *st, struct _stmt *python) {
       break;
     }
 
-    // TODO: syntax extensions we need to add
-    case While_kind:
+    case While_kind: {
+      s->tag = Python_Stmt_whileLoop;
+      s->whileLoop.test = expr(st, python->v.While.test);
+      s->whileLoop.body = stmts(st, python->v.While.body);
+      s->whileLoop.orelse = stmts(st, python->v.While.orelse);
+      break;
+    }
+
+    // TODO: do we need with?
     case With_kind:
     default:
       syntax_error(st, "unsupported statement");

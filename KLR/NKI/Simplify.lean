@@ -154,6 +154,7 @@ private def expr' (e' : Python.Expr') : Simplify Expr' :=
   | .attr e id _ => return .var (.str (<- letBind (<- expr e)) id)
   | .tuple l _ => return .tuple (<- exprs l)
   | .list l _ => return .list (<- exprs l)
+  | .dict .. => throw "dictionaries not implemented"
   | .subscript e ndx _ => return .access (<- expr e) (<- indexes ndx)
   | .slice .. => throw "invalid use of slice"
   | .boolOp op l => return (<- booleanOp op (<- exprs l)).expr
@@ -311,6 +312,7 @@ private def stmt' (s : Python.Stmt') : Simplify (List Stmt') := do
       return [.forLoop x iter body]
   | .breakLoop => return [.breakLoop]
   | .continueLoop => return [.continueLoop]
+  | .whileLoop .. => throw "while loops not implemented"
   termination_by sizeOf s
 end
 

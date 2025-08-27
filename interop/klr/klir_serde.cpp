@@ -714,11 +714,12 @@ Ptr<DataPattern> DataPattern_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 134 || c != 0 || l != 2)
+  if (t != 134 || c != 0 || l != 3)
     throw std::runtime_error("Invalid Tag");
   Ptr<DataPattern> x = ptr<DataPattern>();
   x->offset = Nat_des(in);
   x->pattern = List_APPair_des(in);
+  x->channelMultiplier = Int_des(in);
   return x;
 }
 
@@ -1515,13 +1516,14 @@ Ptr<DmaTranspose> DmaTranspose_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 154 || c != 0 || l != 4)
+  if (t != 154 || c != 0 || l != 5)
     throw std::runtime_error("Invalid Tag");
   Ptr<DmaTranspose> x = ptr<DmaTranspose>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
   x->axes = TransposeOps_des(in);
   x->dtype = Option_Dtype_des(in);
+  x->dgeMode = Nat_des(in);
   return x;
 }
 

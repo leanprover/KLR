@@ -291,6 +291,7 @@ struct OperandTileWrapper final : Operand {
 struct DataPattern final {
   Nat offset;
   List<Ptr<APPair>> pattern;
+  Int channelMultiplier;
 };
 
 enum class AluOp {
@@ -494,6 +495,7 @@ struct DmaTranspose final {
   Ptr<TensorRef> src;
   TransposeOps axes;
   Option<Dtype> dtype;
+  Nat dgeMode;
 };
 
 struct Transpose final {

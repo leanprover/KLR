@@ -103,6 +103,7 @@ enum Python_Expr_Tag {
   Python_Expr_attr,
   Python_Expr_tuple,
   Python_Expr_list,
+  Python_Expr_dict,
   Python_Expr_subscript,
   Python_Expr_slice,
   Python_Expr_boolOp,
@@ -131,6 +132,10 @@ struct Python_Expr_tuple {
 struct Python_Expr_list {
   struct Python_Expr_List *xs;
   enum Python_Ctx ctx;
+};
+struct Python_Expr_dict {
+  struct Python_Expr_List *keys;
+  struct Python_Expr_List *values;
 };
 struct Python_Expr_subscript {
   struct Python_Expr *tensor;
@@ -178,6 +183,7 @@ struct Python_Expr_ {
     struct Python_Expr_attr attr;
     struct Python_Expr_tuple tuple;
     struct Python_Expr_list list;
+    struct Python_Expr_dict dict;
     struct Python_Expr_subscript subscript;
     struct Python_Expr_slice slice;
     struct Python_Expr_boolOp boolOp;
@@ -212,6 +218,7 @@ enum Python_Stmt_Tag {
   Python_Stmt_forLoop,
   Python_Stmt_breakLoop,
   Python_Stmt_continueLoop,
+  Python_Stmt_whileLoop,
 };
 struct Python_Stmt_expr {
   struct Python_Expr *e;
@@ -247,6 +254,11 @@ struct Python_Stmt_forLoop {
   struct Python_Stmt_List *body;
   struct Python_Stmt_List *orelse;
 };
+struct Python_Stmt_whileLoop {
+  struct Python_Expr *test;
+  struct Python_Stmt_List *body;
+  struct Python_Stmt_List *orelse;
+};
 struct Python_Stmt_ {
   enum Python_Stmt_Tag tag;
   union {
@@ -258,6 +270,7 @@ struct Python_Stmt_ {
     struct Python_Stmt_annAssign annAssign;
     struct Python_Stmt_ifStm ifStm;
     struct Python_Stmt_forLoop forLoop;
+    struct Python_Stmt_whileLoop whileLoop;
   };
 };
 

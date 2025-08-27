@@ -271,8 +271,16 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
     if (!Python_Ctx_ser(out, x->list.ctx))
       return false;
     break;
+  case Python_Expr_dict:
+    if (!cbor_encode_tag(out, 8, 5, 2))
+      return false;
+    if (!Python_Expr_List_ser(out, x->dict.keys))
+      return false;
+    if (!Python_Expr_List_ser(out, x->dict.values))
+      return false;
+    break;
   case Python_Expr_subscript:
-    if (!cbor_encode_tag(out, 8, 5, 3))
+    if (!cbor_encode_tag(out, 8, 6, 3))
       return false;
     if (!Python_Expr_ser(out, x->subscript.tensor))
       return false;
@@ -282,7 +290,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_slice:
-    if (!cbor_encode_tag(out, 8, 6, 3))
+    if (!cbor_encode_tag(out, 8, 7, 3))
       return false;
     if (!Python_Expr_Option_ser(out, x->slice.l))
       return false;
@@ -292,7 +300,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_boolOp:
-    if (!cbor_encode_tag(out, 8, 7, 2))
+    if (!cbor_encode_tag(out, 8, 8, 2))
       return false;
     if (!Python_BoolOp_ser(out, x->boolOp.op))
       return false;
@@ -300,7 +308,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_binOp:
-    if (!cbor_encode_tag(out, 8, 8, 3))
+    if (!cbor_encode_tag(out, 8, 9, 3))
       return false;
     if (!Python_BinOp_ser(out, x->binOp.op))
       return false;
@@ -310,7 +318,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_unaryOp:
-    if (!cbor_encode_tag(out, 8, 9, 2))
+    if (!cbor_encode_tag(out, 8, 10, 2))
       return false;
     if (!Python_UnaryOp_ser(out, x->unaryOp.op))
       return false;
@@ -318,7 +326,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_compare:
-    if (!cbor_encode_tag(out, 8, 10, 3))
+    if (!cbor_encode_tag(out, 8, 11, 3))
       return false;
     if (!Python_Expr_ser(out, x->compare.left))
       return false;
@@ -328,7 +336,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_ifExp:
-    if (!cbor_encode_tag(out, 8, 11, 3))
+    if (!cbor_encode_tag(out, 8, 12, 3))
       return false;
     if (!Python_Expr_ser(out, x->ifExp.test))
       return false;
@@ -338,7 +346,7 @@ bool Python_Expr__ser(FILE *out, struct Python_Expr_ *x) {
       return false;
     break;
   case Python_Expr_call:
-    if (!cbor_encode_tag(out, 8, 12, 3))
+    if (!cbor_encode_tag(out, 8, 13, 3))
       return false;
     if (!Python_Expr_ser(out, x->call.f))
       return false;
@@ -455,6 +463,16 @@ bool Python_Stmt__ser(FILE *out, struct Python_Stmt_ *x) {
     break;
   case Python_Stmt_continueLoop:
     if (!cbor_encode_tag(out, 11, 10, 0))
+      return false;
+    break;
+  case Python_Stmt_whileLoop:
+    if (!cbor_encode_tag(out, 11, 11, 3))
+      return false;
+    if (!Python_Expr_ser(out, x->whileLoop.test))
+      return false;
+    if (!Python_Stmt_List_ser(out, x->whileLoop.body))
+      return false;
+    if (!Python_Stmt_List_ser(out, x->whileLoop.orelse))
       return false;
     break;
   default:
@@ -946,6 +964,15 @@ bool Python_Expr__des(FILE *in, struct region *region,
     (*x)->tag = Python_Expr_list;
     break;
   case 5:
+    if (l != 2)
+      return false;
+    if (!Python_Expr_List_des(in, region, &(*x)->dict.keys))
+      return false;
+    if (!Python_Expr_List_des(in, region, &(*x)->dict.values))
+      return false;
+    (*x)->tag = Python_Expr_dict;
+    break;
+  case 6:
     if (l != 3)
       return false;
     if (!Python_Expr_des(in, region, &(*x)->subscript.tensor))
@@ -956,7 +983,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     (*x)->tag = Python_Expr_subscript;
     break;
-  case 6:
+  case 7:
     if (l != 3)
       return false;
     if (!Python_Expr_Option_des(in, region, &(*x)->slice.l))
@@ -967,7 +994,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     (*x)->tag = Python_Expr_slice;
     break;
-  case 7:
+  case 8:
     if (l != 2)
       return false;
     if (!Python_BoolOp_des(in, region, &(*x)->boolOp.op))
@@ -976,7 +1003,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     (*x)->tag = Python_Expr_boolOp;
     break;
-  case 8:
+  case 9:
     if (l != 3)
       return false;
     if (!Python_BinOp_des(in, region, &(*x)->binOp.op))
@@ -987,7 +1014,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     (*x)->tag = Python_Expr_binOp;
     break;
-  case 9:
+  case 10:
     if (l != 2)
       return false;
     if (!Python_UnaryOp_des(in, region, &(*x)->unaryOp.op))
@@ -996,7 +1023,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     (*x)->tag = Python_Expr_unaryOp;
     break;
-  case 10:
+  case 11:
     if (l != 3)
       return false;
     if (!Python_Expr_des(in, region, &(*x)->compare.left))
@@ -1007,7 +1034,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     (*x)->tag = Python_Expr_compare;
     break;
-  case 11:
+  case 12:
     if (l != 3)
       return false;
     if (!Python_Expr_des(in, region, &(*x)->ifExp.test))
@@ -1018,7 +1045,7 @@ bool Python_Expr__des(FILE *in, struct region *region,
       return false;
     (*x)->tag = Python_Expr_ifExp;
     break;
-  case 12:
+  case 13:
     if (l != 3)
       return false;
     if (!Python_Expr_des(in, region, &(*x)->call.f))
@@ -1165,6 +1192,17 @@ bool Python_Stmt__des(FILE *in, struct region *region,
     if (l != 0)
       return false;
     (*x)->tag = Python_Stmt_continueLoop;
+    break;
+  case 11:
+    if (l != 3)
+      return false;
+    if (!Python_Expr_des(in, region, &(*x)->whileLoop.test))
+      return false;
+    if (!Python_Stmt_List_des(in, region, &(*x)->whileLoop.body))
+      return false;
+    if (!Python_Stmt_List_des(in, region, &(*x)->whileLoop.orelse))
+      return false;
+    (*x)->tag = Python_Stmt_whileLoop;
     break;
   default:
     return false;

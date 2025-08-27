@@ -103,6 +103,7 @@ inductive Expr' where
   | attr (value : Expr) (id : String) (ctx : Ctx)
   | tuple (xs: List Expr) (ctx : Ctx)
   | list (xs: List Expr) (ctx : Ctx)
+  | dict (keys : List Expr) (values : List Expr)
   | subscript (tensor: Expr) (index: Expr) (ctx : Ctx)
   | slice (l u step: Option Expr)
   | boolOp (op : BoolOp) (values : List Expr)
@@ -141,6 +142,7 @@ inductive Stmt' where
   | forLoop (x : Expr) (iter: Expr) (body: List Stmt) (orelse : List Stmt)
   | breakLoop
   | continueLoop
+  | whileLoop (test : Expr) (body : List Stmt) (orelse : List Stmt)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 end
 
