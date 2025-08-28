@@ -56,6 +56,7 @@ def runNkiKernel
 -- TODO: check that inputs and outputs are the same
 def runLncKernels (k : KLR.NKI.Kernel) : Err (String × KLR.Core.LncKernel × SharedConstants) := do
   let num := k.grid.max 1
+  dbg_trace "running kernels"
   let (m0, k0, sharedConstants0) <- runNkiKernel k (0, num)
   let kernel : Core.LncKernel := {
     name := k0.name
@@ -66,6 +67,7 @@ def runLncKernels (k : KLR.NKI.Kernel) : Err (String × KLR.Core.LncKernel × Sh
   }
   let mut msgs := [m0]
   let mut bodies := [k0.body]
+  dbg_trace "running nki kernel"
   for i in [1:num] do
     let (msg, k, _) <- runNkiKernel k (i,num)
     msgs := msg :: msgs
