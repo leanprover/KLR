@@ -91,6 +91,14 @@ private def tensorBinOp(op : BinOp) (l r : TensorLib.Tensor) : Trace Term := do
   -- TODO : implement multiplication and division
   | _ => throw s!"tensors do not support scalar operator '{repr op}'"
 
+private def dynamicBinOp(op : BinOp) (d : Core.DynamicIdx) (v : Int) : Trace Term :=
+  match op with
+  | .add => return .dynamic {d with offset := d.offset + v}
+  | .sub => return .dynamic {d with offset := d.offset - v}
+  | .mul => return .dynamic {d with c := d.c * v}
+  | .div => return .dynamic {d with c := d.c / v}
+  | _ => throw s!"unsupported operation {repr op} with dynamic access pattern"
+
 -- Note: both Lean and Python use big integers
 -- TODO: imcomplete
 private def valueOp : BinOp -> Term -> Term -> Trace Term
@@ -110,6 +118,12 @@ private def valueOp : BinOp -> Term -> Term -> Trace Term
   | op, .tensor l, .float r => tensorOpScalarFloat op l r
   | op, .tensor l, .int r => tensorOpScalarInt op l r
   | op, .tensor l, .tensor r => tensorBinOp op l r
+  -- dynamic access
+  | op, .dynamic d, .int r => dynamicBinOp op d r
+  | op, .dynamic d, .float r => dynamicBinOp op d r.toInt
+  | op, .int l, .dynamic d => dynamicBinOp op d l
+  | op, .float l, .dynamic d => dynamicBinOp op d l.toInt
+  | _, .dynamic .., .dynamic .. => throw "dynamic can only operator on a single tensor"
   | op,_,_ => throw s!"unimplemented operator '{op}'"
 
 -- Binary operators on terms
@@ -261,6 +275,8 @@ def toIndex (shape : List Nat) (ts : List Term) : Err (List Index) := do
     | .tuple _ | .list  _ => throw "nested tuple/list indexes not supported"
     | .mgItem s e t =>
         return .slice (<- Slice.make s.toNat e.toNat t) :: (<- toIndex ds ts)
+    | .dynamic d =>
+      return .dynamic d :: (<- toIndex ds ts)
     | t => do
         let i : Int <- fromNKI? t
         if i < 0 || i >= d then
@@ -540,6 +556,7 @@ nki builtin.access.ap
         tensor := t
         offset
         pattern
+        terms := []
       }
       return .access (.birPattern ap)
   | _ => throw "cannot specify an access pattern on an already indexed tensor"

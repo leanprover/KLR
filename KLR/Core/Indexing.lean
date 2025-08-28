@@ -575,6 +575,7 @@ def Index.toIndexSpan (i : Index) (size : Nat) : IndexSpan :=
   match i with
   | .coord x => coordToIndexSpan x
   | .slice s => s.toIndexSpan size
+  | .dynamic _ => .full size -- NOTE: do we need to fix clipping?
 
 def simpleInterpPar (t : TensorName) : IndexSpan :=
   .full t.shape.parDim

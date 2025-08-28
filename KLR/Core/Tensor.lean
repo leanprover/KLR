@@ -324,15 +324,58 @@ instance : FromCBOR Slice where
 end Slice
 
 @[serde tag = 116]
+structure DynamicIdx where
+  t : Option TensorName
+  c : Int
+  offset : Int
+  deriving BEq, Repr, FromJson, ToJson, FromSexp, ToSexp
+
+namespace DynamicIdx
+
+instance : Inhabited DynamicIdx where
+  default := DynamicIdx.mk none 0 0
+
+def size (d : DynamicIdx) : Nat :=
+  match d.t with
+  | some t => t.shape.parDim * t.shape.freeElements
+  | none => 0
+
+instance : ToCBOR DynamicIdx where
+  toCBOR t :=
+    Serde.cborTag 116 0 3
+    ++ @Serde.toCBOR (Option TensorName) _ t.t
+    ++ @Serde.toCBOR Int _ t.c
+    ++ @Serde.toCBOR Int _ t.offset
+
+
+instance : FromCBOR DynamicIdx where
+  parse arr := do
+    let (ty,val,len,arr) <- Serde.parseCBORTag arr
+    if ty != 116 then
+      throw s!"expecting DynamicIdx (got tag {ty})"
+    if val != 0 then
+      throw s!"expecting DynamicIdx (got val tag {val})"
+    if len != 3 then
+      throw s!"expecting DynamicIdx (got len {len})"
+    let (arr, sz, t) <- @Serde.parseCBOR' (Option TensorName) _ arr 4
+    let (arr, sz, c) <- @Serde.parseCBOR' Int _ arr sz
+    let (_, sz, offset) <- @Serde.parseCBOR' Int _ arr sz
+    return (sz, DynamicIdx.mk t c offset)
+
+end DynamicIdx
+
+@[serde tag = 117]
 inductive Index where
   | coord (e : Nat)
   | slice (slice : Slice)
+  | dynamic (dynamic : DynamicIdx)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 -- Compute the number of elements an index represents
 def Index.size : Index -> Nat
  | .coord _ => 1
  | .slice s => s.size
+ | .dynamic _ => 1
 
 /--
 Complete Basic Indexing expression
@@ -340,7 +383,7 @@ Complete Basic Indexing expression
 The number of indexes must match the dimension of the tensor.
 -/
 
-@[serde tag = 117]
+@[serde tag = 118]
 structure AccessBasic where
   tensor : TensorName
   indexes : List Index
@@ -418,7 +461,7 @@ values 0,1,2. Added together, the pairs produce the values:
 
 which is equivalent to the basic index [0:2,0:3] for a standard tensor layout.
 -/
-@[serde tag = 118]
+@[serde tag = 119]
 structure APPair where
   step : Int := 1
   num : Nat := 1
@@ -449,7 +492,7 @@ The elements generated above are multiplied by the dtype size of the tensor to
 get the final memory addresses.
 -/
 
-@[serde tag = 119]
+@[serde tag = 120]
 structure AccessPattern where
   tensor : TensorName
   parNum : Nat
@@ -492,11 +535,12 @@ After allocation, the physical offset can be computed by (pseudo code):
   freeOffset = offset % freeElements + address.freeOffset
   physicalOffset = parOffset * parSize + freeOffset * dtype.size
 -/
-@[serde tag = 120]
+@[serde tag = 122]
 structure BirAccessPattern where
   tensor : TensorName
   offset : Nat
   pattern : List APPair
+  terms : List (TensorName × Int)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 namespace BirAccessPattern
@@ -511,6 +555,7 @@ def fromAccessPattern (ap : AccessPattern) : BirAccessPattern :=
   { tensor := ap.tensor
     offset := free * ap.parOffset + ap.freeOffset
     pattern := ⟨ free, ap.parNum ⟩ :: ap.freePattern
+    terms := []
   }
 
 end BirAccessPattern
@@ -518,7 +563,7 @@ end BirAccessPattern
 -- Tensor access: whole tensor (simple), basic indexing, or access pattern
 -- TODO: add advanced indexing (tensor indirect) inductive Access where
 
-@[serde tag = 121]
+@[serde tag = 123]
 inductive Access where
   | simple  (tensor : TensorName)
   | basic   (access : AccessBasic)
@@ -568,7 +613,7 @@ end Access
 /-
 A tensor access pattern in HBM. The address is an offset into HBM.
 -/
-@[serde tag = 122]
+@[serde tag = 124]
 structure TensorHbm where
   name : String
   dtype   : Dtype
@@ -614,7 +659,7 @@ parQuadrant─►96│    ┌───────┐│        │
                     │
                parOffset
 -/
-@[serde tag = 123]
+@[serde tag = 125]
 structure TensorSram where
   name : String
   dtype : Dtype
@@ -657,7 +702,7 @@ abbrev Reg := Nat
 The type that is passed to instructions to refer to a tensor in SBUF. We abstract
 over whether the tensor is a literal or stored in a shape register.
 -/
-@[serde tag = 124]
+@[serde tag = 126]
 inductive TensorRef where
   | abstract (access : Access)
   | sbuf (view : TensorSram)

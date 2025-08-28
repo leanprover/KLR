@@ -191,9 +191,47 @@ partial def optInt (e : Option Expr) : Trace (Option Int) := do
   | none => return none
   | some e => return some (<- fromNKI? (<- expr e))
 
+partial def indexExpr (e : Expr) : Trace Term :=
+  withPos e.pos (indexExpr' e.expr)
+
+partial def indexExpr' (e' : Expr') : Trace Term := do
+  match e' with
+  | .value v => value v
+  | .var n =>
+    let value <- lookupName n
+    match value with
+    | .access a =>
+      let dynIdx := Core.DynamicIdx.mk a.tensor 1 0
+      return .dynamic dynIdx
+    | _ => return value
+  | .access e ix =>
+    let ac <- access (<- expr e) (<- ix.mapM index)
+    match ac with
+    | .access a =>
+      let dynIdx := Core.DynamicIdx.mk a.tensor 1 0
+      return .dynamic dynIdx
+    | _ => throw "expected access term"
+  | .binOp op l r => binop op (<- indexExpr l) (<-  indexExpr r)
+  | .call f args kwargs =>
+      let f <- expr f
+      let rv <- fnCall f args kwargs
+      match rv with
+      | .access a =>
+        let dynIdx := Core.DynamicIdx.mk a.tensor 1 0
+        return .dynamic dynIdx
+      | _ => return rv
+
+  | _ => throw s!"Illegal expression inside index {repr e'}"
+
 partial def index (i : Index) : Trace Term :=
   match i with
-  | .coord e => expr e
+  | .coord e => do
+    let idxExpr <- indexExpr e
+    let rv := match idxExpr with
+    | .int i => return .int i
+    | .dynamic d => return .dynamic d
+    | _ => throw "invalid pattern"
+    rv
   | .slice l u s => return .slice (<- optInt l) (<- optInt u) (<- optInt s)
   | .ellipsis => return .ellipsis
 

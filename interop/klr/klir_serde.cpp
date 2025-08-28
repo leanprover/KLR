@@ -343,11 +343,24 @@ Ptr<Slice> Slice_des(FILE *in) {
   return x;
 }
 
+Ptr<DynamicIdx> DynamicIdx_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 116 || c != 0 || l != 3)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<DynamicIdx> x = ptr<DynamicIdx>();
+  x->t = Option_TensorName_des(in);
+  x->c = Int_des(in);
+  x->offset = Int_des(in);
+  return x;
+}
+
 Ptr<Index> Index_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 116)
+  if (t != 117)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -366,6 +379,14 @@ Ptr<Index> Index_des(FILE *in) {
     return x;
     break;
   }
+  case 2: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<IndexDynamicWrapper> x = ptr<IndexDynamicWrapper>();
+    x->dynamic = DynamicIdx_des(in);
+    return x;
+    break;
+  }
   default:
     throw std::runtime_error("Invalid value tag");
   }
@@ -375,7 +396,7 @@ Ptr<AccessBasic> AccessBasic_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 117 || c != 0 || l != 3)
+  if (t != 118 || c != 0 || l != 3)
     throw std::runtime_error("Invalid Tag");
   Ptr<AccessBasic> x = ptr<AccessBasic>();
   x->tensor = TensorName_des(in);
@@ -388,7 +409,7 @@ Ptr<APPair> APPair_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 118 || c != 0 || l != 2)
+  if (t != 119 || c != 0 || l != 2)
     throw std::runtime_error("Invalid Tag");
   Ptr<APPair> x = ptr<APPair>();
   x->step = Int_des(in);
@@ -400,7 +421,7 @@ Ptr<AccessPattern> AccessPattern_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 119 || c != 0 || l != 5)
+  if (t != 120 || c != 0 || l != 5)
     throw std::runtime_error("Invalid Tag");
   Ptr<AccessPattern> x = ptr<AccessPattern>();
   x->tensor = TensorName_des(in);
@@ -415,12 +436,13 @@ Ptr<BirAccessPattern> BirAccessPattern_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 120 || c != 0 || l != 3)
+  if (t != 122 || c != 0 || l != 4)
     throw std::runtime_error("Invalid Tag");
   Ptr<BirAccessPattern> x = ptr<BirAccessPattern>();
   x->tensor = TensorName_des(in);
   x->offset = Nat_des(in);
   x->pattern = List_APPair_des(in);
+  x->terms = List_Pair_des(in);
   return x;
 }
 
@@ -428,7 +450,7 @@ Ptr<Access> Access_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 121)
+  if (t != 123)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -472,7 +494,7 @@ Ptr<TensorHbm> TensorHbm_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 122 || c != 0 || l != 4)
+  if (t != 124 || c != 0 || l != 4)
     throw std::runtime_error("Invalid Tag");
   Ptr<TensorHbm> x = ptr<TensorHbm>();
   x->name = String_des(in);
@@ -486,7 +508,7 @@ Ptr<TensorSram> TensorSram_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 123 || c != 0 || l != 6)
+  if (t != 125 || c != 0 || l != 6)
     throw std::runtime_error("Invalid Tag");
   Ptr<TensorSram> x = ptr<TensorSram>();
   x->name = String_des(in);
@@ -502,7 +524,7 @@ Ptr<TensorRef> TensorRef_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 124)
+  if (t != 126)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -2633,6 +2655,17 @@ Ptr<LncKernel> LncKernel_des(FILE *in) {
   return x;
 }
 
+Option<Ptr<TensorName>> Option_TensorName_des(FILE *in) {
+  bool isSome;
+  if (!deserialize_option(in, &isSome))
+    throw std::runtime_error("expecting Bool");
+
+  Option<Ptr<TensorName>> x;
+  if (isSome)
+    x = TensorName_des(in);
+  return x;
+}
+
 List<Ptr<Index>> List_Index_des(FILE *in) {
   u64 size = 0;
   if (!deserialize_array_start(in, &size))
@@ -2658,6 +2691,21 @@ List<Ptr<APPair>> List_APPair_des(FILE *in) {
   }
   return l;
 }
+
+List<> List_Pair_des(FILE *in) {
+  u64 size = 0;
+  if (!deserialize_array_start(in, &size))
+    throw std::runtime_error("expecting List");
+
+  List<> l;
+  while (size-- > 0) {
+    b = Pair_des(in);
+    l.push_back(b);
+  }
+  return l;
+}
+
+Pair_des(FILE *in) {}
 
 Option<Dtype> Option_Dtype_des(FILE *in) {
   bool isSome;

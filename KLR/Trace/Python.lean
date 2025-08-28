@@ -59,6 +59,7 @@ private partial def termStr : Term -> Trace String
   | .list ts => return "["++ ",".intercalate (<- ts.toList.mapM termStr) ++"]"
   | .ellipsis => return "..."
   | .slice .. => return "<slice>"
+  | .dynamic .. => return "<dynamic>"
   | .pointer .. => return "<ptr>"
   | .mgrid => return "<mgrid>"
   | .mgItem .. => return "<mgrid_item>"

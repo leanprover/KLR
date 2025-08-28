@@ -45,7 +45,32 @@ def Access.lowerAccessPattern (a : Access) : KLR.Err BirAccessPattern := do
 
   let ap := CompileIndex.freePairs a.tensor ap1.num layout
   let ap := { ap with parOffset := ap1.start }
-  return .fromAccessPattern ap
+  let birAp := BirAccessPattern.fromAccessPattern ap
+
+  -- This code collects the dynamic indicies a dynamic index is a
+  -- list of terms with [t1*c1+o1 + ... + tn*cn+on]
+  -- the BIR access pattern then contains 2 fields:
+  -- terms: list of [t1*c1 + ... + tn*cn]
+  -- offset: sum(o1..on)
+
+  -- We need to build a list of terms of (tensor, coefficent)
+  let terms := match a with
+  | .basic b => b.indexes.filterMap (fun idx =>
+      match idx with
+      | .dynamic d => d.t.map (fun t => (t, d.c))
+      | _ => none
+    )
+  | _ => []
+
+  -- Accumulate the free term from all dynamic patterns
+  let dynOffset := match a with
+  | .basic b => Int.toNat $ b.indexes.foldl (fun acc idx =>
+      match idx with
+      | .dynamic d => acc + d.offset
+      | _ => acc
+    ) 0
+  | _ => 0
+  return {birAp with terms := terms, offset := birAp.offset + dynOffset}
 
 def TensorRef.lowerAccessPatterns : TensorRef → KLR.Err TensorRef
 | .abstract a => do return .abstract <| .birPattern (← a.lowerAccessPattern)
