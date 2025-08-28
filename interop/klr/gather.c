@@ -251,11 +251,10 @@ static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
     PyTypeObject *t = Py_TYPE(obj);
     if (!t) return NULL;
 
-    // Tensor is type for PyTorch tensors, ShapedArray is type for JAX tensors
-    if (strcmp(t->tp_name, "tensor") != 0 &&
-        strcmp(t->tp_name, "ndarray") != 0 &&
-        strcmp(t->tp_name, "Tensor") != 0 &&
-        strcmp(t->tp_name, "ShapedArray") != 0)
+    if (strcmp(t->tp_name, "tensor" /*nki*/) != 0 &&
+        strcmp(t->tp_name, "numpy.ndarray" /*numpy*/) != 0 &&
+        strcmp(t->tp_name, "Tensor" /*PyTorch*/) != 0 &&
+        strcmp(t->tp_name, "ShapedArray" /*JAX*/) != 0)
       return NULL;
 
     PyObject *shape = PyObject_GetAttrString(obj, "shape");
