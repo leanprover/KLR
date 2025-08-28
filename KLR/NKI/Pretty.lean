@@ -82,6 +82,7 @@ private def index (i : Index) : Format :=
   match i with
   | .coord i => expr i true
   | .slice l u s => .joinSep [exprOpt l, exprOpt u, exprOpt s] ":"
+  | .dynamic t c o => s!"{expr t} * {expr c} + {expr o}"
   | .ellipsis => "..."
   termination_by sizeOf i
 

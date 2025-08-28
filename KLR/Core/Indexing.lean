@@ -225,6 +225,7 @@ def Access.freeDim : Access → Nat
 | .simple s => s.freeDim
 | .basic b => b.freeDim
 | .pattern p => p.freeDim
+| .dynamic _ => 0 -- not yet
 | .birPattern _ => 0  -- TODO: should not occur
 
 /-- The slice [0, s) -/
@@ -575,6 +576,7 @@ def Index.toIndexSpan (i : Index) (size : Nat) : IndexSpan :=
   match i with
   | .coord x => coordToIndexSpan x
   | .slice s => s.toIndexSpan size
+  | .dynamic d => .full size -- TODO: figure out
 
 def simpleInterpPar (t : TensorName) : IndexSpan :=
   .full t.shape.parDim
@@ -614,12 +616,14 @@ def Access.interpPar : Access → IndexSpan
 | .simple s => simpleInterpPar s
 | .basic b => basicInterpPar b
 | .pattern p => patternInterpPar p
+| .dynamic _ => panic! "not implemented"
 | .birPattern _ => panic! "bir pattern in indexing" -- TODO
 
 def Access.interpFree : (a : Access) → LayoutMap a.freeDim
 | .simple s => simpleInterpFree s
 | .basic b => basicInterpFree b
 | .pattern p => patternInterpFree p
+| .dynamic _ => fun x => x -- TODO NOT implemented
 | .birPattern _ => fun x => x -- TODO
 
 /-
