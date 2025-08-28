@@ -87,7 +87,6 @@ inductive Expr' where
 inductive Index where
   | coord (i : Expr)
   | slice (l u step : Option Expr)
-  | dynamic (t : Expr) (coef : Expr) (offset : Expr)
   | ellipsis
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
