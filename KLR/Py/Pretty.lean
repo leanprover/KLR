@@ -160,6 +160,7 @@ def Exp.optionReprPrec : Option Exp → Nat → Option Format
 
 def Index.reprPrec : Index → Nat → Format
   | .coord i, p => i.reprPrec p
+  | .dynamic t c o, p => t.reprPrec p -- TODO fix me
   | .slice l u step, _ =>
     let l : Format := (Exp.optionReprPrec l 0).getD Format.nil
     let u : Format := (Exp.optionReprPrec u 0).getD Format.nil

@@ -188,7 +188,12 @@ partial def optInt (e : Option Expr) : Trace (Option Int) := do
 
 partial def index (i : Index) : Trace Term :=
   match i with
-  | .coord e => expr e
+  | .coord e => do
+    let rv := match <- expr e with
+    | .int i => .ok $ .int i
+    | .access t => .ok $ .dynamic t 1 0
+    | _ => throw "invalid pattern"
+    rv
   | .slice l u s => return .slice (<- optInt l) (<- optInt u) (<- optInt s)
   | .ellipsis => return .ellipsis
 
