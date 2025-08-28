@@ -324,15 +324,66 @@ instance : FromCBOR Slice where
 end Slice
 
 @[serde tag = 116]
+structure DynamicIdx where
+  t : Option TensorName
+  c : Int
+  offset : Int
+  deriving BEq, Repr
+
+instance : FromJson DynamicIdx := ⟨ fun _ => throw "" ⟩
+instance : FromSexp DynamicIdx := ⟨ fun _ => throw "" ⟩
+instance : ToSexp DynamicIdx := ⟨ fun _ => default ⟩
+instance : ToJson DynamicIdx := ⟨ fun _ => default ⟩
+
+namespace DynamicIdx
+
+def make (t: TensorName) (c: Int) (offset: Int) : Err DynamicIdx := do
+  return DynamicIdx.mk t c offset
+
+instance : Inhabited DynamicIdx where
+  default := DynamicIdx.mk none 0 0
+
+def make!(t: TensorName) (c: Int) (offset: Int) : DynamicIdx := get! $  make t c offset
+
+def size (d : DynamicIdx) : Nat :=
+  0
+
+instance : ToCBOR DynamicIdx where
+  toCBOR t :=
+    Serde.cborTag 116 0 3
+    ++ @Serde.toCBOR (Option TensorName) _ t.t
+    ++ @Serde.toCBOR Int _ t.c
+    ++ @Serde.toCBOR Int _ t.offset
+
+
+instance : FromCBOR DynamicIdx where
+  parse arr := do
+    let (ty,val,len,arr) <- Serde.parseCBORTag arr
+    if ty != 116 then
+      throw s!"expecting DynamicIdx (got tag {ty})"
+    if val != 0 then
+      throw s!"expecting DynamicIdx (got val tag {val})"
+    if len != 3 then
+      throw s!"expecting DynamicIdx (got len {len})"
+    let (arr, sz, t) <- @Serde.parseCBOR' (Option TensorName) _ arr 4
+    let (arr, sz, c) <- @Serde.parseCBOR' Int _ arr sz
+    let (_, sz, offset) <- @Serde.parseCBOR' Int _ arr sz
+    return (sz, DynamicIdx.mk t c offset)
+
+end DynamicIdx
+
+@[serde tag = 117]
 inductive Index where
   | coord (e : Nat)
   | slice (slice : Slice)
+  | dynamic (dynamic : DynamicIdx)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 -- Compute the number of elements an index represents
 def Index.size : Index -> Nat
  | .coord _ => 1
  | .slice s => s.size
+ | .dynamic _ => 0 -- TODO figure out
 
 /--
 Complete Basic Indexing expression
@@ -340,7 +391,7 @@ Complete Basic Indexing expression
 The number of indexes must match the dimension of the tensor.
 -/
 
-@[serde tag = 117]
+@[serde tag = 118]
 structure AccessBasic where
   tensor : TensorName
   indexes : List Index
@@ -418,7 +469,7 @@ values 0,1,2. Added together, the pairs produce the values:
 
 which is equivalent to the basic index [0:2,0:3] for a standard tensor layout.
 -/
-@[serde tag = 118]
+@[serde tag = 119]
 structure APPair where
   step : Int := 1
   num : Nat := 1
@@ -449,7 +500,7 @@ The elements generated above are multiplied by the dtype size of the tensor to
 get the final memory addresses.
 -/
 
-@[serde tag = 119]
+@[serde tag = 120]
 structure AccessPattern where
   tensor : TensorName
   parNum : Nat
@@ -478,6 +529,35 @@ def freeElementOffset (ap : AccessPattern) : Nat :=
 
 end AccessPattern
 
+@[serde tag = 121]
+structure AccessDynamic where
+  tensor : TensorName
+  parNum : Nat
+  freePattern : List APPair
+  parOffset : Nat := 0
+  freeOffset : Nat
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+namespace AccessDynamic
+
+def shape (ap : AccessDynamic) : Shape :=
+  .mk ap.parNum $ ap.freePattern.map fun pair => pair.num
+
+-- Partitions are not counted in bytes or elements; I'll call them logical "rows".
+def partitionRowOffset (ap : AccessDynamic) : Nat :=
+  ap.tensor.address.parOffset.getD 0 + ap.parOffset
+
+def freeByteOffset (ap : AccessDynamic) : Nat :=
+  ap.tensor.address.freeOffset.getD 0 + ap.freeOffset
+
+-- We can't find documentation that the free offset must be aligned by dtype size, but we think
+-- it's probably the case. It certainly makes calculating indexes easier so we're going with it
+-- for now.
+def freeElementOffset (ap : AccessDynamic) : Nat :=
+  ap.freeByteOffset / ap.tensor.dtype.size
+
+end AccessDynamic
+
 /-
 BIR compatible access patterns
 
@@ -492,7 +572,7 @@ After allocation, the physical offset can be computed by (pseudo code):
   freeOffset = offset % freeElements + address.freeOffset
   physicalOffset = parOffset * parSize + freeOffset * dtype.size
 -/
-@[serde tag = 120]
+@[serde tag = 122]
 structure BirAccessPattern where
   tensor : TensorName
   offset : Nat
@@ -518,11 +598,12 @@ end BirAccessPattern
 -- Tensor access: whole tensor (simple), basic indexing, or access pattern
 -- TODO: add advanced indexing (tensor indirect) inductive Access where
 
-@[serde tag = 121]
+@[serde tag = 123]
 inductive Access where
   | simple  (tensor : TensorName)
   | basic   (access : AccessBasic)
   | pattern (access : AccessPattern)
+  | dynamic (access : AccessDynamic)
   | birPattern (access : BirAccessPattern)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
@@ -535,12 +616,14 @@ def tensor : Access -> TensorName
   | simple tensor
   | basic {tensor, ..}
   | pattern {tensor, ..} => tensor
+  | dynamic {tensor, ..} => tensor
   | birPattern {tensor, ..} => tensor
 
 def shape : Access -> Err Shape
   | .simple t => return t.shape
   | .basic b => b.shape
   | .pattern ap => return ap.shape
+  | .dynamic dyn => return dyn.shape
   | .birPattern bap => return bap.shape
 
 theorem shape.noFail :
@@ -568,7 +651,7 @@ end Access
 /-
 A tensor access pattern in HBM. The address is an offset into HBM.
 -/
-@[serde tag = 122]
+@[serde tag = 124]
 structure TensorHbm where
   name : String
   dtype   : Dtype
@@ -614,7 +697,7 @@ parQuadrant─►96│    ┌───────┐│        │
                     │
                parOffset
 -/
-@[serde tag = 123]
+@[serde tag = 125]
 structure TensorSram where
   name : String
   dtype : Dtype
@@ -657,7 +740,7 @@ abbrev Reg := Nat
 The type that is passed to instructions to refer to a tensor in SBUF. We abstract
 over whether the tensor is a literal or stored in a shape register.
 -/
-@[serde tag = 124]
+@[serde tag = 126]
 inductive TensorRef where
   | abstract (access : Access)
   | sbuf (view : TensorSram)
