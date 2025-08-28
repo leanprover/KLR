@@ -535,26 +535,12 @@ structure AccessDynamic where
   parNum : Nat
   freePattern : List APPair
   parOffset : Nat := 0
-  freeOffset : Nat
+  freeOffset : Nat := 0
+  c : Int := 0
+  terms : List (TensorName × Int)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 namespace AccessDynamic
-
-def shape (ap : AccessDynamic) : Shape :=
-  .mk ap.parNum $ ap.freePattern.map fun pair => pair.num
-
--- Partitions are not counted in bytes or elements; I'll call them logical "rows".
-def partitionRowOffset (ap : AccessDynamic) : Nat :=
-  ap.tensor.address.parOffset.getD 0 + ap.parOffset
-
-def freeByteOffset (ap : AccessDynamic) : Nat :=
-  ap.tensor.address.freeOffset.getD 0 + ap.freeOffset
-
--- We can't find documentation that the free offset must be aligned by dtype size, but we think
--- it's probably the case. It certainly makes calculating indexes easier so we're going with it
--- for now.
-def freeElementOffset (ap : AccessDynamic) : Nat :=
-  ap.freeByteOffset / ap.tensor.dtype.size
 
 end AccessDynamic
 
@@ -577,6 +563,7 @@ structure BirAccessPattern where
   tensor : TensorName
   offset : Nat
   pattern : List APPair
+  terms : List (TensorName × Int)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 namespace BirAccessPattern
@@ -591,6 +578,15 @@ def fromAccessPattern (ap : AccessPattern) : BirAccessPattern :=
   { tensor := ap.tensor
     offset := free * ap.parOffset + ap.freeOffset
     pattern := ⟨ free, ap.parNum ⟩ :: ap.freePattern
+    terms := []
+  }
+
+def fromDynamicPattern (ap : AccessDynamic) : BirAccessPattern :=
+  let free := ap.tensor.shape.freeElements
+  { tensor := ap.tensor
+    offset := free * ap.parOffset + ap.freeOffset
+    pattern := ⟨ free, ap.parNum ⟩ :: ap.freePattern
+    terms := ap.terms
   }
 
 end BirAccessPattern
@@ -623,7 +619,7 @@ def shape : Access -> Err Shape
   | .simple t => return t.shape
   | .basic b => b.shape
   | .pattern ap => return ap.shape
-  | .dynamic dyn => return dyn.shape
+  | .dynamic dyn => return .mk 1 []
   | .birPattern bap => return bap.shape
 
 theorem shape.noFail :

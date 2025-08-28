@@ -543,6 +543,7 @@ nki builtin.access.ap
         tensor := t
         offset
         pattern
+        terms := []
       }
       return .access (.birPattern ap)
   | _ => throw "cannot specify an access pattern on an already indexed tensor"

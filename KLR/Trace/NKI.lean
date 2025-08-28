@@ -196,7 +196,7 @@ partial def index (i : Index) : Trace Term :=
   | .coord e => do
     let rv := match <- expr e with
     | .int i => .ok $ .int i
-    | .access t => .ok $ .dynamic t 0 0
+    | .access t => .ok $ .dynamic t 1 0
     | _ => throw "invalid pattern"
     rv
   | .slice l u s => return .slice (<- optInt l) (<- optInt u) (<- optInt s)
