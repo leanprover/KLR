@@ -395,7 +395,7 @@ def mgrid (indexes : List Term) : Err Term := do
 -- Handle subscript expressions, t[i]
 -- Note: partial due to possible heap graphs
 partial def access (e : Term) (indexes : List Term) : Trace Term := do
-  let rv <- match e with
+  match e with
   | .ref name _ => access (<- lookup name) indexes
   | .string _ => throw "string subscript not implemented"
   | .tuple l => listAccess l indexes
@@ -405,11 +405,9 @@ partial def access (e : Term) (indexes : List Term) : Trace Term := do
   | .access (.simple tensor) => do
       -- TODO: support Access
       let indices <- toIndex tensor.shape.toList indexes
-      dbg_trace s!"indicies {repr indices}"
       let access <- Access.mkBasic tensor indices
       return .access access
   | t => throw s!"subscript not supported, for term '{Term.kindStr t}'"
-  return rv
 
 /-
 # Attributes
