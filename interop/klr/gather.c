@@ -1040,8 +1040,71 @@ static struct Python_Stmt* stmt(struct state *st, struct _stmt *python) {
 
     // TODO: do we need with?
     case With_kind:
+      syntax_error(st, "NKI does not support 'with' statements at this time.");
+      res = NULL;
+      break;
+
+    case FunctionDef_kind:
+      syntax_error(st, "NKI does not support inner function definitions. Move function definition outside this function.");
+      res = NULL;
+      break;
+
+    case ClassDef_kind:
+      syntax_error(st, "NKI does not support 'class' definitions within a function. Move class definition outside this function.");
+      res = NULL;
+      break;
+
+    case Delete_kind:
+      syntax_error(st, "NKI does not support 'del' statements at this time.");
+      res = NULL;
+      break;
+
+    case TypeAlias_kind:
+      syntax_error(st, "NKI does not support 'type' statements at this time.");
+      res = NULL;
+      break;
+
+    case AsyncFunctionDef_kind:
+    case AsyncFor_kind:
+    case AsyncWith_kind:
+      syntax_error(st, "NKI does not support 'async'. Use only synchronous functions within kernels.");
+      res = NULL;
+      break;
+
+    case Match_kind:
+      syntax_error(st, "NKI does not support 'match' statements at this time. Use 'if/elif' or dict lookups instead.");
+      res = NULL;
+      break;
+
+    case Raise_kind:
+      syntax_error(st, "NKI does not support 'raise' statements. Use 'if/else' control flow within kernels, or 'assert' for fatal errors.");
+      res = NULL;
+      break;
+
+    case Try_kind:
+    case TryStar_kind:
+      syntax_error(st, "NKI does not support 'try' statements. Use 'if/else' control flow within kernels.");
+      res = NULL;
+      break;
+
+    case Import_kind:
+    case ImportFrom_kind:
+      syntax_error(st, "NKI does not support 'import' statements within a function. Move 'import' outside this function.");
+      res = NULL;
+      break;
+
+    case Global_kind:
+      syntax_error(st, "NKI does not support 'global' statements. Kernels cannot assign to global variables. Pass a dict between functions to share state.");
+      res = NULL;
+      break;
+
+    case Nonlocal_kind:
+      syntax_error(st, "NKI does not support 'nonlocal' statements. Kernels cannot assign to variables in nonlocal scope. Pass a dict between functions to share state.");
+      res = NULL;
+      break;
+
     default:
-      syntax_error(st, "unsupported statement");
+      syntax_error(st, "This statement is not supported in NKI.");
       res = NULL;
       break;
   }
