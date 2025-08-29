@@ -34,8 +34,6 @@ def langSyms := [
   "bool_",
   -- buffer names
   "shared_hbm", "private_hbm", "hbm", "sbuf", "psum",
-  -- engines
-  "unknown_engine", "tensor_engine", "vector_engine", "scalar_engine",
   -- activation function types
   "idle", "reset", "reduce", "reset_reduce",
   -- functions
