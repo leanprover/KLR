@@ -32,7 +32,7 @@ inductive Engine where
 
 -- Memory types
 inductive Memory where
-  | hbm | sbuf | pmem
+  | hbm | sbuf | psum
   deriving Repr, BEq
 
 /-

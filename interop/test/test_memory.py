@@ -11,7 +11,7 @@ from klr.frontend import Kernel
 def pointers():
   x = sbuf[0:128, 0:512]
   y = x[32:,:]
-  a = pmem[:64,:512]
+  a = psum[:64,:512]
   b = a[32:,:]
   sb = sbuf[:,1024:2048]
   left = sb[:,0:512]
