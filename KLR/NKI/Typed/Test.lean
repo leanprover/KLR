@@ -364,3 +364,17 @@ def scoping(z):
     x += 1
   return y
 "
+
+/--
+info: ok:
+example : [bool, int, int] -> int
+-/
+#guard_msgs in #type_check "
+
+def example(a, b, c):
+  if a:
+    return b + 1
+  else:
+    return c
+
+"

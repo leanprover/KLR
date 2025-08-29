@@ -481,6 +481,7 @@ def identKind (s : String) : TokenKind :=
   /- Keywords specific to NKI, not standard python keywords -/
   | "where"
   -- types
+  | "bool"
   | "int"
   | "float"
   | "str"

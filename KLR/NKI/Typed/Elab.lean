@@ -37,6 +37,11 @@ Missing features:
   However, we pass it a empty kind context when doing so, this fails when
   a nested `def` refers to a type variable bound earlier.
   We should also think about whether `dtype` should be a separate kind.
+- Better handling of when to apply the context to substitute types.
+- Unification: This implementation does not perform unification to handle
+  more complex constraints over longer code spans. This might also fixes
+  the issue above of better handling of when to actually apply subsitutions
+  obtained from the context.
 - Unimplemented language features, grep for calls of `throwUnsupported`
 - Semantic subtyping.
   For example, if a function expects: `∀ DT M N, tensor[DT, (M, N, M + N)]`,
@@ -44,6 +49,8 @@ Missing features:
 - Better handling of subtyping coercions.
   See comments in `Context.solve` and `stmt'` in the `ret` case.
 - Better error reporting in general.
+- More nuanced reporting of subtyping. For example, if either a float
+  or an int can be used, we default to a float.
 - Other todos marked by `TODO` comments.
 -/
 
@@ -126,7 +133,7 @@ def Typ.checkKind (expected : Kind) (Φ : KindCtx) : Typ → ElabM KindCtx
           return Φ
         else
           throwType s!"kind mismatch, expected {expected}, got {k}"
-    | none => throwType "unbound type variable"
+    | none => return Φ--throwType s!"unbound type variable {id}"
   | .forall span vars body => do
     if expected != .typ then withSpan span (throwType s!"kind mismatch, expected {expected}, got type") else
     let Ψ ← body.checkKind .typ (Φ.push (vars.map TypVar.name))
@@ -539,6 +546,8 @@ partial def exp' (e : Py.Exp') (Γ : Context) (expected : Option Typ := none) : 
       | .lt | .le | .gt | .ge =>
         let (x, xTyp, Γ) ← exp x Γ
         let (y, yTyp, Γ) ← exp y Γ
+        let Γ ← subtype Γ xTyp yTyp
+        let xTyp := Γ.apply xTyp
         let Γ ← subtype Γ xTyp (floatTyp span)
         let Γ ← subtype Γ (Γ.apply yTyp) (floatTyp span)
         let yTyp := Γ.apply yTyp
@@ -554,6 +563,8 @@ partial def exp' (e : Py.Exp') (Γ : Context) (expected : Option Typ := none) : 
       | .mod | .pow | .floor =>
         let (x, xTyp, Γ) ← exp x Γ
         let (y, yTyp, Γ) ← exp y Γ
+        let Γ ← subtype Γ xTyp yTyp
+        let xTyp := Γ.apply xTyp
         let Γ ← subtype Γ xTyp (floatTyp span)
         let Γ ← subtype Γ (Γ.apply yTyp) (floatTyp span)
         let yTyp := Γ.apply yTyp
@@ -632,7 +643,7 @@ def Exp.typ (e : Exp) (Γ : Context) : ElabM Typ :=
   match e with
   | .var _ id => do
     let some t := Γ.findVarType id | throwType s!"variable {id} cannot be found in the context"
-    return t
+    return Γ.apply t
   | .value span val => return val.typ span
   | .builtin span val => return val.typ span
   | .tuple span es => (.tuple span ·) <$> (es.mapM (Exp.typ · Γ))
@@ -666,7 +677,7 @@ def Stmt.typ (s : Stmt) (Γ : Context) (desired : Typ) : ElabM Typ :=
     | some els => do
       let t1 ← thn.typ Γ desired
       let t2 ← els.typ Γ desired
-      return t1.min t2
+      return (Γ.apply t1).min (Γ.apply t2)
     | none => thn.typ Γ desired
   | .forLoop span _ _ _ => return noneTyp span
   | .whileLoop span _ _ => return noneTyp span
@@ -789,6 +800,13 @@ def elseIfs (elifs : List (Py.Exp × List Py.Stmt)) (els : Option (List Py.Stmt)
     let (cond, _, Γ) ← exp cond Γ (boolTyp span)
     let (some thn, Γ) ← stmts thn Γ | throwEmptyStmts
     let (els, Γ) ← elseIfs tl els Γ
+    let thnTyp ← thn.typ Γ (noneTyp span)
+    let elsTyp := (← els.mapM (·.typ Γ (noneTyp span))).getD (noneTyp span)
+    let Γ ←
+      match thnTyp, elsTyp with
+      | .prim _ .none, _
+      | _, .prim _ .none => pure Γ
+      | _, _ => subtype Γ thnTyp elsTyp
     return (some (.ifStm span cond thn els), Γ)
 termination_by sizeOf elifs + sizeOf els
 
@@ -944,6 +962,13 @@ def stmt' (s : Py.Stmt') (k : List Py.Stmt) (Γ : Context) : ElabM (Stmt × Cont
     let (cond, _, Γ) ← exp cond Γ (boolTyp span)
     let (some thn, Γ) ← stmts thn Γ | throwEmptyStmts
     let (els, Γ) ← elseIfs elifs els Γ
+    let thnTyp ← thn.typ Γ (noneTyp span)
+    let elsTyp := (← els.mapM (·.typ Γ (noneTyp span))).getD (noneTyp span)
+    let Γ ←
+      match thnTyp, elsTyp with
+      | .prim _ .none, _
+      | _, .prim _ .none => pure Γ
+      | _, _ => subtype Γ thnTyp elsTyp
     let (k, Γ) ← stmts k Γ
     return ((Stmt.ifStm span cond thn els).append k, Γ)
   | .forLoop pat iter body =>
