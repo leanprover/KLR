@@ -46,11 +46,18 @@ private def rewriteOp (rhs: Expr) (dst: Expr) : SimplifyOp (Option Stmt') := do
   | _ => return none
 
 private def rewriteNdarray (stmt : Stmt') : Stmt' :=
+  -- hacky for now. Fixme to actually lookup names from environment
+  -- this most likely belongs somewhere else
   match stmt with
-  | .letM (.var x) ty ⟨.call ⟨.var `xx, p0 ⟩ args kws, p1 ⟩ =>
-      if kws.any fun x => x.name == "name" then stmt else
-      let kws := ⟨"name", ⟨ .var x, p1⟩⟩ :: kws
-      .letM (.var x) ty ⟨.call ⟨.var `xx, p0 ⟩ args kws, p1 ⟩
+  | .letM (.var x) ty ⟨.call ⟨.var fname, p0 ⟩ args kws, p1 ⟩ =>
+    if fname.toString.endsWith "ndarray" || fname.toString.endsWith "view" then
+      if kws.any fun x => x.name == "name" then
+       stmt
+      else
+        let kws := ⟨"name", ⟨ .value $ .string x.toString, p1⟩⟩ :: kws
+        .letM (.var x) ty ⟨.call ⟨.var fname, p0 ⟩ args kws, p1 ⟩
+    else
+      stmt
   | _ => stmt
 
 mutual
