@@ -196,7 +196,7 @@ private def binop' (op : BinOp) (l r : Term) : Trace Term := do
   | .ne => return .bool (l != r)
   | .lt => return .bool (<- termLt l r)
   | .le => return .bool (l == r || (<- termLt l r))
-  | .gt => return .bool (not (l == r && not (<- termLt l r)))
+  | .gt => return .bool ((not (l == r)) && (not (<- termLt l r)))
   | .ge => return .bool (not (<- termLt l r))
   -- arithmetic / bitwise
   | _ => termOp op l r
