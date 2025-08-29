@@ -43,7 +43,7 @@ instance : ToFormat Memory where
   format
   | .hbm => "hbm"
   | .sbuf => "sbuf"
-  | .pmem => "pmem"
+  | .psum => "psum"
   | .reg  => "reg"
 
 instance : ToFormat Dtype where

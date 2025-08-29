@@ -10,7 +10,7 @@ def ndarray(shape, dtype, buffer=None, name=''):
   elif buffer == nki.language.sbuf:
     buffer = sbuf
   elif buffer == nki.language.psum:
-    buffer = pmem
+    buffer = psum
   else:
     assert False, "invalid buffer argument"
   return buffer.view(dtype, shape, name)
