@@ -65,12 +65,6 @@ nki builtin.lang.ndarray
     let name <- tensorName name
     let address := { name, memory, parSize, freeSize, parOffset, freeOffset : Address }
     let tensor <- TensorName.make name dtype shape address
-    Trace.add_stmt $ .oper (.memSet {
-      dst := .abstract (.simple tensor)
-      value := .int 0
-      dtype := dtype
-      engine := .unassigned
-    }) none
     return .access (.simple tensor)
 
 nki builtin.lang.par_dim (t : Term) := do
