@@ -21,6 +21,7 @@ import Extract.Python
 import Extract.Serde
 import Extract.SerdeCpp
 import Extract.ToPython
+import Extract.ASDL
 import Lean
 
 namespace Extract
@@ -57,3 +58,4 @@ run_meta do
   withFile s!"{dir}/klir_ast.hpp" Cpp.generateKlrAST
   withFile s!"{dir}/klir_serde.hpp" SerdeCpp.generateKlrH
   withFile s!"{dir}/klir_serde.cpp" SerdeCpp.generateKlrC
+  withFile s!"{dir}/NKI.asdl" ASDL.generateNkiAST

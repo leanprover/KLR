@@ -15,7 +15,6 @@ limitations under the License.
 -/
 
 import Extract.Basic
-import Extract.C
 import KLR.Python
 import Lean
 
@@ -89,7 +88,7 @@ from enum import Enum, auto"
 
 def generatePythonAST : MetaM Unit := do
   IO.println header
-  let tys <- C.pythonAST
+  let tys <- pythonAST
   let pty <- collectLeanType `KLR.Core.Pos
   for t in pty :: tys do
     genPyType t
@@ -97,7 +96,7 @@ def generatePythonAST : MetaM Unit := do
 
 def generateNkiAST : MetaM Unit := do
   IO.println header
-  let tys <- C.nkiAST
+  let tys <- nkiAST
   let pty <- collectLeanType `KLR.Core.Pos
   for t in pty :: tys do
     genPyType t

@@ -15,7 +15,6 @@ limitations under the License.
 -/
 
 import Extract.Basic
-import Extract.C
 import Extract.Cpp
 import KLR.NKI.Basic
 import KLR.Python
@@ -137,14 +136,14 @@ private def genC (tys : List LeanType) : MetaM Unit := do
 
 def generateKlrH : MetaM Unit := do
   IO.println <| Cpp.headerH ["klir_ast.hpp"]
-  genH (<- C.commonAST)
-  genH (<- C.klrAST)
-  genH (<- C.fileAST)
+  genH (<- commonAST)
+  genH (<- klrAST)
+  genH (<- fileAST)
   IO.println "}" -- TODO close namepace!
 
 def generateKlrC : MetaM Unit := do
   IO.println <| Cpp.headerC ["klir_serde.hpp"]
-  genC (<- C.commonAST)
-  genC (<- C.klrAST)
-  genC (<- C.fileAST)
+  genC (<- commonAST)
+  genC (<- klrAST)
+  genC (<- fileAST)
   IO.println "}" -- TODO close namepace!
