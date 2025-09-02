@@ -194,6 +194,7 @@ def Args.all_defaults (args : Args) : List Keyword :=
 @[serde tag = 13]
 structure Fun where
   name : String
+  fileName : String
   line : Nat
   source : String
   args : Args

@@ -1233,6 +1233,7 @@ static struct Python_Fun* function(struct state *st, PyObject *f) {
 
   fn = region_alloc(st->region, sizeof(*fn));
   fn->name = name;
+  fn->fileName = st->scope.file;
   fn->line = st->scope.line_offset;
   fn->source = st->scope.src;
   fn->body = body;

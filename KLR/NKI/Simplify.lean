@@ -356,14 +356,15 @@ private def params (args : Python.Args) : Simplify (List Param) := do
   return params.reverse
 
 private def func (f : Python.Fun) : Simplify Fun :=
-  return {
-    name := f.name
-    file := "unknown"  -- TODO: fix me
-    line := f.line
-    source := f.source
-    args := <- params f.args
-    body := <- stmts f.body
-  }
+  withFile f.fileName f.line do
+    return {
+      name := f.name
+      file := f.fileName
+      line := f.line
+      source := f.source
+      args := <- params f.args
+      body := <- stmts f.body
+    }
 
 /-
 # Kernel Simplification
