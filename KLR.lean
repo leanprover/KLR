@@ -17,7 +17,6 @@ limitations under the License.
 import KLR.Compile
 import KLR.Core
 import KLR.File
-import KLR.KLR
 import KLR.NKI
 import KLR.Py
 import KLR.Python
