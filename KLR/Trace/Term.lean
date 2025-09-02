@@ -261,6 +261,9 @@ def toIndex (shape : List Nat) (ts : List Term) : Err (List Index) := do
     | .tuple _ | .list  _ => throw "nested tuple/list indexes not supported"
     | .mgItem s e t =>
         return .slice (<- Slice.make s.toNat e.toNat t) :: (<- toIndex ds ts)
+    | .dynamic t c o =>
+      let dynIdx <- Core.DynamicIdx.make t.tensor c o
+      return .dynamic dynIdx :: (<- toIndex ds ts)
     | t => do
         let i : Int <- fromNKI? t
         if i < 0 || i >= d then
@@ -540,6 +543,7 @@ nki builtin.access.ap
         tensor := t
         offset
         pattern
+        terms := []
       }
       return .access (.birPattern ap)
   | _ => throw "cannot specify an access pattern on an already indexed tensor"
