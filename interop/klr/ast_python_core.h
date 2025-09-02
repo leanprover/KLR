@@ -297,6 +297,7 @@ struct Python_Args {
 
 struct Python_Fun {
   char *name;
+  char *fileName;
   u32 line;
   char *source;
   struct Python_Args *args;

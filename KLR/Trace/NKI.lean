@@ -218,7 +218,7 @@ partial def fnCall (f : Term) (args : List Expr) (kwargs : List Keyword) : Trace
       let args <- bindArgs f args kwargs
       let args <- args.mapM keyword
       args.forM fun (_,t) => checkAccess t (warnOnly := false)
-      withSrc f.line f.source $ enterFun do
+      withSrc f.file f.line f.source $ enterFun do
         args.forM fun kw => extend kw.1.toName kw.2
         match <- stmts f.body with
         | .ret t => return t

@@ -520,9 +520,11 @@ bool Python_Args_ser(FILE *out, struct Python_Args *x) {
 }
 
 bool Python_Fun_ser(FILE *out, struct Python_Fun *x) {
-  if (!cbor_encode_tag(out, 13, 0, 5))
+  if (!cbor_encode_tag(out, 13, 0, 6))
     return false;
   if (!String_ser(out, x->name))
+    return false;
+  if (!String_ser(out, x->fileName))
     return false;
   if (!cbor_encode_uint(out, x->line))
     return false;
@@ -1269,10 +1271,12 @@ bool Python_Fun_des(FILE *in, struct region *region, struct Python_Fun **x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 13 || c != 0 || l != 5)
+  if (t != 13 || c != 0 || l != 6)
     return false;
   *x = region_alloc(region, sizeof(**x));
   if (!String_des(in, region, &(*x)->name))
+    return false;
+  if (!String_des(in, region, &(*x)->fileName))
     return false;
   if (!Nat_des(in, region, &(*x)->line))
     return false;

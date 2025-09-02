@@ -211,7 +211,7 @@ Catch and report errors with source locations. The `withSrc` function is always
 used a function boundaries, and converts `located` errors to `formatted`
 errors.
 -/
-def withSrc (line : Nat) (source : String) (m : Trace a) : Trace a := fun s =>
+def withSrc (fileName : Option String) (line : Nat) (source : String) (m : Trace a) : Trace a := fun s =>
   let p' := s.pos
   match m { s with pos := { line := 0 } } with
   | .ok x s => .ok x { s with pos := p' }
@@ -230,7 +230,8 @@ where
                 then lines[lineno]'h
                 else "<source not available>"
     let indent := (Nat.repeat (List.cons ' ') colno List.nil).asString
-    s!"\nline {lineno + offset}:\n{line}\n{indent}^-- {err}"
+    let path := fileName.getD "unknown"
+    s!"\n{path}:{lineno + offset}:\n{line}\n{indent}^-- {err}"
 
 -- generate a fresh name using an existing name as a prefix
 def genName (name : Name := `tmp) : Trace Name :=
