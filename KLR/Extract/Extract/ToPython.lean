@@ -133,11 +133,11 @@ PyObject* construct(const char *name, PyObject *tup) {
 def generateNkiH : MetaM Unit := do
   IO.println <| C.headerC [ "ast_common.h", "ast_nki.h" ]
   IO.println "#include <Python.h>"
-  (<- C.nkiAST).forM genSig
+  (<- nkiAST).forM genSig
 
 def generateNkiC : MetaM Unit := do
   IO.println <| C.headerC [ "ast_common.h", "ast_nki.h", "topy_nki.h" ]
   IO.println "#include <Python.h>"
   IO.println basic
-  (<- C.commonAST).forM genSer
-  (<- C.nkiAST).forM genSer
+  (<- commonAST).forM genSer
+  (<- nkiAST).forM genSer

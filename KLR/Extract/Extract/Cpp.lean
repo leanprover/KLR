@@ -15,7 +15,6 @@ limitations under the License.
 -/
 
 import Extract.Basic
-import Extract.C
 import KLR.Core
 import KLR.File
 import KLR.NKI.Basic
@@ -162,14 +161,14 @@ private def genTypes (tys : List LeanType) : MetaM Unit :=
 def generateKlrAST : MetaM Unit := do
   IO.println (headerH [])
   IO.println "// KLR.Core Abstract Syntax"
-  genTypes (<- C.commonAST)
-  genTypes (<- C.klrAST)
+  genTypes (<- commonAST)
+  genTypes (<- klrAST)
   --IO.println "struct Python_Kernel {};"
   --IO.println "struct NKI_Kernel {};"
   -- Note: technically this generates incorrect code as it confuses the
   -- different Kernel types, however, we only care about the KLIR Kernel right now.
   -- TODO: fix this by qualifying the generated types, which we should do at some point.
-  genTypes (<- C.fileAST)
+  genTypes (<- fileAST)
   IO.println "}" -- TODO close namespace!
 
 --run_meta generateKlrAST

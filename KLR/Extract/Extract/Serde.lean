@@ -226,15 +226,15 @@ private def genC (tys : List LeanType) : MetaM Unit := do
 
 def generateCommonH : MetaM Unit := do
   IO.println <| C.headerH ["ast_common.h"]
-  genH (<- C.commonAST)
+  genH (<- commonAST)
 
 def generateCommonC : MetaM Unit := do
   IO.println <| C.headerC ["cbor.h", "serde_common.h"]
-  genC (<- C.commonAST)
+  genC (<- commonAST)
 
 def generateFileH : MetaM Unit := do
   IO.println <| C.headerC [ "cbor.h", "ast_file.h", "serde_common.h"]
-  genH (<- C.fileAST)
+  genH (<- fileAST)
 
 def generateFileC : MetaM Unit := do
   IO.println <| C.headerC ["serde_file.h", "serde_python_core.h"]
@@ -259,28 +259,28 @@ def generateFileC : MetaM Unit := do
     (void)in; (void)r; (void)k; return false;
   }
   "
-  genC (<- C.fileAST)
+  genC (<- fileAST)
 
 def generatePythonH : MetaM Unit := do
   IO.println <| C.headerH ["ast_common.h", "ast_python_core.h"]
-  genH (<- C.pythonAST)
+  genH (<- pythonAST)
 
 def generatePythonC : MetaM Unit := do
   IO.println <| C.headerC ["cbor.h", "serde_common.h", "serde_python_core.h"]
-  genC (<- C.pythonAST)
+  genC (<- pythonAST)
 
 def generateNkiH : MetaM Unit := do
   IO.println <| C.headerH ["ast_common.h", "ast_nki.h"]
-  genH (<- C.nkiAST)
+  genH (<- nkiAST)
 
 def generateNkiC : MetaM Unit := do
   IO.println <| C.headerC ["cbor.h", "serde_common.h", "serde_nki.h"]
-  genC (<- C.nkiAST)
+  genC (<- nkiAST)
 
 def generateKlrH : MetaM Unit := do
   IO.println <| C.headerH ["ast_common.h", "ast_klir.h"]
-  genH (<- C.klrAST)
+  genH (<- klrAST)
 
 def generateKlrC : MetaM Unit := do
   IO.println <| C.headerC ["cbor.h", "serde_common.h", "serde_klir.h"]
-  genC (<- C.klrAST)
+  genC (<- klrAST)
