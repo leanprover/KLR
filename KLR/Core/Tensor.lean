@@ -73,7 +73,25 @@ inductive Dtype where
     | .float32r => TensorLib.Dtype.float32
     | .bfloat16 => TensorLib.Dtype.float32
     | _ => TensorLib.Dtype.float32
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+  deriving BEq, Inhabited, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+instance : ToString Dtype where
+  toString
+    | .bfloat16 => "bfloat16"
+    | .float8e3 => "float8e3"
+    | .float8e4 => "float8e4"
+    | .float8e5 => "float8e5"
+    | .float16 => "f16"
+    | .float32 => "f32"
+    | .float32r => "float32r"
+    | .int8 => "i8"
+    | .int16 => "i16"
+    | .int32 => "i32"
+    | .int64 => "i64"
+    | .uint8 => "u8"
+    | .uint16 => "u16"
+    | .uint32 => "u32"
+    | .uint64 => "u64"
 
 namespace Dtype
 
@@ -404,7 +422,10 @@ which is equivalent to the basic index [0:2,0:3] for a standard tensor layout.
 structure APPair where
   step : Int := 1
   num : Nat := 1
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+  deriving Inhabited, BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+def accessSize (pairs : List APPair) : Nat :=
+  pairs.foldl (fun acc p => acc * p.num) 1
 
 /--
 Complete access patterns
@@ -556,7 +577,6 @@ structure TensorHbm where
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 namespace TensorHbm
-
 def fromAccessPattern (ap : AccessPattern) : Err TensorHbm := do
   let parOffset <-
     match ap.tensor.address.parOffset with
@@ -598,9 +618,13 @@ parQuadrant─►96│    ┌───────┐│        │
 structure TensorSram where
   name : String
   dtype : Dtype
+  -- The size of this tensor in the parallel dimension
   parNum : Nat
+  -- The length and stride of each dimension besides the first
   freePattern: List APPair
+  -- Which parallel dimension channel this tensor starts at
   parOffset : Nat := 0
+  -- The offset in the partition channel of this tensor
   freeOffset : Nat := 0
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
