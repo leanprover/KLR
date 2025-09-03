@@ -23,10 +23,16 @@ namespace KLR.Util
 open Lean(Json ToJson toJson)
 
 structure Padding (n : Nat) where
-
 deriving Inhabited
 
 namespace Padding
+
+instance : GetElem (Padding n) Nat Nat (fun _ i => i < n) where
+  getElem _ _ _ := 0
+
+#guard
+  let v : Padding 5 := Padding.mk
+  v[0] == 0 && v[4]! == 0 && v[5]?.isNone
 
 instance : Repr (Padding n) where
   reprPrec _ _ := s!"Padding of size {n}"
