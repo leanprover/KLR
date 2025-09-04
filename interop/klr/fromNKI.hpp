@@ -111,23 +111,17 @@ struct Term final {
     }
 };
 
-// Fix enum name mismatch
-using DType = klr::Dtype;
-
-// Template struct for converting NKI terms to KLR types
 template<typename T>
 struct FromNKI {
     static TraceResult<T> fromNKI(const Term& t);
 };
 
-// Helper function with default value
 template<typename T>
 T fromNKI_with_default(const Term& t, const T& default_value) {
     auto result = FromNKI<T>::fromNKI(t);
     return is_ok(result) ? get_ok(result) : default_value;
 }
 
-// Generic template for List types
 template<typename T>
 struct FromNKI<std::vector<T>> {
     static TraceResult<std::vector<T>> fromNKI(const Term& t) {
@@ -147,7 +141,6 @@ struct FromNKI<std::vector<T>> {
     }
 };
 
-// Generic template for Optional types
 template<typename T>
 struct FromNKI<std::optional<T>> {
     static TraceResult<std::optional<T>> fromNKI(const Term& t) {
@@ -162,7 +155,6 @@ struct FromNKI<std::optional<T>> {
     }
 };
 
-// Generic template for Sum types (std::variant)
 template<typename A, typename B>
 struct FromNKI<std::variant<A, B>> {
     static TraceResult<std::variant<A, B>> fromNKI(const Term& t) {
@@ -178,7 +170,6 @@ struct FromNKI<std::variant<A, B>> {
     }
 };
 
-// Generic template for Pair types
 template<typename A, typename B>
 struct FromNKI<std::pair<A, B>> {
     static TraceResult<std::pair<A, B>> fromNKI(const Term& t) {
@@ -246,6 +237,23 @@ struct FromNKI<std::string> {
             return std::get<std::string>(t.data);
         }
         return TraceError("expecting 'string', got '" + t.kindStr() + "'");
+    }
+};
+
+template<>
+struct FromNKI<uint32_t> {
+    static TraceResult<uint32_t> fromNKI(const Term& t) {
+        if (t.kind == Term::Bool) {
+            return std::get<bool>(t.data) ? 1u : 0u;
+        }
+        if (t.kind == Term::Int) {
+            int val = std::get<int>(t.data);
+            if (val < 0) {
+                return TraceError("negative value cannot be converted to uint32_t");
+            }
+            return static_cast<uint32_t>(val);
+        }
+        return TraceError("expecting 'integer', got '" + t.kindStr() + "'");
     }
 };
 
@@ -327,8 +335,8 @@ struct FromNKI<klr::Address> {
 };
 
 template<>
-struct FromNKI<DType> {
-    static TraceResult<DType> fromNKI(const Term& t) {
+struct FromNKI<klr::Dtype> {
+    static TraceResult<klr::Dtype> fromNKI(const Term& t) {
         if (t.kind == Term::Var) {
             const auto& name = std::get<Var>(t.data).name;
             if (name == "neuronxcc.nki.language.uint8") return klr::Dtype::uint8;
