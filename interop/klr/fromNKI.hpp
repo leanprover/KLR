@@ -48,6 +48,13 @@ struct Ref final {
 
 // TODO move this to NKI namespace once it exists
 struct Fun final {
+    std::string name;
+    std::string file;
+    size_t line;
+    std::string source;
+    // FIXME: uncomment once implemented
+    // std::vector<KLR::Core::Stmt> body;
+    // std::vector<KLR::Core::Param> args;
 };
 
 struct Var final { std::string name; };
