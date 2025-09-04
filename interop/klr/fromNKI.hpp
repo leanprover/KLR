@@ -35,7 +35,7 @@ Error TraceError(std::string msg) {
 
 struct Term;
 
-struct Builtin final { std::string name; std::optional<Term*> term; };
+struct Builtin final { std::string name; std::optional<std::shared_ptr<Term>> term; };
 struct Ref final {
      std::string name;
      enum Kind {
