@@ -1291,7 +1291,7 @@ bool gather(struct kernel *k) {
   return result;
 }
 
-bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *internal_kws) {
+bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *grid, PyObject *schedule) {
   if (!k || !k->python_region) {
     PyErr_SetString(PyExc_RuntimeError, "No valid kernel for specialize");
     return false;
@@ -1305,7 +1305,7 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *inter
     .scope = { 0 }
   };
 
-  if (args) {
+  if (args != Py_None) {
     struct Python_Expr_List **es = &k->python_kernel->args;
     Py_ssize_t size = PyTuple_Size(args);
     for (Py_ssize_t i = 0; i < size; i++) {
@@ -1323,7 +1323,7 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *inter
     }
   }
 
-  if (kws) {
+  if (kws != Py_None) {
     struct Python_Keyword_List **kw = &k->python_kernel->kwargs;
     Py_ssize_t pos = 0;
     PyObject *key, *val;
@@ -1335,7 +1335,7 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *inter
       struct Python_Expr *e = const_expr(&st, val);
       if (!e) {
         PyErr_Format(PyExc_ValueError, "%S is not a supported NKI type", val);
-        return NULL;
+        return false;
       }
 
       *kw = region_alloc(st.region, sizeof(**kw));
@@ -1352,37 +1352,21 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *inter
     }
   }
 
-  if (internal_kws) {
-    Py_ssize_t pos = 0;
-    PyObject *key, *val;
-    while(PyDict_Next(internal_kws, &pos, &key, &val)) {
-      Py_ssize_t sz = 0;
-      const char *s = PyUnicode_AsUTF8AndSize(key, &sz);
-      if (!s || sz <= 0)
-        return false;
-      if(strncmp(s, "grid", 4) == 0) {
-        if (!PyLong_Check(val)) {
-          PyErr_SetString(PyExc_TypeError, "grid must be an integer");
-          return false;
-        }
-        long grid_val = PyLong_AsLong(val);
-        if (grid_val < 0 || grid_val > 8) {
-          PyErr_SetString(PyExc_ValueError, "grid must be between 0-8");
-          return false;
-        }
-        k->python_kernel->grid = (u32)grid_val;
-      } else if(strncmp(s, "schedule", 8) == 0) {
-        k->python_kernel->scheduleEdges = const_exprs(&st, val);
-        if (!k->python_kernel->scheduleEdges) {
-          PyErr_Format(PyExc_ValueError, "%S is not a supported NKI type", key);
-          return false;
-        }
-     }
-      else {
-        PyErr_Format(PyExc_ValueError, "Unexpected internal keyword argument: %S", s);
-        return false;
-      }
+  if (grid != Py_None) {
+    long grid_val = PyLong_AsLong(grid);
+    if (grid_val < 0 || grid_val > 8) {
+      PyErr_SetString(PyExc_ValueError, "grid must be between 0-8");
+      return false;
+    }
+    k->python_kernel->grid = (u32)grid_val;
+  }
+
+  if (schedule != Py_None) {
+    k->python_kernel->scheduleEdges = const_exprs(&st, schedule);
+    if (!k->python_kernel->scheduleEdges && PyErr_Occurred()) {
+      return false;
     }
   }
+
   return true;
 }
