@@ -22,7 +22,7 @@ import Lean
 Output functions for ASDL
 -/
 
-namespace Extract.Python
+namespace Extract.ASDL
 open Lean Meta
 
 local instance : ToString Name where
@@ -67,4 +67,5 @@ def generateNkiAST : MetaM Unit := do
     genType t (topLevel := true)
   return ()
 
-run_meta generateNkiAST
+-- NOTE: Uncomment for debugging
+-- run_meta generateNkiAST
