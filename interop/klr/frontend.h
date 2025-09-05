@@ -42,7 +42,7 @@ void free_python_ast(struct _mod *m);
 
 // gather.c
 bool gather(struct kernel *k);
-bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *internal_kws);
+bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *grid, PyObject *schedule);
 
 // serde.c
 struct SerResult {

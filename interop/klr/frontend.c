@@ -54,28 +54,33 @@ static void kernel_dealloc(struct kernel *self) {
 // frontend.Kernel.specialize
 // Provide arguments for kernel specialization
 static PyObject* kernel_specialize(struct kernel *self, PyObject *args_tuple) {
-  PyObject* args = NULL;
-  PyObject* kwargs = NULL;
-  PyObject* internal_kwargs = NULL;
+  PyObject* args = Py_None;     // O
+  PyObject* kwargs = Py_None;   // O
+  PyObject* grid = Py_None;     // O
+  PyObject* schedule = Py_None; // O
 
-  if (!PyArg_ParseTuple(args_tuple, "|OOO", &args, &kwargs, &internal_kwargs)) {
-      return NULL;
-  }
-
-  if (args && args != Py_None && !PyTuple_Check(args)) {
-      PyErr_SetString(PyExc_TypeError, "Invalid Argument: args argument must be a tuple");
-      return NULL;
-  }
-  if (kwargs && kwargs != Py_None && !PyDict_Check(kwargs)) {
-      PyErr_SetString(PyExc_TypeError, "Invalid Argument: kwargs argument must be a dictionary");
-      return NULL;
-  }
-  if (internal_kwargs && internal_kwargs != Py_None && !PyDict_Check(internal_kwargs)) {
-      PyErr_SetString(PyExc_TypeError, "Invalid Argument: internal_kwargs argument must be a dictionary");
+  if (!PyArg_ParseTuple(args_tuple, "|OOOO", &args, &kwargs, &grid, &schedule)) {
       return NULL;
   }
 
-  if (!specialize(self, args, kwargs, internal_kwargs))
+  if (args != Py_None && !PyTuple_Check(args)) {
+      PyErr_SetString(PyExc_TypeError, "Invalid Argument: 'args' must be a tuple");
+      return NULL;
+  }
+  if (kwargs != Py_None && !PyDict_Check(kwargs)) {
+      PyErr_SetString(PyExc_TypeError, "Invalid Argument: 'kwargs' must be a dictionary");
+      return NULL;
+  }
+  if (grid != Py_None && !PyLong_Check(grid)) {
+      PyErr_SetString(PyExc_TypeError, "Invalid Argument: 'grid' must be an int");
+      return NULL;
+  }
+  if (schedule != Py_None && !PySequence_Check(schedule)) {
+      PyErr_SetString(PyExc_TypeError, "Invalid Argument: 'schedule' must be a sequence");
+      return NULL;
+  }
+
+  if (!specialize(self, args, kwargs, grid, schedule))
     return NULL;
 
   return Py_None;
