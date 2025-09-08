@@ -200,19 +200,25 @@ partial def indexExpr' (e' : Expr') : Trace Term := do
   | .var n =>
     let value <- lookupName n
     match value with
-    | .access a => return .dynamic a 1 0
+    | .access a =>
+      let dynIdx <- Core.DynamicIdx.make a.tensor 1 0
+      return .dynamic dynIdx
     | _ => return value
   | .access e ix =>
     let ac <- access (<- expr e) (<- ix.mapM index)
     match ac with
-    | .access a => return .dynamic a 1 0
+    | .access a =>
+      let dynIdx <- Core.DynamicIdx.make a.tensor 1 0
+      return .dynamic dynIdx
     | _ => throw "expected access term"
   | .binOp op l r => binop op (<- indexExpr l) (<-  indexExpr r)
   | .call f args kwargs =>
       let f <- expr f
       let rv <- fnCall f args kwargs
       match rv with
-      | .access a => return .dynamic a 1 0
+      | .access a =>
+        let dynIdx <- Core.DynamicIdx.make a.tensor 1 0
+        return .dynamic dynIdx
       | _ => return rv
 
   | _ => throw s!"Illegal expression inside index {repr e'}"
@@ -221,10 +227,9 @@ partial def index (i : Index) : Trace Term :=
   match i with
   | .coord e => do
     let idxExpr <- indexExpr e
-    dbg_trace s!"idxExpr {repr idxExpr}"
     let rv := match idxExpr with
-    | .int i => .ok $ .int i
-    | .dynamic t c o => .ok $ .dynamic t c o
+    | .int i => return .int i
+    | .dynamic d => return .dynamic d
     | _ => throw "invalid pattern"
     rv
   | .slice l u s => return .slice (<- optInt l) (<- optInt u) (<- optInt s)
