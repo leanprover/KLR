@@ -45,16 +45,7 @@ def Access.lowerAccessPattern (a : Access) : KLR.Err BirAccessPattern := do
 
   let ap := CompileIndex.freePairs a.tensor ap1.num layout
   let ap := { ap with parOffset := ap1.start }
-  let birAp := BirAccessPattern.fromAccessPattern ap
-  let terms := match a with
-  | .dynamic d => d.terms
-  | .basic b => b.indexes.filterMap (fun idx =>
-      match idx with
-      | .dynamic d => d.t.map (fun t => (t, d.c))
-      | _ => none
-    )
-  | _ => []
-  return {birAp with terms := terms}
+  return .fromAccessPattern ap
 
 def TensorRef.lowerAccessPatterns : TensorRef → KLR.Err TensorRef
 | .abstract a => do return .abstract <| .birPattern (← a.lowerAccessPattern)
