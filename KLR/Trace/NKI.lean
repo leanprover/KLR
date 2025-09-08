@@ -198,8 +198,10 @@ partial def index (i : Index) : Trace Term :=
     | .int i => .ok $ .int i
     | .access t => .ok $ .dynamic t 0 0
     | _ => throw "invalid pattern"
+    dbg_trace s!"here B {repr $ <- rv}"
     rv
   | .slice l u s => return .slice (<- optInt l) (<- optInt u) (<- optInt s)
+  | .dynamic t c o => throw "dynamic ap not supported"
   | .ellipsis => return .ellipsis
 
 partial def keyword (kw : Keyword) : Trace (String × Term) :=

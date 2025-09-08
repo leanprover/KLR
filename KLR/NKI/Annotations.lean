@@ -79,6 +79,7 @@ private def index (i : Index) : Ann Index :=
   match i with
   | .coord e => return .coord (<- expr e)
   | .slice l u s => return .slice (<- optExpr l) (<- optExpr u) (<- optExpr s)
+  | .dynamic t c o => return .dynamic (<- expr t) (<- expr c) (<- expr o)
   | .ellipsis => return .ellipsis
   termination_by sizeOf i
 
