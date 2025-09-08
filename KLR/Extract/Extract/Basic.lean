@@ -277,6 +277,7 @@ def klrAST: MetaM (List LeanType) := do
     `KLR.Core.AccessBasic,
     `KLR.Core.APPair,
     `KLR.Core.AccessPattern,
+    `KLR.Core.AccessDynamic,
     `KLR.Core.BirAccessPattern,
     `KLR.Core.Access,
     `KLR.Core.TensorHbm,
