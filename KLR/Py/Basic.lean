@@ -126,7 +126,6 @@ deriving ToJson
 inductive Index
   | coord (i : Exp)
   | slice (l u step : Option Exp)
-  | dynamic (t l u : Exp)
 
 structure Exp where
   span : Span := {}

@@ -77,17 +77,10 @@ struct Slice final {
   Prop wf;
 };
 
-struct DynamicIdx final {
-  Option<Ptr<TensorName>> t;
-  Int c;
-  Int offset;
-};
-
 struct Index {
   enum class Tag {
     coord = 1,
     slice,
-    dynamic,
   };
   Tag tag;
   Index(Tag tag) : tag(tag) {}
@@ -101,11 +94,6 @@ struct IndexCoordWrapper final : Index {
 struct IndexSliceWrapper final : Index {
   Ptr<Slice> slice;
   IndexSliceWrapper() : Index(Tag::slice) {}
-};
-
-struct IndexDynamicWrapper final : Index {
-  Ptr<DynamicIdx> dynamic;
-  IndexDynamicWrapper() : Index(Tag::dynamic) {}
 };
 
 struct AccessBasic final {
@@ -127,14 +115,6 @@ struct AccessPattern final {
   Nat freeOffset;
 };
 
-struct AccessDynamic final {
-  Ptr<TensorName> tensor;
-  Nat parNum;
-  List<Ptr<APPair>> freePattern;
-  Nat parOffset;
-  Nat freeOffset;
-};
-
 struct BirAccessPattern final {
   Ptr<TensorName> tensor;
   Nat offset;
@@ -146,7 +126,6 @@ struct Access {
     simple = 1,
     basic,
     pattern,
-    dynamic,
     birPattern,
   };
   Tag tag;
@@ -166,11 +145,6 @@ struct AccessBasicWrapper final : Access {
 struct AccessPatternWrapper final : Access {
   Ptr<AccessPattern> access;
   AccessPatternWrapper() : Access(Tag::pattern) {}
-};
-
-struct AccessDynamicWrapper final : Access {
-  Ptr<AccessDynamic> access;
-  AccessDynamicWrapper() : Access(Tag::dynamic) {}
 };
 
 struct AccessBirPatternWrapper final : Access {

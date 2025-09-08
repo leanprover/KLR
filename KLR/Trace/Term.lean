@@ -261,9 +261,6 @@ def toIndex (shape : List Nat) (ts : List Term) : Err (List Index) := do
     | .tuple _ | .list  _ => throw "nested tuple/list indexes not supported"
     | .mgItem s e t =>
         return .slice (<- Slice.make s.toNat e.toNat t) :: (<- toIndex ds ts)
-    | .dynamic t c o =>
-      let dynIdx <- Core.DynamicIdx.make t.tensor c o
-      return .dynamic dynIdx :: (<- toIndex ds ts)
     | t => do
         let i : Int <- fromNKI? t
         if i < 0 || i >= d then
@@ -395,7 +392,7 @@ def mgrid (indexes : List Term) : Err Term := do
 -- Handle subscript expressions, t[i]
 -- Note: partial due to possible heap graphs
 partial def access (e : Term) (indexes : List Term) : Trace Term := do
-  let rv <- match e with
+  match e with
   | .ref name _ => access (<- lookup name) indexes
   | .string _ => throw "string subscript not implemented"
   | .tuple l => listAccess l indexes
@@ -405,11 +402,9 @@ partial def access (e : Term) (indexes : List Term) : Trace Term := do
   | .access (.simple tensor) => do
       -- TODO: support Access
       let indices <- toIndex tensor.shape.toList indexes
-      dbg_trace s!"indicies {repr indices}"
       let access <- Access.mkBasic tensor indices
       return .access access
   | t => throw s!"subscript not supported, for term '{Term.kindStr t}'"
-  return rv
 
 /-
 # Attributes

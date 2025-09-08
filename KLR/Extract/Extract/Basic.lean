@@ -272,7 +272,6 @@ def klrAST: MetaM (List LeanType) := do
     `KLR.Core.Address,
     `KLR.Core.TensorName,
     `KLR.Core.Slice,
-    `KLR.Core.DynamicIdx,
     `KLR.Core.Index,
     `KLR.Core.AccessBasic,
     `KLR.Core.APPair,

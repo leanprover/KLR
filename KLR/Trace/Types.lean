@@ -110,7 +110,6 @@ inductive Term where
   -- indexing
   | ellipsis : Term
   | slice    : Option Int -> Option Int -> Option Int -> Term
-  | dynamic  : Core.Access -> Int -> Int -> Term
   | pointer  : Core.Address -> Term
   | mgrid    : Term
   | mgItem   : Int -> Int -> Int -> Term
@@ -134,7 +133,6 @@ def kindStr : Term → String
   | .tensor _ => "tensor"
   | .ellipsis => "ellipsis"
   | .slice _ _ _ => "slice"
-  | .dynamic _ _ _ => "dynamic"
   | .pointer _ => "pointer"
   | .mgrid => "mgrid"
   | .mgItem _ _ _ => "mgItem"
@@ -400,7 +398,6 @@ partial def isTrue (t : Term) : Trace Bool := do
   | .pointer ..
   | .mgrid ..
   | .mgItem .. => return true
-  | .dynamic ..  => throw "ambigous" -- TODO fix me
   | .tensor t =>
     if t.shape.count == 0 then
      return t.toList.toBool
