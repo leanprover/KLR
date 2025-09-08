@@ -46,7 +46,7 @@ private def genType (ty : LeanType) (topLevel : Bool := false) : MetaM Unit :=
       else
         IO.print s!"{name}("
       for f in fields do
-        IO.print s!"{typeName f.type},"
+        IO.print s!"{typeName f.type} {f.name}, "
       IO.println ")"
   | .sum name variants => do
       if ty.isEnum then do
