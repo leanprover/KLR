@@ -53,7 +53,14 @@ def Access.lowerAccessPattern (a : Access) : KLR.Err BirAccessPattern := do
       | _ => none
     )
   | _ => []
-  return {birAp with terms := terms}
+  let dynOffset := match a with
+  | .basic b => Int.toNat $ b.indexes.foldl (fun acc idx =>
+      match idx with
+      | .dynamic d => acc + d.offset
+      | _ => acc
+    ) 0
+  | _ => 0
+  return {birAp with terms := terms, offset := birAp.offset + dynOffset}
 
 def TensorRef.lowerAccessPatterns : TensorRef → KLR.Err TensorRef
 | .abstract a => do return .abstract <| .birPattern (← a.lowerAccessPattern)
