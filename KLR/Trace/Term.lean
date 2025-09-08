@@ -91,12 +91,12 @@ private def tensorBinOp(op : BinOp) (l r : TensorLib.Tensor) : Trace Term := do
   -- TODO : implement multiplication and division
   | _ => throw s!"tensors do not support scalar operator '{repr op}'"
 
-private def dynamicBinOp(op : BinOp) (a : Access) (c : Int) (o : Int) (v : Int) : Trace Term :=
+private def dynamicBinOp(op : BinOp) (d : Core.DynamicIdx) (v : Int) : Trace Term :=
   match op with
-  | .add => return .dynamic a c (o + v)
-  | .sub => return .dynamic a c (o - v)
-  | .mul => return .dynamic a (c * v) o
-  | .div => return .dynamic a (c / v) o
+  | .add => return .dynamic {d with offset := d.offset + v}
+  | .sub => return .dynamic {d with offset := d.offset - v}
+  | .mul => return .dynamic {d with c := d.c * v}
+  | .div => return .dynamic {d with c := d.c / v}
   | _ => throw s!"unsupported operation {repr op} with dynamic access pattern"
 
 -- Note: both Lean and Python use big integers
@@ -119,10 +119,10 @@ private def valueOp : BinOp -> Term -> Term -> Trace Term
   | op, .tensor l, .int r => tensorOpScalarInt op l r
   | op, .tensor l, .tensor r => tensorBinOp op l r
   -- dynamic access
-  | op, .dynamic a c o, .int r => dynamicBinOp op a c o r
-  | op, .dynamic a c o, .float r => dynamicBinOp op a c o r.toInt
-  | op, .int l, .dynamic a c o => dynamicBinOp op a c o l
-  | op, .float l, .dynamic a c o => dynamicBinOp op a c o l.toInt
+  | op, .dynamic d, .int r => dynamicBinOp op d r
+  | op, .dynamic d, .float r => dynamicBinOp op d r.toInt
+  | op, .int l, .dynamic d => dynamicBinOp op d l
+  | op, .float l, .dynamic d => dynamicBinOp op d l.toInt
   | _, .dynamic .., .dynamic .. => throw "dynamic can only operator on a single tensor"
   | op,_,_ => throw s!"unimplemented operator '{op}'"
 
@@ -275,9 +275,8 @@ def toIndex (shape : List Nat) (ts : List Term) : Err (List Index) := do
     | .tuple _ | .list  _ => throw "nested tuple/list indexes not supported"
     | .mgItem s e t =>
         return .slice (<- Slice.make s.toNat e.toNat t) :: (<- toIndex ds ts)
-    | .dynamic t c o =>
-      let dynIdx <- Core.DynamicIdx.make t.tensor c o
-      return .dynamic dynIdx :: (<- toIndex ds ts)
+    | .dynamic d =>
+      return .dynamic d :: (<- toIndex ds ts)
     | t => do
         let i : Int <- fromNKI? t
         if i < 0 || i >= d then
