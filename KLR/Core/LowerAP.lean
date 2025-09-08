@@ -47,6 +47,7 @@ def Access.lowerAccessPattern (a : Access) : KLR.Err BirAccessPattern := do
   let ap := { ap with parOffset := ap1.start }
   let birAp := BirAccessPattern.fromAccessPattern ap
   let terms := match a with
+  | .dynamic d => d.terms
   | .basic b => b.indexes.filterMap (fun idx =>
       match idx with
       | .dynamic d => d.t.map (fun t => (t, d.c))

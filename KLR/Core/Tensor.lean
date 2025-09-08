@@ -529,6 +529,21 @@ def freeElementOffset (ap : AccessPattern) : Nat :=
 
 end AccessPattern
 
+@[serde tag = 121]
+structure AccessDynamic where
+  tensor : TensorName
+  parNum : Nat
+  freePattern : List APPair
+  parOffset : Nat := 0
+  freeOffset : Nat := 0
+  c : Int := 0
+  terms : List (TensorName × Int)
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+namespace AccessDynamic
+
+end AccessDynamic
+
 /-
 BIR compatible access patterns
 
@@ -566,6 +581,14 @@ def fromAccessPattern (ap : AccessPattern) : BirAccessPattern :=
     terms := []
   }
 
+def fromDynamicPattern (ap : AccessDynamic) : BirAccessPattern :=
+  let free := ap.tensor.shape.freeElements
+  { tensor := ap.tensor
+    offset := free * ap.parOffset + ap.freeOffset
+    pattern := ⟨ free, ap.parNum ⟩ :: ap.freePattern
+    terms := ap.terms
+  }
+
 end BirAccessPattern
 
 -- Tensor access: whole tensor (simple), basic indexing, or access pattern
@@ -576,6 +599,7 @@ inductive Access where
   | simple  (tensor : TensorName)
   | basic   (access : AccessBasic)
   | pattern (access : AccessPattern)
+  | dynamic (access : AccessDynamic)
   | birPattern (access : BirAccessPattern)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
@@ -588,12 +612,14 @@ def tensor : Access -> TensorName
   | simple tensor
   | basic {tensor, ..}
   | pattern {tensor, ..} => tensor
+  | dynamic {tensor, ..} => tensor
   | birPattern {tensor, ..} => tensor
 
 def shape : Access -> Err Shape
   | .simple t => return t.shape
   | .basic b => b.shape
   | .pattern ap => return ap.shape
+  | .dynamic dyn => return .mk 1 []
   | .birPattern bap => return bap.shape
 
 theorem shape.noFail :
