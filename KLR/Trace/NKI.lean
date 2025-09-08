@@ -208,6 +208,13 @@ partial def indexExpr' (e' : Expr') : Trace Term := do
     | .access a => return .dynamic a 1 0
     | _ => throw "expected access term"
   | .binOp op l r => binop op (<- indexExpr l) (<-  indexExpr r)
+  | .call f args kwargs =>
+      let f <- expr f
+      let rv <- fnCall f args kwargs
+      match rv with
+      | .access a => return .dynamic a 1 0
+      | _ => return rv
+
   | _ => throw s!"Illegal expression inside index {repr e'}"
 
 partial def index (i : Index) : Trace Term :=
