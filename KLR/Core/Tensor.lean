@@ -328,12 +328,22 @@ structure DynamicIdx where
   t : Option TensorName
   c : Int
   offset : Int
-  deriving BEq, Repr, FromJson, ToJson, FromSexp, ToSexp
+  deriving BEq, Repr
+
+instance : FromJson DynamicIdx := ⟨ fun _ => throw "" ⟩
+instance : FromSexp DynamicIdx := ⟨ fun _ => throw "" ⟩
+instance : ToSexp DynamicIdx := ⟨ fun _ => default ⟩
+instance : ToJson DynamicIdx := ⟨ fun _ => default ⟩
 
 namespace DynamicIdx
 
+def make (t: TensorName) (c: Int) (offset: Int) : Err DynamicIdx := do
+  return DynamicIdx.mk t c offset
+
 instance : Inhabited DynamicIdx where
   default := DynamicIdx.mk none 0 0
+
+def make!(t: TensorName) (c: Int) (offset: Int) : DynamicIdx := get! $  make t c offset
 
 def size (d : DynamicIdx) : Nat :=
   match d.t with
@@ -375,7 +385,7 @@ inductive Index where
 def Index.size : Index -> Nat
  | .coord _ => 1
  | .slice s => s.size
- | .dynamic _ => 1
+ | .dynamic _ => 0 -- TODO figure out
 
 /--
 Complete Basic Indexing expression

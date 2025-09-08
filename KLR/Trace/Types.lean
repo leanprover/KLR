@@ -166,6 +166,7 @@ structure State where
   locals : Env := ∅
   refs : Env := ∅
   body : Array Stmt := #[]
+  parsingIndex : Bool := false
   warnings : Array (Pos × String) := #[]
   messages : Array String := #[]
   tensorNames : Std.HashSet String := ∅
