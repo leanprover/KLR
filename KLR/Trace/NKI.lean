@@ -191,33 +191,12 @@ partial def optInt (e : Option Expr) : Trace (Option Int) := do
   | none => return none
   | some e => return some (<- fromNKI? (<- expr e))
 
-partial def indexExpr (e : Expr) : Trace Term :=
-  withPos e.pos (indexExpr' e.expr)
-
-partial def indexExpr' (e' : Expr') : Trace Term := do
-  match e' with
-  | .value v => value v
-  | .var n =>
-    let value <- lookupName n
-    match value with
-    | .access a => return .dynamic a 1 0
-    | _ => return value
-  | .access e ix =>
-    let ac <- access (<- expr e) (<- ix.mapM index)
-    match ac with
-    | .access a => return .dynamic a 1 0
-    | _ => throw "expected access term"
-  | .binOp op l r => binop op (<- indexExpr l) (<-  indexExpr r)
-  | _ => throw s!"Illegal expression inside index {repr e'}"
-
 partial def index (i : Index) : Trace Term :=
   match i with
   | .coord e => do
-    let idxExpr <- indexExpr e
-    dbg_trace s!"idxExpr {repr idxExpr}"
-    let rv := match idxExpr with
+    let rv := match <- expr e with
     | .int i => .ok $ .int i
-    | .dynamic t c o => .ok $ .dynamic t c o
+    | .access t => .ok $ .dynamic t 1 0
     | _ => throw "invalid pattern"
     rv
   | .slice l u s => return .slice (<- optInt l) (<- optInt u) (<- optInt s)
