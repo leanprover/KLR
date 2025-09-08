@@ -346,7 +346,9 @@ instance : Inhabited DynamicIdx where
 def make!(t: TensorName) (c: Int) (offset: Int) : DynamicIdx := get! $  make t c offset
 
 def size (d : DynamicIdx) : Nat :=
-  0
+  match d.t with
+  | some t => t.shape.parDim * t.shape.freeElements
+  | none => 0
 
 instance : ToCBOR DynamicIdx where
   toCBOR t :=
