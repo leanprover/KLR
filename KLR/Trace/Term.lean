@@ -91,6 +91,14 @@ private def tensorBinOp(op : BinOp) (l r : TensorLib.Tensor) : Trace Term := do
   -- TODO : implement multiplication and division
   | _ => throw s!"tensors do not support scalar operator '{repr op}'"
 
+private def dynamicBinOp(op : BinOp) (a : Access) (c : Int) (o : Int) (v : Int) : Trace Term :=
+  match op with
+  | .add => return .dynamic a c (o + v)
+  | .sub => return .dynamic a c (o - v)
+  | .mul => return .dynamic a (c * v) o
+  | .div => return .dynamic a (c / v) o
+  | _ => throw s!"unsupported operation {repr op} with dynamic access pattern"
+
 -- Note: both Lean and Python use big integers
 -- TODO: imcomplete
 private def valueOp : BinOp -> Term -> Term -> Trace Term
@@ -110,6 +118,12 @@ private def valueOp : BinOp -> Term -> Term -> Trace Term
   | op, .tensor l, .float r => tensorOpScalarFloat op l r
   | op, .tensor l, .int r => tensorOpScalarInt op l r
   | op, .tensor l, .tensor r => tensorBinOp op l r
+  -- dynamic access
+  | op, .dynamic a c o, .int r => dynamicBinOp op a c o r
+  | op, .dynamic a c o, .float r => dynamicBinOp op a c o r.toInt
+  | op, .int l, .dynamic a c o => dynamicBinOp op a c o l
+  | op, .float l, .dynamic a c o => dynamicBinOp op a c o l.toInt
+  | _, .dynamic .., .dynamic .. => throw "dynamic can only operator on a single tensor"
   | op,_,_ => throw s!"unimplemented operator '{op}'"
 
 -- Binary operators on terms
