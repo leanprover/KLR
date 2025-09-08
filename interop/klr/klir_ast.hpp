@@ -127,18 +127,11 @@ struct AccessPattern final {
   Nat freeOffset;
 };
 
-struct AccessDynamic final {
-  Ptr<TensorName> tensor;
-  Nat parNum;
-  List<Ptr<APPair>> freePattern;
-  Nat parOffset;
-  Nat freeOffset;
-};
-
 struct BirAccessPattern final {
   Ptr<TensorName> tensor;
   Nat offset;
   List<Ptr<APPair>> pattern;
+  List<> terms;
 };
 
 struct Access {
@@ -146,7 +139,6 @@ struct Access {
     simple = 1,
     basic,
     pattern,
-    dynamic,
     birPattern,
   };
   Tag tag;
@@ -166,11 +158,6 @@ struct AccessBasicWrapper final : Access {
 struct AccessPatternWrapper final : Access {
   Ptr<AccessPattern> access;
   AccessPatternWrapper() : Access(Tag::pattern) {}
-};
-
-struct AccessDynamicWrapper final : Access {
-  Ptr<AccessDynamic> access;
-  AccessDynamicWrapper() : Access(Tag::dynamic) {}
 };
 
 struct AccessBirPatternWrapper final : Access {

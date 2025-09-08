@@ -432,31 +432,17 @@ Ptr<AccessPattern> AccessPattern_des(FILE *in) {
   return x;
 }
 
-Ptr<AccessDynamic> AccessDynamic_des(FILE *in) {
-  u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 121 || c != 0 || l != 5)
-    throw std::runtime_error("Invalid Tag");
-  Ptr<AccessDynamic> x = ptr<AccessDynamic>();
-  x->tensor = TensorName_des(in);
-  x->parNum = Nat_des(in);
-  x->freePattern = List_APPair_des(in);
-  x->parOffset = Nat_des(in);
-  x->freeOffset = Nat_des(in);
-  return x;
-}
-
 Ptr<BirAccessPattern> BirAccessPattern_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 122 || c != 0 || l != 3)
+  if (t != 122 || c != 0 || l != 4)
     throw std::runtime_error("Invalid Tag");
   Ptr<BirAccessPattern> x = ptr<BirAccessPattern>();
   x->tensor = TensorName_des(in);
   x->offset = Nat_des(in);
   x->pattern = List_APPair_des(in);
+  x->terms = List_Pair_des(in);
   return x;
 }
 
@@ -492,14 +478,6 @@ Ptr<Access> Access_des(FILE *in) {
     break;
   }
   case 3: {
-    if (l != 1)
-      throw std::runtime_error("Wrong number of elements");
-    Ptr<AccessDynamicWrapper> x = ptr<AccessDynamicWrapper>();
-    x->access = AccessDynamic_des(in);
-    return x;
-    break;
-  }
-  case 4: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<AccessBirPatternWrapper> x = ptr<AccessBirPatternWrapper>();
@@ -2713,6 +2691,21 @@ List<Ptr<APPair>> List_APPair_des(FILE *in) {
   }
   return l;
 }
+
+List<> List_Pair_des(FILE *in) {
+  u64 size = 0;
+  if (!deserialize_array_start(in, &size))
+    throw std::runtime_error("expecting List");
+
+  List<> l;
+  while (size-- > 0) {
+    b = Pair_des(in);
+    l.push_back(b);
+  }
+  return l;
+}
+
+Pair_des(FILE *in) {}
 
 Option<Dtype> Option_Dtype_des(FILE *in) {
   bool isSome;
