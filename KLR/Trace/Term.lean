@@ -95,8 +95,15 @@ private def dynamicBinOp(op : BinOp) (d : Core.DynamicIdx) (v : Int) : Trace Ter
   match op with
   | .add => return .dynamic {d with offset := d.offset + v}
   | .sub => return .dynamic {d with offset := d.offset - v}
-  | .mul => return .dynamic {d with c := d.c * v}
-  | .div => return .dynamic {d with c := d.c / v}
+  | .mul => return .dynamic {d with cs := d.cs.modifyLast (· * v)}
+  | .div => return .dynamic {d with cs := d.cs.modifyLast (· / v)}
+  | _ => throw s!"unsupported operation {repr op} with dynamic access pattern"
+
+private def mergeDynamicTerms(op : BinOp) (l r : Core.DynamicIdx) : Trace Term :=
+  match op with
+  -- merege the two dynamic terms by appending corresponding ts and cs and resolving offsets
+  | .add => return .dynamic {ts := l.ts ++ r.ts, cs := l.cs ++ r.cs, offset := l.offset + r.offset}
+  | .sub => return .dynamic {ts := l.ts ++ r.ts, cs := l.cs ++ (r.cs.map (· * (-1))), offset := l.offset - r.offset}
   | _ => throw s!"unsupported operation {repr op} with dynamic access pattern"
 
 -- Note: both Lean and Python use big integers
@@ -123,7 +130,7 @@ private def valueOp : BinOp -> Term -> Term -> Trace Term
   | op, .dynamic d, .float r => dynamicBinOp op d r.toInt
   | op, .int l, .dynamic d => dynamicBinOp op d l
   | op, .float l, .dynamic d => dynamicBinOp op d l.toInt
-  | _, .dynamic .., .dynamic .. => throw "dynamic can only operator on a single tensor"
+  | op, .dynamic l, .dynamic r => mergeDynamicTerms op l r
   | op,_,_ => throw s!"unimplemented operator '{op}'"
 
 -- Binary operators on terms

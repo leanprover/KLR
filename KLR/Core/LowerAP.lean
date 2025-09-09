@@ -55,10 +55,10 @@ def Access.lowerAccessPattern (a : Access) : KLR.Err BirAccessPattern := do
 
   -- We need to build a list of terms of (tensor, coefficent)
   let terms := match a with
-  | .basic b => b.indexes.filterMap (fun idx =>
+  | .basic b => b.indexes.map (fun idx =>
       match idx with
-      | .dynamic d => d.t.map (fun t => (t, d.c))
-      | _ => none
+      | .dynamic d => d.ts.zip d.cs |>.map (fun (t, c) => ⟨t, c⟩)
+      | _ => []
     )
   | _ => []
 

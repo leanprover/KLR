@@ -325,26 +325,26 @@ end Slice
 
 @[serde tag = 116]
 structure DynamicIdx where
-  t : Option TensorName
-  c : Int
+  ts : List TensorName
+  cs : List Int
   offset : Int
   deriving BEq, Repr, FromJson, ToJson, FromSexp, ToSexp
 
 namespace DynamicIdx
 
 instance : Inhabited DynamicIdx where
-  default := DynamicIdx.mk none 0 0
+  default := DynamicIdx.mk [] [] 0
 
 def size (d : DynamicIdx) : Nat :=
-  match d.t with
+  match d.ts[0]? with
   | some t => t.shape.parDim * t.shape.freeElements
   | none => 0
 
 instance : ToCBOR DynamicIdx where
   toCBOR t :=
     Serde.cborTag 116 0 3
-    ++ @Serde.toCBOR (Option TensorName) _ t.t
-    ++ @Serde.toCBOR Int _ t.c
+    ++ @Serde.toCBOR (List TensorName) _ t.ts
+    ++ @Serde.toCBOR (List Int) _ t.cs
     ++ @Serde.toCBOR Int _ t.offset
 
 
@@ -357,11 +357,10 @@ instance : FromCBOR DynamicIdx where
       throw s!"expecting DynamicIdx (got val tag {val})"
     if len != 3 then
       throw s!"expecting DynamicIdx (got len {len})"
-    let (arr, sz, t) <- @Serde.parseCBOR' (Option TensorName) _ arr 4
-    let (arr, sz, c) <- @Serde.parseCBOR' Int _ arr sz
+    let (arr, sz, ts) <- @Serde.parseCBOR' (List TensorName) _ arr 4
+    let (arr, sz, cs) <- @Serde.parseCBOR' (List Int) _ arr sz
     let (_, sz, offset) <- @Serde.parseCBOR' Int _ arr sz
-    return (sz, DynamicIdx.mk t c offset)
-
+    return (sz, DynamicIdx.mk ts cs offset)
 end DynamicIdx
 
 @[serde tag = 117]
@@ -521,6 +520,12 @@ def freeElementOffset (ap : AccessPattern) : Nat :=
 
 end AccessPattern
 
+@[serde tag = 122]
+structure Term where
+  t : TensorName
+  c : Int
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
 /-
 BIR compatible access patterns
 
@@ -535,12 +540,12 @@ After allocation, the physical offset can be computed by (pseudo code):
   freeOffset = offset % freeElements + address.freeOffset
   physicalOffset = parOffset * parSize + freeOffset * dtype.size
 -/
-@[serde tag = 122]
+@[serde tag = 123]
 structure BirAccessPattern where
   tensor : TensorName
   offset : Nat
   pattern : List APPair
-  terms : List (TensorName × Int)
+  terms : List (List Term)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 namespace BirAccessPattern
@@ -563,7 +568,7 @@ end BirAccessPattern
 -- Tensor access: whole tensor (simple), basic indexing, or access pattern
 -- TODO: add advanced indexing (tensor indirect) inductive Access where
 
-@[serde tag = 123]
+@[serde tag = 124]
 inductive Access where
   | simple  (tensor : TensorName)
   | basic   (access : AccessBasic)
@@ -613,7 +618,7 @@ end Access
 /-
 A tensor access pattern in HBM. The address is an offset into HBM.
 -/
-@[serde tag = 124]
+@[serde tag = 125]
 structure TensorHbm where
   name : String
   dtype   : Dtype
@@ -659,7 +664,7 @@ parQuadrant─►96│    ┌───────┐│        │
                     │
                parOffset
 -/
-@[serde tag = 125]
+@[serde tag = 126]
 structure TensorSram where
   name : String
   dtype : Dtype
@@ -702,7 +707,7 @@ abbrev Reg := Nat
 The type that is passed to instructions to refer to a tensor in SBUF. We abstract
 over whether the tensor is a literal or stored in a shape register.
 -/
-@[serde tag = 126]
+@[serde tag = 127]
 inductive TensorRef where
   | abstract (access : Access)
   | sbuf (view : TensorSram)
