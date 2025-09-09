@@ -432,13 +432,13 @@ Ptr<AccessPattern> AccessPattern_des(FILE *in) {
   return x;
 }
 
-Ptr<Term> Term_des(FILE *in) {
+Ptr<DynamicAPTerm> DynamicAPTerm_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
   if (t != 122 || c != 0 || l != 2)
     throw std::runtime_error("Invalid Tag");
-  Ptr<Term> x = ptr<Term>();
+  Ptr<DynamicAPTerm> x = ptr<DynamicAPTerm>();
   x->t = TensorName_des(in);
   x->c = Int_des(in);
   return x;
@@ -2706,27 +2706,27 @@ List<Ptr<APPair>> List_APPair_des(FILE *in) {
   return l;
 }
 
-List<List<Ptr<Term>>> List_List_des(FILE *in) {
+List<List<Ptr<DynamicAPTerm>>> List_List_des(FILE *in) {
   u64 size = 0;
   if (!deserialize_array_start(in, &size))
     throw std::runtime_error("expecting List");
 
-  List<List<Ptr<Term>>> l;
+  List<List<Ptr<DynamicAPTerm>>> l;
   while (size-- > 0) {
-    List<Ptr<Term>> b = List_Term_des(in);
+    List<Ptr<DynamicAPTerm>> b = List_DynamicAPTerm_des(in);
     l.push_back(b);
   }
   return l;
 }
 
-List<Ptr<Term>> List_Term_des(FILE *in) {
+List<Ptr<DynamicAPTerm>> List_DynamicAPTerm_des(FILE *in) {
   u64 size = 0;
   if (!deserialize_array_start(in, &size))
     throw std::runtime_error("expecting List");
 
-  List<Ptr<Term>> l;
+  List<Ptr<DynamicAPTerm>> l;
   while (size-- > 0) {
-    Ptr<Term> b = Term_des(in);
+    Ptr<DynamicAPTerm> b = DynamicAPTerm_des(in);
     l.push_back(b);
   }
   return l;

@@ -328,7 +328,7 @@ structure DynamicIdx where
   ts : List TensorName
   cs : List Int
   offset : Int
-  deriving BEq, Repr, FromJson, ToJson, FromSexp, ToSexp
+  deriving BEq, Repr, FromJson, ToJson, FromSexp, ToSexp, FromCBOR, ToCBOR
 
 namespace DynamicIdx
 
@@ -340,27 +340,6 @@ def size (d : DynamicIdx) : Nat :=
   | some t => t.shape.parDim * t.shape.freeElements
   | none => 0
 
-instance : ToCBOR DynamicIdx where
-  toCBOR t :=
-    Serde.cborTag 116 0 3
-    ++ @Serde.toCBOR (List TensorName) _ t.ts
-    ++ @Serde.toCBOR (List Int) _ t.cs
-    ++ @Serde.toCBOR Int _ t.offset
-
-
-instance : FromCBOR DynamicIdx where
-  parse arr := do
-    let (ty,val,len,arr) <- Serde.parseCBORTag arr
-    if ty != 116 then
-      throw s!"expecting DynamicIdx (got tag {ty})"
-    if val != 0 then
-      throw s!"expecting DynamicIdx (got val tag {val})"
-    if len != 3 then
-      throw s!"expecting DynamicIdx (got len {len})"
-    let (arr, sz, ts) <- @Serde.parseCBOR' (List TensorName) _ arr 4
-    let (arr, sz, cs) <- @Serde.parseCBOR' (List Int) _ arr sz
-    let (_, sz, offset) <- @Serde.parseCBOR' Int _ arr sz
-    return (sz, DynamicIdx.mk ts cs offset)
 end DynamicIdx
 
 @[serde tag = 117]
@@ -521,7 +500,7 @@ def freeElementOffset (ap : AccessPattern) : Nat :=
 end AccessPattern
 
 @[serde tag = 122]
-structure Term where
+structure DynamicAPTerm where
   t : TensorName
   c : Int
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
@@ -545,7 +524,7 @@ structure BirAccessPattern where
   tensor : TensorName
   offset : Nat
   pattern : List APPair
-  terms : List (List Term)
+  terms : List (List DynamicAPTerm)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 namespace BirAccessPattern
