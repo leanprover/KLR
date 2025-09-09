@@ -127,7 +127,7 @@ struct AccessPattern final {
   Nat freeOffset;
 };
 
-struct Term final {
+struct DynamicAPTerm final {
   Ptr<TensorName> t;
   Int c;
 };
@@ -136,7 +136,7 @@ struct BirAccessPattern final {
   Ptr<TensorName> tensor;
   Nat offset;
   List<Ptr<APPair>> pattern;
-  List<List<Ptr<Term>>> terms;
+  List<List<Ptr<DynamicAPTerm>>> terms;
 };
 
 struct Access {
