@@ -350,8 +350,8 @@ Ptr<DynamicIdx> DynamicIdx_des(FILE *in) {
   if (t != 116 || c != 0 || l != 3)
     throw std::runtime_error("Invalid Tag");
   Ptr<DynamicIdx> x = ptr<DynamicIdx>();
-  x->t = Option_TensorName_des(in);
-  x->c = Int_des(in);
+  x->ts = List_TensorName_des(in);
+  x->cs = List_Int_des(in);
   x->offset = Int_des(in);
   return x;
 }
@@ -432,17 +432,29 @@ Ptr<AccessPattern> AccessPattern_des(FILE *in) {
   return x;
 }
 
+Ptr<Term> Term_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 122 || c != 0 || l != 2)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<Term> x = ptr<Term>();
+  x->t = TensorName_des(in);
+  x->c = Int_des(in);
+  return x;
+}
+
 Ptr<BirAccessPattern> BirAccessPattern_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 122 || c != 0 || l != 4)
+  if (t != 123 || c != 0 || l != 4)
     throw std::runtime_error("Invalid Tag");
   Ptr<BirAccessPattern> x = ptr<BirAccessPattern>();
   x->tensor = TensorName_des(in);
   x->offset = Nat_des(in);
   x->pattern = List_APPair_des(in);
-  x->terms = List_Pair_des(in);
+  x->terms = List_List_des(in);
   return x;
 }
 
@@ -450,7 +462,7 @@ Ptr<Access> Access_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 123)
+  if (t != 124)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -494,7 +506,7 @@ Ptr<TensorHbm> TensorHbm_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 124 || c != 0 || l != 4)
+  if (t != 125 || c != 0 || l != 4)
     throw std::runtime_error("Invalid Tag");
   Ptr<TensorHbm> x = ptr<TensorHbm>();
   x->name = String_des(in);
@@ -508,7 +520,7 @@ Ptr<TensorSram> TensorSram_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 125 || c != 0 || l != 6)
+  if (t != 126 || c != 0 || l != 6)
     throw std::runtime_error("Invalid Tag");
   Ptr<TensorSram> x = ptr<TensorSram>();
   x->name = String_des(in);
@@ -524,7 +536,7 @@ Ptr<TensorRef> TensorRef_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 126)
+  if (t != 127)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -2655,15 +2667,17 @@ Ptr<LncKernel> LncKernel_des(FILE *in) {
   return x;
 }
 
-Option<Ptr<TensorName>> Option_TensorName_des(FILE *in) {
-  bool isSome;
-  if (!deserialize_option(in, &isSome))
-    throw std::runtime_error("expecting Bool");
+List<Ptr<TensorName>> List_TensorName_des(FILE *in) {
+  u64 size = 0;
+  if (!deserialize_array_start(in, &size))
+    throw std::runtime_error("expecting List");
 
-  Option<Ptr<TensorName>> x;
-  if (isSome)
-    x = TensorName_des(in);
-  return x;
+  List<Ptr<TensorName>> l;
+  while (size-- > 0) {
+    Ptr<TensorName> b = TensorName_des(in);
+    l.push_back(b);
+  }
+  return l;
 }
 
 List<Ptr<Index>> List_Index_des(FILE *in) {
@@ -2692,20 +2706,31 @@ List<Ptr<APPair>> List_APPair_des(FILE *in) {
   return l;
 }
 
-List<> List_Pair_des(FILE *in) {
+List<List<Ptr<Term>>> List_List_des(FILE *in) {
   u64 size = 0;
   if (!deserialize_array_start(in, &size))
     throw std::runtime_error("expecting List");
 
-  List<> l;
+  List<List<Ptr<Term>>> l;
   while (size-- > 0) {
-    b = Pair_des(in);
+    List<Ptr<Term>> b = List_Term_des(in);
     l.push_back(b);
   }
   return l;
 }
 
-Pair_des(FILE *in) {}
+List<Ptr<Term>> List_Term_des(FILE *in) {
+  u64 size = 0;
+  if (!deserialize_array_start(in, &size))
+    throw std::runtime_error("expecting List");
+
+  List<Ptr<Term>> l;
+  while (size-- > 0) {
+    Ptr<Term> b = Term_des(in);
+    l.push_back(b);
+  }
+  return l;
+}
 
 Option<Dtype> Option_Dtype_des(FILE *in) {
   bool isSome;
@@ -2820,19 +2845,6 @@ List<Ptr<Keyword>> List_Keyword_des(FILE *in) {
   List<Ptr<Keyword>> l;
   while (size-- > 0) {
     Ptr<Keyword> b = Keyword_des(in);
-    l.push_back(b);
-  }
-  return l;
-}
-
-List<Ptr<TensorName>> List_TensorName_des(FILE *in) {
-  u64 size = 0;
-  if (!deserialize_array_start(in, &size))
-    throw std::runtime_error("expecting List");
-
-  List<Ptr<TensorName>> l;
-  while (size-- > 0) {
-    Ptr<TensorName> b = TensorName_des(in);
     l.push_back(b);
   }
   return l;

@@ -201,14 +201,14 @@ partial def indexExpr' (e' : Expr') : Trace Term := do
     let value <- lookupName n
     match value with
     | .access a =>
-      let dynIdx := Core.DynamicIdx.mk a.tensor 1 0
+      let dynIdx := Core.DynamicIdx.mk [a.tensor] [1] 0
       return .dynamic dynIdx
     | _ => return value
   | .access e ix =>
     let ac <- access (<- expr e) (<- ix.mapM index)
     match ac with
     | .access a =>
-      let dynIdx := Core.DynamicIdx.mk a.tensor 1 0
+      let dynIdx := Core.DynamicIdx.mk [a.tensor] [1] 0
       return .dynamic dynIdx
     | _ => throw "expected access term"
   | .binOp op l r => binop op (<- indexExpr l) (<-  indexExpr r)
@@ -217,7 +217,7 @@ partial def indexExpr' (e' : Expr') : Trace Term := do
       let rv <- fnCall f args kwargs
       match rv with
       | .access a =>
-        let dynIdx := Core.DynamicIdx.mk a.tensor 1 0
+        let dynIdx := Core.DynamicIdx.mk [a.tensor] [1] 0
         return .dynamic dynIdx
       | _ => return rv
 

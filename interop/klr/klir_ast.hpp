@@ -78,8 +78,8 @@ struct Slice final {
 };
 
 struct DynamicIdx final {
-  Option<Ptr<TensorName>> t;
-  Int c;
+  List<Ptr<TensorName>> ts;
+  List<Int> cs;
   Int offset;
 };
 
@@ -127,11 +127,16 @@ struct AccessPattern final {
   Nat freeOffset;
 };
 
+struct Term final {
+  Ptr<TensorName> t;
+  Int c;
+};
+
 struct BirAccessPattern final {
   Ptr<TensorName> tensor;
   Nat offset;
   List<Ptr<APPair>> pattern;
-  List<> terms;
+  List<List<Ptr<Term>>> terms;
 };
 
 struct Access {
