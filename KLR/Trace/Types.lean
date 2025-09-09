@@ -87,7 +87,7 @@ value in the local environment that will be shared by all references to
 the value.
 -/
 inductive RefType where
-  | list | dict | object
+  | list | dict | object (cls : Name)
   deriving Repr, BEq
 
 inductive Term where
@@ -96,6 +96,9 @@ inductive Term where
   | builtin  : Name -> Option Term -> Term
   | ref      : Name -> RefType -> Term
   | source   : NKI.Fun -> Term
+  | cls      : Name -> Term
+  | object   : Name -> List (String × Term) -> Term
+  | method   : Name -> NKI.Fun -> Term -> Term
   -- expressions / values
   | var      : Name -> Term
   | none     : Term
@@ -106,6 +109,7 @@ inductive Term where
   | access   : Core.Access -> Term
   | tuple    : List Term -> Term
   | list     : Array Term -> Term
+  | dict     : List (String × Term) -> Term
   | tensor   : TensorLib.Tensor -> Term
   -- indexing
   | ellipsis : Term
@@ -122,6 +126,9 @@ def kindStr : Term → String
   | .builtin _ _ => "builtin"
   | .ref _ _ => "ref"
   | .source _ => "source"
+  | .cls n => s!"<class {n.toString}>"
+  | .object c _ => s!"<{c.toString} object>"
+  | .method .. => "method"
   | .var _ => "var"
   | .none => "none"
   | .bool _ => "bool"
@@ -131,6 +138,7 @@ def kindStr : Term → String
   | .access _ => "access"
   | .tuple _ => "tuple"
   | .list _ => "list"
+  | .dict _ => "dict"
   | .tensor _ => "tensor"
   | .ellipsis => "ellipsis"
   | .slice _ _ _ => "slice"
@@ -384,6 +392,9 @@ partial def isTrue (t : Term) : Trace Bool := do
   | .builtin .. => return true
   | .ref name _ => isTrue (<- lookup name)
   | .source .. => return true
+  | .cls .. => return true
+  | .object .. => return true
+  | .method .. => return true
   -- expressions / values
   | .var name => isTrue (<- lookup name)
   | .none => return false
@@ -394,6 +405,7 @@ partial def isTrue (t : Term) : Trace Bool := do
   | .access .. => return true
   | .tuple l => return l.length > 0
   | .list a => return a.size > 0
+  | .dict .. => return true
   -- indexing
   | .ellipsis ..
   | .slice ..

@@ -38,6 +38,7 @@ abbrev Ann := PassM
 -- Expressions
 
 private def checkName : Name -> Ann Name
+  | .str _ "range" => return `range
   | .str _ "static_range"
   | .str _ "affine_range"
   | .str _ "sequential_range" => do
@@ -61,12 +62,14 @@ private def expr' (e' : Expr') : Ann Expr' :=
   | .var n => return .var (<- checkName n)
   | .tuple es => return .tuple (<- exprs es)
   | .list es => return .list (<- exprs es)
+  | .dict es => return .dict (<- es.mapM keyword)
   | .access e l => return .access (<- expr e) (<- l.mapM index)
   | .binOp op l r => return .binOp op (<- expr l) (<- expr r)
   | .conj l r => return .conj (<- expr l) (<- expr r)
   | .disj l r => return .disj (<- expr l) (<- expr r)
   | .ifExp c t f => return .ifExp (<- expr c) (<- expr t) (<- expr f)
   | .call f args kws => return .call (<- expr f) (<- exprs args) (<- kws.mapM keyword)
+  | .object c fs => return .object c (<- fs.mapM keyword)
   termination_by sizeOf e'
 
 private def optExpr (oe : Option Expr) : Ann (Option Expr) :=
@@ -91,7 +94,7 @@ end
 -- Statements
 
 private def rangeType : Name -> Ann RangeType
-  | `range => return .static
+  | .str _ "range" => return .static
   | .str _ "static_range" => return .static
   | .str _ "affine_range" => return .affine
   | .str _ "sequential_range" => return .sequential
@@ -140,6 +143,9 @@ end
 private def func (f : Fun) : Ann Fun :=
   return { f with body := <- stmts f.body }
 
+private def class_ (c : Class) : Ann Class :=
+  return { c with methods := <- c.methods.mapM func }
+
 private def arg (a : Arg) : Ann Arg := do
   return { a with value := <- expr a.value }
 
@@ -147,6 +153,7 @@ private def kernel (k : Kernel) : Ann Kernel := do
   return {
     entry   := k.entry
     funs    := <- k.funs.mapM func
+    cls     := <- k.cls.mapM class_
     args    := <- k.args.mapM arg
     globals := <- k.globals.mapM arg
     grid    := k.grid

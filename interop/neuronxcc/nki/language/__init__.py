@@ -3,6 +3,9 @@
 def par_dim(x): return x
 
 float32 = "float32"
+class tile_size:
+  pmax = 128
+  psum_fmax = 128
 
 def ndarray(shape, dtype, buffer=None, name=''):
   if buffer == None:

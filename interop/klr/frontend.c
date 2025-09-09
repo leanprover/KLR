@@ -30,15 +30,8 @@ static int kernel_init(struct kernel *self, PyObject *args, PyObject *kwds) {
 
   Py_INCREF(f);
   self->f = f;
-  self->specialized = false;
-  self->python_region = NULL;
-  self->python_kernel = NULL;
-
-  if (!gather(self)) {
-    if (!PyErr_Occurred())
-      PyErr_SetString(PyExc_RuntimeError, "Unable to fetch NKI function from Python Environment");
-    return -1;
-  }
+  self->region = region_create();
+  self->lean_kernel = NULL;
   return 0;
 }
 
@@ -46,8 +39,8 @@ static int kernel_init(struct kernel *self, PyObject *args, PyObject *kwds) {
 static void kernel_dealloc(struct kernel *self) {
   if (!self) return;
   Py_XDECREF(self->f); // NULL is OK
-  if (self->python_region)
-    region_destroy(self->python_region);
+  region_destroy(self->region);
+  // TODO: free lean objects
   Py_TYPE(self)->tp_free((PyObject *) self);
 }
 
@@ -86,26 +79,27 @@ static PyObject* kernel_specialize(struct kernel *self, PyObject *args_tuple) {
   return Py_None;
 }
 
-// frontend.Kernel._serialize_python
-static PyObject* kernel_serialize_python(struct kernel *self, PyObject *args) {
-  if (!self->python_kernel) {
-    PyErr_SetString(PyExc_RuntimeError, "no python kernel available");
+// frontend.Kernel.serialize_python
+static PyObject* kernel_serialize(struct kernel *self) {
+  const char *json = serialize_python(self);
+  if (json)
+    return PyUnicode_FromString(json);
+  else
     return NULL;
-  }
-  const char *file = NULL;
-  if (!PyArg_ParseTuple(args, "s", &file)) {
-    // Exception set by ParseTuple
+}
+
+// frontend.Kernel.trace
+static PyObject* kernel_trace(struct kernel *self, PyObject *args) {
+  const char *dst_file = NULL;
+  if (!PyArg_ParseTuple(args, "s", &dst_file)) {
     return NULL;
   }
 
-  struct SerResult res = serialize_python(file, self->python_kernel);
-  if (!res.ok) {
-    PyErr_SetString(PyExc_RuntimeError, res.err);
+  const char *json = trace(self, dst_file);
+  if (json)
+    return PyUnicode_FromString(json);
+  else
     return NULL;
-  }
-
-  free(res.bytes);
-  return Py_None;
 }
 
 // frontend.version
@@ -135,10 +129,12 @@ def _get_src(f):\n\
 ";
 
 static PyMethodDef KernelMethods[] = {
-  { "_serialize_python", (void*)kernel_serialize_python, METH_VARARGS,
-    "Serialize the intermediate Python Kernel to a ByteArray" },
   { "specialize", (void*)kernel_specialize, METH_VARARGS,
     "Provide arguments for specializing kernel" },
+  { "serialize_python", (void*)kernel_serialize, METH_NOARGS,
+    "write Python AST to a file" },
+  { "trace", (void*)kernel_trace, METH_VARARGS,
+    "Trace kernel and generate output file" },
   { NULL, NULL, 0, NULL }
 };
 
@@ -157,12 +153,9 @@ static PyTypeObject KernelType = {
 
 static PyMethodDef methods[] = {
   {"version", version, METH_NOARGS, "Return NKI Version"},
-#ifdef IS_NKI_REPO
-  {"_klr_trace", klr_trace, METH_VARARGS, "Trace Python to KLR"},
   {"_lean_ffi_hello", lean_ffi_hello, METH_NOARGS, "Sanity check of Lean FFI"},
   {"_lean_ffi_throw", lean_ffi_throw, METH_NOARGS, "Sanity check of Lean FFI error handling"},
   {"_lean_ffi_panic", lean_ffi_panic, METH_NOARGS, "Sanity check of Lean FFI error handling"},
-#endif
   {NULL, NULL, 0, NULL}
 };
 
@@ -209,12 +202,10 @@ PyMODINIT_FUNC PyInit_frontend(void) {
     goto error;
   Py_DECREF(res);
 
-#ifdef IS_NKI_REPO
   // Initialize Lean stuff
   if (initialize_KLR_lean_ffi() == false) {
     goto error;
   }
-#endif
 
   // Success!
   return m;

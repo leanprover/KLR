@@ -75,10 +75,9 @@ private def outfolder (outfile : String) : String :=
   (path.parent.map (·.toString)).getD "."
 
 -- reads srcPythonAstFileName, writes dstKlrFileName, returns kernel info as string of json
-@[export klr_frontend_trace]
-def frontend_trace (srcPythonAstFileName dstKlrFileName : String) : IO String := do
-  let kernel <- KLR.File.readKLRFile srcPythonAstFileName
-  let kernel <- compilePython kernel (some $ outfolder dstKlrFileName)
+@[export nki_trace]
+def frontend_trace (kernel : Python.Kernel) (dstKlrFileName : String) : IO String := do
+  let kernel <- compilePython kernel (outfolder dstKlrFileName)
   let f := FilePath.mk (dstKlrFileName)
   File.writeKLRFile f .cbor kernel
 
@@ -98,7 +97,10 @@ def frontend_trace (srcPythonAstFileName dstKlrFileName : String) : IO String :=
   }
   return toString (Lean.toJson kernelInfo)
 
--- for testing basic FFI
+@[export nki_to_json]
+def nki_to_json (kernel : Python.Kernel) : String :=
+  toString (Lean.toJson kernel)
+
 @[export klr_frontend_hello]
 def frontend_hello : IO UInt32 := do
   IO.println ("hello from Lean")

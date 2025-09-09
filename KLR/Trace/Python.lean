@@ -47,6 +47,9 @@ private partial def termStr : Term -> Trace String
   | .builtin name _ => return name.toString
   | .ref name _ => do termStr (<- lookup name)
   | .source f => return f.name
+  | .cls c => return s!"<class {c}>"
+  | .object c _ => return s!"<{c} object>"
+  | .method .. => return "method"
   | .var name => do termStr (<- lookup name)
   | .none => return "None"
   | .bool true => return "True"
@@ -57,6 +60,7 @@ private partial def termStr : Term -> Trace String
   | .access .. => return "<Access>"
   | .tuple ts => return "("++ ",".intercalate (<- ts.mapM termStr) ++")"
   | .list ts => return "["++ ",".intercalate (<- ts.toList.mapM termStr) ++"]"
+  | .dict _ => return "<dict>"
   | .ellipsis => return "..."
   | .slice .. => return "<slice>"
   | .dynamic .. => return "<dynamic>"

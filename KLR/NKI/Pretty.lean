@@ -25,6 +25,9 @@ private def abracket (f : Format) : Format :=
 private def sbracket (f : Format) : Format :=
   .bracket "[" f "]"
 
+private def braces (f : Format) : Format :=
+  .bracket "{" f "}"
+
 private def spaces [ToFormat a] (l : List a) : Format :=
   .joinSep l " "
 
@@ -64,12 +67,14 @@ private def expr' (e : Expr') (nested : Bool := false) : Format :=
   | .var n => n.toString
   | .tuple es => parens (.joinSep (es.map expr) ",")
   | .list es => sbracket (.joinSep (es.map expr) ",")
+  | .dict es => braces (args (es.map keyword))
   | .access e i => expr e ++ sqArgs (i.map index)
   | .binOp op l r => parens $ spaces [expr l, format op, expr r]
   | .conj l r => parens (expr l true ++ " and " ++ expr r true)
   | .disj l r => parens (expr l true ++ " or " ++ expr r true)
   | .ifExp c t f => parens (expr t ++ " if " ++ expr c ++ " else " ++ expr f)
   | .call f xs kws => expr f ++ args (xs.map (expr (nested := true)) ++ kws.map keyword)
+  | .object c fs => c ++ args (fs.map keyword)
   termination_by sizeOf e
 
 private def exprOpt (oe : Option Expr) : Format :=

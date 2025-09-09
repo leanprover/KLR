@@ -59,6 +59,12 @@ private def value : Python.Const -> Simplify Value
   | .ellipsis => throw "invalid use of ellipsis"
   | .tensor s dty => return .tensor s dty none
 
+private def strValue (e : Python.Expr) : Simplify String :=
+  withPos e.pos do
+    match e.expr with
+    | .const (.string s) => return s
+    | _ => throw "expecting string"
+
 /-
 # Operator Simplification
 
@@ -154,7 +160,12 @@ private def expr' (e' : Python.Expr') : Simplify Expr' :=
   | .attr e id _ => return .var (.str (<- letBind (<- expr e)) id)
   | .tuple l _ => return .tuple (<- exprs l)
   | .list l _ => return .list (<- exprs l)
-  | .dict .. => throw "dictionaries not implemented"
+  | .dict ks vs => do
+      let ks <- ks.mapM strValue
+      let vs <- exprs vs
+      if ks.length != vs.length then
+        throw s!"found {ks.length} keys and {vs.length} values in dictionary"
+      return .dict (List.zipWith Keyword.mk ks vs)
   | .subscript e ndx _ => return .access (<- expr e) (<- indexes ndx)
   | .slice .. => throw "invalid use of slice"
   | .boolOp op l => return (<- booleanOp op (<- exprs l)).expr
@@ -172,6 +183,7 @@ private def expr' (e' : Python.Expr') : Simplify Expr' :=
       let kws <- keywords kws
       return .call f args kws
   | .starred .. => throw "tuple expansion is not supported"
+  | .object c fs => return .object c (<- keywords fs)
   termination_by sizeOf e'
 
 private def index (e : Python.Expr) : Simplify Index := do
@@ -367,6 +379,35 @@ private def func (f : Python.Fun) : Simplify Fun :=
     }
 
 /-
+# Classes
+-/
+
+private def chkName (e : Python.Expr) : Simplify Unit := do
+  let e <- expr e
+  withPos e.pos do
+    match e.expr with
+    | .var n
+    | .call ⟨ .var n, _ ⟩ .. =>
+      match n with
+      | .str _ "dataclass"
+      | .str _ "staticmethod"
+      | .str _ "object"
+      | .str _ "NamedTuple" => pure ()
+      | _ => throw "unsupported decorator"
+    | _ => throw "unsupported decorator"
+
+private def class_ (c : Python.Class) : Simplify Class := do
+  c.bases.forM chkName
+  c.decorators.forM chkName
+  let ks <- keywords c.fields
+  let fs <- c.methods.mapM func
+  return {
+    name := c.name
+    fields := ks
+    methods := fs
+  }
+
+/-
 # Kernel Simplification
 -/
 
@@ -390,6 +431,7 @@ private def args (params : List Param)
 
 private def kernel (py : Python.Kernel) : Simplify Kernel := do
   let funs <- py.funcs.mapM func
+  let cls <- py.classes.mapM class_
   let main_fun <-
     match funs.find? fun f => f.name == py.entry with
     | none => throw s!"entry function {py.entry} not found"
@@ -397,6 +439,7 @@ private def kernel (py : Python.Kernel) : Simplify Kernel := do
   return {
     entry   := py.entry
     funs    := funs
+    cls     := cls
     args    := <- args main_fun.args py.args py.kwargs
     globals := <- kwargs py.globals
     grid    := py.grid

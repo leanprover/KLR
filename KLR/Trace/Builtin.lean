@@ -61,23 +61,29 @@ Python arguments to Lean arguments.
 partial def resolveRefs (t : Term) : Trace Term :=
   match t with
   | .ref name _ => do resolveRefs (<- lookup name)
-  | .builtin name (some t) => return .builtin name (some (<- resolveRefs t))
   | .tuple l => return .tuple (<- l.mapM resolveRefs)
   | .list l => return .list (<- l.mapM resolveRefs)
+  | .dict l => return .dict (<- l.mapM fun (s,t) => return (s, <- resolveRefs t))
   | _ => return t
 
-def fromNKIResolve [FromNKI a] (t : Term) : Trace a := do
-  fromNKI? (<- resolveRefs t)
+private class Resolve (a : Type) extends FromNKI a where
+  resolve : Term -> Trace a
 
-def getArg (a : Type) [FromNKI a]
+instance [FromNKI a] : Resolve a where
+  resolve t := do fromNKI? (<- resolveRefs t)
+
+instance : Resolve Term where
+  resolve t := pure t
+
+def getArg (a : Type) [Resolve a]
            (args : List Term)
            (kw : List (String × Term))
            (pos : Nat) (name : String) (dflt : Option a) : Trace a := do
   if h:pos < args.length then
-    fromNKIResolve (args[pos]'h)
+    Resolve.resolve (args[pos]'h)
   else
     match kw.find? fun (n,_) => n == name with
-    | .some (_,x) => fromNKIResolve x
+    | .some (_,x) => Resolve.resolve x
     | .none => match dflt with
               | .some a => return a
               | .none => throw s!"argument {name} not found"

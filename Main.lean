@@ -18,6 +18,7 @@ import Cli
 import KLR
 import TensorLib.Npy
 import TensorLib.Tensor
+/-
 import SHerLOC
 import KLR.TGR.Basic
 import SHerLOC.Analysis.Graph
@@ -28,6 +29,7 @@ import KLR.K.K3.DotK3
 import KLR.K.K1.CompileK1
 import KLR.K.K1.AST
 import KLR.K.K1.InterpK1
+-/
 
 open Cli
 open KLR
@@ -154,14 +156,15 @@ def gatherRun (moduleFileName kernelFunctionName outputFileName: String)
       return ()
   IO.throwServerError "could not execute gather program"
 
-def gatherTmp [KLR.File.FromContents a] (p : Parsed) : IO a := do
+def gatherTmp (p : Parsed) : IO Python.Kernel := do
   let debug := p.hasFlag "debug"
   let file := p.positionalArg! "moduleFileName" |>.as! String
   let kernel := p.positionalArg! "kernelFunctionName" |>.as! String
   let dir := (p.flag? "klr-module-dir").map fun x => x.as! String
   IO.FS.withTempFile fun _ tmpName => do
     gatherRun file kernel tmpName.toString dir debug
-    KLR.File.readKLRFile tmpName .cbor
+    let contents <- IO.FS.readFile tmpName
+    Lean.fromJson? (<- Lean.Json.parse contents)
 
 def gather (p : Parsed) : IO UInt32 := do
   let debug := p.hasFlag "debug"
@@ -219,14 +222,20 @@ def compile (p : Parsed) : IO UInt32 := do
   IO.println "OK."
   if debug then
     IO.println s!"Kernel:\n {repr kernel}"
+  match p.flag? "outfile" with
+  | some arg => File.writeKLRFile (arg.as! String) .cbor kernel
+  | none => pure ()
   return 0
 
-def typecheck (p : Parsed) : IO UInt32 := do
+def typecheck (_p : Parsed) : IO UInt32 := do
+  /-
   let file := p.positionalArg! "file" |>.as! String
   let content ← IO.FS.readFile file
   match NKI.Typed.runTypechecker content file with
   | .ok    ctx => IO.println ctx; return 0
   | .error msg => IO.println msg; return 1
+  -/
+  return 1
 
 private def outfolder (outfile : Option Parsed.Flag) : IO (Option String) := do
   match outfile with
@@ -251,6 +260,7 @@ def trace (p : Parsed) : IO UInt32 := do
     IO.println (reprStr kernel)
   return 0
 
+/-
 private def evalKlrTensors
   (p : Parsed)
   (npyInputFiles : List String)
@@ -385,10 +395,8 @@ def equivKLR (p : Parsed) : IO UInt32 := do
   | .error s => throw <| (IO.userError s)
   | .ok mR =>
   writeContent "lean" p (NKI.pprint_relational_goal mL mR)
-
-
-
   return 0
+-/
 
 -- -- Command configuration
 
@@ -449,6 +457,7 @@ def traceCmd := `[Cli|
     file : String; "File of Python AST printed as JSON"
 ]
 
+/-
 def evalKLRCmd := `[Cli|
   "eval-klr" VIA evalKLR;
   "Evaluate a kernel using a pure-Lean KLR interpreter. Outputs one npy file for each output."
@@ -464,6 +473,7 @@ def evalKLRCmd := `[Cli|
     kernelFunctionName : String;  "Name of the kernel function"
     ...inputFiles : String;       ".npy files corresponding to the inputs to the kernel, in positional order"
 ]
+
 def compileHloCmd := `[Cli|
   "compile-hlo" VIA compileHlo;
   "Compile HLO graph to KLR graph"
@@ -475,7 +485,6 @@ def compileHloCmd := `[Cli|
   ARGS:
     file : String;      "File of HLO graph in .mlir format"
 ]
-
 
 def modelKLRCmd:= `[Cli|
   "model" VIA modelKLR;
@@ -502,7 +511,7 @@ def equivKLRCmd:= `[Cli|
     kernelFunctionNameL : String; "Name of the left kernel function"
     kernelFunctionNameR : String; "Name of the right kernel function"
 ]
-
+-/
 
 def klrCmd : Cmd := `[Cli|
   klr NOOP; ["0.0.12"]
@@ -510,14 +519,14 @@ def klrCmd : Cmd := `[Cli|
 
   SUBCOMMANDS:
     compileCmd;
-    evalKLRCmd;
+    --evalKLRCmd;
     gatherCmd;
-    infoCmd;
-    traceCmd;
-    compileHloCmd;
-    typecheckCmd;
-    modelKLRCmd;
-    equivKLRCmd
+    infoCmd
+    --traceCmd;
+    --compileHloCmd;
+    --typecheckCmd;
+    --modelKLRCmd;
+    --equivKLRCmd
 ]
 
 def main (args : List String) : IO UInt32 := do

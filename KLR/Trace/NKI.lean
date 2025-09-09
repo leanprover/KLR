@@ -170,6 +170,11 @@ partial def expr' (e' : Expr') : Trace Term := do
       let name <- genName `list
       extend name (.list es.toArray)
       return .ref name .list
+  | .dict ks =>
+      let ks <- ks.mapM keyword
+      let name <- genName `dict
+      extend name (.dict ks)
+      return .ref name .dict
   | .access e ix => access (<- expr e) (<- ix.mapM index)
   | .binOp op l r => binop op (<- expr l) (<- expr r)
   | .conj l r =>
@@ -185,6 +190,11 @@ partial def expr' (e' : Expr') : Trace Term := do
   | .call f args kwargs =>
       let f <- expr f
       fnCall f args kwargs
+  | .object c fs =>
+      let fs <- fs.mapM keyword
+      let name <- genName `obj
+      extend name (.object c.toName fs)
+      return .ref name (.object c.toName)
 
 partial def optInt (e : Option Expr) : Trace (Option Int) := do
   match e with

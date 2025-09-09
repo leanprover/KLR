@@ -3,7 +3,7 @@
 #include "frontend.h"
 
 // forward declarations
-lean_object* initialize_KLR_Compile(uint8_t builtin, lean_object* w);
+lean_object* initialize_KLR(uint8_t builtin, lean_object* w);
 void lean_initialize_runtime_module();
 lean_object* lean_io_error_to_string(lean_object*);
 lean_object* klr_frontend_hello(lean_object*);
@@ -64,7 +64,7 @@ bool initialize_KLR_lean_ffi() {
   // The Lean compiler also does this when generating Main functions.
   // See: https://github.com/leanprover/lean4/commit/2018dc0
   lean_set_panic_messages(false);
-  lean_obj_res l_io_result = initialize_KLR_Compile(1 /*builtin*/, lean_io_mk_world());
+  lean_obj_res l_io_result = initialize_KLR(1 /*builtin*/, lean_io_mk_world());
   lean_set_panic_messages(true);
   if (lean_io_result_is_ok(l_io_result)) {
     lean_dec_ref(l_io_result);
@@ -99,29 +99,4 @@ PyObject* lean_ffi_panic(PyObject *self, PyObject *args) {
 
   lean_obj_res l_io_result = klr_frontend_panic(lean_io_mk_world());
   return pylong_from_uint32_lean_io_result(l_io_result);
-}
-
-PyObject* klr_trace(PyObject *self, PyObject *args) {
-  (void)self;
-  const char *src_python_ast_json_filepath = NULL;
-  const char *dst_klir_filepath = NULL;
-  if (!PyArg_ParseTuple(args, "ss", &src_python_ast_json_filepath, &dst_klir_filepath)) {
-    return NULL;
-  }
-
-  // make FFI call
-  lean_obj_res l_io_result = klr_frontend_trace(
-    lean_mk_string(src_python_ast_json_filepath),
-    lean_mk_string(dst_klir_filepath),
-    lean_io_mk_world());
-  if (!lean_io_result_is_ok(l_io_result)) {
-    set_pyerr_from_lean_io_result(l_io_result); // steals reference to arg
-    return NULL;
-  }
-
-  // translate lean string to python string
-  lean_obj_res l_json_str = lean_io_result_take_value(l_io_result); // steals reference to arg, returns new reference
-  PyObject *py_json_str = PyUnicode_FromString(lean_string_cstr(l_json_str));
-  lean_dec(l_json_str);
-  return py_json_str;
 }

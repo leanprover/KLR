@@ -31,9 +31,8 @@ Authors: Paul Govereau, Sean McLaughlin
 struct kernel {
   PyObject_HEAD
   PyObject *f;   // Kernel function
-  bool specialized;
-  struct region *python_region;
-  struct Python_Kernel *python_kernel;
+  struct region *region;
+  struct lean_kernel *lean_kernel;
 };
 
 // peg_parser.c
@@ -41,27 +40,9 @@ struct _mod* parse_string(const char *str, PyObject* filename);
 void free_python_ast(struct _mod *m);
 
 // gather.c
-bool gather(struct kernel *k);
 bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *grid, PyObject *schedule);
-
-// serde.c
-struct SerResult {
-  bool ok;
-  const char *err;
-  u8* bytes;
-  u64 size;
-};
-struct DesResult {
-  bool ok;
-  const char *err;
-  struct region *region;
-  struct Python_Kernel *python;
-};
-
-struct SerResult serialize_python(const char *file, struct Python_Kernel *k);
-struct DesResult deserialize_python(const u8 *buf, u64 size);
-
-#ifdef IS_NKI_REPO
+const char* serialize_python(struct kernel *k);
+const char* trace(struct kernel *k, const char *dst_file);
 
 // klr_ffi.c
 
@@ -69,11 +50,7 @@ struct DesResult deserialize_python(const u8 *buf, u64 size);
 // On failure, returns false with a Python exception set.
 bool initialize_KLR_lean_ffi(void);
 
-PyObject* klr_trace(PyObject *self, PyObject *args);
-
 // Sanity tests
 PyObject* lean_ffi_hello(PyObject *self, PyObject *args);
 PyObject* lean_ffi_throw(PyObject *self, PyObject *args);
 PyObject* lean_ffi_panic(PyObject *self, PyObject *args);
-
-#endif // IS_NKI_REPO

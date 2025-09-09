@@ -9,13 +9,14 @@ PY_CFLAGS  := -I${PY_DIR}/include/python${PY_VER}
 PY_LDFLAGS := $(shell ${PY_CFG} --ldflags)
 PY_LIBS    := "-lpython${PY_VER}"
 
-CFLAGS := -std=c17 -Wall -Wextra
-ifdef DEBUG
-CFLAGS += -O0 -g
-endif
+LEAN_CFLAGS  := $(shell leanc --print-cflags)
+LEAN_LDFLAGS := -L$(shell lean --print-prefix)/lib $(shell leanc --print-ldflags)
 
-C := cbor.c serde_common.c serde_python_core.c serde_file.c serde.c
-C += region.c peg_parser.c gather.c frontend.c
+CFLAGS := ${LEAN_CFLAGS} ${PY_CFLAGS}
+LDFLAGS := ${KLR_LIBS} ${LEAN_LIBS} ${LEAN_LDFLAGS} ${PY_LDFLAGS} ${PY_LIBS}
+CC := clang -std=c17 -g -Wall -Wextra -Wno-unused-command-line-argument
+
+C := region.c peg_parser.c gather.c frontend.c klr_ffi.c
 O := $(patsubst %.c,%.${PY_VER}.o,$C)
 
 TESTS := cbor_test
@@ -23,7 +24,7 @@ TESTS := cbor_test
 .SUFFIXES:
 .PHONY: all versions test clean
 
-all: frontend${PY_EXT} load_test
+all: frontend${PY_EXT} #load_test
 
 versions:
 	$(MAKE) PY_VER=3.9
@@ -42,13 +43,62 @@ clean:
 peg_parser.${PY_VER}.o: $(wildcard *.c)
 
 %.${PY_VER}.o: %.c $(wildcard *.h)
-	clang ${CFLAGS} ${PY_CFLAGS} -c $< -o $@
+	${CC} ${CFLAGS} -c $< -o $@
 
-frontend${PY_EXT}: $(O)
-	clang ${CFLAGS} $^ -dynamiclib -o $@ ${PY_LDFLAGS} ${PY_LIBS}
+# Lean dependencies
+# build up KLR_A list with targets back to lake
 
-%_test: %_test.c %.c
-	clang ${CFLAGS} ${PY_CFLAGS} $< -o $@
+D := ../../.lake
+LAKE := lake -d ../..
+P := ${D}/packages
+
+# Main KLR library
+A := ${D}/build/lib/libKLR.a
+KLR_A := $A
+$A:
+	${LAKE} build
+
+# TensorLib
+A := ${P}/TensorLib/.lake/build/lib/libTensorLib.a
+KLR_A += $A
+$A:
+	${LAKE} build TensorLib/TensorLib:static
+
+# Util
+A := ${D}/../KLR/.lake/build/lib/libUtil.a
+KLR_A += $A
+$A:
+	${LAKE} build Util:static
+
+# Plausible
+A := ${P}/plausible/.lake/build/lib/libPlausible.a
+KLR_A += $A
+$A:
+	${LAKE} build plausible/Plausible:static
+
+# Aesop
+A := ${P}/aesop/.lake/build/lib/libAesop.a
+KLR_A += $A
+$A:
+	${LAKE} build aesop/Aesop:static
+
+# Batteries
+A := ${P}/batteries/.lake/build/lib/libBatteries.a
+KLR_A += $A
+$A:
+	${LAKE} build batteries/Batteries:static
+
+# for debugging
+deps: ${KLR_A}
+	@echo deps ${KLR_A}
+
+# Python shared library
+frontend${PY_EXT}: $(O) $(KLR_A) lean_gzip.c
+	${CC} $^ -dynamiclib -o $@ ${LDFLAGS}
+
+# Basic test oc CBOR utilities
+cbor_test: cbor_test.c
+	clang -std=c17 ${PY_CFLAGS} $< -o $@
 	./$@
 
 # Simulate production build

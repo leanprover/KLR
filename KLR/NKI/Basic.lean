@@ -75,12 +75,14 @@ inductive Expr' where
   | var (name : Name)
   | tuple (elements : List Expr)
   | list (elements : List Expr)
+  | dict (elements : List Keyword)
   | access (expr : Expr) (indices : List Index)
   | binOp (op : BinOp) (left right : Expr)
   | conj (left right : Expr)
   | disj (left right : Expr)
   | ifExp (test tru fls : Expr)
   | call (f: Expr) (args: List Expr) (keywords : List Keyword)
+  | object (cls : String) (fields : List Keyword)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 5]
@@ -166,15 +168,27 @@ instance : BEq Fun where
   beq l r := l.name == r.name
 
 @[serde tag = 14]
+structure Class where
+  name : String
+  fields : List Keyword
+  methods : List Fun
+  deriving FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+-- Names are fully qualified and unique
+instance : BEq Class where
+  beq l r := l.name == r.name
+
+@[serde tag = 15]
 structure Arg where
   name : String
   value : Expr
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 15]
+@[serde tag = 16]
 structure Kernel where
   entry : String
   funs : List Fun
+  cls : List Class
   args : List Arg
   globals : List Arg
   grid : Nat

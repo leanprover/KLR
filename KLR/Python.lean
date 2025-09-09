@@ -113,6 +113,7 @@ inductive Expr' where
   | ifExp (test body orelse : Expr)
   | call (f: Expr) (args: List Expr) (keywords : List Keyword)
   | starred (e : Expr) (ctx : Ctx)
+  | object (cls : String) (fields : List Keyword)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 9]
@@ -197,8 +198,18 @@ structure Fun where
   fileName : String
   line : Nat
   source : String
+  decorators : List Expr
   args : Args
   body: List Stmt
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 14]
+structure Class where
+  name : String
+  bases : List Expr
+  decorators : List Expr
+  fields : List Keyword
+  methods : List Fun
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /-
@@ -206,6 +217,7 @@ A kernel is collection of:
   - the name of the main kernel function: `entry`
   - functions, including the primary function and any functions
     called by the primary func that we are able to parse
+  - classes referenced by the kernel
   - arguments to the primary function, the positional arguments
     are in the field `args` and the keyword argument are in the
     field `kwargs`
@@ -220,10 +232,11 @@ An example of a global is:
     else:
       ...
 -/
-@[serde tag = 14]
+@[serde tag = 15]
 structure Kernel where
   entry : String
   funcs : List Fun
+  classes : List Class
   args : List Expr
   kwargs : List Keyword
   globals : List Keyword

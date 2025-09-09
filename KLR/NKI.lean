@@ -20,4 +20,4 @@ import KLR.NKI.Patterns
 import KLR.NKI.Pretty
 import KLR.NKI.Simplify
 import KLR.NKI.SimplifyOperators
-import KLR.NKI.Typed
+--import KLR.NKI.Typed

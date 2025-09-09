@@ -58,17 +58,18 @@ jobs:
       - name: List library dependencies
         run: ./bin/check-libs ./.lake/build/bin/klr
 
-      - name: Install Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-          cache: 'pip'
+      # temporarily disabled until after prod release
+      #- name: Install Python
+      #  uses: actions/setup-python@v5
+      #  with:
+      #    python-version: '3.x'
+      #    cache: 'pip'
 
-      - name: Install dependencies
-        working-directory: ./interop
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+      #- name: Install dependencies
+      #  working-directory: ./interop
+      #  run: |
+      #    python -m pip install --upgrade pip
+      #    pip install -r requirements.txt
 
       # temporarily disabled until we fix klr gather
       #- name: Run pytest
@@ -76,32 +77,33 @@ jobs:
       #  run: |
       #    pytest
 
-      - name: Make a wheel
-        # https://github.com/pypa/cibuildwheel
-        # Hit this: https://github.com/pypa/cibuildwheel/discussions/1926
-        env:
-          # https://github.com/leanprover/lean4/pull/6631/files
-          MACOSX_DEPLOYMENT_TARGET: 99.0
-          CIBW_BUILD_VERBOSITY: 1
-        run: |
-          pip install cibuildwheel build
-          bin/make-wheel
-      - uses: actions/upload-artifact@v4
-        with:
-          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
-          path: ./.wheel/wheelhouse/*.whl
+      # temporarily disabled until after prod release
+      #- name: Make a wheel
+      #  # https://github.com/pypa/cibuildwheel
+      #  # Hit this: https://github.com/pypa/cibuildwheel/discussions/1926
+      #  env:
+      #    # https://github.com/leanprover/lean4/pull/6631/files
+      #    MACOSX_DEPLOYMENT_TARGET: 99.0
+      #    CIBW_BUILD_VERBOSITY: 1
+      #  run: |
+      #    pip install cibuildwheel build
+      #    bin/make-wheel
+      #- uses: actions/upload-artifact@v4
+      #  with:
+      #    name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
+      #    path: ./.wheel/wheelhouse/*.whl
 
       # Only upload sdist from an x64 linux machine.
       # In a normal python package the sdist would be identical regardless of which
       # platform/arch generated it. But we want to include klr.bin, which is
       # platform specific and currently built outside the normal python tool ecosystem.
       # So let's include the one platform-arch that's most useful to us right now.
-      - name: Upload sdist (Ubuntu x64 only)
-        if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: sdist-${{ matrix.os }}-${{ strategy.job-index }}
-          path: ./.wheel/wheelhouse/*.tar.gz
+      #- name: Upload sdist (Ubuntu x64 only)
+      #  if: matrix.os == 'ubuntu-latest'
+      #  uses: actions/upload-artifact@v4
+      #  with:
+      #    name: sdist-${{ matrix.os }}-${{ strategy.job-index }}
+      #    path: ./.wheel/wheelhouse/*.tar.gz
 
   # Mostly followed guides here:
   # - https://github.com/pypa/gh-action-pypi-publish?tab=readme-ov-file

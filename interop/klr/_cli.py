@@ -31,8 +31,9 @@ def gather():
   try:
     m = importlib.import_module(module)
     f = getattr(m, fn)
-    F = fe.Kernel(f)
-    F._serialize_python(outfile)
+    K = fe.Kernel(f)
+    with open(outfile, "w") as f:
+      f.write(K.serialize_python())
   except Exception as e:
     print(str(e), file=sys.stderr)
     sys.exit(1)

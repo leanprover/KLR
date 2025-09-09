@@ -2,6 +2,7 @@
 # a set of basic unit tests. Each function is parsed,
 # handed to Lean, where it is checked and reduced to KLR.
 
+import os
 import pytest
 import neuronxcc.nki.typing as nt
 
@@ -14,7 +15,7 @@ def expr_list(t):
   assert [1,2,False]
   assert not []
 
-def update():
+def modify():
   l = [1]
   x = l
   assert x == [1]
@@ -48,7 +49,7 @@ def count():
   l = [1,(2,3),4]
   assert l.count() == 3
   l.clear()
-  assert l.count() == 1
+  assert l.count() == 0
   assert [[2]].count() == 1
 
 def extend():
@@ -97,7 +98,10 @@ def reverse():
 def test_succeed(f):
   t = nt.tensor("float32", (10,10,10))
   F = Kernel(f)   # parse python
-  file = F.specialize((t,))
+  F.specialize((t,))
+  F.trace("tmp.klr")
+  os.remove("tmp.klr")
+
 
 # Failing cases
 # (These functions are expected to fail elaboration to KLR)
@@ -110,6 +114,8 @@ def out_of_bounds():
   out_of_bounds,
 ])
 def test_fails(f):
-  F = Kernel(f)
   with pytest.raises(Exception):
-    F()
+    F = Kernel(f)
+    F.specialize()
+    F.trace("tmp.klr")
+    os.remove("tmp.klr")

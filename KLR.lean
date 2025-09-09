@@ -16,11 +16,12 @@ limitations under the License.
 
 import KLR.Compile
 import KLR.Core
+import KLR.Export
 import KLR.File
 import KLR.NKI
-import KLR.Py
+--import KLR.Py
 import KLR.Python
 import KLR.Serde
 import KLR.Trace
 import KLR.Util
-import KLR.Semantics
+--import KLR.Semantics
