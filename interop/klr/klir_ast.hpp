@@ -19,6 +19,7 @@ struct Pos final {
   Nat column;
   Option<Nat> lineEnd;
   Option<Nat> columnEnd;
+  Option<String> filename;
 };
 
 enum class Memory {

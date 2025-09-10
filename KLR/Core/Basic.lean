@@ -44,6 +44,7 @@ structure Pos where
   column : Nat := 0
   lineEnd : Option Nat := none
   columnEnd : Option Nat := none
+  filename : Option String := none
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /-

@@ -43,4 +43,5 @@ struct Core_Pos {
   u32 column;
   u32 lineEnd;
   u32 columnEnd;
+  char *filename;
 };
