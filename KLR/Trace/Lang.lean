@@ -107,3 +107,7 @@ nki builtin.lang.store (dst : Access) (src : Access) := do
 nki builtin.lang.copy (src : Access) (dst : Access) := do
   warn "copy is not supported"
   return .none
+
+nki builtin.lang.unique_name (name : String) := do
+  let uniqueName := <-genName name.toName
+  return .string uniqueName.toString

@@ -54,7 +54,12 @@ private def rewriteNdarray (stmt : Stmt') : Stmt' :=
       if kws.any fun x => x.name == "name" then
        stmt
       else
-        let kws := ⟨"name", ⟨ .value $ .string x.toString, p1⟩⟩ :: kws
+        let uniqueNameCall := ⟨.call
+          ⟨.var `builtin.lang.unique_name, p1⟩
+          [⟨.value (.string x.toString), p1⟩]
+          [],
+          p1⟩
+        let kws := ⟨"name", uniqueNameCall⟩ :: kws
         .letM (.var x) ty ⟨.call ⟨.var fname, p0 ⟩ args kws, p1 ⟩
     else
       stmt
