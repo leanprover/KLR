@@ -111,7 +111,7 @@ Ptr<LncKernel> LncKernel_des(FILE *in);
 List<Ptr<TensorName>> List_TensorName_des(FILE *in);
 List<Ptr<Index>> List_Index_des(FILE *in);
 List<Ptr<APPair>> List_APPair_des(FILE *in);
-List<List<Ptr<DynamicAPTerm>>> List_List_des(FILE *in);
+List<List<Ptr<DynamicAPTerm>>> List_List_DynAP_des(FILE *in);
 List<Ptr<DynamicAPTerm>> List_DynamicAPTerm_des(FILE *in);
 Option<Dtype> Option_Dtype_des(FILE *in);
 List<Ptr<Immediate>> List_Immediate_des(FILE *in);

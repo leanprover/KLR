@@ -136,13 +136,14 @@ Ptr<Pos> Pos_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 100 || c != 0 || l != 4)
+  if (t != 100 || c != 0 || l != 5)
     throw std::runtime_error("Invalid Tag");
   Ptr<Pos> x = ptr<Pos>();
   x->line = Nat_des(in);
   x->column = Nat_des(in);
   x->lineEnd = Option_Nat_des(in);
   x->columnEnd = Option_Nat_des(in);
+  x->filename = Option_String_des(in);
   return x;
 }
 
@@ -454,7 +455,7 @@ Ptr<BirAccessPattern> BirAccessPattern_des(FILE *in) {
   x->tensor = TensorName_des(in);
   x->offset = Nat_des(in);
   x->pattern = List_APPair_des(in);
-  x->terms = List_List_des(in);
+  x->terms = List_List_DynAP_des(in);
   return x;
 }
 
@@ -2706,7 +2707,7 @@ List<Ptr<APPair>> List_APPair_des(FILE *in) {
   return l;
 }
 
-List<List<Ptr<DynamicAPTerm>>> List_List_des(FILE *in) {
+List<List<Ptr<DynamicAPTerm>>> List_List_DynAP_des(FILE *in) {
   u64 size = 0;
   if (!deserialize_array_start(in, &size))
     throw std::runtime_error("expecting List");

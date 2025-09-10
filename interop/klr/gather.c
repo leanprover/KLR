@@ -195,16 +195,17 @@ static struct Python_Const* value(struct state *st, PyObject *obj);
 static struct Python_Expr_List* const_exprs(struct state *st, PyObject *obj);
 static struct Nat_List* nat_list(struct state *st, PyObject *obj);
 
-#define mkPos(p,a,b,c,d) { \
+#define mkPos(p,a,b,c,d,f) { \
   p = region_alloc(st->region, sizeof(*(p))); \
   p->line = a; \
   p->lineEnd = b; \
   p->column = c; \
   p->columnEnd = d; \
+  p->filename = f; \
   }
 #define Pos(p,obj) mkPos(p, \
                          obj->lineno, obj->end_lineno, \
-                         obj->col_offset, obj->end_col_offset)
+                         obj->col_offset, obj->end_col_offset, st->scope.file)
 
 // Check if object is a tensor type
 static bool is_tensor(PyObject *obj) {
@@ -342,7 +343,7 @@ static struct Python_Expr* const_expr(struct state *st, PyObject *obj) {
   struct Python_Expr *e = region_alloc(st->region, sizeof(*e));
   e->expr = region_alloc(st->region, sizeof(*e->expr));
 
-  mkPos(e->pos, 0, 0, 0, 0);
+  mkPos(e->pos, 0, 0, 0, 0, st->scope.file);
 
   e->expr->c.value = value(st, obj);
   if (e->expr->c.value) {
@@ -494,7 +495,7 @@ static void add_global(struct state *st, char *name, PyObject *obj) {
 
   struct Python_Keyword_List *node = region_alloc(st->region, sizeof(*node));
   struct Python_Keyword *kw = region_alloc(st->region, sizeof(*kw));
-  mkPos(kw->pos, 0, 0, 0, 0);
+  mkPos(kw->pos, 0, 0, 0, 0, st->scope.file);
   kw->value = const_expr(st, obj);
   if (kw->value) {
     kw->id = name;

@@ -118,7 +118,7 @@ bool String_Option_ser(FILE *out, char *x) {
 }
 
 bool Core_Pos_ser(FILE *out, struct Core_Pos *x) {
-  if (!cbor_encode_tag(out, 100, 0, 4))
+  if (!cbor_encode_tag(out, 100, 0, 5))
     return false;
   if (!cbor_encode_uint(out, x->line))
     return false;
@@ -127,6 +127,8 @@ bool Core_Pos_ser(FILE *out, struct Core_Pos *x) {
   if (!Nat_Option_ser(out, x->lineEnd))
     return false;
   if (!Nat_Option_ser(out, x->columnEnd))
+    return false;
+  if (!String_Option_ser(out, x->filename))
     return false;
   return true;
 }
@@ -290,7 +292,7 @@ bool Core_Pos_des(FILE *in, struct region *region, struct Core_Pos **x) {
   u8 t, c, l;
   if (!cbor_decode_tag(in, &t, &c, &l))
     return false;
-  if (t != 100 || c != 0 || l != 4)
+  if (t != 100 || c != 0 || l != 5)
     return false;
   *x = region_alloc(region, sizeof(**x));
   if (!Nat_des(in, region, &(*x)->line))
@@ -300,6 +302,8 @@ bool Core_Pos_des(FILE *in, struct region *region, struct Core_Pos **x) {
   if (!Nat_Option_des(in, region, &(*x)->lineEnd))
     return false;
   if (!Nat_Option_des(in, region, &(*x)->columnEnd))
+    return false;
+  if (!String_Option_des(in, region, &(*x)->filename))
     return false;
   return true;
 }
