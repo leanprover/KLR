@@ -63,18 +63,20 @@ inductive PosError where
   | raw (msg : String)
   | located (pos : Pos) (msg : String)
   | absolute (file : String) (pos : Pos) (msg : String)
+  | formatted (msg : String)
   deriving Inhabited, Repr
 
 namespace PosError
 
 def msg : PosError -> String
-  | .raw msg | .located _ msg | .absolute _ _ msg => msg
+  | .raw msg | .located _ msg | .absolute _ _ msg | .formatted msg => msg
 
 def locate (pos : Pos) (pe : PosError) : PosError :=
   match pe with
   | .raw s => .located pos s
   | .located ..
-  | .absolute .. => pe  -- do not change already located messages
+  | .absolute ..
+  | .formatted .. => pe  -- do not change already located messages
 
 def addFile (file : String) (lineOffset : Nat) : PosError -> PosError
   | .raw msg => .absolute file { line := lineOffset } msg
@@ -87,6 +89,7 @@ instance : ToString PosError where
     | .raw m => m
     | .located p m => s!"{p.line}:{p.column}:{m}"
     | .absolute f p m => s!"{f}:{p.line}:{p.column}:{m}"
+    | .formatted m => s!"{m}"
 
 end PosError
 
@@ -96,6 +99,8 @@ compiler passes.
 -/
 structure PassState where
   freshVarNum : Nat := 0 -- counter for generating fresh names
+  pos : Pos  := { line := 0 }
+  lineOffset : Nat := 0 -- offset to convert relative to absolute line numbers
   warnings : Array PosError := #[]  -- located warnings
   newWarns : Array PosError := #[]  -- raw warnings
 
@@ -146,17 +151,47 @@ namespace PassM
 
 instance : MonadExceptOf String PassM where
   throw msg := throw (.raw msg)
-  tryCatch m f := tryCatch m (fun e => f e.msg)
+  tryCatch m f := tryCatch m (fun e => match e with
+    | .formatted _ => throw e
+    | _ => f e.msg
+  )
+
+-- get the current source position
+def getPos : PassM Pos := do
+  let s <- get
+  let pos := s.pos
+  return { pos with line := pos.line + s.lineOffset - 1 }
 
 def withPos (pos : Pos) (m : PassM a) : PassM a :=
-  fun s => match m s with
+  fun s => match m { s with pos := pos } with
     | .ok x s => .ok x (s.locate pos)
     | .error e s => .error (e.locate pos) (s.locate pos)
 
-def withFile (file : String) (lineOffset : Nat) (m : PassM a) : PassM a :=
-  fun s => match m s with
-    | .ok x s => .ok x (s.addFile file lineOffset)
-    | .error e s => .error (e.addFile file lineOffset) (s.addFile file lineOffset)
+def withFile (file : String) (lineOffset : Nat) (source : String) (m : PassM a) : PassM a := do
+  let s <- get
+  let p' := { s.pos with filename := some file }
+  fun s => match m { s with pos := p', lineOffset := lineOffset } with
+    | .ok x s =>
+        .ok x { s with pos := p' }
+    | .error (.raw msg) s =>
+        .error (.formatted (genError msg file lineOffset source s.pos)) { s with pos := p' }
+    | .error (.located pos msg) s =>
+        .error (.formatted (msg ++ genError msg file lineOffset source pos)) { s with pos := p' }
+    | .error (.absolute f pos msg) s =>
+        .error (.formatted (genError msg f lineOffset source pos)) { s with pos := p' }
+    | .error (.formatted msg) s =>
+        .error (.formatted (msg ++ genError "called from" file lineOffset source s.pos)) { s with pos := p' }
+where
+  genError (msg : String) (f: String) (offset : Nat) (source : String) (pos : Pos) : String :=
+    let lines := source.splitOn "\n"
+    let lineno := pos.line - 1
+    let colno := pos.column
+    let line := if h:lineno < lines.length
+                then lines[lineno]'h
+                else "<source not available>"
+    let indent := (Nat.repeat (List.cons ' ') colno List.nil).asString
+    s!"\n{f}:{lineno + offset}:\n{line}\n{indent}^-- {msg}"
+
 
 end PassM
 
@@ -184,8 +219,11 @@ def withPos [Monad m] [MonadControlT PassM m]
   control fun mapInBase => (PassM.withPos pos) (mapInBase x)
 
 def withFile [Monad m] [MonadControlT PassM m]
-             (file : String) (lineOffset : Nat) (x : m a) : m a :=
-  control fun mapInBase => (PassM.withFile file lineOffset) (mapInBase x)
+             (file : String) (lineOffset : Nat) (source : String) (x : m a) : m a :=
+  control fun mapInBase => (PassM.withFile file lineOffset source) (mapInBase x)
+
+def getPos [Monad m] [MonadControlT PassM m] : m Pos :=
+  liftWith fun _ => PassM.getPos
 
 -- Passes will commonly want to add more state
 abbrev Pass st := StateT st PassM

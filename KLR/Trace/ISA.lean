@@ -57,32 +57,32 @@ def accumCmdToValue (ac : AccumCmd) : Value :=
 
 def dimsFromPythonDefs(d : Sum Int (List Int)) : Trace TensorSubDim :=
   match d with
-  | .inl 1 => .ok .X
+  | .inl 1 => return .X
   | .inl _ => throw  "not a valid dim"
   | .inr r => match r with
-    | [1] => .ok .X
-    | [1, 2] => .ok .XY
-    | [1, 2, 3] => .ok .XYZ
-    | [1, 2, 3, 4] => .ok .XYZW
+    | [1] => return .X
+    | [1, 2] => return .XY
+    | [1, 2, 3] => return .XYZ
+    | [1, 2, 3, 4] => return .XYZW
     | _ => throw "not a valid dim"
 
 def getTransposeOps(op: Option (List Int)) : Trace TransposeOps :=
   match op with
-  | none => .ok .None -- WZYX
-  | some [0, 1, 2, 3] => .ok .None -- WZYX (identity)
-  | some [0, 1, 3, 2] => .ok .WZXY
-  | some [0, 3, 1, 2] => .ok .WXZY
-  | some [0, 2, 3, 1] => .ok .WYXZ
-  | some [1, 0, 2, 3] => .ok .ZWYX
-  | some [1, 2, 0, 3] => .ok .ZYWX
-  | some [1, 2, 3, 0] => .ok .ZYXW
-  | some [2, 3, 0, 1] => .ok .YXWZ
-  | some [2, 3, 1, 0] => .ok .YXZW
-  | some [2, 0, 1, 3] => .ok .YWZX
-  | some [3, 0, 1, 2] => .ok .XWZY
-  | some [3, 1, 2, 0] => .ok .XZYW
-  | some [3, 2, 1, 0] => .ok .XYZW
-  | some [3, 2, 0, 1] => .ok .XYWZ
+  | none => return .None -- WZYX
+  | some [0, 1, 2, 3] => return .None -- WZYX (identity)
+  | some [0, 1, 3, 2] => return .WZXY
+  | some [0, 3, 1, 2] => return .WXZY
+  | some [0, 2, 3, 1] => return .WYXZ
+  | some [1, 0, 2, 3] => return .ZWYX
+  | some [1, 2, 0, 3] => return .ZYWX
+  | some [1, 2, 3, 0] => return .ZYXW
+  | some [2, 3, 0, 1] => return .YXWZ
+  | some [2, 3, 1, 0] => return .YXZW
+  | some [2, 0, 1, 3] => return .YWZX
+  | some [3, 0, 1, 2] => return .XWZY
+  | some [3, 1, 2, 0] => return .XZYW
+  | some [3, 2, 1, 0] => return .XYZW
+  | some [3, 2, 0, 1] => return .XYWZ
   | some _ => throw "unsupported transpose operation"
 
 
@@ -130,10 +130,10 @@ nki builtin.isa.nc_transpose
     | some (.access acc) => return .abstract acc
     | some _ => throw "identity has wrong type"
     | none => throw "identity not defined"
-    let idName <- match id with
-    | .abstract $ .simple t => .ok t
-    | .abstract $ .basic t => .ok t.tensor
-    | .abstract $ .pattern t => .ok t.tensor
+    let idName : TensorName <- match id with
+    | .abstract $ .simple t => pure t
+    | .abstract $ .basic t => pure  t.tensor
+    | .abstract $ .pattern t => pure t.tensor
     | _ => throw "Expected identity matrix to be a ref"
     let idSlice : TensorRef := .abstract $ .basic $ <- AccessBasic.make idName [
         .slice $ Slice.make! 0 N 1,
@@ -249,7 +249,7 @@ nki builtin.isa.tensor_partition_reduce
     Trace.add_stmt $ .oper (.tensorPartitionReduce {
       dst := .abstract dst,
       op := op,
-      data := .abstract data
+      data := .abstract data,
       dtype := dst.tensor.dtype
     }) name
     return .none
@@ -637,9 +637,9 @@ nki builtin.isa.dma_copy
  (name : Option String := none) := do
   if mask.isSome then throw maskNotSupported
   let op : DgeComputeOp := <- match dst_rmw_op with
-    | none => .ok .none
+    | none => return .none
     | some rmw_op => match rmw_op with
-      | .add => .ok .add
+      | .add => return .add
       | _ => throw "Unsupported operation"
   if oob_mode > 1 then throw "unsupported oob mode"
   Trace.add_stmt $ .oper (.ncDmaCopy {
