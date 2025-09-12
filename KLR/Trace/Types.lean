@@ -17,6 +17,7 @@ limitations under the License.
 import KLR.Util
 import KLR.Core
 import KLR.NKI.Basic
+import KLR.Compile.Pass
 
 /-
 # Basic types for tracing
@@ -65,6 +66,7 @@ tracing monads.
 
 namespace KLR.Trace
 open KLR.Core
+open KLR.Compile.Pass
 export Core (Name)
 
 -- Bring in some NKI types for convenience
@@ -188,41 +190,46 @@ inductive TraceErr where
 instance : Inhabited TraceErr where
   default := .located { line := 0 } ""
 
-abbrev Trace := EStateM TraceErr State
+abbrev Trace := StateT State PassM
 
 instance : MonadExcept String Trace where
-  throw str := fun s => .error (.located s.pos str) s
-  tryCatch m f := fun s =>
-    match m s with
-    | .ok x s => .ok x s
-    | .error (.located _ str) s => f str s
-    | .error (.formatted str) s => f str s
+  throw str := do
+    let s ← get
+    throwThe String str
+  tryCatch m f := tryCatch m f
 
 -- get the current source position
 def getPos : Trace Pos := return (<- get).pos
 
 -- modify the source position for `m`, reverting on exit
-def withPos (p : Pos) (m : Trace a) : Trace a := fun s =>
+def withPos (p : Pos) (m : Trace a) : Trace a := do
+  let s ← get
   let p' := s.pos
-  match m { s with pos := p } with
-  | .ok x s => .ok x { s with pos := p' }
-  | .error x s => .error x s
+  set { s with pos := p }
+  try
+    let result ← m
+    modify fun s => { s with pos := p' }
+    return result
+  catch e =>
+    modify fun s => { s with pos := p' }
+    throw e
 
 /-
 Catch and report errors with source locations. The `withSrc` function is always
 used a function boundaries, and converts `located` errors to `formatted`
 errors.
 -/
-def withSrc (fileName : Option String) (line : Nat) (source : String) (m : Trace a) : Trace a := fun s =>
+def withSrc (fileName : Option String) (line : Nat) (source : String) (m : Trace a) : Trace a := do
+  let s ← get
   let p' := s.pos
-  match m { s with pos := { line := 0 } } with
-  | .ok x s => .ok x { s with pos := p' }
-  | .error (.located p e) s =>
-    .error (.formatted $ genError line source e p)
-           { s with pos := p' }
-  | .error (.formatted str) s =>
-    .error (.formatted (str ++ genError line source "called from" s.pos))
-           { s with pos := p' }
+  set { s with pos := { line := 0 } }
+  try
+    let result ← m
+    modify fun s => { s with pos := p' }
+    return result
+  catch e =>
+    modify fun s => { s with pos := p' }
+    throw (genError line source e s.pos)
 where
   genError (offset : Nat) (source err : String) (pos : Pos) : String :=
     let lines := source.splitOn "\n"
@@ -265,18 +272,29 @@ def lookup (name : Name) : Trace Term := do
   | some x => return x
 
 -- Enter a new local scope, replacing the local environment on exit.
-def enter (m : Trace a) : Trace a := fun s =>
+def enter (m : Trace a) : Trace a := do
+  let s ← get
   let locals := s.locals
-  match m s with
-  | .ok x s' => .ok x { s' with locals := locals }
-  | .error err s => .error err s
+  try
+    let result ← m
+    modify fun s => { s with locals := locals }
+    return result
+  catch e =>
+    modify fun s => { s with locals := locals }
+    throw e
 
 -- Enter a new function scope, removing all local bindings
-def enterFun (m : Trace a) : Trace a := fun s =>
+def enterFun (m : Trace a) : Trace a := do
+  let s ← get
   let locals := s.locals
-  match m { s with locals := ∅ } with
-  | .ok x s' => .ok x { s' with locals := locals }
-  | .error err s => .error err s
+  set { s with locals := ∅ }
+  try
+    let result ← m
+    modify fun s => { s with locals := locals }
+    return result
+  catch e =>
+    modify fun s => { s with locals := locals }
+    throw e
 
 -- append fully traced statement
 def add_stmt (stmt : Pos -> Stmt) : Trace Unit :=
@@ -356,11 +374,10 @@ def tensorName : Option String -> Trace String
   | some n => do checkTensorName n; return n
 
 -- Run a `Trace` monad computation, and handle any generated warnings or errors.
-def tracer (g : List (Name × Term)) (m : Trace a) (showWarnings := true) : Err (String × a × SharedConstants) :=
-  match m { globals := .ofList g } with
-  | .ok x s => .ok (addWarnings s "", x, s.sharedConstants)
-  | .error (.formatted str) s => .error (addWarnings s ("error:" ++ str))
-  | .error (.located _ str) s => .error (addWarnings s ("error:" ++ str))
+def tracer (g : List (Name × Term)) (m : Trace a) (showWarnings := true) : PassM (String × a × SharedConstants) := do
+  let initialState : State := { globals := .ofList g }
+  let (result, finalState) ← m.run initialState
+  return (addWarnings finalState "", result, finalState.sharedConstants)
 where
   getMessages s := "\n".intercalate s.messages.toList ++ "\n"
   addWarnings s str :=

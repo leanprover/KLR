@@ -312,7 +312,7 @@ partial def stmt' (s' : Stmt') : Trace Result := do
     match res with
       | .ref name _ =>
         extend_global name $ <- lookupName name
-      | _ => .ok ()
+      | _ => pure ()
     return .ret res
   | .declare .. => return .next
   | .letM (.var n) _ e => extend n (<- expr e); return .next
