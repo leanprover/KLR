@@ -253,7 +253,7 @@ partial def keyword (kw : Keyword) : Trace (String × Term) :=
 
 partial def callFn (f : Fun) (args : List (String × Term)) : Trace Term := do
   args.forM fun (_,t) => checkAccess t (warnOnly := false)
-  withSrc f.file f.line f.source $ enterFun do
+  withFile f.file f.line f.source $ enterFun do
     args.forM fun kw => extend kw.1.toName kw.2
     match <- stmts f.body with
     | .ret t => return t

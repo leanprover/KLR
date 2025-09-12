@@ -49,8 +49,9 @@ def runNkiKernel
     | some (p,n) => (nl "_program_id", int p) ::
                     (nl "_num_programs", int n) ::
                     (nl "_program_ndim", int 1) :: globalEnv
-  let (msg, kernel, sharedConstants) <- tracer env (traceKernel k)
-  return (msg, kernel, sharedConstants)
+  match tracer env (traceKernel k) |>.run {} with
+  | EStateM.Result.ok v _ => return v
+  | EStateM.Result.error e _ => .error e.msg
 
 -- TODO: probably the messages are identical, but they might not be
 -- TODO: check that inputs and outputs are the same

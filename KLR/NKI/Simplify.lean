@@ -412,7 +412,7 @@ private def params (args : Python.Args) : Simplify (List Param) := do
   return params.reverse
 
 private def func (f : Python.Fun) : Simplify Fun :=
-  withFile f.fileName f.line do
+  withFile f.fileName f.line f.source do
     return {
       name := f.name.toName
       decs := <- f.decorators.mapM decorator
