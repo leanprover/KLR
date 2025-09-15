@@ -1,0 +1,347 @@
+Memory =
+  | hbm
+  | sbuf
+  | psum
+  | reg
+Dtype =
+  | bfloat16
+  | float8e3
+  | float8e4
+  | float8e5
+  | float16
+  | float32
+  | float32r
+  | int8
+  | int16
+  | int64
+  | int32
+  | uint8
+  | uint16
+  | uint32
+  | uint64
+
+Shape = (Nat parDim, Nat* freeDims)
+
+Address = (String name, Memory memory, Nat parSize, Nat freeSize, Nat? parOffset, Nat? freeOffset)
+
+TensorName = (String name, Dtype dtype, Shape shape, Address address, Nat freeElements, Prop parWF, Prop freeWF)
+
+Slice = (Nat l, Nat u, Int step, Prop wf)
+
+DynamicIdx = (TensorName* ts, Int* cs, Int offset)
+Index =
+ | coord(Nat e)
+ | slice(Slice slice)
+ | dynamic(DynamicIdx dynamic)
+
+
+AccessBasic = (TensorName tensor, Index* indexes, Prop lenWF)
+
+APPair = (Int step, Nat num)
+
+AccessPattern = (TensorName tensor, Nat parNum, APPair* freePattern, Nat parOffset, Nat freeOffset)
+
+DynamicAPTerm = (TensorName t, Int c)
+
+BirAccessPattern = (TensorName tensor, Nat offset, APPair* pattern, DynamicAPTerm** terms)
+Access =
+ | simple(TensorName tensor)
+ | basic(AccessBasic access)
+ | pattern(AccessPattern access)
+ | birPattern(BirAccessPattern access)
+
+
+TensorHbm = (String name, Dtype dtype, Nat address, APPair* dims)
+
+TensorSram = (String name, Dtype dtype, Nat parNum, APPair* freePattern, Nat parOffset, Nat freeOffset)
+TensorRef =
+ | abstract(Access access)
+ | sbuf(TensorSram view)
+ | psum(TensorSram view)
+ | hbm(TensorHbm view)
+ | register(Reg reg)
+
+Engine =
+  | unassigned
+  | act
+  | dma
+  | dve
+  | pe
+  | pool
+  | sp
+Immediate =
+ | register(Reg reg)
+ | pointer()
+ | int(Int i)
+ | float(Float f)
+
+ActivationImm =
+ | register(Reg reg)
+ | pointer()
+ | float(Float f)
+
+Operand =
+ | imm(Immediate i)
+ | tile(TensorRef t)
+
+
+DataPattern = (Nat offset, APPair* pattern, Int channelMultiplier)
+AluOp =
+  | abs
+  | add
+  | arith_shift_left
+  | arith_shift_right
+  | average
+  | bitwise_and
+  | bitwise_not
+  | bitwise_or
+  | bitwise_xor
+  | bypass
+  | divide
+  | is_equal
+  | is_ge
+  | is_gt
+  | is_le
+  | is_lt
+  | logical_and
+  | logical_or
+  | logical_shift_left
+  | logical_shift_right
+  | logical_xor
+  | max
+  | min
+  | mod
+  | mult
+  | not_equal
+  | pow
+  | rsqrt
+  | subtract
+DropoutThresholdType =
+  | DropRate
+  | KeepRate
+AccumCmd =
+  | Idle
+  | Zero
+  | Accumulate
+  | ZeroAccumulate
+  | LoadAccumulate
+ActivationFunc =
+  | abs
+  | arctan
+  | copy
+  | erf
+  | erf_dx
+  | exp
+  | gelu
+  | gelu_apprx_tanh
+  | gelu_dx
+  | log
+  | mish
+  | reciprocal
+  | relu
+  | rsqrt
+  | sigmoid
+  | sign
+  | silu
+  | silu_dx
+  | sin
+  | softplus
+  | sqrt
+  | square
+  | tanh
+AffineSelectCmp =
+  | GreaterThan
+  | GreaterThanEq
+  | Eq
+  | NotEq
+DgeComputeOp =
+  | none
+  | add
+DmaBounds =
+ | disable()
+ | enable()
+ | reg(Reg reg)
+
+MatmulGroupElement =
+  | first
+  | middle
+  | last
+  | whole
+IndexMissBehavior =
+ | imm(Immediate value)
+ | skip()
+
+TensorScalarReverseOps =
+  | none
+  | first
+  | second
+  | both
+TensorSubDim =
+  | X
+  | XY
+  | XYZ
+  | XYZW
+TransposeOps =
+  | None
+  | WZXY
+  | WXZY
+  | WYXZ
+  | ZWYX
+  | ZYWX
+  | ZYXW
+  | YXWZ
+  | YXZW
+  | YWZX
+  | XWZY
+  | XZYW
+  | XYZW
+  | XYWZ
+
+Dropout = (TensorRef dst, TensorRef src, DropoutThresholdType thresholdType, Operand threshold, Dtype? dtype)
+
+Activate = (TensorRef dst, TensorRef src, AccumCmd accumulatorCmd, ActivationFunc activationFunc, Immediate scale, Immediate bias, Immediate imm)
+
+AffineSelect = (TensorRef dst, TensorRef src, AffineSelectCmp fillMode, Reg fillReg, DataPattern maskPattern)
+
+DmaCopy = (TensorRef dst, TensorRef src, DgeComputeOp compute_op, DmaBounds dstBoundsCheck, DmaBounds srcBoundsCheck)
+
+DmaTranspose = (TensorRef dst, TensorRef src, TransposeOps axes, Dtype? dtype, Nat dgeMode)
+
+Transpose = (TensorRef dst, TensorRef src, Dtype? dtype, Engine engine)
+
+LoadMaskRegister = (Reg regNum)
+
+Shuffle = (TensorRef dst, TensorRef src, Immediate* shuffleMask, Dtype? dtype)
+
+MemSet = (TensorRef dst, Immediate value, Dtype dtype, Engine engine)
+
+Iota = (TensorRef dst, DataPattern pattern, Dtype? dtype)
+
+LoadStationary = (TensorRef src, Bool isTranspose)
+
+MatMul = (TensorRef dst, TensorRef moving, MatmulGroupElement psumAccumulateFlag)
+
+LocalGather = (TensorRef dst, TensorRef src, IndexMissBehavior indexMissBehavior, Bool freePoolBuffer)
+
+RangeSelect = (TensorRef dst, TensorRef src, AccumCmd reduceCommand, AluOp reduceOp, Float base, Float fillValue, AluOp compOp0, AluOp compOp1, Immediate bound0, Immediate bound1)
+
+ScalarTensorTensor = (TensorRef dst, TensorRef src0, TensorRef src1, AluOp op0, AluOp op1, TensorScalarReverseOps reverseOperands, Immediate imm0, AccumCmd accumulatorCmd)
+
+CopyPredicated = (TensorRef dst, TensorRef src, TensorRef predicate, Dtype? dtype, Bool reversePred)
+
+TensorTensorScan = (TensorRef dst, TensorRef src0, TensorRef src1, AluOp op0, AluOp op1, TensorScalarReverseOps reverseOperands, Operand imm0, AccumCmd accumulatorCmd, Dtype? dtype)
+
+MatchValueLoad = (TensorRef src)
+
+FindIndex8 = (TensorRef dst, TensorRef src, TensorRef vals, Dtype? dtype)
+
+MatchReplace8 = (TensorRef dst, TensorRef src, TensorRef vals, Immediate replaceValue, TensorRef? dstIdx, Dtype? dtype)
+
+Max8 = (TensorRef dst, TensorRef src, Dtype? dtype)
+
+BatchNormAggregate = (TensorRef dst, TensorRef src, Dtype? dtype)
+
+BatchNormStats = (TensorRef dst, TensorRef src, Dtype? dtype)
+
+Reciprocal = (TensorRef dst, TensorRef src, Dtype? dtype)
+
+Copy = (TensorRef dst, TensorRef src, TensorSubDim? opDim)
+
+TensorReduce = (TensorRef dst, TensorRef src, AluOp op, TensorSubDim opDim, Bool negated, Dtype? dtype, Bool keepdims)
+
+TensorScalar = (TensorRef dst, TensorRef src, Operand imm0, AluOp op0, Operand? imm1, AluOp? op1, TensorScalarReverseOps reverse, Engine engine, Dtype? dtype)
+
+TensorTensor = (TensorRef dst, TensorRef src0, TensorRef src1, AluOp op, Dtype? dtype, Engine engine)
+
+NcMatMul = (TensorRef dst, TensorRef stationary, TensorRef moving, Bool isStationaryOneZero, Bool isMovingZero, Bool isTranspose, Nat* tilePosition, Nat* tileSize)
+
+TensorScalarReduce = (TensorRef dst, TensorRef src, Operand operand0, AluOp op0, Bool reverse0, Dtype? dtype, AluOp? reduceOp, TensorRef reduceRes)
+
+TensorPartitionReduce = (TensorRef dst, AluOp op, TensorRef data, Dtype? dtype)
+
+NcActivate = (TensorRef dst, TensorRef src, AccumCmd accumulatorCmd, ActivationFunc activationFunc, Immediate scale, Immediate bias, AluOp? reduceOp, TensorRef? reduceRes, Dtype? dtype)
+
+NcAffineSelect = (TensorRef dst, DataPattern pred, TensorRef onTrueTile, Immediate onFalseValue, Dtype? dtype, AluOp cmpOp)
+
+NcDmaCopy = (TensorRef dst, TensorRef src, DgeComputeOp compute_op, DmaBounds oobMode, Nat dgeMode)
+
+NcLocalGather = (TensorRef dst, TensorRef src, TensorRef index, Immediate numElemPerIdx, Immediate? numValidIndicies)
+
+NcRangeSelect = (TensorRef dst, AccumCmd reduceCommand, TensorRef? reduceRes, AluOp? reduceOp, AluOp compOp0, AluOp compOp1, TensorRef bound0, TensorRef bound1, Immediate rangeStart, TensorRef onTrueTile, Immediate onFalseValue, Dtype? dtype)
+
+NcScalarTensorTensor = (TensorRef dst, TensorRef data, Operand src0, Operand src1, AluOp op0, AluOp op1, TensorScalarReverseOps reverseOperands, Dtype? dtype)
+
+NcCopy = (TensorRef dst, TensorRef src, Dtype? dtype, Engine engine)
+
+SelectReduce = (TensorRef dst, TensorRef predicate, TensorRef onTrue, Operand onFalse, TensorRef? reduceRes, AccumCmd reduceCmd, AluOp reduceOp, Bool reversePred, Dtype? dtype)
+
+SequenceBounds = (TensorRef dst, TensorRef segmentIds, Dtype? dtype)
+
+SendRecv = (TensorRef dst, TensorRef src, Immediate sendToRank, Immediate recvFromRank, Immediate pipeId, Bool useGpsimdDma)
+
+SendRecvCCE = (TensorRef dst, TensorRef* src, Immediate sendToRank, Immediate* recvFromRanks, Immediate pipeId, AluOp op)
+Operator =
+ | activate(Activate op)
+ | ncActivate(NcActivate op)
+ | activationReduce(NcActivate op)
+ | affineSelect(AffineSelect op)
+ | ncAffineSelect(NcAffineSelect op)
+ | batchNormAggregate(BatchNormAggregate op)
+ | batchNormStats(BatchNormStats op)
+ | copy(Copy op)
+ | ncCopy(NcCopy op)
+ | copyPredicated(CopyPredicated op)
+ | dmaCopy(DmaCopy op)
+ | ncDmaCopy(NcDmaCopy op)
+ | dmaTranspose(DmaTranspose op)
+ | dropout(Dropout op)
+ | findIndex8(FindIndex8 op)
+ | iota(Iota op)
+ | loadMaskRegister(LoadMaskRegister op)
+ | loadStationary(LoadStationary op)
+ | localGather(LocalGather op)
+ | ncLocalGather(NcLocalGather op)
+ | matMul(MatMul op)
+ | ncMatMul(NcMatMul op)
+ | matchReplace8(MatchReplace8 op)
+ | matchValueLoad(MatchValueLoad op)
+ | max8(Max8 op)
+ | memSet(MemSet op)
+ | rangeSelect(RangeSelect op)
+ | ncRangeSelect(NcRangeSelect op)
+ | reciprocal(Reciprocal op)
+ | scalarTensorTensor(ScalarTensorTensor op)
+ | ncScalarTensorTensor(NcScalarTensorTensor op)
+ | shuffle(Shuffle op)
+ | tensorReduce(TensorReduce op)
+ | tensorScalar(TensorScalar op)
+ | tensorTensor(TensorTensor op)
+ | tensorTensorScan(TensorTensorScan op)
+ | tensorPartitionReduce(TensorPartitionReduce op)
+ | tensorScalarReduce(TensorScalarReduce op)
+ | transpose(Transpose op)
+ | selectReduce(SelectReduce op)
+ | sequenceBounds(SequenceBounds op)
+ | sendRecv(SendRecv op)
+ | sendRecvCCE(SendRecvCCE op)
+
+Value =
+ | var(String x)
+ | bool(Bool value)
+ | int(Int value)
+ | float(Float value)
+ | access(Access a)
+
+
+Keyword = (String name, Value value)
+Expr =
+ | value(Value v)
+ | call(String f, Value* args, Keyword* kwargs)
+
+Stmt =
+ | oper(Operator op, String? name, Pos pos)
+
+
+SharedConstantFile = (String name, String fileName)
+
+LncKernel = (String name, TensorName* inputs, TensorName* outputs, Stmt** bodies, SharedConstantFile* sharedConstants)

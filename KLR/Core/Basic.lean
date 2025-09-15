@@ -83,8 +83,6 @@ inductive Expr where
 
 @[serde tag = 104]
 inductive Stmt where
-  | ret (v : Value)
-  | assign (x : String) (e : Expr)
   | oper (op : Operator) (name : Option String) (pos : Pos)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
@@ -219,8 +217,6 @@ instance : Tensors Operator where
 
 instance : Tensors Stmt where
   tensors
-  | .ret v => tensors v
-  | .assign _ e => tensors e
   | .oper op .. => tensors op
 
 def Kernel.internal (k : Kernel) : List TensorName :=
