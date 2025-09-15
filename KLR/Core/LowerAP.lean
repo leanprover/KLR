@@ -159,7 +159,6 @@ def Operator.lowerAccessPatterns (k : Operator) : KLR.Err Operator :=
 
 def Stmt.lowerAccessPatterns : Stmt → KLR.Err Stmt
   | .oper op name pos => return .oper (<- op.lowerAccessPatterns) name pos
-  | s => return s
 
 def Kernel.lowerAccessPatterns (k : Kernel) : KLR.Err Kernel := do
   let body' ← k.body.mapM Stmt.lowerAccessPatterns

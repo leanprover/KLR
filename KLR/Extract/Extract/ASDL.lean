@@ -45,8 +45,8 @@ private def genType (ty : LeanType) (topLevel : Bool := false) : MetaM Unit :=
         IO.print s!"\n{name} = ("
       else
         IO.print s!"{name}("
-      for f in fields do
-        IO.print s!"{typeName f.type} {f.name}, "
+      let fieldStrs := fields.map (fun f => s!"{typeName f.type} {f.name}")
+      IO.print (String.intercalate ", " fieldStrs)
       IO.println ")"
   | .sum name variants => do
       if ty.isEnum then do
