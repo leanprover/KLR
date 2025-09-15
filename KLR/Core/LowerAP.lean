@@ -62,14 +62,18 @@ def Access.lowerAccessPattern (a : Access) : KLR.Err BirAccessPattern := do
     )
   | _ => []
 
-  -- Accumulate the free term from all dynamic patterns
-  let dynOffset := match a with
-  | .basic b => Int.toNat $ b.indexes.foldl (fun acc idx =>
+  -- Compute offset from layout steps and index start positions
+  let layoutOffset := match a with
+  | .basic b =>
+    let starts := b.freeIndices.map (fun idx =>
       match idx with
-      | .dynamic d => acc + d.offset
-      | _ => acc
-    ) 0
+      | .slice s => s.l
+      | .coord c => c
+      | .dynamic d => d.offset
+    )
+    (layout.steps.zip starts).foldl (fun acc (step, start) => acc + step * start) 0
   | _ => 0
+  let dynOffset := Int.toNat layoutOffset
   return {birAp with terms := terms, offset := birAp.offset + dynOffset}
 
 def TensorRef.lowerAccessPatterns : TensorRef → KLR.Err TensorRef
