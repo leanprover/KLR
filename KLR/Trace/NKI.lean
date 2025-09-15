@@ -100,11 +100,11 @@ private def lookupName' (name : Name) : Trace Term := do
     match name with
     | .str .anonymous _ => throw "empty"
     | .str n id => (<- lookupName' n).attr id
-    | _ => throw s!"{name} not found"
+    | _ => throw s!"{name} not found."
 
 private def lookupName (name : Name) : Trace Term := do
   try lookupName' name
-  catch | "empty" => throw s!"{name} not found"
+  catch | "empty" => throw s!"{name} not found!"
         | e => throw e
 /-
 Best effort checks for slice overflow
@@ -376,7 +376,7 @@ private def filterGlobals (g : List Arg) : List Arg :=
 private def globals (k : Kernel) : Trace Unit := do
   let s <- get
   for f in k.funs do
-    let n := f.name.toName
+    let n := f.name
     if not (s.globals.contains n) && shouldKeep n then
       extend_global n (.source f)
   for g in filterGlobals k.globals do
@@ -418,7 +418,7 @@ def traceKernel (k : Kernel) : Trace Core.Kernel := do
       let inputs := Core.tensors inputs
       let outputs := Core.tensors $ <- lowerRes res
       return {
-        name := k.entry
+        name := k.entry.toString
         inputs := inputs
         outputs := outputs
         body := (<- get).body.toList

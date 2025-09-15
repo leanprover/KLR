@@ -203,7 +203,7 @@ def info (p : Parsed) : IO UInt32 := do
     IO.println s!"Globals: {gs}"
   | .nki kernel =>
     IO.println s!"AST summary for NKI kernel {kernel.entry}"
-    let fs := String.intercalate "," $ kernel.funs.map fun f => f.name
+    let fs := String.intercalate "," $ kernel.funs.map fun f => f.name.toString
     IO.println s!"Source Functions: {fs}"
     let gs := String.intercalate "," $ kernel.globals.map fun kw => kw.name
     IO.println s!"Globals: {gs}"
@@ -248,7 +248,9 @@ private def outfolder (outfile : Option Parsed.Flag) : IO (Option String) := do
 
 def trace (p : Parsed) : IO UInt32 := do
   let file := p.positionalArg! "file" |>.as! String
-  let kernel <- KLR.File.readKLRFile file
+  let contents <- IO.FS.readFile file
+  let kernel <- Lean.fromJson? (<- Lean.Json.parse contents)
+  --let kernel <- KLR.File.readKLRFile file
   let outDir := <- outfolder (p.flag? "outfile")
   let kernel <- KLR.Compile.compilePython kernel outDir
   match p.flag? "outfile" with
@@ -257,7 +259,7 @@ def trace (p : Parsed) : IO UInt32 := do
     IO.println (reprStr kernel)
     File.writeKLRFile f .cbor kernel
   | none =>
-    IO.println (reprStr kernel)
+    pure () --IO.println (reprStr kernel)
   return 0
 
 /-
@@ -521,8 +523,8 @@ def klrCmd : Cmd := `[Cli|
     compileCmd;
     --evalKLRCmd;
     gatherCmd;
-    infoCmd
-    --traceCmd;
+    infoCmd;
+    traceCmd
     --compileHloCmd;
     --typecheckCmd;
     --modelKLRCmd;

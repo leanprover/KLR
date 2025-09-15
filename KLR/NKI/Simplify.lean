@@ -344,6 +344,14 @@ arguments). So, technically we allow a variable keyword argument parameter, as
 long as it is always empty.
 -/
 
+private def decorator (e : Python.Expr) : Simplify Name := do
+  let e <- expr e
+  withPos e.pos do
+    match e.expr with
+    | .var n
+    | .call ⟨ .var n, _ ⟩ .. => return n
+    | _ => throw "unsupported decorator"
+
 -- TODO: for now generate an empty string for **kwargs case
 -- We should not see any here as it would ne a syntax error in Python
 
@@ -370,7 +378,8 @@ private def params (args : Python.Args) : Simplify (List Param) := do
 private def func (f : Python.Fun) : Simplify Fun :=
   withFile f.fileName f.line do
     return {
-      name := f.name
+      name := f.name.toName
+      decs := <- f.decorators.mapM decorator
       file := f.fileName
       line := f.line
       source := f.source
@@ -382,27 +391,21 @@ private def func (f : Python.Fun) : Simplify Fun :=
 # Classes
 -/
 
-private def chkName (e : Python.Expr) : Simplify Unit := do
+private def chkBase (e : Python.Expr) : Simplify Unit := do
   let e <- expr e
   withPos e.pos do
     match e.expr with
-    | .var n
-    | .call ⟨ .var n, _ ⟩ .. =>
-      match n with
-      | .str _ "dataclass"
-      | .str _ "staticmethod"
-      | .str _ "object"
-      | .str _ "NamedTuple" => pure ()
-      | _ => throw "unsupported decorator"
-    | _ => throw "unsupported decorator"
+    | .var (.str _ "object")
+    | .var (.str _ "NamedTuple") => pure ()
+    | _ => throw "unsupported base class"
 
 private def class_ (c : Python.Class) : Simplify Class := do
-  c.bases.forM chkName
-  c.decorators.forM chkName
+  c.bases.forM chkBase
   let ks <- keywords c.fields
   let fs <- c.methods.mapM func
   return {
-    name := c.name
+    name := c.name.toName
+    decs := <- c.decorators.mapM decorator
     fields := ks
     methods := fs
   }
@@ -432,12 +435,13 @@ private def args (params : List Param)
 private def kernel (py : Python.Kernel) : Simplify Kernel := do
   let funs <- py.funcs.mapM func
   let cls <- py.classes.mapM class_
+  let entry := py.entry.toName
   let main_fun <-
-    match funs.find? fun f => f.name == py.entry with
-    | none => throw s!"entry function {py.entry} not found"
+    match funs.find? fun f => f.name == entry with
+    | none => throw s!"entry function {entry} not found"
     | some f => pure f
   return {
-    entry   := py.entry
+    entry   := entry
     funs    := funs
     cls     := cls
     args    := <- args main_fun.args py.args py.kwargs

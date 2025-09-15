@@ -26,6 +26,9 @@ Python related builtins
 namespace KLR.Trace
 open Core
 
+nki builtin.new (cls : String) := do
+  throw s!"new {cls} not implemented"
+
 nki builtin.op.negate (t : Term) := do
   match t with
   | .int x => return .int x.neg
@@ -46,7 +49,7 @@ private partial def termStr : Term -> Trace String
   | .module name => return name.toString
   | .builtin name _ => return name.toString
   | .ref name _ => do termStr (<- lookup name)
-  | .source f => return f.name
+  | .source f => return f.name.toString
   | .cls c => return s!"<class {c}>"
   | .object c _ => return s!"<{c} object>"
   | .method .. => return "method"

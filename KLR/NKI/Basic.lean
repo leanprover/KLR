@@ -155,12 +155,13 @@ structure Param where
 
 @[serde tag = 13]
 structure Fun where
-  name : String
-  file : String
-  line : Nat
-  source : String
-  body : List Stmt
-  args : List Param
+  name : Name
+  decs : List Name := []
+  file : String := "<unknown file>"
+  line : Nat := 0
+  source : String := "<source unavailable>"
+  body : List Stmt := []
+  args : List Param := []
   deriving FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 -- Names are fully qualified and unique
@@ -169,7 +170,8 @@ instance : BEq Fun where
 
 @[serde tag = 14]
 structure Class where
-  name : String
+  name : Name
+  decs : List Name
   fields : List Keyword
   methods : List Fun
   deriving FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
@@ -186,7 +188,7 @@ structure Arg where
 
 @[serde tag = 16]
 structure Kernel where
-  entry : String
+  entry : Name
   funs : List Fun
   cls : List Class
   args : List Arg

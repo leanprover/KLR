@@ -372,7 +372,7 @@ def tracer (g : List (Name × Term)) (m : Trace a) (showWarnings := true) : Err 
 where
   getMessages s := "\n".intercalate s.messages.toList ++ "\n"
   addWarnings s str :=
-    if showWarnings then addWarn s str else str ++
+    (if showWarnings then addWarn s str else str) ++
     getMessages s
   addWarn s str := s.warnings.foldl warnStr str
   warnStr str pw :=

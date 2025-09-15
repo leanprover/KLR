@@ -44,6 +44,7 @@ def compilePython (kernel : Python.Kernel) (outfolder : Option String) : IO Core
   w.forM IO.println
   let kernel <- KLR.NKI.annotate kernel
   let kernel <- KLR.NKI.simplifyPatterns kernel
+  let kernel <- KLR.NKI.genClasses kernel
   -- Leave in for debugging
   -- TODO use debug flags?
   --IO.println (Std.Format.pretty (Std.format kernel))

@@ -159,7 +159,7 @@ instance : ToFormat Param where
 
 instance : ToFormat Fun where
   format f :=
-    f.name ++ args (f.args.map format) ++ ":" ++ .line ++
+    f.name.toString ++ args (f.args.map format) ++ ":" ++ .line ++
       stmts f.body
 
 instance : ToFormat Arg where
@@ -169,4 +169,4 @@ instance : ToFormat Kernel where
   format k :=
     .joinSep (k.globals.map format) .line ++ .line ++
     .joinSep (k.funs.map format) .line ++ .line ++
-    k.entry ++ args (k.args.map format)
+    k.entry.toString ++ args (k.args.map format)
