@@ -68,7 +68,7 @@ def bindArgs (f : Fun)
              (kwargs : List Keyword)
              : Trace (List Keyword) := do
   if args.length + kwargs.length > f.args.length then
-    warn "extra arguments ignored (varargs not supported)"
+    throw "too mant arguments given (varargs not supported)"
   f.args.zipIdx.mapM fun ({name := x, dflt := d}, i) => do
     if h:args.length > i then
       pure ⟨x, args.get (Fin.mk i h)⟩
@@ -168,12 +168,12 @@ partial def expr' (e' : Expr') : Trace Term := do
   | .list es =>
       let es <- es.mapM expr
       let name <- genName `list
-      extend name (.list es.toArray)
+      extend_global name (.list es.toArray)
       return .ref name .list
   | .dict ks =>
       let ks <- ks.mapM keyword
       let name <- genName `dict
-      extend name (.dict ks)
+      extend_global name (.dict ks.toArray)
       return .ref name .dict
   | .access e ix => access (<- expr e) (<- ix.mapM index)
   | .binOp op l r => binop op (<- expr l) (<- expr r)
@@ -193,8 +193,8 @@ partial def expr' (e' : Expr') : Trace Term := do
   | .object c fs =>
       let fs <- fs.mapM keyword
       let name <- genName `obj
-      extend name (.object c.toName fs)
-      return .ref name (.object c.toName)
+      extend_global name (.object c fs.toArray)
+      return .ref name (.object c)
 
 partial def optInt (e : Option Expr) : Trace (Option Int) := do
   match e with
@@ -249,6 +249,14 @@ partial def keyword (kw : Keyword) : Trace (String × Term) :=
   match kw with
   | ⟨ name, e ⟩ => return (name, <- expr e)
 
+partial def callFn (f : Fun) (args : List (String × Term)) : Trace Term := do
+  args.forM fun (_,t) => checkAccess t (warnOnly := false)
+  withSrc f.file f.line f.source $ enterFun do
+    args.forM fun kw => extend kw.1.toName kw.2
+    match <- stmts f.body with
+    | .ret t => return t
+    | _ => return .none
+
 partial def fnCall (f : Term) (args : List Expr) (kwargs : List Keyword) : Trace Term := do
   match f with
   | .builtin n self =>
@@ -265,12 +273,20 @@ partial def fnCall (f : Term) (args : List Expr) (kwargs : List Keyword) : Trace
       -- Note: here is where we can't prove termination
       let args <- bindArgs f args kwargs
       let args <- args.mapM keyword
-      args.forM fun (_,t) => checkAccess t (warnOnly := false)
-      withSrc f.file f.line f.source $ enterFun do
-        args.forM fun kw => extend kw.1.toName kw.2
-        match <- stmts f.body with
-        | .ret t => return t
-        | _ => return .none
+      callFn f args
+  | .method cls func ref => do
+      match <- lookup? (.str cls func) with
+      | some (.source f) =>
+        let ref := Term.ref ref (.object cls)
+        -- this is a hack because bindArgs only works over Expr
+        let dummy := Expr.mk (.value .none) { line := 0 }
+        let args <- bindArgs f (dummy :: args) kwargs
+        let args <- args.mapM keyword
+        let args := match args with
+          | [] => []
+          | (self,_) :: args => (self,ref) :: args
+        callFn f args
+      | _ => throw s!"{func} is not a method of {cls}"
   | t => throw s!"'{Term.kindStr t}' not a callable type"
 
 -- Statements
@@ -288,7 +304,18 @@ partial def mutate (x e : Expr) : Trace Unit := do
           return ()
         else throw "index out of range"
     throw "Updating a tile with lvalue assignment is not allowed"
-  | _ => throw "mutation not supported"
+  | .var (.str obj var) =>
+    match <- lookup? obj with
+    | some (.ref name (.object cls)) =>
+      match <- lookup? name with
+      | some (.object c fs) =>
+        if c != cls then
+          throw s!"internal error: ref mismatch {c} != {cls}"
+        let fs := AA.insert fs var (<- expr e)
+        extend_global name (.object c fs)
+      | _ => throw s!"{obj}.{var} is immutable"
+    | _ => throw s!"{obj}.{var} is immutable"
+  | t => throw s!"mutation not supported {repr t}"
 
 partial def iterator (i : Iterator) : Trace (List Term) := do
   match i with
@@ -317,13 +344,7 @@ partial def stmt' (s' : Stmt') : Trace Result := do
       if <- (<- expr e).isFalse then
         throw "assertion failed"
       return .next
-  | .ret e =>
-    let res <- expr e
-    match res with
-      | .ref name _ =>
-        extend_global name $ <- lookupName name
-      | _ => .ok ()
-    return .ret res
+  | .ret e => return .ret (<- expr e)
   | .declare .. => return .next
   | .letM (.var n) _ e => extend n (<- expr e); return .next
   | .letM (.tuple ..) .. => throw "internal error: complex pattern in trace"

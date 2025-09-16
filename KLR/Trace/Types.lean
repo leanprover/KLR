@@ -97,8 +97,8 @@ inductive Term where
   | ref      : Name -> RefType -> Term
   | source   : NKI.Fun -> Term
   | cls      : Name -> Term
-  | object   : Name -> List (String × Term) -> Term
-  | method   : Name -> NKI.Fun -> Term -> Term
+  | object   : Name -> Array (String × Term) -> Term
+  | method   : Name -> String -> Name -> Term
   -- expressions / values
   | var      : Name -> Term
   | none     : Term
@@ -109,7 +109,7 @@ inductive Term where
   | access   : Core.Access -> Term
   | tuple    : List Term -> Term
   | list     : Array Term -> Term
-  | dict     : List (String × Term) -> Term
+  | dict     : Array (String × Term) -> Term
   | tensor   : TensorLib.Tensor -> Term
   -- indexing
   | ellipsis : Term
@@ -126,9 +126,9 @@ def kindStr : Term → String
   | .builtin _ _ => "builtin"
   | .ref _ _ => "ref"
   | .source _ => "source"
-  | .cls n => s!"<class {n.toString}>"
-  | .object c _ => s!"<{c.toString} object>"
-  | .method .. => "method"
+  | .cls n => s!"<class {n}>"
+  | .object c _ => s!"<{c} object>"
+  | .method c f r => s!"<{c}.{f} method (ref:{r})>"
   | .var _ => "var"
   | .none => "none"
   | .bool _ => "bool"
@@ -426,3 +426,21 @@ def isFalse (t : Term) : Trace Bool :=
   return not (<- t.isTrue)
 
 end Term
+
+-- Associative Arrays for dictionaries and objects
+
+abbrev AA := Array (String × Term)
+
+namespace AA
+
+def lookup? (aa : AA) (key : String) : Option Term :=
+  match aa.find? (fun item => item.fst == key) with
+  | some (_, t) => some t
+  | none => none
+
+def insert (aa : AA) (key : String) (val : Term) : AA :=
+  match aa.findIdx? fun item => item.fst == key with
+  | none => aa.push (key, val)
+  | some i => aa.modify i fun (k,_) => (k, val)
+
+end AA

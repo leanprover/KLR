@@ -183,7 +183,7 @@ private def expr' (e' : Python.Expr') : Simplify Expr' :=
       let kws <- keywords kws
       return .call f args kws
   | .starred .. => throw "tuple expansion is not supported"
-  | .object c fs => return .object c (<- keywords fs)
+  | .object c fs => return .object c.toName (<- keywords fs)
   termination_by sizeOf e'
 
 private def index (e : Python.Expr) : Simplify Index := do
@@ -396,6 +396,8 @@ private def chkBase (e : Python.Expr) : Simplify Unit := do
   withPos e.pos do
     match e.expr with
     | .var (.str _ "object")
+    | .var (.str _ "Enum")
+    | .var (.str _ "IntEnum")
     | .var (.str _ "NamedTuple") => pure ()
     | _ => throw "unsupported base class"
 

@@ -464,6 +464,16 @@ def Term.attr (t : Term) (id : String) : Trace Term :=
       | "reverse"
       | "sort" => return .builtin (.str `builtin.list id) (some t)
       |  _ => throw s!"unsupported attribute {id} (type is list)"
+  | .ref name (.object c) => do
+      match <- lookup? name with
+      | some (.object _ fs) =>
+        match AA.lookup? fs id with
+        | .some t => return t
+        | .none =>
+          match <- lookup? (.str c id) with
+          | some (.source _) =>  return .method c id name
+          | _ => throw s!"{id} is not an attribute of {c}"
+      | _ => throw s!"internal error: ref({name}:{c}) not found"
   | .pointer addr =>
       match id with
       | "name" => return .string addr.name
@@ -621,7 +631,7 @@ def builtinEnv : List (Name × Term) := Id.run do
   builtinFns.flatMap fun (name, _) =>
     let fn := .builtin name none
     let names : List Name := match name with
-      | .str `builtin.python n => [.str .anonymous n]
+      | .str `builtin.python n => [.str `builtins n, .str .anonymous n]
       | .str `builtin.isa n => [nisa n, name]
       | .str `builtin.lang n => [nl n, name]
       | _ => [name]

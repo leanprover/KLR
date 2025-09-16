@@ -50,21 +50,19 @@ like `x = C(...)`, will end up calling this generated function.
 Note, regular projections from the class, like `C.x`m will also work since we
 move all of these to the environment.
 -/
-private def genNew (init : Fun) : Cls Fun := do
-  let name <- match init.name with
-              | .str n _ => pure n
-              | n => throw s!"internal error: invalid name for init {n}"
+private def genNew (c : Class) (init : Fun) : Cls Fun := do
+  let name := c.name
   let pos := { line := 0 : Pos }
   let var n : Expr := ⟨ .var n, pos ⟩
-  let cls := ⟨ .value (.string name.toString), pos ⟩
   let args := init.args.map fun p => var p.name.toName
   let body : List Stmt' := [
-    .letM (.var `self) none ⟨.call (var `builtin.new) [cls] [], pos ⟩,
+    .letM (.var `self) none ⟨.object name c.fields, pos ⟩,
     .expr ⟨.call (var init.name) args [], pos ⟩,
     .ret ⟨ .var `self, pos ⟩
     ]
   return {
     name := name
+    file := s!"<{c.name} new>"
     body := body.map fun b => Stmt.mk b pos
     args := init.args.tail
   }
@@ -92,12 +90,13 @@ private def genInit (c : Class) : Cls Fun := do
   let args := c.fields.map fun fld => Param.mk fld.name fld.expr
   let vars := c.fields.map fun fld => Expr.mk (.var fld.name.toName) pos
   let flds := c.fields.map fun fld => Expr.mk (.var (.str `self fld.name)) pos
-  let sets := (flds.zip vars).map fun (f,v) => Stmt.mk (.setM v f false) pos
+  let sets := (flds.zip vars).map fun (f,v) => Stmt.mk (.setM f v false) pos
   let pifn := Expr.mk (.var (.str c.name "__post_init__")) pos
   let post := Expr.mk (.call pifn [⟨.var `self, pos⟩] []) pos
   let body := sets ++ [.mk (.expr post) pos]
   return {
     name := .str c.name "__init__"
+    file := s!"<{c.name} init>"
     body := body
     args := .mk "self" none :: args
   }
@@ -106,6 +105,7 @@ private def genInit (c : Class) : Cls Fun := do
 private def genPostInit (c : Class) : Cls Fun :=
   return {
     name := .str c.name "__post_init__"
+    file := s!"<{c.name} post_init>"
     args := [.mk "self" none]
   }
 
@@ -130,7 +130,7 @@ private def ensureInit (c : Class) : Cls (List Fun) := do
   let fs <- match c.methods.find? isPostInit with
     | some _ => pure fs
     | none => pure ((<- genPostInit c) :: fs)
-  return (<- genNew init) :: init :: fs
+  return (<- genNew c init) :: init :: fs
 
 private def qual (name : Name) (s : String) : String :=
   (Lean.Name.str name s).toString

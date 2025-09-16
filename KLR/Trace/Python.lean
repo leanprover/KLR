@@ -26,9 +26,6 @@ Python related builtins
 namespace KLR.Trace
 open Core
 
-nki builtin.new (cls : String) := do
-  throw s!"new {cls} not implemented"
-
 nki builtin.op.negate (t : Term) := do
   match t with
   | .int x => return .int x.neg
@@ -88,6 +85,9 @@ nki builtin.python.min (a : Term) (b : Term) := do
   | .int a, .int b => return .int (min a b)
   | _, _ => throw "invalid arguments"
 
+nki builtin.python.str (t : Term) := do
+  return .string (<- termStr t)
+
 nki builtin.python.bool (t : Term) := do
  return .bool (<- t.isTrue)
 
@@ -144,22 +144,22 @@ private def fetchList (t : Term) : Trace (Name × Array Term) := do
     | _ => throw "internal error: expecting reference to list"
   return (name, arr)
 
-private def modifyList (t : Term) (f : Array Term -> Array Term) : Trace Unit := do
+private def modifyList (t : Term) (f : Array Term -> (Array Term × a)) : Trace a := do
   let (name, arr) <- fetchList t
-  extend name (.list (f arr))
+  let (arr, x) := f arr
+  extend_global name (.list arr)
+  return x
 
 nki builtin.list.append (t : Term) (x : Term) := do
-  modifyList t fun arr => arr.push x
-  return .none
+  modifyList t fun arr => (arr.push x, .none)
 
 nki builtin.list.clear (t : Term) := do
-  modifyList t fun _ => #[]
-  return .none
+  modifyList t fun _ => (#[], .none)
 
 nki builtin.list.copy (t : Term) := do
   let (_, arr) <- fetchList t
   let name <- genName `list
-  extend name (.list arr)
+  extend_global name (.list arr)
   return .ref name .list
 
 nki builtin.list.count (t : Term) := do
@@ -168,9 +168,7 @@ nki builtin.list.count (t : Term) := do
 
 nki builtin.list.extend (t : Term) (x : Term) := do
   let l <- fetchIter x
-  modifyList t fun arr =>
-    arr.append l.toArray
-  return .none
+  modifyList t fun arr => (arr.append l.toArray, .none)
 
 -- Note: does not raise ValueError as in Python, simply returns none
 nki builtin.list.index (t : Term) (value : Term) (start : Nat := 0) (stop : Nat := UInt64.size) := do
@@ -181,21 +179,16 @@ nki builtin.list.index (t : Term) (value : Term) (start : Nat := 0) (stop : Nat 
 
 -- Note: like above no exceptions
 nki builtin.list.pop (t : Term) := do
-  let (name, arr) <- fetchList t
-  let x := arr[arr.size - 1]!
-  extend name (.list arr.pop)
-  return x
+  modifyList t fun arr =>
+    let x := arr[arr.size - 1]!
+    (arr.pop, x)
 
 -- Note: like above no exceptions
 nki builtin.list.remove (t : Term) (v : Term) := do
-  modifyList t fun arr =>
-    arr.filter fun x => x != v
-  return .none
+  modifyList t fun arr => (arr.filter fun x => x != v, .none)
 
 nki builtin.list.reverse (t : Term) := do
-  modifyList t fun arr =>
-    arr.reverse
-  return .none
+  modifyList t fun arr => (arr.reverse, .none)
 
 /-
 Python math library

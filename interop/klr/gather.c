@@ -173,6 +173,12 @@ static void add_work(struct state *st, PyObject *obj) {
     return;
   }
 
+  // skip enum (for correctness)
+  if (strncmp("enum.", name, 5) == 0) {
+    lean_dec(str);
+    return;
+  }
+
   if (have_def(st, name)) {
     lean_dec(str);
     return;
@@ -1332,7 +1338,7 @@ static lean_object* function_(struct state *st, lean_object *name, struct _stmt 
   st->ignore_refs = false;
 
   lean_object *body = stmts(st, s->v.FunctionDef.body);
-  if (!body)
+  if (!body || PyErr_Occurred())
     return NULL;
 
   return Python_Fun_mk(name, st->scope.file,

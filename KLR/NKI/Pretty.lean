@@ -74,7 +74,7 @@ private def expr' (e : Expr') (nested : Bool := false) : Format :=
   | .disj l r => parens (expr l true ++ " or " ++ expr r true)
   | .ifExp c t f => parens (expr t ++ " if " ++ expr c ++ " else " ++ expr f)
   | .call f xs kws => expr f ++ args (xs.map (expr (nested := true)) ++ kws.map keyword)
-  | .object c fs => c ++ args (fs.map keyword)
+  | .object c fs => c.toString ++ args (fs.map keyword)
   termination_by sizeOf e
 
 private def exprOpt (oe : Option Expr) : Format :=
