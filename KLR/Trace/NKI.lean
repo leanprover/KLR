@@ -237,11 +237,7 @@ partial def index (i : Index) : Trace Term :=
   match i with
   | .coord e => do
     let idxExpr <- indexExpr e
-    let rv := match idxExpr with
-    | .int i => return .int i
-    | .dynamic d => return .dynamic d
-    | _ => throw "invalid pattern"
-    rv
+    return idxExpr
   | .slice l u s => return .slice (<- optInt l) (<- optInt u) (<- optInt s)
   | .ellipsis => return .ellipsis
 
