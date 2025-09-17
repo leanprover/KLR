@@ -142,6 +142,15 @@ instance : FromNKI Dtype where
       | `neuronxcc.nki.language.tfloat32 => .ok .float32r  -- TODO check this
       | `neuronxcc.nki.language.float32 => .ok .float32
       | `neuronxcc.nki.language.bool_ => .ok .uint8
+      -- torch variants
+      | `torch.uint8 => .ok .uint8
+      | `torch.int8 => .ok .int8
+      | `torch.int16 => .ok .int16
+      | `torch.int32 => .ok .int32
+      | `torch.float16 => .ok .float16
+      | `torch.float32 => .ok .float32
+      | `torch.bfloat16 => .ok .bfloat16
+      | `torch.bool => .ok .uint8
       -- numpy variants
       | `numpy.uint8 => .ok .uint8
       | `numpy.int8 => .ok .int8
@@ -154,25 +163,28 @@ instance : FromNKI Dtype where
       | `numpy.bool => .ok .uint8
       | _ => throw s!"unsupported dtype '{name}'"
     | .string name =>
-      match name with
-      -- imported and string variants
-      | "uint8" => .ok .uint8
-      | "int8" => .ok .int8
-      | "uint16" => .ok .uint16
-      | "int16" => .ok .int16
-      | "uint32" => .ok .int32
-      | "int32" => .ok .int32
-      | "float8e3" => .ok .float8e3
-      | "float8e4" => .ok .float8e4
-      | "float8e5" => .ok .float8e5
-      | "float8_e4m3" => .ok .float8e4
-      | "float8_e5m2" => .ok .float8e5
-      | "float16" => .ok .float16
-      | "bfloat16" => .ok .bfloat16
-      | "tfloat32" => .ok .float32r  -- TODO check this
-      | "float32" => .ok .float32
-      | "bool" => .ok .uint8
-      | _ => throw s!"unsupported dtype '{name}'"
+      match (name.split (· == '.')).getLast? with
+      | some last =>
+        match last with
+        -- imported and string variants
+        | "uint8" => .ok .uint8
+        | "int8" => .ok .int8
+        | "uint16" => .ok .uint16
+        | "int16" => .ok .int16
+        | "uint32" => .ok .int32
+        | "int32" => .ok .int32
+        | "float8e3" => .ok .float8e3
+        | "float8e4" => .ok .float8e4
+        | "float8e5" => .ok .float8e5
+        | "float8_e4m3" => .ok .float8e4
+        | "float8_e5m2" => .ok .float8e5
+        | "float16" => .ok .float16
+        | "bfloat16" => .ok .bfloat16
+        | "tfloat32" => .ok .float32r  -- TODO check this
+        | "float32" => .ok .float32
+        | "bool" => .ok .uint8
+        | _ => throw s!"unsupported dtype '{name}'"
+      | none => throw s!"unsupported dtype '{name}'"
     | t => throw s!"expecting 'dtype', got '{Term.kindStr t}'"
 
 instance : FromNKI Shape where

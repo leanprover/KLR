@@ -33,19 +33,6 @@ def _trace_kernel(
 
     Returns: dict of metadata
     """
-
-    # The current trace function needs to read in a file with the Python AST.
-    # Then it writes out a file with the final KLIR.
-
-    # So first we need to create that file with the Python AST...
-    with NamedTemporaryFile(suffix="_python_ast.klir", delete=False) as tmp:
-        python_ast_filepath = tmp.name
-    kernel._serialize_python(python_ast_filepath)
-
-    # OK. Now we can invoke trace() which writes out the final KLIR to a file...
-    metadata_json_str = frontend._klr_trace(python_ast_filepath, dst_filepath)
-
-    # trace() returned metadata as a string of JSON data.
-    # Return it as a Python dict
+    metadata_json_str = kernel.trace(dst_filepath)
     metadata = json.loads(metadata_json_str)
     return metadata
