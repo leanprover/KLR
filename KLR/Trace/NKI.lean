@@ -238,7 +238,10 @@ partial def index (i : Index) : Trace Term :=
   | .coord e => do
     let idxExpr <- indexExpr e
     return idxExpr
-  | .slice l u s => return .slice (<- optInt l) (<- optInt u) (<- optInt s)
+  | .slice l u (some {expr := .value .none, ..}) =>
+    return .slice (<- optInt l) (<- optInt u) (some 1)
+  | .slice l u s => do
+    return .slice (<- optInt l) (<- optInt u) (<- optInt s)
   | .ellipsis => return .ellipsis
 
 partial def keyword (kw : Keyword) : Trace (String × Term) :=
