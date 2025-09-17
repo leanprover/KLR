@@ -531,6 +531,7 @@ nki builtin.pointer.view
     (shape : Shape)
     (name : Option String := none) := do
   let name <- tensorName name
+  let self := {self with name := name}
   if parWF: shape.parDim <= self.parSize then
     if freeWF: shape.freeElements * dtype.size <= self.freeSize then
       let tensor := ⟨ name, dtype, shape, self, shape.freeElements, parWF, freeWF ⟩
