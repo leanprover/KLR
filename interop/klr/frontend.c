@@ -53,11 +53,11 @@ static PyObject* kernel_specialize(struct kernel *self, PyObject *args_tuple) {
   PyObject* schedule = Py_None; // O
 
   if (!PyArg_ParseTuple(args_tuple, "|OOOO", &args, &kwargs, &grid, &schedule)) {
+      PyErr_SetString(PyExc_TypeError, "Failed to parse the arguments");
       return NULL;
   }
 
   if (args != Py_None && !PyTuple_Check(args)) {
-      PyErr_SetString(PyExc_TypeError, "Invalid Argument: 'args' must be a tuple");
       return NULL;
   }
   if (kwargs != Py_None && !PyDict_Check(kwargs)) {

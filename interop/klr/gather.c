@@ -1545,17 +1545,28 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *grid,
   add_work(&st, k->f);
 
   lean_object *l_args = args == Py_None ? mkNil() : const_exprs(&st, args);
-  if (!l_args) return false;
+  if (!l_args) {
+    if (!PyErr_Occurred())
+      PyErr_SetString(PyExc_RuntimeError, "Failed to process kernel arguments");
+    return false;
+  }
 
   lean_object *l_kwargs = kws == Py_None ? mkNil() : const_dict(&st, kws);
-  if (!l_kwargs) return false;
+  if (!l_kwargs) {
+    if (!PyErr_Occurred())
+      PyErr_SetString(PyExc_RuntimeError, "Failed to process kernel keyword arguments");
+    return false;
+  }
 
   while (true) {
     struct worklist *work = st.work;
     if (!work) break;
     st.work = work->next;
-    if (!definition(&st, work->obj))
+    if (!definition(&st, work->obj)) {
+      if (!PyErr_Occurred())
+        PyErr_SetString(PyExc_RuntimeError, "Failed to process kernel definition");
       return false;
+    }
   }
 
   // Process additional kernel data from user
@@ -1571,7 +1582,11 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *grid,
   lean_object *l_grid = lean_unsigned_to_nat((u32)grid_val);
 
   lean_object *l_sched = schedule == Py_None ? mkNil() : const_exprs(&st, schedule);
-  if (!l_sched) return false;
+  if (!l_sched) {
+    if (!PyErr_Occurred())
+      PyErr_SetString(PyExc_RuntimeError, "Failed to process kernel schedule");
+    return false;
+  }
 
   if (PyErr_Occurred())
     return false;
