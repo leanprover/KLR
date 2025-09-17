@@ -171,6 +171,7 @@ instance : BEq Fun where
 @[serde tag = 14]
 structure Class where
   name : Name
+  bases : List Name
   decs : List Name
   fields : List Keyword
   methods : List Fun

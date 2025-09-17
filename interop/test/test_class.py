@@ -105,6 +105,18 @@ def dynamic1():
   e.x = 1
   assert e.x == 1
 
+# test class fields
+
+def cls_fields1():
+  assert A.x == 1
+
+def cls_fields2():
+  assert C.b.x == 1
+
+def cls_methods():
+  a = A()
+  A.check(a, 1, None)
+
 # test each function in turn
 @pytest.mark.parametrize("f", [
   init1,
@@ -120,10 +132,34 @@ def dynamic1():
   init_c1,
   init_d1,
   dynamic1,
+  cls_fields1,
+  cls_fields2,
+  cls_methods,
   ])
 def test_succeed(f):
   F = Kernel(f)   # parse python
   F.specialize()
+  F.trace("tmp.klr")
+  os.remove("tmp.klr")
+
+
+# Boundary crossing
+# Check objects that originate from Python
+
+def cross1(a):
+  assert a.x == 1
+  assert a.y == None
+
+# test each function in turn
+@pytest.mark.parametrize("f", [
+  cross1,
+  ])
+def test_crossing(f):
+  F = Kernel(f)   # parse python
+  a = A()
+  a.x = 1
+  a.y = None
+  F.specialize((a,))
   F.trace("tmp.klr")
   os.remove("tmp.klr")
 
@@ -138,9 +174,13 @@ def bad_attribute():
   a = A()
   a.unknown
 
+def bad_cls_attribute():
+  a.y
+
 @pytest.mark.parametrize("f", [
   bad_init1,
   bad_attribute,
+  bad_cls_attribute
 ])
 def test_fails(f):
   with pytest.raises(Exception):

@@ -132,6 +132,35 @@ private def compare : Expr -> List BinOp -> List Expr -> Simplify Expr
   | _, _, _ => throw "invalid comparison expression"
 
 /-
+# Object rewriting
+
+We need to rewrite some of the object literals coming from Python
+to be consistent with the NKI versions of the objects.
+-/
+
+private def isEnum : Keyword -> Bool
+  | ⟨ "__objclass__", ⟨ .object `enum.EnumMeta _, _ ⟩ ⟩ => true
+  | _ => false
+
+private def rewriteEnumField : Keyword -> Option Keyword
+  | ⟨ "_name_", e ⟩ => some ⟨ "name", e ⟩
+  | ⟨ "_value_", e ⟩ => some ⟨ "value", e ⟩
+  | _ => none
+
+private def rewriteEnum (fields : List Keyword) : List Keyword := Id.run do
+  let mut fs := []
+  for f in fields do
+    if let some f := rewriteEnumField f then
+      fs := f :: fs
+  return fs
+
+private def rewriteObj (cls : Name) (fields : List Keyword) : Expr' :=
+  if fields.any isEnum then
+    .object cls (rewriteEnum fields)
+  else
+    .object cls fields
+
+/-
 # Expression simplification
 
 Note on termination.
@@ -183,7 +212,7 @@ private def expr' (e' : Python.Expr') : Simplify Expr' :=
       let kws <- keywords kws
       return .call f args kws
   | .starred .. => throw "tuple expansion is not supported"
-  | .object c fs => return .object c.toName (<- keywords fs)
+  | .object c fs => return rewriteObj c.toName (<- keywords fs)
   termination_by sizeOf e'
 
 private def index (e : Python.Expr) : Simplify Index := do
@@ -391,22 +420,26 @@ private def func (f : Python.Fun) : Simplify Fun :=
 # Classes
 -/
 
-private def chkBase (e : Python.Expr) : Simplify Unit := do
+private def baseCls (e : Python.Expr) : Simplify Name := do
   let e <- expr e
   withPos e.pos do
     match e.expr with
-    | .var (.str _ "object")
-    | .var (.str _ "Enum")
-    | .var (.str _ "IntEnum")
-    | .var (.str _ "NamedTuple") => pure ()
+    | .var (.str _ s) =>
+      match s with
+      | "object"
+      | "Enum"
+      | "IntEnum"
+      | "NamedTuple" => return .str .anonymous s
+      | _ => throw s!"unsupported base class {s}"
     | _ => throw "unsupported base class"
 
 private def class_ (c : Python.Class) : Simplify Class := do
-  c.bases.forM chkBase
+  let bs <- c.bases.mapM baseCls
   let ks <- keywords c.fields
   let fs <- c.methods.mapM func
   return {
     name := c.name.toName
+    bases := bs
     decs := <- c.decorators.mapM decorator
     fields := ks
     methods := fs

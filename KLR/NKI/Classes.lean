@@ -85,7 +85,7 @@ Then the default init function will have the form:
 
 This function should work for both dataclasses and for NamedTuple.
 -/
-private def genInit (c : Class) : Cls Fun := do
+private def genInitStandard (c : Class) : Cls Fun := do
   let pos := { line := 0 : Pos }
   let args := c.fields.map fun fld => Param.mk fld.name fld.expr
   let vars := c.fields.map fun fld => Expr.mk (.var fld.name.toName) pos
@@ -100,6 +100,21 @@ private def genInit (c : Class) : Cls Fun := do
     body := body
     args := .mk "self" none :: args
   }
+
+private def genInitEnum (c : Class) : Cls Fun := do
+  let pos := { line := 0 : Pos }
+  let none := Expr.mk (.value .none) pos
+  let fs : List Keyword := [.mk "name" none, .mk "value" none]
+  genInitStandard { c with fields := fs }
+
+private def isEnum (c : Class) : Bool :=
+  c.bases.contains `Enum
+
+private def genInit (c : Class) : Cls Fun := do
+  if isEnum c then
+    genInitEnum c
+  else
+    genInitStandard c
 
 -- Generate an empty post_init function
 private def genPostInit (c : Class) : Cls Fun :=
@@ -132,9 +147,6 @@ private def ensureInit (c : Class) : Cls (List Fun) := do
     | none => pure ((<- genPostInit c) :: fs)
   return (<- genNew c init) :: init :: fs
 
-private def qual (name : Name) (s : String) : String :=
-  (Lean.Name.str name s).toString
-
 /-
 Generate init functions, and move all of the class methods to the global
 function list. Also move all class fields to the global constants list.
@@ -155,20 +167,26 @@ Then register the globals:
 
 For an object of type C, `x.f(...)` is syntactic sugar for `C.f(x,...)`.
 -/
+
+private def qual (name : Name) (s : String) : String :=
+  (Lean.Name.str name s).toString
+
 private def kernel (k : Kernel) : Cls Kernel := do
   let mut vs := #[]
   let mut fs := #[]
   let mut cs := #[]
   for c in k.cls do
     let ms <- ensureInit c
-    let vars := c.fields.map fun kw => Keyword.mk (qual c.name kw.name) kw.expr
+    let vars := c.fields.map fun kw => Arg.mk (qual c.name kw.name) kw.expr
     fs := fs.append ms.toArray
     cs := cs.push { c with methods := [] }
     vs := vs.append vars.toArray
 
+  -- Note: eraseDups removes the earlier elements in the list
   return { k with
-    funs := k.funs ++ fs.toList
-    cls  := cs.toList
+    funs    := (k.funs ++ fs.toList).eraseDups
+    cls     := cs.toList
+    globals := (k.globals ++ vs.toList).eraseDups
   }
 
 -- TODO: capture warnings, make sure to call finalize
