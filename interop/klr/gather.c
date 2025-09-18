@@ -1417,15 +1417,13 @@ static bool class(struct state *st, lean_object *name, struct _stmt *s) {
   if (s->v.ClassDef.keywords &&
       s->v.ClassDef.keywords->size > 0)
   {
-    syntax_error(st, "Class keyword arguments are not supported in NKI kernels");
-    return false;
+    return true;
   }
 
   if (s->v.ClassDef.type_params &&
       s->v.ClassDef.type_params->size > 0)
   {
-    syntax_error(st, "Generic classes are not supported in NKI kernels");
-    return false;
+    return true;
   }
 
   // don't follow base classes or decorators
@@ -1454,9 +1452,11 @@ static bool class(struct state *st, lean_object *name, struct _stmt *s) {
       }
     }
     if (!valid_base) {
-      // syntax_error(st, "Class must inherit from object, Enum, IntEnum, or NamedTuple");
       return true;
     }
+  } else {
+    // Class has to inherit one of the above
+    return true;
   }
 
   asdl_stmt_seq *python = s->v.ClassDef.body;

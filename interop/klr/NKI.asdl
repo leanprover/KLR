@@ -344,4 +344,6 @@ Stmt =
 
 SharedConstantFile = (String name, String fileName)
 
+Kernel = (String name, TensorName* inputs, TensorName* outputs, Stmt* body)
+
 LncKernel = (String name, TensorName* inputs, TensorName* outputs, Stmt** bodies, SharedConstantFile* sharedConstants)

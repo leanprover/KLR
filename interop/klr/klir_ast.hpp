@@ -1157,23 +1157,10 @@ struct ExprCallWrapper final : Expr {
 
 struct Stmt {
   enum class Tag {
-    ret = 1,
-    assign,
-    oper,
+    oper = 1,
   };
   Tag tag;
   Stmt(Tag tag) : tag(tag) {}
-};
-
-struct StmtRetWrapper final : Stmt {
-  Ptr<Value> v;
-  StmtRetWrapper() : Stmt(Tag::ret) {}
-};
-
-struct StmtAssignWrapper final : Stmt {
-  String x;
-  Ptr<Expr> e;
-  StmtAssignWrapper() : Stmt(Tag::assign) {}
 };
 
 struct StmtOperWrapper final : Stmt {
@@ -1183,16 +1170,16 @@ struct StmtOperWrapper final : Stmt {
   StmtOperWrapper() : Stmt(Tag::oper) {}
 };
 
+struct SharedConstantFile final {
+  String name;
+  String fileName;
+};
+
 struct Kernel final {
   String name;
   List<Ptr<TensorName>> inputs;
   List<Ptr<TensorName>> outputs;
   List<Ptr<Stmt>> body;
-};
-
-struct SharedConstantFile final {
-  String name;
-  String fileName;
 };
 
 struct LncKernel final {

@@ -24,7 +24,7 @@ TESTS := cbor_test
 .SUFFIXES:
 .PHONY: all versions test clean
 
-all: frontend${PY_EXT} #load_test
+all: frontend${PY_EXT} load_test
 
 versions:
 	$(MAKE) PY_VER=3.9
@@ -103,5 +103,5 @@ cbor_test: cbor_test.c
 
 # Simulate production build
 load_test: *.cpp *.hpp region.c cbor.c
-	gcc -std=c17 -Wall -c region.c cbor.c
-	g++ --std=c++17 -Wall -o load_test load_test.cpp klir_serde.cpp klir_common.cpp cbor.o region.o
+	gcc -O0 -g -std=c17 -Wall -c region.c cbor.c
+	g++ -O0 -g --std=c++17 -Wall -o load_test load_test.cpp klir_serde.cpp klir_common.cpp cbor.o region.o
