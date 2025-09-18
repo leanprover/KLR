@@ -433,7 +433,7 @@ private def baseCls (e : Python.Expr) : Simplify Name := do
     match e.expr with
     | .var (.str _ s) =>
       match s with
-      | "object"
+      | "NKIObject"
       | "Enum"
       | "IntEnum"
       | "NamedTuple" => return .str .anonymous s

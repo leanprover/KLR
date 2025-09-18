@@ -17,3 +17,6 @@ def ndarray(shape, dtype, buffer=None, name=''):
   else:
     assert False, "invalid buffer argument"
   return buffer.view(dtype, shape, name)
+
+class NKIObject:
+  pass
