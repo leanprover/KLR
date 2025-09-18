@@ -7,6 +7,8 @@ Authors: Paul Govereau, Sean McLaughlin, Claude
 #include "stdc.h"
 #include <stdio.h>
 
+#include "region.h" 
+
 // Note: this code was written by Q, with minor edits by Q's human assistant PG
 
 // Encoding functions
