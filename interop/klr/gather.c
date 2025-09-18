@@ -1439,20 +1439,23 @@ static bool class(struct state *st, lean_object *name, struct _stmt *s) {
     bool valid_base = false;
     for (int i = 0; i < s->v.ClassDef.bases->size; i++) {
       struct _expr *base = s->v.ClassDef.bases->typed_elements[i];
+      const char *base_name = NULL;
       if (base->kind == Name_kind) {
-        const char *base_name = PyUnicode_AsUTF8(base->v.Name.id);
-        if (base_name && (strstr(base_name, "NKIObject") ||
-                         strstr(base_name, "Enum") ||
-                         strstr(base_name, "IntEnum") ||
-                         strstr(base_name, "NamedTuple"))) {
-          valid_base = true;
-          break;
-        }
+        base_name = PyUnicode_AsUTF8(base->v.Name.id);
+      } else if (base->kind == Attribute_kind) {
+        base_name = PyUnicode_AsUTF8(base->v.Attribute.attr);
+      }
+      if (base_name && (strstr(base_name, "NKIObject") ||
+                       strstr(base_name, "Enum") ||
+                       strstr(base_name, "IntEnum") ||
+                       strstr(base_name, "NamedTuple"))) {
+        valid_base = true;
+        break;
       }
     }
     if (!valid_base) {
       // syntax_error(st, "Class must inherit from object, Enum, IntEnum, or NamedTuple");
-      return false;
+      return true;
     }
   }
 
@@ -1474,8 +1477,7 @@ static bool class(struct state *st, lean_object *name, struct _stmt *s) {
 
     case Expr_kind:
       // Skip docstrings (string literals)
-      if (s->v.Expr.value->kind == Constant_kind &&
-          PyUnicode_Check(s->v.Expr.value->v.Constant.value))
+      if (s->v.Expr.value->kind == Constant_kind)
         break;
       syntax_error(st, "Expression statements not supported in NKI classes");
       return false;
