@@ -70,6 +70,8 @@ private def expr' (e' : Expr') : Ann Expr' :=
   | .ifExp c t f => return .ifExp (<- expr c) (<- expr t) (<- expr f)
   | .call f args kws => return .call (<- expr f) (<- exprs args) (<- kws.mapM keyword)
   | .object c fs => return .object c (<- fs.mapM keyword)
+  | .format e r => return .format (<- expr e) r
+  | .joined es => return .joined (<- exprs es)
   termination_by sizeOf e'
 
 private def optExpr (oe : Option Expr) : Ann (Option Expr) :=

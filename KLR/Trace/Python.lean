@@ -42,35 +42,8 @@ nki builtin.op.invert (t : Term) := do
 nki builtin.python.slice (b : Int) (e : Int) (s : Int) := do
   return .slice b e s
 
-private partial def termStr : Term -> Trace String
-  | .module name => return name.toString
-  | .builtin name _ => return name.toString
-  | .ref name _ => do termStr (<- lookup name)
-  | .source f => return f.name.toString
-  | .cls c => return s!"<class {c}>"
-  | .object c _ => return s!"<{c} object>"
-  | .method .. => return "method"
-  | .var name => do termStr (<- lookup name)
-  | .none => return "None"
-  | .bool true => return "True"
-  | .bool false => return "False"
-  | .int i => return toString i
-  | .float f => return toString f
-  | .string s => return s
-  | .access .. => return "<Access>"
-  | .tuple ts => return "("++ ",".intercalate (<- ts.mapM termStr) ++")"
-  | .list ts => return "["++ ",".intercalate (<- ts.toList.mapM termStr) ++"]"
-  | .dict _ => return "<dict>"
-  | .ellipsis => return "..."
-  | .slice .. => return "<slice>"
-  | .dynamic .. => return "<dynamic>"
-  | .pointer .. => return "<ptr>"
-  | .mgrid => return "<mgrid>"
-  | .mgItem .. => return "<mgrid_item>"
-  | .tensor .. => return "<tensor>"
-
 nki builtin.python.print (t : Term) := do
-  message (<- termStr t)
+  message (<- t.toStr)
   return .none
 
 nki builtin.python.len (t : Term) := do
@@ -86,7 +59,7 @@ nki builtin.python.min (a : Term) (b : Term) := do
   | _, _ => throw "invalid arguments"
 
 nki builtin.python.str (t : Term) := do
-  return .string (<- termStr t)
+  return .string (<- t.toStr)
 
 nki builtin.python.bool (t : Term) := do
  return .bool (<- t.isTrue)

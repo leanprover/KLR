@@ -83,6 +83,8 @@ inductive Expr' where
   | ifExp (test tru fls : Expr)
   | call (f: Expr) (args: List Expr) (keywords : List Keyword)
   | object (cls : Name) (fields : List Keyword)
+  | format (expr : Expr) (repr : Bool)
+  | joined (es : List Expr)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 5]

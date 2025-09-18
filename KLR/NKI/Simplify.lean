@@ -213,6 +213,13 @@ private def expr' (e' : Python.Expr') : Simplify Expr' :=
       return .call f args kws
   | .starred .. => throw "tuple expansion is not supported"
   | .object c fs => return rewriteObj c.toName (<- keywords fs)
+  | .format e r => do
+      let r <- match r with
+        | none | some 97 | some 115 => pure false  -- none or 'a' or 's'
+        | some 114 => pure true -- 'r'
+        | some c => throw s!"unsupported conversion specifier {c}"
+      return .format (<- expr e) r
+  | .joined es => return .joined (<- exprs es)
   termination_by sizeOf e'
 
 private def index (e : Python.Expr) : Simplify Index := do

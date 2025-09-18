@@ -934,10 +934,32 @@ static lean_object* expr(struct state *st, struct _expr *python) {
       break;
     }
 
+    // Tuple expansion *t
     case Starred_kind: {
       lean_object *col = expr(st, python->v.Starred.value);
       if (col)
         e = Python_Expr_starred(col, context(python->v.Starred.ctx));
+      break;
+    }
+
+    // f-strings
+    case FormattedValue_kind: {
+      if (python->v.FormattedValue.format_spec) {
+        syntax_error(st, "NKI does no support format specifiers");
+        break;
+      }
+      lean_object *val = expr(st, python->v.FormattedValue.value);
+      if (!val) break;
+
+      int conv = python->v.FormattedValue.conversion;
+      lean_object *l_conv =
+        conv <= 0 ? mkNone() : mkOption(lean_unsigned_to_nat(conv));
+
+      e = Python_Expr_format(val, l_conv);
+      break;
+    }
+    case JoinedStr_kind: {
+      e = Python_Expr_joined(exprs(st, python->v.JoinedStr.values));
       break;
     }
 

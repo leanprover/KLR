@@ -42,6 +42,8 @@ lean_object* Python_Expr_ifExp(lean_object*,lean_object*,lean_object*);
 lean_object* Python_Expr_call(lean_object*,lean_object*,lean_object*);
 lean_object* Python_Expr_starred(lean_object*,uint8_t);
 lean_object* Python_Expr_object(lean_object*,lean_object*);
+lean_object* Python_Expr_format(lean_object*,lean_object*);
+lean_object* Python_Expr_joined(lean_object*);
 extern uint8_t Python_UnaryOp_invert;
 extern uint8_t Python_UnaryOp_not;
 extern uint8_t Python_UnaryOp_uadd;

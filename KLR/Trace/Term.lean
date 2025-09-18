@@ -144,12 +144,6 @@ private def termOp : BinOp -> Term -> Term -> Trace Term
   | .mul, v        , .list l   => return .list (<- mulseq l.toList v).toArray
   | .mul, .tuple  l, v
   | .mul, v        , .tuple l  => return .tuple (<- mulseq l v)
-  -- mgrid
-  | .add, .int i, .mgItem a b s
-  | .add, .mgItem a b s, .int i => return .mgItem (a+i) (b+i) (s+1)
-  | .add, .mgItem a b c, .mgItem x y z => return .mgItem (a+x) (b+y) (c+z)
-  | .mul, .int i, .mgItem a b s
-  | .mul, .mgItem a b s, .int i => return .mgItem (a*i) (b*i) (s*1)
   -- expressions
   | op, l, r => valueOp op l r
 
@@ -280,8 +274,6 @@ def toIndex (shape : List Nat) (ts : List Term) : Err (List Index) := do
           throw "index out of range of tensor dimension"
         return .slice (<- Slice.make x.toNat y.toNat z) :: (<- toIndex ds ts)
     | .tuple _ | .list  _ => throw "nested tuple/list indexes not supported"
-    | .mgItem s e t =>
-        return .slice (<- Slice.make s.toNat e.toNat t) :: (<- toIndex ds ts)
     | .dynamic d =>
       return .dynamic d :: (<- toIndex ds ts)
     | t => do
@@ -394,24 +386,6 @@ def pointerAccess (addr : Address) (i : List Term) : Err Term := do
 
   | _ => throw "pointers require two indexes"
 
--- nl.mgrid
-def mgrid (indexes : List Term) : Err Term := do
-  let mut l := []
-  for i in indexes do
-    match i with
-    | .slice a b c =>
-      let a := a.getD 0
-      if b == none then
-        throw "size not specified"
-      let b := b.get!
-      let c := c.getD 1
-      l := l ++ [.mgItem a b c]
-    | t => throw s!"expecting slice, got '{Term.kindStr t}'"
-  match l with
-  | [] => throw "mgrid must have at least 1 dimension"
-  | [t] => return t
-  | _ => return .tuple l
-
 -- Handle subscript expressions, t[i]
 -- Note: partial due to possible heap graphs
 partial def access (e : Term) (indexes : List Term) : Trace Term := do
@@ -421,7 +395,6 @@ partial def access (e : Term) (indexes : List Term) : Trace Term := do
   | .tuple l => listAccess l indexes
   | .list l => listAccess l.toList indexes
   | .pointer addr => pointerAccess addr indexes
-  | .mgrid => mgrid indexes
   | .access (.simple tensor) => do
       -- TODO: support Access
       let indices <- toIndex tensor.shape.toList indexes

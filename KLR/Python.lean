@@ -114,6 +114,8 @@ inductive Expr' where
   | call (f: Expr) (args: List Expr) (keywords : List Keyword)
   | starred (e : Expr) (ctx : Ctx)
   | object (cls : String) (fields : List Keyword)
+  | format (e : Expr) (conv : Option Nat)
+  | joined (es : List Expr)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 9]

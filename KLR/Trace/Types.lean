@@ -116,8 +116,6 @@ inductive Term where
   | slice    : Option Int -> Option Int -> Option Int -> Term
   | dynamic  : Core.DynamicIdx -> Term
   | pointer  : Core.Address -> Term
-  | mgrid    : Term
-  | mgItem   : Int -> Int -> Int -> Term
   deriving Repr, BEq
 
 namespace Term
@@ -144,8 +142,6 @@ def kindStr : Term → String
   | .slice _ _ _ => "slice"
   | .dynamic _ => "dynamic"
   | .pointer _ => "pointer"
-  | .mgrid => "mgrid"
-  | .mgItem _ _ _ => "mgItem"
 end Term
 
 instance : Inhabited Term where
@@ -384,6 +380,39 @@ where
 -- Truthiness of Terms following Python
 namespace Term
 
+private def clsName : Name -> String
+  | .str _ n => n
+  | n => n.toString
+
+partial def toStr : Term -> Trace String
+  | .module name => return name.toString
+  | .builtin name _ => return name.toString
+  | .ref name _ => do toStr (<- lookup name)
+  | .source f => return f.name.toString
+  | .cls c => return s!"<class {clsName c}>"
+  | .object c fs => do
+      let fs <- fs.mapM fun (n,t) => do pure s!"{n}:{<- t.toStr}"
+      return s!"{clsName c}("++ ",".intercalate fs.toList ++")"
+  | .method n id _ => return s!"<method {clsName n}.{id}>"
+  | .var name => do toStr (<- lookup name)
+  | .none => return "None"
+  | .bool true => return "True"
+  | .bool false => return "False"
+  | .int i => return toString i
+  | .float f => return toString f
+  | .string s => return s
+  | .access .. => return "<Access>"
+  | .tuple ts => return "("++ ",".intercalate (<- ts.mapM toStr) ++")"
+  | .list ts => return "["++ ",".intercalate (<- ts.toList.mapM toStr) ++"]"
+  | .dict fs => do
+      let fs <- fs.mapM fun (n,t) => do pure s!"{n}:{<- t.toStr}"
+      return s!"\{"++ ",".intercalate fs.toList ++"}"
+  | .ellipsis => return "..."
+  | .slice a b c => return s!"slice({a},{b},{c})"
+  | .dynamic .. => return "<DynamicIdx>"
+  | .pointer a => return s!"<Ptr({a.name})>"
+  | .tensor .. => return "<Tensor>"
+
 -- This is partial because the user could have created a heap graph
 partial def isTrue (t : Term) : Trace Bool := do
   match t with
@@ -410,8 +439,6 @@ partial def isTrue (t : Term) : Trace Bool := do
   | .ellipsis ..
   | .slice ..
   | .pointer ..
-  | .mgrid ..
-  | .mgItem .. => return true
   | .dynamic ..  => throw "ambigous" -- TODO fix me
   | .tensor t =>
     if t.shape.count == 0 then

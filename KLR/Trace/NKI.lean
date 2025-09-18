@@ -44,11 +44,6 @@ def NKIEnv : List (Name × Term) :=
   , const_int (.str (nisa "nc_version") "gen1") 1
   , const_int (.str (nisa "nc_version") "gen2") 2
   , const_int (.str (nisa "nc_version") "gen3") 3
-  , (nl "mgrid", .mgrid)
-  -- , const_var (nl "sbuf")
-  -- , const_var (nl "shared_hbm")
-  -- , const_var (nl "less")
-  -- , const_var (nisa "tensor_engine")
   -- engines
   , const_var (nisa "unknown_engine")
   , const_var (nisa "tensor_engine")
@@ -195,6 +190,14 @@ partial def expr' (e' : Expr') : Trace Term := do
       let name <- genName `obj
       extend_global name (.object c fs.toArray)
       return .ref name (.object c)
+  | .format e false => return .string (<- (<- expr e).toStr)
+  | .format e true => return .string (reprStr (<- expr e))
+  | .joined es =>
+      let es <- es.mapM expr
+      let strs <- es.mapM fun
+        | .string s => pure s
+        | _ => throw "internal error: non-string found in f-string elaboration"
+      return .string (.join strs)
 
 partial def optInt (e : Option Expr) : Trace (Option Int) := do
   match e with

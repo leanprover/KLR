@@ -86,7 +86,7 @@ nki builtin.lang.program_ndim := do
   lookup (nl "_program_ndim")
 
 nki builtin.lang.ds (start : Int) (size : Int) := do
-  return .mgItem start (start + size) 1
+  return .slice start (start + size) (some 1)
 
 -- We can't change the variable names to add an "_" or the macros will
 -- not resolve user parameters correctly.
