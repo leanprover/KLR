@@ -1434,6 +1434,28 @@ static bool class(struct state *st, lean_object *name, struct _stmt *s) {
   lean_object *decs = exprs(st, s->v.ClassDef.decorator_list);
   st->ignore_refs = false;
 
+  // Check that class inherits from allowed base classes
+  if (s->v.ClassDef.bases && s->v.ClassDef.bases->size > 0) {
+    bool valid_base = false;
+    for (int i = 0; i < s->v.ClassDef.bases->size; i++) {
+      struct _expr *base = s->v.ClassDef.bases->typed_elements[i];
+      if (base->kind == Name_kind) {
+        const char *base_name = PyUnicode_AsUTF8(base->v.Name.id);
+        if (base_name && (strstr(base_name, "NKIObject") ||
+                         strstr(base_name, "Enum") ||
+                         strstr(base_name, "IntEnum") ||
+                         strstr(base_name, "NamedTuple"))) {
+          valid_base = true;
+          break;
+        }
+      }
+    }
+    if (!valid_base) {
+      // syntax_error(st, "Class must inherit from object, Enum, IntEnum, or NamedTuple");
+      return false;
+    }
+  }
+
   asdl_stmt_seq *python = s->v.ClassDef.body;
   lean_object *fields = lean_mk_empty_array();
   lean_object *methods = lean_mk_empty_array();
@@ -1449,6 +1471,14 @@ static bool class(struct state *st, lean_object *name, struct _stmt *s) {
     switch (s->kind) {
     case Pass_kind:
       break;
+
+    case Expr_kind:
+      // Skip docstrings (string literals)
+      if (s->v.Expr.value->kind == Constant_kind &&
+          PyUnicode_Check(s->v.Expr.value->v.Constant.value))
+        break;
+      syntax_error(st, "Expression statements not supported in NKI classes");
+      return false;
 
     case Assign_kind: {
       if (s->v.Assign.targets == NULL ||
