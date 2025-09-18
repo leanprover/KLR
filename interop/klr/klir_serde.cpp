@@ -455,7 +455,7 @@ Ptr<BirAccessPattern> BirAccessPattern_des(FILE *in) {
   x->tensor = TensorName_des(in);
   x->offset = Nat_des(in);
   x->pattern = List_APPair_des(in);
-  x->terms = List_List_DynAP_des(in);
+  x->terms = List_List_dyn_des(in);
   return x;
 }
 
@@ -2596,23 +2596,6 @@ Ptr<Stmt> Stmt_des(FILE *in) {
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
-    if (l != 1)
-      throw std::runtime_error("Wrong number of elements");
-    Ptr<StmtRetWrapper> x = ptr<StmtRetWrapper>();
-    x->v = Value_des(in);
-    return x;
-    break;
-  }
-  case 1: {
-    if (l != 2)
-      throw std::runtime_error("Wrong number of elements");
-    Ptr<StmtAssignWrapper> x = ptr<StmtAssignWrapper>();
-    x->x = String_des(in);
-    x->e = Expr_des(in);
-    return x;
-    break;
-  }
-  case 2: {
     if (l != 3)
       throw std::runtime_error("Wrong number of elements");
     Ptr<StmtOperWrapper> x = ptr<StmtOperWrapper>();
@@ -2627,6 +2610,18 @@ Ptr<Stmt> Stmt_des(FILE *in) {
   }
 }
 
+Ptr<SharedConstantFile> SharedConstantFile_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 106 || c != 0 || l != 2)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<SharedConstantFile> x = ptr<SharedConstantFile>();
+  x->name = String_des(in);
+  x->fileName = String_des(in);
+  return x;
+}
+
 Ptr<Kernel> Kernel_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
@@ -2638,18 +2633,6 @@ Ptr<Kernel> Kernel_des(FILE *in) {
   x->inputs = List_TensorName_des(in);
   x->outputs = List_TensorName_des(in);
   x->body = List_Stmt_des(in);
-  return x;
-}
-
-Ptr<SharedConstantFile> SharedConstantFile_des(FILE *in) {
-  u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 106 || c != 0 || l != 2)
-    throw std::runtime_error("Invalid Tag");
-  Ptr<SharedConstantFile> x = ptr<SharedConstantFile>();
-  x->name = String_des(in);
-  x->fileName = String_des(in);
   return x;
 }
 
@@ -2707,7 +2690,7 @@ List<Ptr<APPair>> List_APPair_des(FILE *in) {
   return l;
 }
 
-List<List<Ptr<DynamicAPTerm>>> List_List_DynAP_des(FILE *in) {
+List<List<Ptr<DynamicAPTerm>>> List_List_dyn_des(FILE *in) {
   u64 size = 0;
   if (!deserialize_array_start(in, &size))
     throw std::runtime_error("expecting List");

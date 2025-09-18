@@ -352,5 +352,6 @@ def klrAST: MetaM (List LeanType) := do
     `KLR.Core.Stmt,
     -- `KLR.Core.Kernel, -- Not emited
     `KLR.Core.SharedConstantFile,
+    `KLR.Core.Kernel,
     `KLR.Core.LncKernel,
    ]
