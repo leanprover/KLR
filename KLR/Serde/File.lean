@@ -87,4 +87,5 @@ worry about avoiding assigned tags on our other (internal) types.
 @[serde tag = 0xeb]
 structure KLRMetaData where
   format : String := "NKI"
+  tagMapping : List CBORMapping
   deriving BEq, Repr, ToCBOR, FromCBOR

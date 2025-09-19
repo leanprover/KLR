@@ -15,6 +15,11 @@ limitations under the License.
 -/
 
 import Lean
+import Lean.Elab.Command
+import KLR.Serde
+
+import KLR.Python
+import KLR.NKI
 
 /-
 Collect information about Lean types that will be used to generate C and Python files.
@@ -22,7 +27,8 @@ Note: this library is only used at compile-time.
 -/
 
 namespace Extract
-open Lean Meta
+open Lean Meta Elab Command
+open KLR.Serde(CBORMapping)
 
 /-
 The types below are a simplified representation of Lean structures and
@@ -355,3 +361,47 @@ def klrAST: MetaM (List LeanType) := do
     `KLR.Core.Kernel,
     `KLR.Core.LncKernel,
    ]
+
+private def collectMapping (types : List LeanType) : MetaM $ List CBORMapping := do
+  let mut tagN := 0
+  let mut mappings := []
+
+  for t in types do
+    match t with
+    | .simple _ =>
+      mappings := ⟨ tagN.toUInt16, 0, 0 ⟩ :: mappings
+      tagN := tagN + 1
+
+    | .prod _ fields =>
+      mappings := ⟨ tagN.toUInt16, 0, fields.length.toUInt32 ⟩ :: mappings
+      tagN := tagN + 1
+
+    | .sum _ variants =>
+      for (typ, variant) in variants.zipIdx do
+        let len := match typ with
+        | .prod _ fields => fields.length.toUInt32
+        | .simple _ => 0
+        | .sum .. => 0
+        mappings := ⟨ tagN.toUInt16, variant.toUInt16, len⟩ :: mappings
+
+      tagN := tagN + 1
+
+  return mappings.reverse
+
+private def collectCborMapping : MetaM (List CBORMapping) := do
+  -- let common <- commonAST
+  -- let file <- fileAST
+  let python <- pythonAST
+  let nki <- nkiAST
+  let klr <- klrAST
+  collectMapping (python ++ nki ++ klr)
+
+def generate : MetaM Unit := do
+  let mappings <- collectCborMapping
+  let mappingExprs ← mappings.mapM fun ⟨t, variant, len⟩ => do
+     `(⟨$(Lean.Syntax.mkNumLit (toString t.toNat)), $(Lean.Syntax.mkNumLit (toString variant.toNat)), $(Lean.Syntax.mkNumLit (toString len.toNat))⟩)
+  let listExpr ← `([$(mappingExprs.toArray),*])
+  let defCmd ← `(def cborMappings : List CBORMapping := $listExpr)
+  liftCommandElabM (Elab.Command.elabCommand defCmd)
+
+run_meta generate
