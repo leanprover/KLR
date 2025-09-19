@@ -723,3 +723,22 @@ warning: declaration uses 'sorry'
 #guard_msgs in
   example (x : Option Bool) :
     roundtrip x == true := by plausible
+
+structure CBORMapping where
+  tag : UInt16
+  constructor : UInt16
+  len : UInt32
+  deriving BEq, Repr
+
+instance : ToCBOR CBORMapping where
+  toCBOR x := cborTag 0xfe 0 3 ++ toCBOR x.tag ++ toCBOR x.constructor ++ toCBOR x.len
+
+instance : FromCBOR CBORMapping where
+  parse arr := do
+    let (typeTag, valTag, len, rest) <- parseCBORTag arr
+    if typeTag != 0xfe || valTag != 0 || len != 3 then
+      throw "expecting CBORMapping"
+    let (sz1, tag) <- parse rest
+    let (sz2, constructor) <- parse (rest.drop sz1)
+    let (sz3, len) <- parse (rest.drop (sz1 + sz2))
+    return (4 + sz1 + sz2 + sz3, { tag, constructor, len })
