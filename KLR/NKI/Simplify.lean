@@ -28,6 +28,7 @@ open Compile.Pass
 
 structure SimplifyState where
   statements : Array Stmt := #[]
+  deriving Inhabited
 
 abbrev Simplify := Pass SimplifyState
 
@@ -490,7 +491,7 @@ private def edge (py : Python.Expr) : Simplify Edges := do
     return .mk e1 e2
   | _ => throw "Schedule edge must be a pair"
 
-private def kernel (py : Python.Kernel) : Simplify Kernel := do
+def simplify (py : Python.Kernel) : Simplify Kernel := do
   let funs <- py.funcs.mapM func
   let cls <- py.classes.mapM class_
   let entry := py.entry.toName
@@ -507,9 +508,3 @@ private def kernel (py : Python.Kernel) : Simplify Kernel := do
     grid    := py.grid
     edges   := <- py.scheduleEdges.mapM edge
   }
-
--- TODO: capture warnings, make sure to call finalize
-def simplify (py : Python.Kernel) : Err Kernel :=
-  match (kernel py).run {} {} with
-  | .ok (x, _) _ => .ok x
-  | .error e _ => .error (toString e)

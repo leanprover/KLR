@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -/
 
+import KLR.Compile.Pass
 import KLR.NKI.Annotations
 import KLR.NKI.Basic
 import KLR.NKI.Classes
@@ -22,3 +23,14 @@ import KLR.NKI.Pretty
 import KLR.NKI.Simplify
 import KLR.NKI.SimplifyOperators
 --import KLR.NKI.Typed
+
+namespace KLR.NKI
+open Compile.Pass (PassM runPass)
+
+def compile (py : Python.Kernel) : PassM NKI.Kernel := do
+  let k <- runPass (simplify py)
+  let k <- runPass (simplifyOperators k)
+  let k <- runPass (annotate k)
+  let k <- runPass (simplifyPatterns k)
+  let k <- runPass (genClasses k)
+  return k

@@ -218,7 +218,8 @@ def info (p : Parsed) : IO UInt32 := do
 def compile (p : Parsed) : IO UInt32 := do
   let debug := p.hasFlag "debug"
   let kernel : KLR.Python.Kernel <- gatherTmp p
-  let kernel <- KLR.Compile.compilePython kernel none
+  let res <- KLR.Compile.compilePython kernel none
+  let kernel <- res.result
   IO.println "OK."
   if debug then
     IO.println s!"Kernel:\n {repr kernel}"
@@ -252,7 +253,8 @@ def trace (p : Parsed) : IO UInt32 := do
   let kernel <- Lean.fromJson? (<- Lean.Json.parse contents)
   --let kernel <- KLR.File.readKLRFile file
   let outDir := <- outfolder (p.flag? "outfile")
-  let kernel <- KLR.Compile.compilePython kernel outDir
+  let res <- KLR.Compile.compilePython kernel outDir
+  let kernel <- res.result
   match p.flag? "outfile" with
   | some arg =>
     let f := FilePath.mk (arg.as! String)

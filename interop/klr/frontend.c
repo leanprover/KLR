@@ -73,10 +73,7 @@ static PyObject* kernel_specialize(struct kernel *self, PyObject *args_tuple) {
       return NULL;
   }
 
-  if (!specialize(self, args, kwargs, grid, schedule))
-    return NULL;
-
-  return Py_None;
+  return specialize(self, args, kwargs, grid, schedule);
 }
 
 // frontend.Kernel.serialize_python

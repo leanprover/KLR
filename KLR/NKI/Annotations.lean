@@ -33,7 +33,7 @@ will generate a warning and be treated as a call to range.
 namespace KLR.NKI
 open Compile.Pass
 
-abbrev Ann := PassM
+abbrev Ann := Pass Unit
 
 -- Expressions
 
@@ -151,7 +151,7 @@ private def class_ (c : Class) : Ann Class :=
 private def arg (a : Arg) : Ann Arg := do
   return { a with value := <- expr a.value }
 
-private def kernel (k : Kernel) : Ann Kernel := do
+def annotate (k : Kernel) : Ann Kernel := do
   return {
     entry   := k.entry
     funs    := <- k.funs.mapM func
@@ -161,9 +161,3 @@ private def kernel (k : Kernel) : Ann Kernel := do
     grid    := k.grid
     edges   := k.edges
   }
-
--- TODO: capture warnings, make sure to call finalize
-def annotate (k : Kernel) : Err Kernel :=
-  match (kernel k).run {} with
-  | .ok x _ => .ok x
-  | .error e _ => .error (toString e)

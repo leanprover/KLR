@@ -16,6 +16,7 @@ limitations under the License.
 
 import KLR.Compile.Pass
 import KLR.NKI.Basic
+import KLR.NKI.Pretty
 import KLR.Util
 
 /-
@@ -28,7 +29,7 @@ generate constructor and initializer functions.
 namespace KLR.NKI
 open Compile.Pass
 
-abbrev Cls := PassM
+abbrev Cls := Pass Unit
 
 /-
 Generate a constructor function based on the init function.
@@ -141,7 +142,8 @@ Also generate the constructor function for the class.
 private def ensureInit (c : Class) : Cls (List Fun) := do
   let (init, fs) <- match c.methods.partition isInit with
     | ([], fs) => pure ((<- genInit c),fs)
-    | (f::_, fs) => pure (f, fs)
+    | ([f], fs) => pure (f, fs)
+    | _ => throw "internal error: multiple init functions found"
   let fs <- match c.methods.find? isPostInit with
     | some _ => pure fs
     | none => pure ((<- genPostInit c) :: fs)
@@ -171,7 +173,7 @@ For an object of type C, `x.f(...)` is syntactic sugar for `C.f(x,...)`.
 private def qual (name : Name) (s : String) : String :=
   (Lean.Name.str name s).toString
 
-private def kernel (k : Kernel) : Cls Kernel := do
+def genClasses (k : Kernel) : Cls Kernel := do
   let mut vs := #[]
   let mut fs := #[]
   let mut cs := #[]
@@ -183,14 +185,10 @@ private def kernel (k : Kernel) : Cls Kernel := do
     vs := vs.append vars.toArray
 
   -- Note: eraseDups removes the earlier elements in the list
-  return { k with
+  let k := { k with
     funs    := (k.funs ++ fs.toList).eraseDups
     cls     := cs.toList
     globals := (k.globals ++ vs.toList).eraseDups
   }
-
--- TODO: capture warnings, make sure to call finalize
-def genClasses (k : Kernel) : Err Kernel :=
-  match (kernel k).run {} with
-  | .ok x _ => .ok x
-  | .error e _ => .error (toString e)
+  dbg_trace s!"========\n{Std.format k}\n=========="
+  return k

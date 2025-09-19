@@ -26,7 +26,7 @@ Simplification pass: convert operators to the ones that don't use mutating assig
 namespace KLR.NKI
 open Compile.Pass
 
-abbrev SimplifyOp := PassM
+abbrev SimplifyOp := Pass Unit
 
 private def isISA : Expr -> Bool
   | ⟨ .var (.str `neuronxcc.nki.isa _), _ ⟩ => true
@@ -99,10 +99,5 @@ end
 private def func (f : Fun) : SimplifyOp Fun :=
   return { f with body := <- stmts f.body }
 
-private def kernel (k : Kernel) : SimplifyOp Kernel := do
+def simplifyOperators (k : Kernel) : SimplifyOp Kernel := do
   return { k with funs := <- k.funs.mapM func }
-
-def simplifyOperators (k : Kernel) : Err (Kernel × List PosError) :=
-  match (kernel k).run {} with
-  | .ok x s => .ok (x, s.warnings.toList ++ s.newWarns.toList)
-  | .error e _ => .error (toString e)

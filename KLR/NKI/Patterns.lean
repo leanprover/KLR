@@ -38,7 +38,7 @@ namespace KLR.NKI
 open Compile.Pass
 
 -- Simplify Pattern = Simpat
-abbrev Simpat := PassM
+abbrev Simpat := Pass Unit
 
 -- Build a simple subscript expression, e.g. v[2,3,1]
 private def subscript (v : Name) (ix : List Int) : Expr :=
@@ -131,11 +131,5 @@ end
 private def func (f : Fun) : Simpat Fun :=
   return { f with body := <- stmts f.body }
 
-private def kernel (k : Kernel) : Simpat Kernel := do
+def simplifyPatterns (k : Kernel) : Simpat Kernel := do
   return { k with funs := <- k.funs.mapM func }
-
--- TODO: capture warnings, make sure to call finalize
-def simplifyPatterns (k : Kernel) : Err Kernel :=
-  match (kernel k).run {} with
-  | .ok x _ => .ok x
-  | .error e _ => .error (toString e)

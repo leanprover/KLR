@@ -68,8 +68,7 @@ namespace KLR.Trace
 open KLR.Core
 open KLR.Compile.Pass
 export Core (Name)
-export KLR.Compile.Pass (withPos withFile getPos)
--- Bring in some NKI types for convenience
+export KLR.Compile.Pass (withPos withFile getPos warn message)
 export NKI (Pos BinOp)
 
 abbrev SharedConstant := String × TensorLib.Tensor
@@ -166,13 +165,10 @@ warnings which may be shown to the user after tracing.
 abbrev Env := Std.HashMap Name Term
 
 structure State where
-  fvn : Nat := 0
   globals : Env := ∅
   locals : Env := ∅
   refs : Env := ∅
   body : Array Stmt := #[]
-  warnings : Array (Pos × String) := #[]
-  messages : Array String := #[]
   tensorNames : Std.HashSet String := ∅
   sharedConstants : SharedConstants := #[]
 deriving Repr
@@ -180,13 +176,10 @@ deriving Repr
 instance : Inhabited State where
   default := {}
 
-abbrev Trace := StateT State PassM
+abbrev Trace := Pass State
 
 -- generate a fresh name using an existing name as a prefix
-def genName (name : Name := `tmp) : Trace Name :=
-  modifyGet fun s =>
-    let n := s.fvn + 1
-    (.num name n, { s with fvn := n })
+def genName (name : Name := `tmp) : Trace Name :=  freshName name
 
 -- add a new binding to the global environment
 def extend_global (x : Name) (v : Term) : Trace Unit :=
@@ -282,14 +275,9 @@ def addId : Trace Unit := do
   }
   extend_global idName (.access (.simple tensorName))
 
--- emit a warning
-def warn (msg : String) : Trace Unit := do
-  let pos <- getPos
-  modify fun s => { s with warnings := s.warnings.push (pos, msg) }
-
 -- emit a message
-def message (msg : String) : Trace Unit :=
-  modify fun s => { s with messages := s.messages.push msg }
+--def message (msg : String) : Trace Unit := Pass.message
+  --modify fun s => { s with messages := s.messages.push msg }
 
 -- check and register a tensor name
 def checkTensorName (name : String) : Trace Unit := do
@@ -301,7 +289,7 @@ def checkTensorName (name : String) : Trace Unit := do
 -- generate a unique tensor name
 def genTensorName : Trace String := do
   let st <- get
-  let mut n := st.fvn -- arbitrary
+  let mut n := st.tensorNames.size -- arbitrary
   let mut name := ""
   repeat
     name := s!"tensor{n}"
@@ -316,21 +304,12 @@ def tensorName : Option String -> Trace String
   | some n => do checkTensorName n; return n
 
 -- Run a `Trace` monad computation, and handle any generated warnings or errors.
-def tracer (g : List (Name × Term)) (m : Trace a) (showWarnings := true) : PassM (String × a × SharedConstants) := do
+def tracer (g : List (Name × Term)) (m : Trace a) : PassM (SharedConstants × a) := do
   let initialState : State := { globals := .ofList g }
-  let (result, finalState) ← m.run initialState
-  return (addWarnings finalState "", result, finalState.sharedConstants)
-where
-  getMessages s := "\n".intercalate s.messages.toList ++ "\n"
-  addWarnings s str :=
-    (if showWarnings then addWarn s str else str) ++
-    getMessages s
-  addWarn s str := s.warnings.foldl warnStr str
-  warnStr str pw :=
-    if pw.fst == { line := 0 } then
-      s!"warning: {pw.snd}\n{str}"
-    else
-      s!"warning:{pw.fst.line}: {pw.snd}\n{str}"
+  runPassWith initialState do
+    let x <- m
+    let st <- get
+    return (st.sharedConstants, x)
 
 -- Truthiness of Terms following Python
 namespace Term

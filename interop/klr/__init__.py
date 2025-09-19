@@ -18,11 +18,11 @@ def _specialize_kernel(
     grid: Optional[int] = None,
     schedule: Optional[Sequence[tuple[str, Union[str, Sequence[str]]]]] = None,
 ):
-    kernel.specialize(args, kwargs, grid, schedule)
-
+    metadata_json_str = kernel.specialize(args, kwargs, grid, schedule)
+    metadata = json.loads(metadata_json_str)
+    return metadata
 
 # wrapper around tracing step via KLR's Lean FFI.
-# (Using the Lean impl because it's currently more mature than the C impl).
 def _trace_kernel(
     kernel: frontend.Kernel,
     *,

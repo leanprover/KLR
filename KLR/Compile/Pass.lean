@@ -101,10 +101,17 @@ structure PassState where
   freshVarNum : Nat := 0 -- counter for generating fresh names
   pos : Pos  := { line := 0 }
   lineOffset : Nat := 0 -- offset to convert relative to absolute line numbers
+  messages : Array String := #[]    -- general messages
   warnings : Array PosError := #[]  -- located warnings
   newWarns : Array PosError := #[]  -- raw warnings
 
 namespace PassState
+
+-- emit a message
+def message (msg : String) (ps : PassState) : PassState :=
+  { ps with
+    messages := ps.messages.push msg
+  }
 
 /-
 When a new warning is emitted, it is initially unlocated and goes into the
@@ -135,13 +142,11 @@ def addFile (file : String) (lineOffset : Nat) (ps : PassState) : PassState :=
     warnings := ps.warnings.map (.addFile file lineOffset)
   }
 
-/-
-We should always have at least one `locate` or `addFile` at the outermost
-level, or we may lose warnings trapped in the `newWarn` array. The `finalize`
-function can be used to make sure all warnings are moved over.
--/
-def finalize (file : String) (ps : PassState) : PassState :=
-  addFile file 0 ps
+def getMessages (ps : PassState) : List String :=
+  ps.messages.toList
+
+def getWarnings (ps : PassState) : List String :=
+  (ps.warnings.map toString).toList
 
 end PassState
 
@@ -167,20 +172,18 @@ def withPos (pos : Pos) (m : PassM a) : PassM a :=
     | .ok x s => .ok x (s.locate pos)
     | .error e s => .error (e.locate pos) (s.locate pos)
 
-def withFile (file : String) (lineOffset : Nat) (source : String) (m : PassM a) : PassM a := do
-  let s <- get
-  let p' := { s.pos with filename := some file }
-  fun s => match m { s with pos := p', lineOffset := lineOffset } with
-    | .ok x s =>
-        .ok x { s with pos := p' }
-    | .error (.raw msg) s =>
-        .error (.formatted (genError msg file lineOffset source s.pos)) { s with pos := p' }
-    | .error (.located pos msg) s =>
-        .error (.formatted (msg ++ genError msg file lineOffset source pos)) { s with pos := p' }
-    | .error (.absolute f pos msg) s =>
-        .error (.formatted (genError msg f lineOffset source pos)) { s with pos := p' }
-    | .error (.formatted msg) s =>
-        .error (.formatted (msg ++ genError "called from" file lineOffset source s.pos)) { s with pos := p' }
+def withFile (file : String) (lineOffset : Nat) (source : String) (m : PassM a) : PassM a :=
+  fun s =>
+    let pos := { s.pos with filename := some file }
+    match m { s with pos, lineOffset := lineOffset } with
+    | .ok x s => .ok x (s.addFile file lineOffset)
+    | .error msg s =>
+        let msg := match msg with
+          | .raw msg => genError msg file lineOffset source pos
+          | .located pos msg => msg ++ genError msg file lineOffset source pos
+          | .absolute f pos msg => genError msg f lineOffset source pos
+          | .formatted msg => msg ++ genError "called from" file lineOffset source pos
+       .error (.formatted msg) (s.addFile file lineOffset)
 where
   genError (msg : String) (f: String) (offset : Nat) (source : String) (pos : Pos) : String :=
     let lines := source.splitOn "\n"
@@ -194,6 +197,12 @@ where
 
 
 end PassM
+
+/-
+Add a new message
+-/
+def message (msg : String) : PassM Unit :=
+  modify fun ps => ps.message msg
 
 /-
 Generate a fresh name, based on a previous name. Users can not create names
@@ -227,3 +236,36 @@ def getPos [Monad m] [MonadControlT PassM m] : m Pos :=
 
 -- Passes will commonly want to add more state
 abbrev Pass st := StateT st PassM
+
+def runPassWith (s : st) (m : Pass st a) : PassM a :=
+  do let (x,_) <- m s; return x
+
+def runPass [Inhabited st] (m : Pass st a) : PassM a :=
+  runPassWith default m
+
+/-
+We should always have at least one outermost `withFile`, or we may lose
+warnings trapped in the `newWarn` array. One is added here just to be safe.
+-/
+
+structure CompileResult (a : Type) where
+  messages : List String
+  warnings : List String
+  errors : List String
+  result : Option a
+  deriving BEq, Repr
+
+def runPasses (m : PassM a) : CompileResult a :=
+  match withFile "<unknown file>" 0 "<source unavailable>" m {} with
+  | .ok x st =>
+    { messages := st.getMessages
+      warnings := st.getWarnings
+      errors   := []
+      result   := some x
+    }
+  | .error x st =>
+    { messages := st.getMessages
+      warnings := st.getWarnings
+      errors   := [toString x]
+      result   := none
+    }

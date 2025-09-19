@@ -1,5 +1,7 @@
 # KLR implemetations of NKI langauge APIs
 
+
+class NKIObject: pass
 def par_dim(x): return x
 
 float32 = "float32"

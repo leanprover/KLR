@@ -25,38 +25,44 @@ import KLR.Trace
 namespace KLR.Compile
 open System(FilePath)
 open Lean (FromJson ToJson)
+open Core (LncKernel SharedConstantFile)
+open Pass (CompileResult)
 
-private def sharedConstant (outfolder : String) (c : String × TensorLib.Tensor) : IO (String × String) := do
+
+private def sharedConstant
+    (outfolder : String)
+    (c : String × TensorLib.Tensor)
+    : IO SharedConstantFile := do
   let (name, tensor) := c
   let dst := s!"{outfolder}/shared_constants"
   IO.FS.createDirAll dst
   let fName := s!"{dst}/{name}.npy"
   let data := tensor.toNpy
   data.save! (System.FilePath.mk fName)
-  return (name, fName)
+  return ⟨name, fName⟩
+
+private def compile (kernel : Python.Kernel)
+  : Pass.PassM (Trace.SharedConstants × LncKernel) := do
+  let kernel <- NKI.compile kernel
+  let (shared, kernel) <- Trace.runLncKernels kernel
+  let kernel <- Core.lowerAccessPatterns kernel
+  return (shared, kernel)
 
 -- TODO: preserve warnings and errors
-def compilePython (kernel : Python.Kernel) (outfolder : Option String) : IO Core.LncKernel := do
-  let (kernel, warnings) := kernel.inferArguments
-  warnings.forM IO.eprintln
-  let kernel : KLR.NKI.Kernel <- KLR.NKI.simplify kernel
-  let (kernel, w) <- KLR.NKI.simplifyOperators kernel
-  w.forM IO.println
-  let kernel <- KLR.NKI.annotate kernel
-  let kernel <- KLR.NKI.simplifyPatterns kernel
-  let kernel <- KLR.NKI.genClasses kernel
-  -- Leave in for debugging
-  -- TODO use debug flags?
-  --IO.println (Std.Format.pretty (Std.format kernel))
-  --IO.println (reprStr kernel)
-  let (warnings, kernels, sharedConstants) <- KLR.Trace.runLncKernels kernel
-  if !warnings.isEmpty then
-    IO.eprintln warnings
-  let cs <- match outfolder with
-  | some p => sharedConstants.mapM (fun c => sharedConstant p c)
-  | none => .ok #[]
-  let kernels <- Core.lowerAccessPatterns kernels
-  return {kernels with sharedConstants := (cs.map fun (name, fileName) => {name := name, fileName := fileName}).toList}
+def compilePython
+    (kernel : Python.Kernel)
+    (outfolder : Option String)
+    : IO (CompileResult LncKernel) := do
+  let (kernel, _warnings) := kernel.inferArguments
+  let res := Pass.runPasses (compile kernel)
+  match res.result with
+  | none => return { res with result := none }
+  | some (shared, kernel) =>
+    let cs <- match outfolder with
+    | some p => shared.mapM (fun c => sharedConstant p c)
+    | none => .ok #[]
+    let kernel := { kernel with sharedConstants := cs.toList }
+    return { res with result := some kernel }
 
 structure TensorInfo where
   name : String
@@ -66,10 +72,42 @@ structure TensorInfo where
 
 structure KernelInfo where
   name : String
+  messages : List String
+  warnings : List String
+  errors : List String
   inputs : List TensorInfo
   outputs : List TensorInfo
   sharedConstants : List Core.SharedConstantFile
   deriving ToJson
+
+private def resultToInfo (res : CompileResult LncKernel) : KernelInfo :=
+  match res.result with
+  | none => {
+      name := ""
+      messages := res.messages
+      warnings := res.warnings
+      errors := res.errors
+      inputs := []
+      outputs := []
+      sharedConstants := []
+    }
+  | some kernel => {
+      name := kernel.name,
+      messages := res.messages
+      warnings := res.warnings
+      errors := res.errors
+      inputs := kernel.inputs.map fun inp => {
+        name := inp.name,
+        dtype := reprStr inp.dtype,
+        shape := inp.shape.toList
+      },
+      outputs := kernel.outputs.map fun out => {
+        name := out.name,
+        dtype := reprStr out.dtype,
+        shape := out.shape.toList
+      },
+      sharedConstants := kernel.sharedConstants
+    }
 
 private def outfolder (outfile : String) : String :=
   let path := FilePath.mk outfile
@@ -78,25 +116,11 @@ private def outfolder (outfile : String) : String :=
 -- reads srcPythonAstFileName, writes dstKlrFileName, returns kernel info as string of json
 @[export nki_trace]
 def frontend_trace (kernel : Python.Kernel) (dstKlrFileName : String) : IO String := do
-  let kernel <- compilePython kernel (outfolder dstKlrFileName)
-  let f := FilePath.mk (dstKlrFileName)
-  File.writeKLRFile f .cbor kernel
-
-  let kernelInfo : KernelInfo := {
-    name := kernel.name,
-    inputs := kernel.inputs.map fun inp => {
-      name := inp.name,
-      dtype := reprStr inp.dtype,
-      shape := inp.shape.toList
-    },
-    outputs := kernel.outputs.map fun out => {
-      name := out.name,
-      dtype := reprStr out.dtype,
-      shape := out.shape.toList
-    },
-    sharedConstants := kernel.sharedConstants
-  }
-  return toString (Lean.toJson kernelInfo)
+  let res <- compilePython kernel (outfolder dstKlrFileName)
+  if let some kernel := res.result then
+    let f := FilePath.mk (dstKlrFileName)
+    File.writeKLRFile f .cbor kernel
+  return toString (Lean.toJson $ resultToInfo res)
 
 @[export nki_to_json]
 def nki_to_json (kernel : Python.Kernel) : String :=

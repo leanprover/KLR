@@ -16,6 +16,7 @@ limitations under the License.
 
 import KLR.Core
 import KLR.NKI.Basic
+import KLR.NKI.Pretty
 import KLR.Trace.Builtin
 import KLR.Trace.ISA
 import KLR.Trace.Term
