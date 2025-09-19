@@ -55,16 +55,10 @@ def runNkiKernel
 
 -- TODO: probably the messages are identical, but they might not be
 -- TODO: check that inputs and outputs are the same
+-- TODO: check that schedule edges make sense
 def runLncKernels (k : KLR.NKI.Kernel) : Err (String × KLR.Core.LncKernel × SharedConstants) := do
   let num := k.grid.max 1
   let (m0, k0, sharedConstants0) <- runNkiKernel k (0, num)
-  let kernel : Core.LncKernel := {
-    name := k0.name
-    inputs := k0.inputs
-    outputs := k0.outputs
-    bodies := []
-    sharedConstants := []
-  }
   let mut msgs := [m0]
   let mut bodies := [k0.body]
   for i in [1:num] do
@@ -72,5 +66,12 @@ def runLncKernels (k : KLR.NKI.Kernel) : Err (String × KLR.Core.LncKernel × Sh
     msgs := msg :: msgs
     bodies := k.body :: bodies
   let msg := "\n".intercalate msgs.reverse
-  let kernel := { kernel with bodies := bodies.reverse }
+  let kernel : Core.LncKernel := {
+    name := k0.name
+    inputs := k0.inputs
+    outputs := k0.outputs
+    bodies := bodies.reverse
+    sharedConstants := []
+    edges := k.edges
+  }
   return (msg, kernel, sharedConstants0)

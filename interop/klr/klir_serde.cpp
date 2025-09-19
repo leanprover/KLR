@@ -455,7 +455,7 @@ Ptr<BirAccessPattern> BirAccessPattern_des(FILE *in) {
   x->tensor = TensorName_des(in);
   x->offset = Nat_des(in);
   x->pattern = List_APPair_des(in);
-  x->terms = List_List_dyn_des(in);
+  x->terms = List_List_DynamicAPTerm_des(in);
   return x;
 }
 
@@ -2610,18 +2610,6 @@ Ptr<Stmt> Stmt_des(FILE *in) {
   }
 }
 
-Ptr<SharedConstantFile> SharedConstantFile_des(FILE *in) {
-  u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 106 || c != 0 || l != 2)
-    throw std::runtime_error("Invalid Tag");
-  Ptr<SharedConstantFile> x = ptr<SharedConstantFile>();
-  x->name = String_des(in);
-  x->fileName = String_des(in);
-  return x;
-}
-
 Ptr<Kernel> Kernel_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
@@ -2636,18 +2624,43 @@ Ptr<Kernel> Kernel_des(FILE *in) {
   return x;
 }
 
+Ptr<SharedConstantFile> SharedConstantFile_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 106 || c != 0 || l != 2)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<SharedConstantFile> x = ptr<SharedConstantFile>();
+  x->name = String_des(in);
+  x->fileName = String_des(in);
+  return x;
+}
+
+Ptr<Edges> Edges_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 107 || c != 0 || l != 2)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<Edges> x = ptr<Edges>();
+  x->fromEdge = String_des(in);
+  x->toEdges = List_String_des(in);
+  return x;
+}
+
 Ptr<LncKernel> LncKernel_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 107 || c != 0 || l != 5)
+  if (t != 108 || c != 0 || l != 6)
     throw std::runtime_error("Invalid Tag");
   Ptr<LncKernel> x = ptr<LncKernel>();
   x->name = String_des(in);
   x->inputs = List_TensorName_des(in);
   x->outputs = List_TensorName_des(in);
-  x->bodies = List_List_des(in);
+  x->bodies = List_List_Stmt_des(in);
   x->sharedConstants = List_SharedConstantFile_des(in);
+  x->edges = List_Edges_des(in);
   return x;
 }
 
@@ -2690,7 +2703,7 @@ List<Ptr<APPair>> List_APPair_des(FILE *in) {
   return l;
 }
 
-List<List<Ptr<DynamicAPTerm>>> List_List_dyn_des(FILE *in) {
+List<List<Ptr<DynamicAPTerm>>> List_List_DynamicAPTerm_des(FILE *in) {
   u64 size = 0;
   if (!deserialize_array_start(in, &size))
     throw std::runtime_error("expecting List");
@@ -2847,7 +2860,7 @@ List<Ptr<Stmt>> List_Stmt_des(FILE *in) {
   return l;
 }
 
-List<List<Ptr<Stmt>>> List_List_des(FILE *in) {
+List<List<Ptr<Stmt>>> List_List_Stmt_des(FILE *in) {
   u64 size = 0;
   if (!deserialize_array_start(in, &size))
     throw std::runtime_error("expecting List");
@@ -2868,6 +2881,19 @@ List<Ptr<SharedConstantFile>> List_SharedConstantFile_des(FILE *in) {
   List<Ptr<SharedConstantFile>> l;
   while (size-- > 0) {
     Ptr<SharedConstantFile> b = SharedConstantFile_des(in);
+    l.push_back(b);
+  }
+  return l;
+}
+
+List<Ptr<Edges>> List_Edges_des(FILE *in) {
+  u64 size = 0;
+  if (!deserialize_array_start(in, &size))
+    throw std::runtime_error("expecting List");
+
+  List<Ptr<Edges>> l;
+  while (size-- > 0) {
+    Ptr<Edges> b = Edges_des(in);
     l.push_back(b);
   }
   return l;

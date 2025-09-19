@@ -31,6 +31,7 @@ namespace Des
 private def desName : SimpleType -> String
   | .const `Lean.Name => "String_des"
   | .const `KLR.Core.Reg => "Nat_des"
+  | .list (.list t) => s!"List_List_{t.name}_des"
   | .list t => s!"List_{t.name}_des"
   | .option t => s!"Option_{t.name}_des"
   | t => s!"{t.name}_des"
