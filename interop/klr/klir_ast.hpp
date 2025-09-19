@@ -1170,16 +1170,21 @@ struct StmtOperWrapper final : Stmt {
   StmtOperWrapper() : Stmt(Tag::oper) {}
 };
 
-struct SharedConstantFile final {
-  String name;
-  String fileName;
-};
-
 struct Kernel final {
   String name;
   List<Ptr<TensorName>> inputs;
   List<Ptr<TensorName>> outputs;
   List<Ptr<Stmt>> body;
+};
+
+struct SharedConstantFile final {
+  String name;
+  String fileName;
+};
+
+struct Edges final {
+  String fromEdge;
+  List<String> toEdges;
 };
 
 struct LncKernel final {
@@ -1188,6 +1193,7 @@ struct LncKernel final {
   List<Ptr<TensorName>> outputs;
   List<List<Ptr<Stmt>>> bodies;
   List<Ptr<SharedConstantFile>> sharedConstants;
+  List<Ptr<Edges>> edges;
 };
 
 struct KLRFile final {

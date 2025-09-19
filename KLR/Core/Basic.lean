@@ -101,12 +101,19 @@ structure SharedConstantFile where
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 107]
+structure Edges where
+  fromEdge : String
+  toEdges : List String
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 108]
 structure LncKernel where
   name : String
   inputs : List TensorName
   outputs : List TensorName
   bodies : List (List Stmt)
   sharedConstants : List SharedConstantFile
+  edges : List Edges
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 -- Utilities

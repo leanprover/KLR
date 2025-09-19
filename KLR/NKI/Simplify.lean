@@ -474,6 +474,22 @@ private def args (params : List Param)
   result.foldlM (init := []) fun l (p,e) =>
     return Arg.mk p.name (<- expr e) :: l
 
+private def edgeName (e : Expr) : Simplify String :=
+  match e.expr with
+  | .value (.string s) => return s
+  | _ => throw "Schedule edge name must be a string"
+
+private def edge (py : Python.Expr) : Simplify Edges := do
+  let e <- expr py
+  match e.expr with
+  | .tuple [e1, e2] =>
+    let e1 <- edgeName e1
+    let e2 <- match e2.expr with
+      | .list es => es.mapM edgeName
+      | _ => pure [<- edgeName e2]
+    return .mk e1 e2
+  | _ => throw "Schedule edge must be a pair"
+
 private def kernel (py : Python.Kernel) : Simplify Kernel := do
   let funs <- py.funcs.mapM func
   let cls <- py.classes.mapM class_
@@ -489,6 +505,7 @@ private def kernel (py : Python.Kernel) : Simplify Kernel := do
     args    := <- args main_fun.args py.args py.kwargs
     globals := <- kwargs py.globals
     grid    := py.grid
+    edges   := <- py.scheduleEdges.mapM edge
   }
 
 -- TODO: capture warnings, make sure to call finalize

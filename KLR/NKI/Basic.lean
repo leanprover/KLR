@@ -34,7 +34,7 @@ open Serde (FromCBOR ToCBOR)
 open Util (FromSexp ToSexp)
 open Compile.Pass(PassM freshName)
 
-export Core (Name Pos)
+export Core (Name Pos Edges)
 
 -- Note: the python int and float types are compatible with Lean's types
 -- The str type may require conversion (to UTF8).
@@ -197,4 +197,5 @@ structure Kernel where
   args : List Arg
   globals : List Arg
   grid : Nat
+  edges : List Edges
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
