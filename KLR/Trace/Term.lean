@@ -20,6 +20,7 @@ import KLR.Trace.Lang
 import KLR.Trace.Python
 import KLR.Trace.Types
 import KLR.Trace.Tensor
+import KLR.Core.Indexing
 
 /-
 # Basic tracing facilities
@@ -282,7 +283,6 @@ def toIndex (shape : List Nat) (ts : List Term) : Err (List Index) := do
           throw "index out of range of tensor dimension"
         return .coord i.toNat :: (<- toIndex ds ts)
 
-
 -- Note, a list index can be negative, which means index from end of list.
 -- Python also allows l[True] and l[False]
 -- TODO: add case for slice
@@ -399,6 +399,16 @@ partial def access (e : Term) (indexes : List Term) : Trace Term := do
       -- TODO: support Access
       let indices <- toIndex tensor.shape.toList indexes
       let access <- Access.mkBasic tensor indices
+      return .access access
+  | .access (.basic tensor) => do
+      let newIndices <- toIndex tensor.getShape.toList indexes
+      let composedIndexSpans := List.zipWith₃
+        (fun x y size => Core.IndexSpan.clipComp (x.toIndexSpan size) (y.toIndexSpan size))
+        tensor.indexes newIndices tensor.getShape.toList
+      let composedIndices <- composedIndexSpans.mapM (fun span => do
+        let slice <- span.toSlice
+        return Index.slice slice)
+      let access <- Access.mkBasic tensor.tensor composedIndices
       return .access access
   | t => throw s!"subscript not supported, for term '{Term.kindStr t}'"
 
