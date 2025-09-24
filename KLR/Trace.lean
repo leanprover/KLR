@@ -18,6 +18,7 @@ import KLR.Core
 import KLR.Trace.Builtin
 import KLR.Trace.NKI
 import KLR.Trace.Numpy
+import KLR.Trace.Python
 import KLR.Trace.Term
 import KLR.Trace.Types
 
@@ -36,7 +37,7 @@ def keywords : List (Name × Term) :=
   , ptr `psum .psum 128 0x4000
   ]
 
-def globalEnv := keywords ++ builtinEnv ++ NKIEnv ++ NumpyEnv
+def globalEnv := keywords ++ builtinEnv ++ pythonEnv ++ NKIEnv ++ NumpyEnv
 
 def runNkiKernel
      (k : KLR.NKI.Kernel)

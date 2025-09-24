@@ -190,5 +190,4 @@ def genClasses (k : Kernel) : Cls Kernel := do
     cls     := cs.toList
     globals := (k.globals ++ vs.toList).eraseDups
   }
-  dbg_trace s!"========\n{Std.format k}\n=========="
   return k

@@ -26,6 +26,20 @@ Python related builtins
 namespace KLR.Trace
 open Core
 
+/-
+Constants for the global environment
+-/
+def pythonEnv : List (Name × Term) := [
+  (`math.pi,  .float 3.141592653589793),
+  (`math.e,   .float 2.718281828459045),
+  (`math.inf, .float (1.0 / 0.0)),
+  (`math.nan, .float (0.0 / 0.0)),
+  ]
+
+/-
+The builtin.op namespace is used internally by the NKI compiler.
+These functions are inserted in place of operators.
+-/
 nki builtin.op.negate (t : Term) := do
   match t with
   | .int x => return .int x.neg
@@ -38,6 +52,11 @@ nki builtin.op.not (t : Term) := do
 nki builtin.op.invert (t : Term) := do
   let i : Int <- fromNKI? t
   return .int i.toInt32.complement.toInt
+
+/-
+The builtin.python namespace is mapped to the top-level namespace.
+For example, builtin.python.f will appear as f.
+-/
 
 nki builtin.python.slice (b : Int) (e : Int) (s : Int) := do
   return .slice b e s
@@ -94,6 +113,9 @@ nki builtin.python.float (t : Term) := do
   | .float f    => return .float f
   | .string s   => return .float (KLR.Util.parseFloat s)
   | _ => throw "value cannot be converted to an number"
+
+nki builtin.python.divmod (x : Int) (y : Int) := do
+  return .tuple [ .int (x / y), .int (x % y) ]
 
 /-
 Python List object
@@ -167,7 +189,23 @@ nki builtin.list.reverse (t : Term) := do
 Python math library
 -/
 
-nki math.gcd (a : Term) (b : Term) := do
-  match a, b with
-  | .int x, .int y => return .int (Int.ofNat $ Int.gcd x y)
-  | _, _ => throw "gcd not avaliable for these types"
+nki math.ceil (x : Float) := do
+  return .int x.ceil.toInt
+
+nki math.floor (x : Float) := do
+  return .int x.floor.toInt
+
+nki math.gcd (x : Int) (y : Int) := do
+  return .int (Int.ofNat $ Int.gcd x y)
+
+nki math.log2 (x : Float) := do
+  return .float x.log2
+
+nki math.log10 (x : Float) := do
+  return .float x.log10
+
+nki math.pow (x : Float) (y : Float) := do
+  return .float (x ^ y)
+
+nki math.sqrt (x : Float) := do
+  return .float x.sqrt
