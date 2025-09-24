@@ -115,11 +115,16 @@ private def outfolder (outfile : String) : String :=
 
 -- reads srcPythonAstFileName, writes dstKlrFileName, returns kernel info as string of json
 @[export nki_trace]
-def frontend_trace (kernel : Python.Kernel) (dstKlrFileName : String) : IO String := do
+def frontend_trace (kernel : Python.Kernel) (dstKlrFileName : String) (format : String) : IO String := do
+  let fmt := match format with
+  | "cbor" => .cbor
+  | "json" => .json
+  | "sexp" => .sexp
+  | _ => .cbor
   let res <- compilePython kernel (outfolder dstKlrFileName)
   if let some kernel := res.result then
     let f := FilePath.mk (dstKlrFileName)
-    File.writeKLRFile f .cbor kernel
+    File.writeKLRFile f fmt kernel
   return toString (Lean.toJson $ resultToInfo res)
 
 @[export nki_to_json]

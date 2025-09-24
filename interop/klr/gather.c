@@ -1712,21 +1712,22 @@ const char* serialize_python(struct kernel *k) {
   return lean_string_cstr(json);
 }
 
-lean_object* nki_trace(lean_object*, lean_object*, lean_object*);
+lean_object* nki_trace(lean_object*, lean_object*, lean_object*, lean_object*);
 
 // from util/io implemented in Init/System/IOError.lean
 lean_object* lean_io_error_to_string(lean_object*);
 
-const char* trace(struct kernel *k, const char *dst_file) {
+const char* trace(struct kernel *k, const char *dst_file, const char* dst_format) {
   if (!k->lean_kernel) {
     PyErr_SetString(PyExc_RuntimeError, "No valid kernel to serialize");
     return NULL;
   }
 
   lean_object *file = lean_mk_string(dst_file);
+  lean_object *format = lean_mk_string(dst_format);
   lean_object *world = lean_io_mk_world();
   lean_inc(k->lean_kernel->kernel);
-  lean_object *res = nki_trace(k->lean_kernel->kernel, file, world);
+  lean_object *res = nki_trace(k->lean_kernel->kernel, file, format, world);
 
   if (lean_io_result_is_ok(res)) {
     lean_object *str = lean_io_result_take_value(res);
