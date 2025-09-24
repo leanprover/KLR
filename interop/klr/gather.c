@@ -89,10 +89,10 @@ static void add_msg(struct state *st, bool isError, const char *fmt, ...) {
   va_start(args, fmt);
 
   // Note: vsnprintf will always create a null terminated string,
-  char buf[128];
-  if (vsnprintf(buf, sizeof buf, fmt, args) < 0) {
+  char *buf;
+  if (vasprintf(&buf, fmt, args) < 0) {
     perror("internal error");
-    strcpy(buf, "internal error");
+    buf = strdup("internal error");
   }
 
   struct message *m = region_alloc(st->region, sizeof(*m));
@@ -112,6 +112,7 @@ static void add_msg(struct state *st, bool isError, const char *fmt, ...) {
   m->line = st->scope.line_offset + st->scope.pos.line;
   m->col = st->scope.pos.col;
   m->message = region_strdup(st->region, buf);
+  free(buf);
 
   if (!st->msg_tail) {
     st->messages = m;
@@ -939,9 +940,12 @@ static lean_object* expr(struct state *st, struct _expr *python) {
       break;
     }
     case Slice_kind: {
-      e = Python_Expr_slice(mkOption(expr(st, python->v.Slice.lower)),
-                            mkOption(expr(st, python->v.Slice.upper)),
-                            mkOption(expr(st, python->v.Slice.step)));
+      lean_object *lower = python->v.Slice.lower ? expr(st, python->v.Slice.lower) : NULL;
+      lean_object *upper = python->v.Slice.upper ? expr(st, python->v.Slice.upper) : NULL;
+      lean_object *step = python->v.Slice.step ? expr(st, python->v.Slice.step) : NULL;
+      e = Python_Expr_slice(mkOption(lower),
+                            mkOption(upper),
+                            mkOption(step));
       break;
     }
 
@@ -1003,8 +1007,12 @@ static lean_object* expr(struct state *st, struct _expr *python) {
       lean_object *l_conv =
         conv <= 0 ? mkNone() : mkOption(lean_unsigned_to_nat(conv));
 
-      e = Python_Expr_format(expr(st, python->v.FormattedValue.value),
-                             l_conv);
+      lean_object *value_expr = python->v.FormattedValue.value ? expr(st, python->v.FormattedValue.value) : NULL;
+      if (!value_expr) {
+        error(st, "FormattedValue missing value");
+        break;
+      }
+      e = Python_Expr_format(value_expr, l_conv);
       break;
     }
     case JoinedStr_kind: {
