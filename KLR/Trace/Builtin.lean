@@ -76,6 +76,7 @@ instance : Resolve Term where
   resolve t := pure t
 
 def getArg (a : Type) [Resolve a]
+           (fnName : String)
            (args : List Term)
            (kw : List (String × Term))
            (pos : Nat) (name : String) (dflt : Option a) : Trace a := do
@@ -86,10 +87,9 @@ def getArg (a : Type) [Resolve a]
     | .some (_,x) => Resolve.resolve x
     | .none => match dflt with
               | .some a => return a
-              | .none => throw s!"argument {name} not found"
+              | .none => throw s!"argument {name} not found, in builtin function {fnName}"
 
 /-
-
 The code below implements the nki command. The `nki` command is meant to be
 used like `def`. For example, the code below:
 
@@ -145,21 +145,33 @@ def elabArgs (args : Array SynArg) :
 
 -- The main elaborator for the nki commmand
 
+private def registerBuiltin (name : TSyntax `ident) : CommandElabM Ident := do
+  let nkiName := name.getId
+  let nkiName' := nkiName.toString.replace "." "_"
+  let leanName := Name.str (<- getCurrNamespace) nkiName'
+  let name := mkIdent (Name.str .anonymous nkiName')
+  modifyEnv fun env =>
+    extension.addEntry env { nkiName, leanName : Builtin }
+  return name
+
 @[command_elab nkicmd]
 def klrElab : CommandElab
+  | `(nki $name (args : List Term) := do $rhs*) => do
+    let name <- registerBuiltin name
+    let cmd <- `(
+      def $name ($(mkIdent `args) : List Term) (kw : List (String × Term)) : Trace Term := do
+        $[$rhs]*
+    )
+    elabCommand cmd
   | `(nki $name $args* := do $rhs*) => do
-    let nkiName := name.getId
-    let nkiName' := nkiName.toString.replace "." "_"
-    let leanName := Name.str (<- getCurrNamespace) nkiName'
-    let name := mkIdent (Name.str .anonymous nkiName')
-    modifyEnv fun env =>
-      extension.addEntry env { nkiName, leanName : Builtin }
+    let name <- registerBuiltin name
     let (ids, tys, dflts) <- elabArgs args
     let pos := ((List.range ids.size).map Syntax.mkNatLit).toArray
     let names := ids.map idToStrLit
     let cmd <- `(
       def $name (args : List Term) (kw : List (String × Term)) : Trace Term := do
-        $[let $ids <- getArg $tys args kw $pos $names $dflts]*
+        let fnName := $(idToStrLit name)
+        $[let $ids <- getArg $tys fnName args kw $pos $names $dflts]*
         $[$rhs]*
     )
     elabCommand cmd

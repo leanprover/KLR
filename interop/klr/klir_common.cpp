@@ -66,6 +66,9 @@ String String_des(FILE *in) {
   char *res = NULL;
   if (!cbor_decode_string(in, &res, NULL, NULL))
     throw std::runtime_error("expecting String");
+
+  String result = res;
+  free(res);  // std::string make a copy
   return res;
 }
 

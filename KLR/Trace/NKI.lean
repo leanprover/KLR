@@ -57,24 +57,6 @@ inductive Result where
   | next | brk | cont | ret (t : Term)
   deriving Repr, BEq
 
--- Bind arguments to a Python function based on its signature.
--- See also: Simplify.lean which checks for varargs signatures
-def bindArgs (f : Fun)
-             (args : List Expr)
-             (kwargs : List Keyword)
-             : Trace (List Keyword) := do
-  if args.length + kwargs.length > f.args.length then
-    throw "too mant arguments given (varargs not supported)"
-  f.args.zipIdx.mapM fun ({name := x, dflt := d}, i) => do
-    if h:args.length > i then
-      pure ⟨x, args.get (Fin.mk i h)⟩
-    else if let some kw := kwargs.find? fun kw => kw.name == x then
-      pure kw
-    else if let some e := d then
-      pure ⟨x, e⟩
-    else
-      throw s!"argument {x} not supplied"
-
 -- range, but only in a for-loop context
 private def range (start stop step : Int) : List Term :=
   if step = 0 then []
@@ -152,6 +134,40 @@ original user program may not terminate. We could disallow non-termination in
 NKI and then perhaps prove termination here, but this is TBD.
 -/
 
+-- look for class method (used for overloading)
+def method? (t : Term) (fn : String) : Trace (Option Term) := do
+  match t with
+  | .ref name (.object cls) =>
+    match <- lookup? (.str cls fn) with
+    | some (.source ..) => return some (.method cls fn name)
+    | _ => return none
+  | _ => return none
+
+def binopOverload? (t : Term) (op : BinOp) (right := false) : Trace (Option Term) := do
+  let fn <- match op with
+    | .land => return none
+    | .lor => return none
+    | .eq => pure "eq"
+    | .ne => pure "ne"
+    | .lt => pure "lt"
+    | .le => pure "le"
+    | .gt => pure "gt"
+    | .ge => pure "ge"
+    | .add => pure "add"
+    | .sub => pure "sub"
+    | .mul => pure "mul"
+    | .div => pure "truediv"
+    | .mod => pure "mod"
+    | .pow => pure "pow"
+    | .floor => pure "floordiv"
+    | .lshift => pure "lshift"
+    | .rshift => pure "rshift"
+    | .or => pure "or"
+    | .xor => pure "xor"
+    | .and => pure "and"
+  let fn := if right then s!"__r{fn}__" else s!"__{fn}__"
+  method? t fn
+
 mutual
 partial def expr (e : Expr) : Trace Term :=
   withPos e.pos (expr' e.expr)
@@ -171,8 +187,22 @@ partial def expr' (e' : Expr') : Trace Term := do
       let name <- genName `dict
       extend_global name (.dict ks.toArray)
       return .ref name .dict
-  | .access e ix => access (<- expr e) (<- ix.mapM index)
-  | .binOp op l r => binop op (<- expr l) (<- expr r)
+  | .access e ix =>
+      let e <- expr e
+      let ix <- ix.mapM index
+      if let some m <- method? e "__getitem__" then
+        fnCall m ix []
+      else
+        access e ix
+  | .binOp op l r =>
+      let l <- expr l
+      let r <- expr r
+      if let some m <- binopOverload? l op then
+        fnCall m [r] []
+      else if let some m <- binopOverload? r op (right := true) then
+        fnCall m [l] []
+      else
+        binop op l r
   | .conj l r =>
       let l <- expr l
       if <- l.isFalse then return l else expr r
@@ -185,7 +215,7 @@ partial def expr' (e' : Expr') : Trace Term := do
       else expr fls
   | .call f args kwargs =>
       let f <- expr f
-      fnCall f args kwargs
+      fnCall f (<- args.mapM expr) (<- kwargs.mapM keyword)
   | .object c fs =>
       let fs <- fs.mapM keyword
       let name <- genName `obj
@@ -205,47 +235,10 @@ partial def optInt (e : Option Expr) : Trace (Option Int) := do
   | none => return none
   | some e => return some (<- fromNKI? (<- expr e))
 
-partial def indexExpr (e : Expr) : Trace Term :=
-  withPos e.pos (indexExpr' e.expr)
-
-partial def indexExpr' (e' : Expr') : Trace Term := do
-  match e' with
-  | .value v => value v
-  | .var n =>
-    let value <- lookupName n
-    match value with
-    | .access a =>
-      let dynIdx := Core.DynamicIdx.mk [a.tensor] [1] 0
-      return .dynamic dynIdx
-    | _ => return value
-  | .access e ix =>
-    let ac <- access (<- expr e) (<- ix.mapM index)
-    match ac with
-    | .access a =>
-      let dynIdx := Core.DynamicIdx.mk [a.tensor] [1] 0
-      return .dynamic dynIdx
-    | _ => throw "expected access term"
-  | .binOp op l r => binop op (<- indexExpr l) (<-  indexExpr r)
-  | .call f args kwargs =>
-      let f <- expr f
-      let rv <- fnCall f args kwargs
-      match rv with
-      | .access a =>
-        let dynIdx := Core.DynamicIdx.mk [a.tensor] [1] 0
-        return .dynamic dynIdx
-      | _ => return rv
-
-  | _ => throw s!"Illegal expression inside index {repr e'}"
-
 partial def index (i : Index) : Trace Term :=
   match i with
-  | .coord e => do
-    let idxExpr <- indexExpr e
-    return idxExpr
-  | .slice l u (some {expr := .value .none, ..}) =>
-    return .slice (<- optInt l) (<- optInt u) (some 1)
-  | .slice l u s => do
-    return .slice (<- optInt l) (<- optInt u) (<- optInt s)
+  | .coord e => expr e
+  | .slice l u s => return .slice ((<- optInt l).getD 0) (<- optInt u) ((<- optInt s).getD 1)
   | .ellipsis => return .ellipsis
 
 partial def keyword (kw : Keyword) : Trace (String × Term) :=
@@ -260,13 +253,34 @@ partial def callFn (f : Fun) (args : List (String × Term)) : Trace Term := do
     | .ret t => return t
     | _ => return .none
 
-partial def fnCall (f : Term) (args : List Expr) (kwargs : List Keyword) : Trace Term := do
+-- Bind arguments to a Python function based on its signature.
+-- See also: Simplify.lean which checks for varargs signatures
+partial def bindArgs
+        (f : Fun)
+        (args : List Term)
+        (kwargs : List (String × Term))
+        : Trace (List (String × Term)) := do
+  if args.length + kwargs.length > f.args.length then
+    throw "too mant arguments given (varargs not supported)"
+  f.args.zipIdx.mapM fun ({name := x, dflt := d}, i) => do
+    if h:args.length > i then
+      pure ⟨x, args.get (Fin.mk i h)⟩
+    else if let some t := kwargs.lookup x then
+      pure (x, t)
+    else if let some e := d then
+      pure (x, <- expr e)
+    else
+      throw s!"argument '{x}' not supplied"
+
+partial def fnCall
+        (f : Term)
+        (args : List Term)
+        (kwargs : List (String × Term))
+        : Trace Term := do
   match f with
   | .builtin n self =>
       let f <- builtinFn n
-      let args <- args.mapM expr
       args.forM checkAccess
-      let kwargs <- kwargs.mapM keyword
       kwargs.forM fun (_,t) => checkAccess t
       let args := match self with
         | none => args
@@ -275,38 +289,49 @@ partial def fnCall (f : Term) (args : List Expr) (kwargs : List Keyword) : Trace
   | .source f =>
       -- Note: here is where we can't prove termination
       let args <- bindArgs f args kwargs
-      let args <- args.mapM keyword
       callFn f args
   | .method cls func ref => do
       match <- lookup? (.str cls func) with
       | some (.source f) =>
         let ref := Term.ref ref (.object cls)
-        -- this is a hack because bindArgs only works over Expr
-        let dummy := Expr.mk (.value .none) { line := 0 }
-        let args <- bindArgs f (dummy :: args) kwargs
-        let args <- args.mapM keyword
-        let args := match args with
-          | [] => []
-          | (self,_) :: args => (self,ref) :: args
+        let args <- bindArgs f (ref :: args) kwargs
         callFn f args
       | _ => throw s!"{func} is not a method of {cls}"
-  | t => throw s!"'{Term.kindStr t}' not a callable type"
+  | t => throw s!"'{Term.kindStr t}' is not a callable type"
 
 -- Statements
 
-partial def mutate (x e : Expr) : Trace Unit := do
+partial def mutate (x e : Expr) : Trace Unit :=
+  withPos x.pos do
   match x.expr with
   | .access x [i] =>
-    if let .ref name .list <- expr x then
-      if let .list a <- lookup name then
-        let i <- index i
-        let i : Nat <- fromNKI? i
-        let e <- expr e
-        if h : i < a.size then
-          extend name (.list (a.set i e h))
+    match <- expr x with
+    | .ref name .list =>
+        if let .list a <- lookup name then
+          let i <- index i
+          let i : Nat <- fromNKI? i
+          let e <- expr e
+          if h : i < a.size then
+            extend name (.list (a.set i e h))
+            return ()
+          else throw "index out of range"
+    | .ref name .dict =>
+        if let .dict a <- lookup name then
+          let i <- index i
+          let i : String <- fromNKI? i
+          let e <- expr e
+          extend name (.dict (AA.insert a i e))
           return ()
-        else throw "index out of range"
-    throw "Updating a tile with lvalue assignment is not allowed"
+    | r@(.ref _ (.object cls)) =>
+        if let some m <- method? r "__setitem__" then
+          let _ <- fnCall m [<- index i, <- expr e] []
+          return ()
+        else
+          throw s!"class {cls} does not have a __setitem__ method"
+    | .tensor .. =>
+        throw "Updating a tile with lvalue assignment is not allowed"
+    | _ =>
+        throw "Value is not modifiable"
   | .var (.str obj var) =>
     match <- lookup? obj with
     | some (.ref name (.object cls)) =>
@@ -318,7 +343,7 @@ partial def mutate (x e : Expr) : Trace Unit := do
         extend_global name (.object c fs)
       | _ => throw s!"{obj}.{var} is immutable"
     | _ => throw s!"{obj}.{var} is immutable"
-  | t => throw s!"mutation not supported {repr t}"
+  | _ => throw "mutation not supported"
 
 partial def iterator (i : Iterator) : Trace (List Term) := do
   match i with
@@ -437,7 +462,7 @@ def traceKernel (k : Kernel) : Trace Core.Kernel := do
   | none => throw s!"function {k.entry} not found"
   | some f => do
       let (inputs, args) := processArgs k.args
-      let res <- fnCall (.source f) [] args
+      let res <- fnCall (.source f) [] (<- args.mapM keyword)
       let inputs <- inputs.mapM value
       let inputs := Core.tensors inputs
       let outputs := Core.tensors $ <- lowerRes res

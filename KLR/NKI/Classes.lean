@@ -176,18 +176,15 @@ private def qual (name : Name) (s : String) : String :=
 def genClasses (k : Kernel) : Cls Kernel := do
   let mut vs := #[]
   let mut fs := #[]
-  let mut cs := #[]
   for c in k.cls do
     let ms <- ensureInit c
     let vars := c.fields.map fun kw => Arg.mk (qual c.name kw.name) kw.expr
     fs := fs.append ms.toArray
-    cs := cs.push { c with methods := [] }
     vs := vs.append vars.toArray
 
   -- Note: eraseDups removes the earlier elements in the list
-  let k := { k with
+  return { k with
     funs    := (k.funs ++ fs.toList).eraseDups
-    cls     := cs.toList
+    cls     := []
     globals := (k.globals ++ vs.toList).eraseDups
   }
-  return k

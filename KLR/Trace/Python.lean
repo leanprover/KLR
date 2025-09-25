@@ -58,11 +58,16 @@ The builtin.python namespace is mapped to the top-level namespace.
 For example, builtin.python.f will appear as f.
 -/
 
-nki builtin.python.slice (b : Int) (e : Int) (s : Int) := do
-  return .slice b e s
+nki builtin.python.slice (args : List Term) := do
+  match args with
+  | [e]     => return .slice (some 0) (<- fromNKI? e) (some 1)
+  | [b,e]   => return .slice (<- fromNKI? b) (<- fromNKI? e) (some 1)
+  | [b,e,s] => return .slice (<- fromNKI? b) (<- fromNKI? e) (<- fromNKI? s)
+  | _ => throw "invalid arguments"
 
-nki builtin.python.print (t : Term) := do
-  message (<- t.toStr)
+nki builtin.python.print (args : List Term) := do
+  let ts <- args.mapM Term.toStr
+  message (" ".intercalate ts)
   return .none
 
 nki builtin.python.len (t : Term) := do

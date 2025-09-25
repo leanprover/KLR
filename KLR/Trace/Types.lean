@@ -208,30 +208,22 @@ def lookup (name : Name) : Trace Term := do
 def enter (m : Trace a) : Trace a := do
   let s ← get
   let locals := s.locals
-  try
-    let result ← m
+  try m
+  finally
     modify fun s => { s with locals := locals }
-    return result
-  catch e =>
-    modify fun s => { s with locals := locals }
-    throw e
 
 -- Enter a new function scope, removing all local bindings
 def enterFun (m : Trace a) : Trace a := do
   let s ← get
   let locals := s.locals
   set { s with locals := ∅ }
-  try
-    let result ← m
+  try m
+  finally
     modify fun s => { s with locals := locals }
-    return result
-  catch e =>
-    modify fun s => { s with locals := locals }
-    throw e
 
 -- append fully traced statement
 def add_stmt (stmt : Pos -> Stmt) : Trace Unit := do
-  let pos <-getPos
+  let pos <- getPos
   modify fun s => { s with body := s.body.push (stmt pos) }
 
 private def identity (n : Nat) : TensorLib.Tensor := Id.run do

@@ -419,7 +419,7 @@ partial def access (e : Term) (indexes : List Term) : Trace Term := do
     let indices <- toIndex pattern.tensor.shape.toList indexes
     let ac <- Access.combine (.pattern pattern) indices
     return .access (.pattern ac)
-  | t => throw s!"subscript not supported, for term '{Term.kindStr t}'"
+  | t => throw s!"subscript not supported, for '{Term.kindStr t}'"
 
 /-
 # Attributes

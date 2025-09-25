@@ -173,6 +173,7 @@ static lean_object* py_strdup(struct state *st, PyObject *obj) {
     return lean_mk_string("");
   }
 
+  PyErr_Clear();
   Py_ssize_t sz = -1;
   const char *s = PyUnicode_AsUTF8AndSize(obj, &sz);
   if (!s || sz < 0 || PyErr_Occurred()) {
@@ -753,6 +754,7 @@ static lean_object* value(struct state *st, PyObject *obj) {
   }
   else if (PyLong_Check(obj)) {
     int overflow = 0;
+    PyErr_Clear();
     long value = PyLong_AsLongAndOverflow(obj, &overflow);
     if (value == -1 && PyErr_Occurred()) {
       PyErr_Clear();
@@ -768,6 +770,7 @@ static lean_object* value(struct state *st, PyObject *obj) {
     }
   }
   else if (PyFloat_Check(obj)) {
+    PyErr_Clear();
     double d = PyFloat_AsDouble(obj);
     if (PyErr_Occurred()) {
       PyErr_Clear();

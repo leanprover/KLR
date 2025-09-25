@@ -155,35 +155,35 @@ abbrev PassM := EStateM PosError PassState
 namespace PassM
 
 instance : MonadExceptOf String PassM where
-  throw msg := throw (.raw msg)
-  tryCatch m f := tryCatch m (fun e => match e with
-    | .formatted _ => throw e
-    | _ => f e.msg
-  )
+  throw msg := do throw (.raw msg)
+  tryCatch m f := tryCatch m fun e => f e.msg
 
--- get the current source position
+-- get the current source position (adjusted)
 def getPos : PassM Pos := do
   let s <- get
   let pos := s.pos
   return { pos with line := pos.line + s.lineOffset - 1 }
 
 def withPos (pos : Pos) (m : PassM a) : PassM a :=
-  fun s => match m { s with pos := pos } with
-    | .ok x s => .ok x (s.locate pos)
-    | .error e s => .error (e.locate pos) (s.locate pos)
+  fun s =>
+    let pos' := s.pos
+    match m { s with pos := pos } with
+    | .ok x s => .ok x {s.locate pos with pos := pos'}
+    | .error e s => .error (e.locate pos) {s.locate pos with pos := pos'}
 
 def withFile (file : String) (lineOffset : Nat) (source : String) (m : PassM a) : PassM a :=
   fun s =>
+    let pos' := s.pos
     let pos := { s.pos with filename := some file }
     match m { s with pos, lineOffset := lineOffset } with
-    | .ok x s => .ok x (s.addFile file lineOffset)
+    | .ok x s => .ok x {s.addFile file lineOffset with pos := pos'}
     | .error msg s =>
         let msg := match msg with
           | .raw msg => genError msg file lineOffset source pos
-          | .located pos msg => msg ++ genError msg file lineOffset source pos
+          | .located pos msg => genError msg file lineOffset source pos
           | .absolute f pos msg => genError msg f lineOffset source pos
           | .formatted msg => msg ++ genError "called from" file lineOffset source pos
-       .error (.formatted msg) (s.addFile file lineOffset)
+       .error (.formatted msg) {s.addFile file lineOffset with pos := pos'}
 where
   genError (msg : String) (f: String) (offset : Nat) (source : String) (pos : Pos) : String :=
     let lines := source.splitOn "\n"
