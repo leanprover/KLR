@@ -725,8 +725,8 @@ struct NcActivate final {
   Ptr<TensorRef> src;
   AccumCmd accumulatorCmd;
   ActivationFunc activationFunc;
-  Ptr<Immediate> scale;
-  Ptr<Immediate> bias;
+  Ptr<Operand> scale;
+  Ptr<Operand> bias;
   Option<AluOp> reduceOp;
   Option<Ptr<TensorRef>> reduceRes;
   Option<Dtype> dtype;

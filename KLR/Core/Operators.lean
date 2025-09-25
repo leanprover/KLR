@@ -301,8 +301,8 @@ structure NcActivate where
   src             : TensorRef
   accumulatorCmd  : AccumCmd
   activationFunc  : ActivationFunc
-  scale           : Immediate
-  bias            : Immediate
+  scale           : Operand
+  bias            : Operand
   reduceOp        : Option AluOp
   reduceRes       : Option TensorRef
   dtype           : Option Dtype
