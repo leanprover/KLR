@@ -40,7 +40,7 @@ static void kernel_dealloc(struct kernel *self) {
   if (!self) return;
   Py_XDECREF(self->f); // NULL is OK
   region_destroy(self->region);
-  // TODO: free lean objects
+  free_lean_kernel(self->lean_kernel);
   Py_TYPE(self)->tp_free((PyObject *) self);
 }
 
@@ -81,11 +81,7 @@ static PyObject* kernel_specialize(struct kernel *self, PyObject *args_tuple) {
 
 // frontend.Kernel.serialize_python
 static PyObject* kernel_serialize(struct kernel *self) {
-  const char *json = serialize_python(self);
-  if (json)
-    return PyUnicode_FromString(json);
-  else
-    return NULL;
+  return serialize_python(self);
 }
 
 // frontend.Kernel.trace
@@ -95,11 +91,7 @@ static PyObject* kernel_trace(struct kernel *self, PyObject *args) {
     return NULL;
   }
 
-  const char *json = trace(self, dst_file);
-  if (json)
-    return PyUnicode_FromString(json);
-  else
-    return NULL;
+  return trace(self, dst_file);
 }
 
 // frontend.version

@@ -10,6 +10,10 @@ Authors: Paul Govereau, Sean McLaughlin
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if PY_MINOR_VERSION == 9
 #define Py_IsNone(x) ((x) == Py_None)
 #define Py_IsTrue(x) ((x) == Py_True)
@@ -40,9 +44,17 @@ struct _mod* parse_string(const char *str, PyObject* filename);
 void free_python_ast(struct _mod *m);
 
 // gather.c
+
+// On failure, returns false, with an exception set
 bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *grid, PyObject *schedule);
-const char* serialize_python(struct kernel *k);
-const char* trace(struct kernel *k, const char *dst_file);
+
+// Returns Python string (or NULL, with an exception set)
+PyObject* serialize_python(struct kernel *k);
+
+// Returns Python string (or NULL, with an exception set)
+PyObject* trace(struct kernel *k, const char *dst_file);
+
+void free_lean_kernel(struct lean_kernel *l_kernel);
 
 // klr_ffi.c
 
@@ -54,3 +66,7 @@ bool initialize_KLR_lean_ffi(void);
 PyObject* lean_ffi_hello(PyObject *self, PyObject *args);
 PyObject* lean_ffi_throw(PyObject *self, PyObject *args);
 PyObject* lean_ffi_panic(PyObject *self, PyObject *args);
+
+#ifdef __cplusplus
+}
+#endif

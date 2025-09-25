@@ -1,4 +1,11 @@
+#pragma once
+
 #include <lean/lean.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 lean_object* Core_Pos_mk(lean_object*,lean_object*,lean_object*,lean_object*,lean_object*);
 lean_object* Python_Const_bool(uint8_t);
 lean_object* Python_Const_int(lean_object*);
@@ -76,3 +83,7 @@ extern uint8_t Python_BinOp_or;
 extern uint8_t Python_BinOp_xor;
 extern uint8_t Python_BinOp_and;
 extern uint8_t Python_BinOp_floor;
+
+#ifdef __cplusplus
+}
+#endif

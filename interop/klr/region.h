@@ -6,6 +6,10 @@ Authors: Paul Govereau, Sean McLaughlin, Michael Graeb
 #pragma once
 #include "stdc.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct region;
 
 struct region *region_create(void);
@@ -26,3 +30,7 @@ char *region_strdup(struct region *region, const char *src);
 // Copying stops when `len` bytes are copied, or a null-terminator is found.
 // The new string is always null-terminated.
 char *region_strndup(struct region *region, const char *src, size_t len);
+
+#ifdef __cplusplus
+}
+#endif

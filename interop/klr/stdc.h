@@ -23,7 +23,6 @@ Authors: Paul Govereau, Sean McLaughlin
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdatomic.h>
 #include <limits.h>
 
 // Standard C utilites (free standing)

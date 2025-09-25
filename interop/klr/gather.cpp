@@ -3,9 +3,32 @@ Copyright (c) 2024 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Paul Govereau, Sean McLaughlin
 */
+#include <list>
+#include <stdarg.h>
+#include <string>
+
 #include "lean_ast.h"
 #include "frontend.h"
 #include "ast_python.h"
+#include "refcount_ptr.hpp"
+
+// Like std::shared_ptr/unique_ptr, but for lean_object*.
+// Calls lean_dec() on destruction, if it still holds a pointer.
+// When setting a pointer, it MUST be one that you own.
+// BE CAREFUL: Lean APIs usually steal ownership of their function arguments.
+// If a lean function takes `lean_object *` or `lean_obj_arg`, then you MUST
+// pass ownership of the arg like: `lean_stealing_fn(my_lean_rc_ptr.release())`.
+// If a lean function takes `b_lean_obj_arg`, then it is only borrowing the
+// reference, and you call it like: `lean_borrowing_fn(my_lean_rc_ptr.get())`.
+using lean_rc_ptr = refcount_ptr<lean_object, lean_inc, lean_dec>;
+
+// Like shared_ptr/unique_ptr, but for PyObject*.
+// If non-null, calls Py_DECREF() on destruction.
+// When creating, you MUST pass in a reference that you own.
+// DO NOT put a borrowed reference in here unless you Py_INCREF() first.
+using python_rc_ptr = refcount_ptr<PyObject, Py_IncRef, Py_DecRef>;
+
+// TODO: error handling treatise
 
 /*
 -- Gather
@@ -17,49 +40,45 @@ references to other code and recursively load the referenced code.
 */
 
 struct lean_kernel {
-  lean_object *entry;   // String
-  lean_object *funs;    // List Fun
-  lean_object *cls;     // List Cls
-  lean_object *globals; // List Keyword
-  lean_object *kernel;  // Kernel
+  lean_rc_ptr entry;   // String
+  lean_rc_ptr funs;    // List Fun
+  lean_rc_ptr cls;     // List Cls
+  lean_rc_ptr globals; // List Keyword
+  lean_rc_ptr kernel;  // Kernel
 };
 
 struct state {
-  // Memory region containing all data from this pass
-  // (including the elements of this structure)
-  struct region *region;
-
   // if true, do not follow references
-  bool ignore_refs;
+  bool ignore_refs = false;
 
   // definitions to be processed
-  struct worklist {
-    struct worklist *next;
-    const char *name;  // this is in the Lean heap
-    lean_object *str;  // this is the string "name"
-    PyObject *obj;
-  } *work;
+  struct work {
+    const char *name() const { return lean_string_cstr(str.get()); }
+    lean_rc_ptr str;  // this is the string "name"
+    python_rc_ptr obj;
+  };
+  std::list<work> worklist; // using list (not vector) for simplicity, since we modify this while iterating it
 
   // Set of processed definitions
   struct definition {
-    struct definition *next;
-    const char *name; // this is in the Lean heap
-    lean_object *str; // this is the string "name"
+    const char *name() const { return lean_string_cstr(str.get()); }
+    lean_rc_ptr str; // this is the string "name"
     enum { FUN, CLS, GLOBAL } type;
-    lean_object *obj; // type: Fun, Cls, or Keyword
-  } *defs;
+    lean_rc_ptr obj; // type: Fun, Cls, or Keyword
+  };
+  std::list<definition> defs;
 
   // Current class/function scope
-  struct scope {
-    PyObject *cls;     // python class we are working on
-    PyObject *f;       // python function we are working on
-    lean_object *src;  // source code of definition
-    lean_object *file; // filename where definition lives
-    u32 line_offset;   // line number in `file` where definition lives
-    u32 pad;
+  struct scope_item {
+    python_rc_ptr cls;    // python class we are working on
+    python_rc_ptr f;      // python function we are working on
+    lean_rc_ptr src;      // source code of definition
+    lean_rc_ptr file;     // filename where definition lives
+    u32 line_offset = 0;  // line number in `file` where definition lives
+    u32 pad = 0;
     // Current AST node location
     struct pos {
-      u32 line, col;
+      u32 line = 0, col = 0;
     } pos;
   } scope;
 };
@@ -70,179 +89,187 @@ struct state {
 // Note: if we get an error while building the error, the user will get
 // the error we got here, e.g. NoMemory, etc.
 
-static void syntax_error(const struct state *st, const char *msg) {
-  PyObject *msg_obj = PyUnicode_FromString(msg);
-  if (!msg_obj)
-    return;
-
-  PyObject *args = PyTuple_Pack(1, msg_obj);
-  Py_DECREF(msg_obj);
-  if (!args)
-    return;
-
-  PyErr_SetObject(PyExc_SyntaxError, args);
-  Py_DECREF(args);
+static void syntax_error(const struct state *st, const char *format, ...) {
+  va_list vargs;
+  va_start(vargs, format);
+  PyErr_FormatV(PyExc_SyntaxError, format, vargs);
+  va_end(vargs);
 
   if (st->scope.file) {
-    PyErr_SyntaxLocationEx(lean_string_cstr(st->scope.file),
+    PyErr_SyntaxLocationEx(lean_string_cstr(st->scope.file.get()),
         st->scope.line_offset + st->scope.pos.line - 1,
         st->scope.pos.col);
   }
 }
 
+
+// Return whether a definition with this name already exists.
+// This function never raises exceptions.
 static bool have_def(const struct state *st, const char *name) {
-  for (struct definition *d = st->defs; d; d = d->next) {
-    if (strcmp(d->name, name) == 0)
+  for (const auto &d : st->defs) {
+    if (strcmp(d.name(), name) == 0)
       return true;
   }
   return false;
 }
 
+// Create new Python string from Lean string.
+// On failure, returns NULL with an exception set.
+static PyObject* py_string_from_lean(lean_rc_ptr l_str) {
+  return PyUnicode_FromStringAndSize(lean_string_cstr(l_str.get()), lean_string_len(l_str.get()));
+}
+
 // Copy a Python string to the Lean heap.
-// returns an empty string on error
-static lean_object* py_strdup(PyObject *obj) {
-  if (!obj)
-    return lean_mk_string("");
+// On failure, returns NULL with an exception set.
+static lean_rc_ptr py_strdup(PyObject *obj) {
+  if (!obj) {
+    PyErr_Format(PyExc_TypeError, "NULL passed to %s", __func__);
+    return NULL;
+  }
 
   Py_ssize_t sz = -1;
   const char *s = PyUnicode_AsUTF8AndSize(obj, &sz);
-  if (!s || sz < 0) {
-    PyErr_Clear();
-    return lean_mk_string("");
+  if (!s) {
+    return NULL;
   }
 
-  return lean_mk_string_from_bytes(s, sz);
+  return lean_rc_ptr(lean_mk_string_from_bytes(s, sz));
 }
 
-static lean_object* path_append(lean_object *base, PyObject *obj) {
-  lean_object *dot = lean_mk_string(".");
-  lean_object *lid = py_strdup(obj);
-  lean_object *tmp = lean_string_append(base, dot);
-  lean_object *res = lean_string_append(tmp, lid);
-  lean_dec(dot);
-  lean_dec(lid);
-  return res;
-}
-
-// Construct a path name from two Python strings
-static inline lean_object* py_path_name(PyObject *m, PyObject *x) {
-  if (!m || !x)
+// Create new Lean string, formatted like "{base}.{obj}".
+// On failure, returns NULL with an exception set.
+static lean_rc_ptr path_append(lean_rc_ptr base, PyObject *obj) {
+  lean_rc_ptr lid = py_strdup(obj);
+  if (!lid)
     return NULL;
-  lean_object *base = py_strdup(m);
-  lean_object *res = path_append(base, x);
-  return res;
+
+  lean_object *base_dot = lean_string_append(base.release(), lean_mk_string("."));
+  return lean_rc_ptr(lean_string_append(base_dot, lid.get()));
 }
 
-// Construct full name of python function or class
-static lean_object* py_def_name(PyObject *f) {
-  PyObject *module = PyObject_GetAttrString(f, "__module__");
-  PyObject *name = PyObject_GetAttrString(f, "__name__");
+// Construct a path name from two Python strings, formatted like "{m}.{x}".
+// On failure, returns NULL with an exception set.
+static inline lean_rc_ptr py_path_name(PyObject *m, PyObject *x) {
+  if (!m || !x) {
+    PyErr_Format(PyExc_TypeError, "NULL passed to %s", __func__);
+    return NULL;
+  }
+  lean_rc_ptr base = py_strdup(m);
+  if (!base)
+    return NULL;
 
-  lean_object *f_name = py_path_name(module, name);
+  return path_append(std::move(base), x);
+}
 
-  Py_XDECREF(module);
-  Py_XDECREF(name);
-  PyErr_Clear();
-  return f_name;
+// Construct full name of python function or class.
+// On failure, returns NULL with an exception set.
+static lean_rc_ptr py_def_name(PyObject *f) {
+  auto module_ = python_rc_ptr(PyObject_GetAttrString(f, "__module__"));
+  if (!module_)
+    return NULL;
+
+  auto name = python_rc_ptr(PyObject_GetAttrString(f, "__name__"));
+  if (!name)
+    return NULL;
+
+  return py_path_name(module_.get(), name.get());
 }
 
 // Construct full name of python method
-static lean_object* py_method_name(lean_object *clsname, PyObject *f) {
-  PyObject *name = PyObject_GetAttrString(f, "__name__");
+// On failure, returns NULL with an exception set.
+static lean_rc_ptr py_method_name(lean_rc_ptr clsname, PyObject *f) {
+  auto name = python_rc_ptr(PyObject_GetAttrString(f, "__name__"));
+  if (!name)
+    return NULL;
 
-  lean_inc(clsname);
-  lean_object *m_name = path_append(clsname, name);
-
-  Py_XDECREF(name);
-  PyErr_Clear();
-  return m_name;
+  return path_append(std::move(clsname), name.get());
 }
 
 // Add a new item to the work-list (if necessary)
-// Note: we are ignoring possible errors from Python as this function
+// Note: we are clearing any possible errors from Python as this function
 // is allowed to fail.
 static void add_work(struct state *st, PyObject *obj) {
-  lean_object *str = py_def_name(obj);
+  lean_rc_ptr str = py_def_name(obj);
   if (!str)
     return;
-  const char *name = lean_string_cstr(str);
+  const char *name = lean_string_cstr(str.get());
 
   // skip numpy (for performance)
   if (strncmp("numpy.", name, 6) == 0) {
-    lean_dec(str);
     return;
   }
 
   // skip enum (for correctness)
   if (strncmp("enum.", name, 5) == 0) {
-    lean_dec(str);
     return;
   }
 
   if (have_def(st, name)) {
-    lean_dec(str);
     return;
   }
 
-  // Scan/Add to worklist
-  for (struct worklist **work = &st->work;; work = &(*work)->next) {
-    if (!*work) {
-      struct worklist *node = region_alloc(st->region, sizeof(*node));
-      node->next = NULL;
-      node->name = name;
-      node->str = str;
-      node->obj = obj;
-      *work = node;
-      break;
-    }
-    if (strcmp((*work)->name, name) == 0) {
-      lean_dec(str);
-      break;
+  // skip if already in worklist
+  for (const auto &work : st->worklist) {
+    if (strcmp(work.name(), name) == 0) {
+      return;
     }
   }
+
+  // add to worklist
+  state::work &new_work = st->worklist.emplace_back();
+  new_work.str = std::move(str);
+  Py_INCREF(obj);
+  new_work.obj = python_rc_ptr(obj);
 }
 
 // -- functions for building basic types
 
-static inline lean_object* mkNone() {
-  return lean_box(0);
+// This function cannot fail.
+static inline lean_rc_ptr mkNone() {
+  return lean_rc_ptr(lean_box(0));
 }
 
-static lean_object* mkSome(lean_object *obj) {
-  lean_object* some = lean_alloc_ctor(1, 1, 0);
-  lean_ctor_set(some, 0, obj);
+// This function cannot fail.
+static lean_rc_ptr mkSome(lean_rc_ptr obj) {
+  auto some = lean_rc_ptr(lean_alloc_ctor(1, 1, 0));
+  lean_ctor_set(some.get(), 0, obj.release());
   return some;
 }
 
-static inline lean_object* mkOption(lean_object *obj) {
-  return obj ? mkSome(obj) : mkNone();
+// This function cannot fail.
+static inline lean_rc_ptr mkOption(lean_rc_ptr obj) {
+  return obj ? mkSome(std::move(obj)) : mkNone();
 }
 
-static inline lean_object* mkNil() {
-  return lean_box(0);
+// This function cannot fail.
+static inline lean_rc_ptr mkNil() {
+  return lean_rc_ptr(lean_box(0));
 }
 
-static inline lean_object*
+// This function cannot fail.
+static inline lean_rc_ptr
 mkPos(unsigned line, unsigned column,
       unsigned lineEnd, unsigned columnEnd,
-      lean_object *filename)
+      lean_rc_ptr filename)
 {
-  return Core_Pos_mk(
+  return lean_rc_ptr(Core_Pos_mk(
     lean_unsigned_to_nat(line),
     lean_unsigned_to_nat(column),
-    mkOption(lean_unsigned_to_nat(lineEnd)),
-    mkOption(lean_unsigned_to_nat(columnEnd)),
-    mkOption(filename));
+    mkOption(lean_rc_ptr(lean_unsigned_to_nat(lineEnd))).release(),
+    mkOption(lean_rc_ptr(lean_unsigned_to_nat(columnEnd))).release(),
+    mkOption(std::move(filename)).release()));
 }
 
+// This function cannot fail.
 #define Pos(obj) mkPos(obj->lineno, obj->end_lineno, \
                        obj->col_offset, obj->end_col_offset, st->scope.file)
 
-static lean_object* value(struct state *st, PyObject *obj);
-static lean_object* const_exprs(struct state *st, PyObject *obj);
-static lean_object* nat_list(struct state *st, PyObject *obj);
+static lean_rc_ptr value(struct state *st, PyObject *obj);
+static lean_rc_ptr const_exprs(struct state *st, PyObject *obj);
+static lean_rc_ptr nat_list(struct state *st, PyObject *obj);
 
 // Check if object is a tensor type
+// This function never raises exceptions.
 static bool is_tensor(PyObject *obj) {
   PyTypeObject *t = Py_TYPE(obj);
   if (!t) return 0;
@@ -254,54 +281,44 @@ static bool is_tensor(PyObject *obj) {
 }
 
 // Handle tensor objects (return Const)
-static lean_object* tensor_const(struct state *st, PyObject *obj) {
-  lean_object *sh = NULL;
-  lean_object *dty = NULL;
+// On failure, returns NULL with an exception set.
+static lean_rc_ptr tensor_const(struct state *st, PyObject *obj) {
+  auto shape = python_rc_ptr(PyObject_GetAttrString(obj, "shape"));
+  if (!shape) return NULL;
 
-  PyObject *shape = PyObject_GetAttrString(obj, "shape");
-  if (!shape) goto error;
+  lean_rc_ptr sh = nat_list(st, shape.get());
+  if (!sh) return NULL;
 
-  sh = nat_list(st, shape);
-  Py_DECREF(shape);
-  if (!sh) goto error;
+  auto dtype = python_rc_ptr(PyObject_GetAttrString(obj, "dtype"));
+  if (!dtype) return NULL;
 
-  PyObject *dtype = PyObject_GetAttrString(obj, "dtype");
-  if (!dtype) goto error;
+  auto dstr = python_rc_ptr(PyObject_Str(dtype.get()));
+  if (!dstr) return NULL;
 
-  PyObject *dstr = PyObject_Str(dtype);
-  Py_DECREF(dtype);
-  if (!dstr) goto error;
+  lean_rc_ptr dty = py_strdup(dstr.get());
+  if (!dty) return NULL;
 
-  dty = py_strdup(dstr);
-  Py_DECREF(dstr);
-  if (!dty) goto error;
-
-  return Python_Const_tensor(sh, dty);
-
-error:
-  if (sh) lean_dec(sh);
-  if (dty) lean_dec(dty);
-  return NULL;
+  return lean_rc_ptr(Python_Const_tensor(sh.release(), dty.release()));
 }
 
 // This function never raises exceptions
-// Returns a new reference
-static PyObject* get_numpy_generic_dtype() {
+// Returns a new reference, or NULL
+static python_rc_ptr get_numpy_generic_dtype() {
   // Try to get already imported numpy module
-  PyObject *numpy_name = PyUnicode_FromString("numpy");
-  PyErr_Clear();
-  if (!numpy_name) return NULL;
+  auto numpy_name = python_rc_ptr(PyUnicode_FromString("numpy"));
+  if (!numpy_name) {
+    PyErr_Clear();
+    return NULL;
+  }
 
-  PyObject *numpy = PyImport_GetModule(numpy_name);
-  Py_DECREF(numpy_name);
+  auto numpy = python_rc_ptr(PyImport_GetModule(numpy_name.get()));
   if (!numpy) {
     PyErr_Clear();
     return NULL;
   }
 
   // Get numpy.generic class
-  PyObject *generic_class = PyObject_GetAttrString(numpy, "generic");
-  Py_DECREF(numpy);
+  auto generic_class = python_rc_ptr(PyObject_GetAttrString(numpy.get(), "generic"));
   if (!generic_class) {
     PyErr_Clear();
     return NULL;
@@ -309,50 +326,46 @@ static PyObject* get_numpy_generic_dtype() {
   return generic_class;
 }
 
-// Check if object is numpy dtype, if it is, then return the object
+// Check if object is numpy dtype
 // This function never raises exceptions
 static bool is_numpy_dtype(PyObject *obj) {
-  PyObject *generic_dtype = get_numpy_generic_dtype();
-  if (!generic_dtype) return NULL;
+  python_rc_ptr generic_dtype = get_numpy_generic_dtype();
+  if (!generic_dtype) return false;
 
   // Check if obj is instance of numpy.generic or subclass
-  int result = PyObject_IsSubclass(obj, generic_dtype);
-  Py_DECREF(generic_dtype);
+  int result = PyObject_IsSubclass(obj, generic_dtype.get());
   return result == 1;
 }
 
-// Check if object is numpy dtype instance, if it is, then return dtype object
-// The user is responsible for decrementing a ref count on object returned
-// if object is not null
+// Check if object is numpy dtype instance, if it is, then return dtype object.
+// Otherwise return NULL
 //
 // This function never raises exceptions
-// Returns a new reference
-static PyObject* numpy_dtype_instance(PyObject *obj) {
+static python_rc_ptr numpy_dtype_instance(PyObject *obj) {
   // NOTE: order matters here. If attemting to get type attr from
   // object before attempting to import numpy the object comes out
   // blank
-  PyObject *generic_dtype = get_numpy_generic_dtype();
+  python_rc_ptr generic_dtype = get_numpy_generic_dtype();
   if (!generic_dtype) return NULL;
 
-  PyObject* obj_type = PyObject_GetAttrString(obj, "type");
+  auto obj_type = python_rc_ptr(PyObject_GetAttrString(obj, "type"));
   if (!obj_type) {
     PyErr_Clear();
-    Py_DECREF(generic_dtype);
     return NULL;
   }
 
   // Check if obj is instance of numpy.generic or subclass
-  int result = PyObject_IsSubclass(obj_type, generic_dtype);
-  Py_DECREF(generic_dtype);
+  int result = PyObject_IsSubclass(obj_type.get(), generic_dtype.get());
 
   if (result == 1) { // it's -1 when it's false
     return obj_type;
   }
 
-  Py_DECREF(obj_type);
   return NULL;
 }
 
+// Return name of suggested type, or NULL.
+// This function never raises exceptions.
 static const char* suggest_nki_dtype(PyObject *obj) {
   const char* t = ((PyTypeObject*)obj)->tp_name;
   if (!t) return NULL;
@@ -370,77 +383,72 @@ static const char* suggest_nki_dtype(PyObject *obj) {
   return NULL;
 }
 
-static lean_object* const_dict(struct state *st, PyObject *obj);
+static lean_rc_ptr const_dict(struct state *st, PyObject *obj);
 
 // returns Expr
-static lean_object* const_expr(struct state *st, PyObject *obj) {
-  // TODO: this is leaking on error
-  lean_object *pos = mkPos(0, 0, 0, 0, st->scope.file);
+// On failure, returns NULL with an exception set
+static lean_rc_ptr const_expr(struct state *st, PyObject *obj) {
+  lean_rc_ptr pos = mkPos(0, 0, 0, 0, st->scope.file);
 
-  lean_object *c = value(st, obj);
+  lean_rc_ptr c = value(st, obj);
   if (c) {
-    return Python_Expr_mk(Python_Expr_const(c), pos);
+    return lean_rc_ptr(Python_Expr_mk(Python_Expr_const(c.release()), pos.release()));
   }
 
   // value may have set an exception, clear it
   PyErr_Clear();
 
-  PyObject *numpy_dt;
   // Check for other types of supported global values
   if (PyTuple_Check(obj)) {
-    lean_object *l = const_exprs(st, obj);
+    lean_rc_ptr l = const_exprs(st, obj);
     if (!l) return NULL;
-    return Python_Expr_mk(Python_Expr_tuple(l, Python_Ctx_load), pos);
+    return lean_rc_ptr(Python_Expr_mk(Python_Expr_tuple(l.release(), Python_Ctx_load), pos.release()));
   }
   else if (PyList_Check(obj)) {
-    lean_object *l = const_exprs(st, obj);
+    lean_rc_ptr l = const_exprs(st, obj);
     if (!l) return NULL;
-    return Python_Expr_mk(Python_Expr_list(l, Python_Ctx_load), pos);
+    return lean_rc_ptr(Python_Expr_mk(Python_Expr_list(l.release(), Python_Ctx_load), pos.release()));
   }
   else if (PyDict_Check(obj)) {
-    PyObject *keys = PyDict_Keys(obj);
-    PyObject *vals = PyDict_Values(obj);
+    auto keys = python_rc_ptr(PyDict_Keys(obj));
+    if (!keys) return NULL;
 
-    lean_object *l_keys = const_exprs(st, keys);
-    lean_object *l_vals = const_exprs(st, vals);
+    auto vals = python_rc_ptr(PyDict_Values(obj));
+    if (!vals) return NULL;
 
-    Py_XDECREF(keys);
-    Py_XDECREF(vals);
+    lean_rc_ptr l_keys = const_exprs(st, keys.get());
+    if (!l_keys) return NULL;
 
-    if (l_keys && l_vals)
-      return Python_Expr_mk(Python_Expr_dict(l_keys, l_vals), pos);
+    lean_rc_ptr l_vals = const_exprs(st, vals.get());
+    if (!l_vals) return NULL;
+
+    return lean_rc_ptr(Python_Expr_mk(Python_Expr_dict(l_keys.release(), l_vals.release()), pos.release()));
   }
   else if (PyModule_Check(obj)) {
     const char *name = PyModule_GetName(obj);
     if (!name) {
-      PyErr_Clear();
       return NULL;
     }
-    return Python_Expr_mk(Python_Expr_name(lean_mk_string(name), Python_Ctx_load), pos);
+    return lean_rc_ptr(Python_Expr_mk(Python_Expr_name(lean_mk_string(name), Python_Ctx_load), pos.release()));
   }
   else if (is_tensor(obj)) {
-    lean_object *c = tensor_const(st, obj);
+    lean_rc_ptr c = tensor_const(st, obj);
     if (!c) return NULL;
-    return Python_Expr_mk(Python_Expr_const(c), pos);
+    return lean_rc_ptr(Python_Expr_mk(Python_Expr_const(c.release()), pos.release()));
   }
   else if (is_numpy_dtype(obj)) {
     const char* nki_dtype = suggest_nki_dtype(obj);
     if (nki_dtype) {
-      char error_msg[256];
-      snprintf(error_msg, sizeof(error_msg), "numpy dtypes are not supported as arguments. Use %s instead", nki_dtype);
-      syntax_error(st, error_msg);
+      syntax_error(st, "numpy dtypes are not supported as arguments. Use %s instead", nki_dtype);
     } else {
       syntax_error(st, "numpy dtypes are not supported as arguments");
     }
     return NULL;
   }
-  else if ((numpy_dt = numpy_dtype_instance(obj)) && numpy_dt) {
-    const char* nki_dtype = suggest_nki_dtype(numpy_dt);
+  else if (python_rc_ptr numpy_dt = numpy_dtype_instance(obj)) {
+    const char* nki_dtype = suggest_nki_dtype(numpy_dt.get());
     if (nki_dtype) {
-      char error_msg[256];
-      snprintf(error_msg, sizeof(error_msg), "numpy dtypes are not supported as arguments. Use %s instead", nki_dtype);
-      syntax_error(st, error_msg);
-      Py_DECREF(numpy_dt);
+      syntax_error(st, "numpy dtypes are not supported as arguments. Use %s instead", nki_dtype);
     } else {
       syntax_error(st, "numpy dtypes are not supported as arguments");
     }
@@ -450,91 +458,101 @@ static lean_object* const_expr(struct state *st, PyObject *obj) {
            PyObject_HasAttrString(obj, "__dict__"))
   {
     // general object types
-    PyObject *cls = PyObject_GetAttrString(obj, "__class__");
+    auto cls = python_rc_ptr(PyObject_GetAttrString(obj, "__class__"));
     if (!cls) return NULL;
 
-    PyObject *dict = PyObject_GetAttrString(obj, "__dict__");
+    auto dict = python_rc_ptr(PyObject_GetAttrString(obj, "__dict__"));
     if (!dict) return NULL;
 
-    lean_object *cls_name = py_def_name(cls);
-    lean_object *l_dict = const_dict(st, dict);
-    Py_DECREF(dict);
+    lean_rc_ptr cls_name = py_def_name(cls.get());
+    if (!cls_name) return NULL;
+
+    lean_rc_ptr l_dict = const_dict(st, dict.get());
     if (!l_dict) return NULL;
 
-    add_work(st, cls);
-    return Python_Expr_mk(Python_Expr_object(cls_name, l_dict), pos);
+    add_work(st, cls.get());
+    return lean_rc_ptr(Python_Expr_mk(Python_Expr_object(cls_name.release(), l_dict.release()), pos.release()));
   }
 
+  syntax_error(st, "unsupported const expr type");
   return NULL;
 }
 
 // Returns List Keyword
-static lean_object* const_dict(struct state *st, PyObject *obj) {
-  lean_object *arr = lean_mk_empty_array();
-  lean_object *l_pos = mkPos(st->scope.pos.line,
-                             st->scope.pos.col,
-                             0, 0, st->scope.file);
+// On failure, returns NULL with an exception set
+static lean_rc_ptr const_dict(struct state *st, PyObject *obj) {
+  auto arr = lean_rc_ptr(lean_mk_empty_array());
+  lean_rc_ptr l_pos = mkPos(st->scope.pos.line,
+                              st->scope.pos.col,
+                              0, 0, st->scope.file);
 
   Py_ssize_t pos = 0;
-  PyObject *key, *val;
+  PyObject *key, *val; // PyDict_Next() will set these to borrowed references
   while (PyDict_Next(obj, &pos, &key, &val)) {
-    lean_object *s = py_strdup(key);
-    lean_object *e = const_expr(st, val);
+    lean_rc_ptr s = py_strdup(key);
+    if (!s) return NULL;
+
+    lean_rc_ptr e = const_expr(st, val);
     if (!e) {
       if (!PyErr_Occurred()) {
         PyErr_Format(PyExc_ValueError, "%S is not a supported NKI type.", val);
       }
       return NULL;
     }
-    arr = lean_array_push(arr, Python_Keyword_mk(mkOption(s), e, l_pos));
+
+    lean_rc_ptr l_pos_incref = l_pos;
+    lean_object *keyword = Python_Keyword_mk(mkOption(std::move(s)).release(), e.release(), l_pos_incref.release());
+    arr = lean_rc_ptr((lean_array_push(arr.release(), keyword)));
   }
-  return lean_array_to_list(arr);
+  return lean_rc_ptr(lean_array_to_list(arr.release()));
 }
 
-// Note: in case of errors we will return NULL
-// returns List a
-static lean_object* const_list(
+// returns List
+// On failure, returns NULL with an exception set
+static lean_rc_ptr const_list(
        struct state *st, PyObject *obj,
-       lean_object* (*f)(struct state*, PyObject*))
+       lean_rc_ptr (*f)(struct state*, PyObject*))
 {
-  if (!obj) return NULL;
+  if (!obj) {
+    PyErr_Format(PyExc_TypeError, "NULL passed to %s", __func__);
+    return NULL;
+  }
 
   Py_ssize_t sz = PyObject_Length(obj);
-  if (sz <= 0) return NULL;
+  if (sz == -1) return NULL;
 
-  lean_object *arr = lean_alloc_array(0, sz);
+  auto arr = lean_rc_ptr(lean_alloc_array(0, sz));
 
   for (Py_ssize_t i = 0; i < sz; i++) {
-    PyObject *key = PyLong_FromLong(i);
+    auto key = python_rc_ptr(PyLong_FromLong(i));
     if (!key) return NULL;
 
     // Note: Object_GetItem increments reference count
-    PyObject *item = PyObject_GetItem(obj, key);
-    Py_DECREF(key);
+    auto item = python_rc_ptr(PyObject_GetItem(obj, key.get()));
     if (!item) return NULL;
 
-    lean_object *e = f(st, item);
+    lean_rc_ptr e = f(st, item.get());
     if (!e) {
       if (!PyErr_Occurred()) {
-        PyErr_Format(PyExc_ValueError, "%S is not a supported NKI type", item);
+        PyErr_Format(PyExc_ValueError, "%S is not a supported NKI type", item.get());
       }
-      Py_DECREF(item);
       return NULL;
     }
-    Py_DECREF(item);
-    arr = lean_array_push(arr, e);
+    arr = lean_rc_ptr(lean_array_push(arr.release(), e.release()));
   }
-  return lean_array_to_list(arr);
+  return lean_rc_ptr(lean_array_to_list(arr.release()));
 }
 
 
-// Note: in case of errors we will return an empty list (NULL)
 // returns List Const
-static lean_object* const_exprs(struct state *st, PyObject *obj) {
+// On failure, returns NULL with an exception set
+static lean_rc_ptr const_exprs(struct state *st, PyObject *obj) {
   return const_list(st, obj, const_expr);
 }
 
-static lean_object* const_nat(struct state *st, PyObject *obj) {
+// returns Const Nat
+// On failure, returns NULL with an exception set
+static lean_rc_ptr const_nat(struct state *st, PyObject *obj) {
   if (!PyLong_Check(obj)) {
     syntax_error(st, "expecting a positive integer");
     return NULL;
@@ -546,12 +564,12 @@ static lean_object* const_nat(struct state *st, PyObject *obj) {
     return NULL;
   }
 
-  return lean_unsigned_to_nat((unsigned)val);
+  return lean_rc_ptr(lean_unsigned_to_nat((unsigned)val));
 }
 
-// Note: in case of errors we will return an empty list (NULL)
 // returns List Nat
-static lean_object* nat_list(struct state *st, PyObject *obj) {
+// On failure, returns NULL with an exception set
+static lean_rc_ptr nat_list(struct state *st, PyObject *obj) {
   return const_list(st, obj, const_nat);
 }
 
@@ -561,50 +579,56 @@ static lean_object* nat_list(struct state *st, PyObject *obj) {
 // more intelligent errors, so we can simply fail to add the reference.
 // See: KLR/Trace/Python.lean for more details.
 
-static void add_global(struct state *st, lean_object *name, PyObject *obj) {
-  if (!name || !obj || have_def(st, lean_string_cstr(name)))
+static void add_global(struct state *st, lean_rc_ptr name, PyObject *obj) {
+  if (!name || !obj || have_def(st, lean_string_cstr(name.get())))
     return;
 
-  lean_object *c = const_expr(st, obj);
-  if (c) {
-    struct definition *def = region_alloc(st->region, sizeof(*def));
-    lean_object *pos = mkPos(0, 0, 0, 0, st->scope.file);
-
-    def->str = name;
-    def->name = lean_string_cstr(name);
-    def->type = GLOBAL;
-    def->obj = Python_Keyword_mk(mkSome(def->str), c, pos);
-
-    def->next = st->defs;
-    st->defs = def;
+  lean_rc_ptr c = const_expr(st, obj);
+  if (!c) {
+    PyErr_Clear();
+    return;
   }
+
+  state::definition &def = st->defs.emplace_back();
+  lean_rc_ptr pos = mkPos(0, 0, 0, 0, st->scope.file);
+
+  def.str = std::move(name);
+  def.type = state::definition::GLOBAL;
+  def.obj = lean_rc_ptr(Python_Keyword_mk(mkSome(def.str).release(), c.release(), pos.release()));
 }
 
 // Lookup item `id` in dictionary `name` which should be an attribute of `obj`.
 // e.g. f.name['id']
-static PyObject* lookup_(PyObject *obj, const char *name, PyObject *id) {
+// No exception is ever set, since it's OK for lookup to fail.
+static python_rc_ptr lookup_(PyObject *obj, const char *name, PyObject *id) {
   if (!obj || !name || !id)
     return NULL;
 
-  PyObject *dict = PyObject_GetAttrString(obj, name);
-  if (!dict) return NULL;
+  // PyObject_GetAttrString() returns new reference, or sets exception
+  auto dict  = python_rc_ptr(PyObject_GetAttrString(obj, name));
+  if (!dict) {
+    PyErr_Clear();
+    return NULL;
+  }
 
-  PyObject *value = PyDict_GetItem(dict, id);
-  Py_DECREF(dict);
+  // PyDict_GetItem() returns borrowed reference, and never sets exceptions
+  PyObject *value = PyDict_GetItem(dict.get(), id);
+  if (!value) return NULL;
 
-  if (value)
-    Py_INCREF(value);
-  return value;
+  Py_INCREF(value);
+  return python_rc_ptr(value);
 }
 
 // Lookup `id` in current environment
-static PyObject* lookup(struct state *st, PyObject *id) {
+// No exception is ever set, since it's OK for lookup to fail.
+static python_rc_ptr lookup(struct state *st, PyObject *id) {
   if (!st->scope.f)
     return NULL;
-  PyObject *obj = lookup_(st->scope.f, "__globals__", id);
-  if (!obj)
-    obj = lookup_(st->scope.f, "__builtins__", id);
-  return obj;
+  python_rc_ptr global = lookup_(st->scope.f.get(), "__globals__", id);
+  if (global)
+    return global;
+
+  return lookup_(st->scope.f.get(), "__builtins__", id);
 }
 
 // Record reference to expression `e`, which is either a name or an attribute,
@@ -613,12 +637,16 @@ static PyObject* lookup(struct state *st, PyObject *id) {
 // globals, or, if it is a function, add the function to our work list.
 
 struct ref {
-  lean_object *name;  // String
-  PyObject *obj;
+  lean_rc_ptr name;  // String
+  python_rc_ptr obj;
 };
 
+// If reference found, returns ref.obj containing new reference.
+// If not found, ref.obj will be NULL.
+// No exception is ever set, it's OK if we fail to record a reference,
+// later passes will raise more intelligent errors.
 static struct ref reference(struct state *st, struct _expr *e) {
-  struct ref ref = { NULL, NULL };
+  struct ref ref;
   if (!e) return ref;
 
   switch(e->kind) {
@@ -628,37 +656,35 @@ static struct ref reference(struct state *st, struct _expr *e) {
       ref.name = py_strdup(e->v.Name.id);
     break;
 
-  case Attribute_kind:
-    ref = reference(st, e->v.Attribute.value);
-    if (!ref.obj) {
-      ref.name = NULL;
+  case Attribute_kind: {
+    struct ref attr_value_ref = reference(st, e->v.Attribute.value);
+    if (!attr_value_ref.obj) {
       break;
     }
 
-    if (PyObject_HasAttr(ref.obj, e->v.Attribute.attr)) {
-      ref.obj = PyObject_GetAttr(ref.obj, e->v.Attribute.attr);
-      ref.name = path_append(ref.name, e->v.Attribute.attr);
-    } else {
-      Py_DECREF(ref.obj);
-      ref.name = NULL;
-      ref.obj = NULL;
+    if (PyObject_HasAttr(attr_value_ref.obj.get(), e->v.Attribute.attr)) {
+      ref.obj = python_rc_ptr(PyObject_GetAttr(attr_value_ref.obj.get(), e->v.Attribute.attr));
+      ref.name = path_append(std::move(attr_value_ref.name), e->v.Attribute.attr);
     }
     break;
+  }
 
   default:
     break;
   }
 
   if (ref.name && ref.obj) {
-    if (PyFunction_Check(ref.obj) || PyType_Check(ref.obj)) {
-      lean_dec(ref.name);
-      ref.name = py_def_name(ref.obj);
+    if (PyFunction_Check(ref.obj.get()) || PyType_Check(ref.obj.get())) {
+      ref.name = py_def_name(ref.obj.get());
       if (!st->ignore_refs)
-        add_work(st, ref.obj);
+        add_work(st, ref.obj.get());
     } else {
       if (!st->ignore_refs)
-        add_global(st, ref.name, ref.obj);
+        add_global(st, ref.name, ref.obj.get());
     }
+  } else {
+    ref.obj.reset();
+    ref.name.reset();
   }
   PyErr_Clear(); // Make sure we don't report any errors
   return ref;
@@ -672,17 +698,19 @@ static struct ref reference(struct state *st, struct _expr *e) {
 // from how the Lean code works.
 
 // returns Const
-static lean_object* value(struct state *st, PyObject *obj) {
-  if (!st || !obj)
+// On failure, returns NULL with an exception set.
+static lean_rc_ptr value(struct state *st, PyObject *obj) {
+  if (!st || !obj) {
+    PyErr_Format(PyExc_TypeError, "NULL passed to %s", __func__);
     return NULL;
-
-  lean_object *c = NULL;
+  }
 
   if (Py_IsNone(obj)) {
-    c = Python_Const_none;
+    lean_inc(Python_Const_none);
+    return lean_rc_ptr(Python_Const_none);
   }
   else if (PyBool_Check(obj)) {
-    c = Python_Const_bool(Py_IsTrue(obj) != 0);
+    return lean_rc_ptr(Python_Const_bool(Py_IsTrue(obj) != 0));
   }
   else if (PyLong_Check(obj)) {
     int overflow = 0;
@@ -698,29 +726,34 @@ static lean_object* value(struct state *st, PyObject *obj) {
       syntax_error(st, "integer value is too large");
       return NULL;
     }
-    c = Python_Const_int(lean_int_to_int((int)value));
+    return lean_rc_ptr(Python_Const_int(lean_int_to_int((int)value)));
   }
   else if (PyFloat_Check(obj)) {
     double d = PyFloat_AsDouble(obj);
     if (PyErr_Occurred())
       return NULL;
-    c = Python_Const_float(d);
+    return lean_rc_ptr(Python_Const_float(d));
   }
   else if (PyUnicode_Check(obj)) {
-    c = Python_Const_string(py_strdup(obj));
+    lean_rc_ptr str = py_strdup(obj);
+    if (!str)
+      return NULL;
+    return lean_rc_ptr(Python_Const_string(str.release()));
   }
   else if (Py_IS_TYPE(obj, &PyEllipsis_Type)) {
-    c = Python_Const_ellipsis;
+    lean_inc(Python_Const_ellipsis);
+    return lean_rc_ptr(Python_Const_ellipsis);
   }
   else {
+    syntax_error(st, "unsupported value type");
     return NULL;
   }
-  return c;
 }
 
 // -----------------------------------------------------------------------------
 // -- Expressions
 
+// This function never raises exceptions.
 static u8 context(expr_context_ty ctx) {
   switch (ctx) {
   case Load:  return Python_Ctx_load;
@@ -730,6 +763,7 @@ static u8 context(expr_context_ty ctx) {
   }
 }
 
+// This function never raises exceptions.
 static u8 boolop(boolop_ty op) {
   switch (op) {
   case And: return Python_BoolOp_land;
@@ -738,6 +772,7 @@ static u8 boolop(boolop_ty op) {
   }
 }
 
+// This function never raises exceptions.
 static u8 unaryop(unaryop_ty op) {
   switch (op) {
   case Invert: return Python_UnaryOp_invert;
@@ -748,6 +783,7 @@ static u8 unaryop(unaryop_ty op) {
   }
 }
 
+// This function never raises exceptions.
 static u8 binop(operator_ty op) {
   switch (op) {
   case Add:      return Python_BinOp_add;
@@ -767,6 +803,7 @@ static u8 binop(operator_ty op) {
   }
 }
 
+// This function never raises exceptions.
 static u8 cmpop(cmpop_ty op) {
   switch (op) {
   case Eq:    return Python_CmpOp_eq;
@@ -783,36 +820,35 @@ static u8 cmpop(cmpop_ty op) {
   }
 }
 
-static lean_object* cmpops(struct state *st, asdl_int_seq *ops) {
-  lean_object *l = mkNil(); // Note, not a leak because nil doens't live on heap
-  lean_object *arr = NULL;
-
+// Returns List Op (or Nil for empty List).
+// On failure, returns NULL with an exception set.
+static lean_rc_ptr cmpops(struct state *st, asdl_int_seq *ops) {
   if (!ops)
-    goto done;
+    return mkNil();
 
-  arr = lean_alloc_array(0, ops->size);
+  lean_object *arr = lean_alloc_array(0, ops->size);
   for (int i = 0; i < ops->size; i++) {
-    u8 op = cmpop(ops->typed_elements[i]);
+    u8 op = cmpop(static_cast<cmpop_ty>(ops->typed_elements[i]));
     arr = lean_array_push(arr, lean_box(op));
   }
-
-  l = lean_array_to_list(arr);
-done:
-  return l;
+  return lean_rc_ptr(lean_array_to_list(arr));
 }
 
-static lean_object* exprs(struct state *st, asdl_expr_seq *python);
-static lean_object* keywords(struct state *st, asdl_keyword_seq *python);
+static lean_rc_ptr exprs(struct state *st, asdl_expr_seq *python);
+static lean_rc_ptr keywords(struct state *st, asdl_keyword_seq *python);
 
-static lean_object* expr(struct state *st, struct _expr *python) {
-  if (!python)
+// On failure, returns NULL with an exception set.
+static lean_rc_ptr expr(struct state *st, struct _expr *python) {
+  if (!python) {
+    PyErr_Format(PyExc_TypeError, "NULL passed to %s", __func__);
     return NULL;
+  }
 
-  struct pos old_pos = st->scope.pos;
+  auto old_pos = st->scope.pos;
   st->scope.pos.line = python->lineno;
   st->scope.pos.col = python->col_offset;
 
-  lean_object *e = NULL;
+  lean_rc_ptr e;
 
   //static int indent = 0;
   //indent++;
@@ -820,34 +856,40 @@ static lean_object* expr(struct state *st, struct _expr *python) {
   //printf("EXPR %d %p (%d, %d)\n", python->kind, python, python->lineno, python->col_offset);
   switch (python->kind) {
     case Constant_kind: {
-      lean_object *c = value(st, python->v.Constant.value);
-      if (c)
-        e = Python_Expr_const(c);
+      lean_rc_ptr c = value(st, python->v.Constant.value);
+      if (!c) break;
+
+      e.reset(Python_Expr_const(c.release()));
       break;
     }
     // Names and attributes may be references which we need to track
     // We rely on the ctx value for a small optimization: we only need
     // to consider Loads
     case Name_kind: {
-      lean_object *name = NULL;
+      lean_rc_ptr name;
       if (python->v.Name.ctx == Load) {
         struct ref r = reference(st, python);
         if (r.obj)
-          name = r.name;
+          name = std::move(r.name);
       }
       if (!name)
         name = py_strdup(python->v.Name.id);
-      e = Python_Expr_name(name, context(python->v.Name.ctx));
+      if (!name)
+        break;
+      e.reset(Python_Expr_name(name.release(), context(python->v.Name.ctx)));
       break;
     }
 
     case Attribute_kind: {
-      lean_object *val = expr(st, python->v.Attribute.value);
+      lean_rc_ptr val = expr(st, python->v.Attribute.value);
       if (!val) break;
 
-      e = Python_Expr_attr(val,
-                           py_strdup(python->v.Attribute.attr),
-                           context(python->v.Attribute.ctx));
+      lean_rc_ptr attr = py_strdup(python->v.Attribute.attr);
+      if (!attr) break;
+
+      e.reset(Python_Expr_attr(val.release(),
+                               attr.release(),
+                               context(python->v.Attribute.ctx)));
 
       if (python->v.Attribute.ctx == Load)
         reference(st, python);
@@ -856,89 +898,145 @@ static lean_object* expr(struct state *st, struct _expr *python) {
 
     // Containers: Tuple and List and Dict
     case Tuple_kind: {
-      e = Python_Expr_tuple(exprs(st, python->v.Tuple.elts),
-                            context(python->v.Tuple.ctx));
+      lean_rc_ptr elts = exprs(st, python->v.Tuple.elts);
+      if (!elts) break;
+
+      e.reset(Python_Expr_tuple(elts.release(), context(python->v.Tuple.ctx)));
       break;
     }
     case List_kind: {
-      e = Python_Expr_list(exprs(st, python->v.List.elts),
-                           context(python->v.List.ctx));
+      lean_rc_ptr elts = exprs(st, python->v.List.elts);
+      if (!elts) break;
+
+      e.reset(Python_Expr_list(elts.release(), context(python->v.List.ctx)));
       break;
     }
     case Dict_kind: {
-      e = Python_Expr_dict(exprs(st, python->v.Dict.keys),
-                           exprs(st, python->v.Dict.values));
+      lean_rc_ptr keys = exprs(st, python->v.Dict.keys);
+      if (!keys) break;
+
+      lean_rc_ptr values = exprs(st, python->v.Dict.values);
+      if (!values) break;
+
+      e.reset(Python_Expr_dict(keys.release(), values.release()));
       break;
     }
 
     // Index expressions
     case Subscript_kind: {
-      lean_object *tensor = expr(st, python->v.Subscript.value);
-      lean_object *slice = expr(st, python->v.Subscript.slice);
-      if (tensor && slice)
-        e = Python_Expr_subscript(tensor, slice, context(python->v.Subscript.ctx));
+      lean_rc_ptr tensor = expr(st, python->v.Subscript.value);
+      if (!tensor) break;
+
+      lean_rc_ptr slice = expr(st, python->v.Subscript.slice);
+      if (!slice) break;
+
+      e.reset(Python_Expr_subscript(tensor.release(), slice.release(), context(python->v.Subscript.ctx)));
       break;
     }
     case Slice_kind: {
-      e = Python_Expr_slice(mkOption(expr(st, python->v.Slice.lower)),
-                            mkOption(expr(st, python->v.Slice.upper)),
-                            mkOption(expr(st, python->v.Slice.step)));
+      lean_rc_ptr lower; // optional
+      if (python->v.Slice.lower) {
+        lower = expr(st, python->v.Slice.lower);
+        if (!lower) break;
+      }
+      lower = mkOption(std::move(lower));
+
+      lean_rc_ptr upper; // optional
+      if (python->v.Slice.upper) {
+        upper = expr(st, python->v.Slice.upper);
+        if (!upper) break;
+      }
+      upper = mkOption(std::move(upper));
+
+      lean_rc_ptr step; // optional
+      if (python->v.Slice.step) {
+        step = expr(st, python->v.Slice.step);
+        if (!step) break;
+      }
+      step = mkOption(std::move(step));
+
+      e.reset(Python_Expr_slice(lower.release(),
+                                upper.release(),
+                                step.release()));
       break;
     }
 
     // Operators
     case BoolOp_kind: {
-      e = Python_Expr_boolOp(boolop(python->v.BoolOp.op),
-                             exprs(st, python->v.BoolOp.values));
+      lean_rc_ptr values = exprs(st, python->v.BoolOp.values);
+      if (!values) break;
+
+      e.reset(Python_Expr_boolOp(boolop(python->v.BoolOp.op),
+                                 values.release()));
       break;
     }
     case BinOp_kind: {
-      lean_object *left = expr(st, python->v.BinOp.left);
-      lean_object *right = expr(st, python->v.BinOp.right);
-      if (left && right)
-        e = Python_Expr_binOp(binop(python->v.BinOp.op), left, right);
+      lean_rc_ptr left = expr(st, python->v.BinOp.left);
+      if (!left) break;
+
+      lean_rc_ptr right = expr(st, python->v.BinOp.right);
+      if (!right) break;
+
+      e.reset(Python_Expr_binOp(binop(python->v.BinOp.op), left.release(), right.release()));
       break;
     }
     case UnaryOp_kind: {
-      lean_object *operand = expr(st, python->v.UnaryOp.operand);
-      if (operand)
-        e = Python_Expr_unaryOp(unaryop(python->v.UnaryOp.op), operand);
+      lean_rc_ptr operand = expr(st, python->v.UnaryOp.operand);
+      if (!operand) break;
+
+      e.reset(Python_Expr_unaryOp(unaryop(python->v.UnaryOp.op), operand.release()));
       break;
     }
     case Compare_kind: {
-      lean_object *left = expr(st, python->v.Compare.left);
-      if (left)
-        e = Python_Expr_compare(left,
-                                cmpops(st, python->v.Compare.ops),
-                                exprs(st, python->v.Compare.comparators));
+      lean_rc_ptr left = expr(st, python->v.Compare.left);
+      if (!left) break;
+
+      lean_rc_ptr ops = cmpops(st, python->v.Compare.ops);
+      if (!ops) break;
+
+      lean_rc_ptr comparators = exprs(st, python->v.Compare.comparators);
+      if (!comparators) break;
+
+      e.reset(Python_Expr_compare(left.release(), ops.release(), comparators.release()));
       break;
     }
 
     // Condition expression
     case IfExp_kind: {
-      lean_object *test = expr(st, python->v.IfExp.test);
-      lean_object *body = expr(st, python->v.IfExp.body);
-      lean_object *orelse = expr(st, python->v.IfExp.orelse);
-      if (test && body && orelse)
-        e = Python_Expr_ifExp(test, body, orelse);
+      lean_rc_ptr test = expr(st, python->v.IfExp.test);
+      if (!test) break;
+
+      lean_rc_ptr body = expr(st, python->v.IfExp.body);
+      if (!body) break;
+
+      lean_rc_ptr orelse = expr(st, python->v.IfExp.orelse);
+      if (!orelse) break;
+
+      e.reset(Python_Expr_ifExp(test.release(), body.release(), orelse.release()));
       break;
     }
 
     // Function calls
     case Call_kind: {
-      lean_object *f = expr(st, python->v.Call.func);
-      if (f)
-        e = Python_Expr_call(f,
-                             exprs(st, python->v.Call.args),
-                             keywords(st, python->v.Call.keywords));
+      lean_rc_ptr f = expr(st, python->v.Call.func);
+      if (!f) break;
+
+      lean_rc_ptr args = exprs(st, python->v.Call.args);
+      if (!args) break;
+
+      lean_rc_ptr kwords = keywords(st, python->v.Call.keywords);
+      if (!kwords) break;
+
+      e.reset(Python_Expr_call(f.release(), args.release(), kwords.release()));
       break;
     }
 
     // Tuple expansion *t
     case Starred_kind: {
-      lean_object *col = expr(st, python->v.Starred.value);
-      if (col)
-        e = Python_Expr_starred(col, context(python->v.Starred.ctx));
+      lean_rc_ptr col = expr(st, python->v.Starred.value);
+      if (!col) break;
+
+      e.reset(Python_Expr_starred(col.release(), context(python->v.Starred.ctx)));
       break;
     }
 
@@ -948,18 +1046,21 @@ static lean_object* expr(struct state *st, struct _expr *python) {
         syntax_error(st, "NKI does no support format specifiers");
         break;
       }
-      lean_object *val = expr(st, python->v.FormattedValue.value);
+      lean_rc_ptr val = expr(st, python->v.FormattedValue.value);
       if (!val) break;
 
       int conv = python->v.FormattedValue.conversion;
-      lean_object *l_conv =
-        conv <= 0 ? mkNone() : mkOption(lean_unsigned_to_nat(conv));
+      lean_rc_ptr l_conv =
+        conv <= 0 ? mkNone() : mkOption(lean_rc_ptr(lean_unsigned_to_nat(conv)));
 
-      e = Python_Expr_format(val, l_conv);
+      e.reset(Python_Expr_format(val.release(), l_conv.release()));
       break;
     }
     case JoinedStr_kind: {
-      e = Python_Expr_joined(exprs(st, python->v.JoinedStr.values));
+      lean_rc_ptr values = exprs(st, python->v.JoinedStr.values);
+      if (!values) break;
+
+      e.reset(Python_Expr_joined(values.release()));
       break;
     }
 
@@ -972,227 +1073,309 @@ static lean_object* expr(struct state *st, struct _expr *python) {
   //printf("expr %d %p\n", python->kind, python);
   //indent--;
   st->scope.pos = old_pos;
-  return e ? Python_Expr_mk(e, Pos(python)) : NULL;
+  return e ? lean_rc_ptr(Python_Expr_mk(e.release(), Pos(python).release())) : NULL;
 }
 
-// return List Expr
-static lean_object *exprs(struct state *st, asdl_expr_seq *python) {
-  lean_object *l = mkNil();
-  lean_object *arr = NULL;
-
+// return List Expr (or Nil for empty List).
+// On failure, returns NULL with an exception set.
+static lean_rc_ptr exprs(struct state *st, asdl_expr_seq *python) {
   if (!python)
-    goto done;
+    return mkNil();
 
-  arr = lean_alloc_array(0, python->size);
+  auto arr = lean_rc_ptr(lean_alloc_array(0, python->size));
   for (int i = 0; i < python->size; i++) {
-    lean_object *e = expr(st, python->typed_elements[i]);
+    lean_rc_ptr e = expr(st, python->typed_elements[i]);
     if (!e)
-      goto done;
+      return NULL;
 
-    arr = lean_array_push(arr, e);
+    arr = lean_rc_ptr(lean_array_push(arr.release(), e.release()));
   }
-  l = lean_array_to_list(arr);
-
-done:
-  return l;
+  return lean_rc_ptr(lean_array_to_list(arr.release()));
 }
 
 // -----------------------------------------------------------------------------
 // -- Keywords
 
-static lean_object* keyword(struct state *st, keyword_ty python) {
-  if (!python)
+// return Keyword
+// On failure, returns NULL with an exception set.
+static lean_rc_ptr keyword(struct state *st, keyword_ty python) {
+  if (!python) {
+    PyErr_Format(PyExc_TypeError, "NULL passed to %s", __func__);
     return NULL;
+  }
 
   // Note, we store the position, but do not update the context
   // The next expression also has a position, and we do not check the
   // keyword id
 
-  lean_object *val = expr(st, python->value);
+  lean_rc_ptr val = expr(st, python->value);
   if (!val)
     return NULL;
 
   // NULL means **kwarg
-  lean_object *id = NULL;
-  if (python->arg)
+  lean_rc_ptr id;
+  if (python->arg) {
     id = py_strdup(python->arg);
+    if (!id)
+      return NULL;
+  }
+  id = mkOption(std::move(id));
 
-  return Python_Keyword_mk(mkOption(id), val, Pos(python));
+  return lean_rc_ptr(Python_Keyword_mk(id.release(), val.release(), Pos(python).release()));
 }
 
-static lean_object* keywords(struct state *st, asdl_keyword_seq *python) {
-  lean_object *l = mkNil();
-  lean_object *arr = NULL;
-
+// return List Keyword (or Nil for empty List).
+// On failure, returns NULL with an exception set.
+static lean_rc_ptr keywords(struct state *st, asdl_keyword_seq *python) {
   if (!python)
-    goto done;
+    return mkNil();
 
-  arr = lean_alloc_array(0, python->size);
+  auto arr = lean_rc_ptr(lean_alloc_array(0, python->size));
   for (int i = 0; i < python->size; i++) {
-    lean_object *kw = keyword(st, python->typed_elements[i]);
+    lean_rc_ptr kw = keyword(st, python->typed_elements[i]);
     if (!kw)
-      goto done;
-    arr = lean_array_push(arr, kw);
+      return NULL;
+    arr = lean_rc_ptr(lean_array_push(arr.release(), kw.release()));
   }
-  l = lean_array_to_list(arr);
-
-done:
-  return l;
+  return lean_rc_ptr(lean_array_to_list(arr.release()));
 }
 
 // -----------------------------------------------------------------------------
 // -- Arguments
 
-static lean_object* arg(arg_ty python) {
-  if (!python)
+// Return arg string
+// On failure, returns NULL with an exception set.
+static lean_rc_ptr arg(arg_ty python) {
+  if (!python) {
+    PyErr_Format(PyExc_TypeError, "NULL passed to %s", __func__);
     return NULL;
+  }
+
   return py_strdup(python->arg);
 }
 
-static lean_object* arg_list(asdl_arg_seq *python) {
-  lean_object *l = mkNil();
-  lean_object *arr = NULL;
-
+// Return list of arg strings (or Nil for empty list).
+// On failure, returns NULL with an exception set.
+static lean_rc_ptr arg_list(asdl_arg_seq *python) {
   if (!python)
-    goto done;
+    return mkNil();
 
-  arr = lean_alloc_array(0, python->size);
+  auto arr = lean_rc_ptr(lean_alloc_array(0, python->size));
   for (int i = 0; i < python->size; i++) {
-    lean_object *str = arg(python->typed_elements[i]);
+    lean_rc_ptr str = arg(python->typed_elements[i]);
     if (!str)
-      goto done;
-    arr = lean_array_push(arr, str);
+      return NULL;
+    arr = lean_rc_ptr(lean_array_push(arr.release(), str.release()));
   }
-  l = lean_array_to_list(arr);
-
-done:
-  return l;
+  return lean_rc_ptr(lean_array_to_list(arr.release()));
 }
 
-static lean_object* args(struct state *st, arguments_ty python) {
-  if (!python)
+// Return Args
+// On failure, returns NULL with an exception set.
+static lean_rc_ptr args(struct state *st, arguments_ty python) {
+  if (!python) {
+    PyErr_Format(PyExc_TypeError, "NULL passed to %s", __func__);
+    return NULL;
+  }
+
+  lean_rc_ptr posonlyargs = arg_list(python->posonlyargs);
+  if (!posonlyargs)
     return NULL;
 
-  // Note: process expressions last to avoid clearing errors
-  lean_object *posonlyargs = arg_list(python->posonlyargs);
-  lean_object *args = arg_list(python->args);
-  lean_object *vararg = mkOption(arg(python->vararg));
-  lean_object *kwonlyargs = arg_list(python->kwonlyargs);
-  lean_object *kwarg = mkOption(arg(python->kwarg));
+  lean_rc_ptr args = arg_list(python->args);
+  if (!args)
+    return NULL;
 
-  lean_object *defaults = exprs(st, python->defaults);
+  lean_rc_ptr vararg; // optional
+  if (python->vararg) {
+    vararg = arg(python->vararg);
+    if (!vararg)
+      return NULL;
+  }
+  vararg = mkOption(std::move(vararg));
+
+  lean_rc_ptr kwonlyargs = arg_list(python->kwonlyargs);
+  if (!kwonlyargs)
+    return NULL;
+    
+  lean_rc_ptr kwarg; // optional
+  if (python->kwarg) {
+    kwarg = arg(python->kwarg);
+    if (!kwarg)
+      return NULL;
+  }
+  kwarg = mkOption(std::move(kwarg));
+
+  lean_rc_ptr defaults = exprs(st, python->defaults);
+  if (!defaults)
+    return NULL;
 
   // TODO: this is a bug
   // The old version of gather computed the names of keyword defaults,
   // but this is not what the parser does.
   //as->kw_defaults = exprs(st, python->kw_defaults);
-  lean_object *kw_defaults = mkNil();
+  lean_rc_ptr kw_defaults = mkNil();
 
-  return Python_Args_mk(posonlyargs, args, defaults, vararg,
-                        kwonlyargs, kw_defaults, kwarg);
+  return lean_rc_ptr(Python_Args_mk(
+    posonlyargs.release(),
+    args.release(),
+    defaults.release(),
+    vararg.release(),
+    kwonlyargs.release(),
+    kw_defaults.release(),
+    kwarg.release()));
 }
 
 // -----------------------------------------------------------------------------
 // -- Statements
 
-static lean_object* stmts(struct state *st, asdl_stmt_seq *python);
+static lean_rc_ptr stmts(struct state *st, asdl_stmt_seq *python);
 
-static lean_object* stmt(struct state *st, struct _stmt *python) {
-  if (!python)
+
+// Return Stmt.
+// On failure, returns NULL with an exception set.
+static lean_rc_ptr stmt(struct state *st, struct _stmt *python) {
+  if (!python) {
+    PyErr_Format(PyExc_TypeError, "NULL passed to %s", __func__);
     return NULL;
+  }
 
-  struct pos old_pos = st->scope.pos;
+  auto old_pos = st->scope.pos;
   st->scope.pos.line = python->lineno;
   st->scope.pos.col = python->col_offset;
 
-  lean_object *s = NULL;
+  lean_rc_ptr s;
 
   //printf("STMT %d %p\n", python->kind, python);
   switch (python->kind) {
     case Pass_kind:
-      s = Python_Stmt_pass;
+      lean_inc(Python_Stmt_pass);
+      s.reset(Python_Stmt_pass);
       break;
 
     // Simple expressions
     case Expr_kind: {
-      lean_object *e = expr(st, python->v.Return.value);
-      if (e)
-        s = Python_Stmt_expr(e);
+      lean_rc_ptr e = expr(st, python->v.Return.value);
+      if (!e) break;
+      
+      s.reset(Python_Stmt_expr(e.release()));
       break;
     }
     case Assert_kind: {
       // TODO capture message
-      lean_object *e = expr(st, python->v.Assert.test);
-      if (e)
-        s = Python_Stmt_assert(e);
+      lean_rc_ptr e = expr(st, python->v.Assert.test);
+      if (!e) break;
+
+      s.reset(Python_Stmt_assert(e.release()));
       break;
     }
     case Return_kind: {
-      lean_object *e = expr(st, python->v.Return.value);
-      if (e)
-        s = Python_Stmt_ret(e);
+      lean_rc_ptr e = expr(st, python->v.Return.value);
+      if (!e) break;
+
+      s.reset(Python_Stmt_ret(e.release()));
       break;
     }
 
     // Assignments
     case Assign_kind: {
-      lean_object *e = expr(st, python->v.Assign.value);
-      if (e)
-        s = Python_Stmt_assign(exprs(st, python->v.Assign.targets), e);
+      lean_rc_ptr e = expr(st, python->v.Assign.value);
+      if (!e) break;
+
+      lean_rc_ptr targets = exprs(st, python->v.Assign.targets);
+      if (!targets) break;
+
+      s.reset(Python_Stmt_assign(targets.release(), e.release()));
       break;
     }
     case AugAssign_kind: {
-      lean_object *x = expr(st, python->v.AugAssign.target);
+      lean_rc_ptr x = expr(st, python->v.AugAssign.target);
+      if (!x) break;
+
       u8 op = binop(python->v.AugAssign.op);
-      lean_object *e = expr(st, python->v.AugAssign.value);
-      if (x && op && e)
-        s = Python_Stmt_augAssign(x, op, e);
+      if (op == 0) {
+        syntax_error(st, "unsupported augmented assignment operator");
+        break;
+      }
+
+      lean_rc_ptr e = expr(st, python->v.AugAssign.value);
+      if (!e) break;
+
+      s.reset(Python_Stmt_augAssign(x.release(), op, e.release()));
       break;
     }
     case AnnAssign_kind: {
-      lean_object *x = expr(st, python->v.AnnAssign.target);
-      lean_object *ann = expr(st, python->v.AnnAssign.annotation);
-      lean_object *value = expr(st, python->v.AnnAssign.value);
-      if (x && value)
-        s = Python_Stmt_annAssign(x, ann, mkOption(value));
+      lean_rc_ptr x = expr(st, python->v.AnnAssign.target);
+      if (!x) break;
+
+      lean_rc_ptr ann = expr(st, python->v.AnnAssign.annotation);
+      if (!ann) break;
+
+      lean_rc_ptr value; // optional
+      if (python->v.AnnAssign.value) {
+        value = expr(st, python->v.AnnAssign.value);
+        if (!value) break;
+      }
+      value = mkOption(std::move(value));
+
+      s.reset(Python_Stmt_annAssign(x.release(), ann.release(), value.release()));
       break;
     }
 
     // If statements
     case If_kind: {
-      lean_object *e = expr(st, python->v.If.test);
-      if (e)
-        s = Python_Stmt_ifStm(e,
-                              stmts(st, python->v.If.body),
-                              stmts(st, python->v.If.orelse));
+      lean_rc_ptr e = expr(st, python->v.If.test);
+      if (!e) break;
+
+      lean_rc_ptr body = stmts(st, python->v.If.body);
+      if (!body) break;
+
+      lean_rc_ptr orelse = stmts(st, python->v.If.orelse);
+      if (!orelse) break;
+
+      s.reset(Python_Stmt_ifStm(e.release(), body.release(), orelse.release()));
       break;
     }
 
     // For loops
     case For_kind: {
-      lean_object *x = expr(st, python->v.For.target);
-      lean_object *iter = expr(st, python->v.For.iter);
-      if (x && iter)
-        s = Python_Stmt_forLoop(x, iter,
-                                stmts(st, python->v.For.body),
-                                stmts(st, python->v.For.orelse));
+      lean_rc_ptr x = expr(st, python->v.For.target);
+      if (!x) break;
+
+      lean_rc_ptr iter = expr(st, python->v.For.iter);
+      if (!iter) break;
+
+      lean_rc_ptr body = stmts(st, python->v.For.body);
+      if (!body) break;
+
+      lean_rc_ptr orelse = stmts(st, python->v.For.orelse);
+      if (!orelse) break;
+
+      s.reset(Python_Stmt_forLoop(x.release(), iter.release(), body.release(), orelse.release()));
       break;
     }
     case Break_kind: {
-      s = Python_Stmt_breakLoop;
+      lean_inc(Python_Stmt_breakLoop);
+      s.reset(Python_Stmt_breakLoop);
       break;
     }
     case Continue_kind: {
-      s = Python_Stmt_continueLoop;
+      lean_inc(Python_Stmt_continueLoop);
+      s.reset(Python_Stmt_continueLoop);
       break;
     }
 
     case While_kind: {
-      lean_object *test = expr(st, python->v.While.test);
-      if (test)
-        s = Python_Stmt_whileLoop(test,
-                                  stmts(st, python->v.While.body),
-                                  stmts(st, python->v.While.orelse));
+      lean_rc_ptr test = expr(st, python->v.While.test);
+      if (!test) break;
+
+      lean_rc_ptr body = stmts(st, python->v.While.body);
+      if (!body) break;
+
+      lean_rc_ptr orelse = stmts(st, python->v.While.orelse);
+      if (!orelse) break;
+
+      s.reset(Python_Stmt_whileLoop(test.release(), body.release(), orelse.release()));
       break;
     }
 
@@ -1256,164 +1439,184 @@ static lean_object* stmt(struct state *st, struct _stmt *python) {
 
   //printf("stmt %d %p\n", python->kind, python);
   st->scope.pos = old_pos;
-  return s ? Python_Stmt_mk(s, Pos(python)) : NULL;
+  return s ? lean_rc_ptr(Python_Stmt_mk(s.release(), Pos(python).release())) : NULL;
 }
 
-static lean_object* stmts(struct state *st, asdl_stmt_seq *python) {
-  lean_object *l = mkNil();
-  lean_object *arr = NULL;
-
+// return List Stmt (or Nil for empty List).
+// On failure, returns NULL with an exception set.
+static lean_rc_ptr stmts(struct state *st, asdl_stmt_seq *python) {
   if (!python)
-    goto done;
+    return mkNil();
 
-  arr = lean_alloc_array(0, python->size);
+  auto arr = lean_rc_ptr(lean_alloc_array(0, python->size));
   for (int i = 0; i < python->size; i++) {
-    lean_object *s = stmt(st, python->typed_elements[i]);
+    lean_rc_ptr s = stmt(st, python->typed_elements[i]);
     if (!s)
-      goto done;
-    arr = lean_array_push(arr, s);
+      return NULL;
+    arr = lean_rc_ptr(lean_array_push(arr.release(), s.release()));
   }
-  l = lean_array_to_list(arr);
-
-done:
-  return l;
+  return lean_rc_ptr(lean_array_to_list(arr.release()));
 }
 
 // -----------------------------------------------------------------------------
 // -- Interface to the parser
 
-static PyObject* get_util(const char *name) {
-  PyObject *f = NULL;
-  PyObject *fe = PyUnicode_FromString(MODULE_ROOT ".frontend");
-  if (fe) {
-    PyObject *m = PyImport_GetModule(fe);
-    if (m) {
-      f = PyObject_GetAttrString(m, name);
-      Py_DECREF(m);
-    }
-    Py_DECREF(fe);
-  }
-  return f;
+// Return new reference to utility function.
+// On failure, returns NULL with an exception set
+static python_rc_ptr get_util(const char *name) {
+  auto fe = python_rc_ptr(PyUnicode_FromString(MODULE_ROOT ".frontend"));
+  if (!fe)
+    return NULL;
+
+  auto m = python_rc_ptr(PyImport_GetModule(fe.get()));
+  if (!m)
+    return NULL;
+
+  return python_rc_ptr(PyObject_GetAttrString(m.get(), name));
 }
 
-static struct _mod* parse_def(struct state *st, PyObject *obj) {
-  // Initialization needed for done label
-  struct _mod *m = NULL;
-  PyObject *source = NULL;
+// On failure, returns NULL with an exception set
+static struct _mod* parse_def(struct state *st, python_rc_ptr &obj) {
+  python_rc_ptr getsrc = get_util("_get_src");
+  if (!getsrc)
+    return NULL;
+    
+  auto args = python_rc_ptr(PyTuple_Pack(1, obj.get()));
+  if (!args)
+    return NULL;
 
-  PyObject *getsrc = get_util("_get_src");
-  PyObject *args = PyTuple_Pack(1, obj);
-  if (!getsrc || !args)
-    goto done;
+  auto source = python_rc_ptr(PyObject_CallObject(getsrc.get(), args.get()));
+  if (!source)
+    return NULL;
 
-  source = PyObject_CallObject(getsrc, args);
-  if (!source || !PyTuple_Check(source) || PyTuple_Size(source) != 3)
-    goto done;
+  if (!PyTuple_Check(source.get()) || PyTuple_Size(source.get()) != 3) {
+    PyErr_SetString(PyExc_RuntimeError, "Unexpected value from _get_src(), expected 3-tuple");
+    return NULL;
+  }
 
   // Note: Tuple_GetItem does not increment reference count
-  PyObject *file = PyTuple_GetItem(source, 0);
-  PyObject *line = PyTuple_GetItem(source, 1);
-  PyObject *src  = PyTuple_GetItem(source, 2);
+  PyObject *file = PyTuple_GetItem(source.get(), 0);
+  PyObject *line = PyTuple_GetItem(source.get(), 1);
+  PyObject *src  = PyTuple_GetItem(source.get(), 2);
 
   if (!file || !PyUnicode_Check(file) ||
       !line || !PyLong_Check(line) ||
-      !src  || !PyUnicode_Check(src))
-    goto done;
+      !src  || !PyUnicode_Check(src)) {
+    PyErr_SetString(PyExc_RuntimeError, "Unexpected value from _get_src(), expected (str, int, str)");
+    return NULL;
+  }
+
 
   const char *file_str = PyUnicode_AsUTF8(file);
   const char *src_str = PyUnicode_AsUTF8(src);
   if (!file_str || !src_str)
-    goto done;
+    return NULL;
 
-  m = parse_string(src_str, file);
-  if (m) {
-    // everything checks out, enter new scope
-    if (PyType_Check(obj)) {
-      st->scope.cls = obj;
-      st->scope.f = NULL;
-    } else if (PyFunction_Check(obj)) {
-      st->scope.cls = NULL;
-      st->scope.f = obj;
-    }
-    st->scope.src = lean_mk_string(src_str);
-    st->scope.file = lean_mk_string(file_str);
-    st->scope.line_offset = PyLong_AsLong(line);
-    st->scope.pos.line = 0;
-    st->scope.pos.col = 0;
+  _mod *m = parse_string(src_str, file);
+  if (!m)
+    return NULL;
+
+  // everything checks out, enter new scope
+  if (PyType_Check(obj.get())) {
+    st->scope.cls = obj;
+    st->scope.f = NULL;
+  } else if (PyFunction_Check(obj.get())) {
+    st->scope.cls = NULL;
+    st->scope.f = obj;
   }
+  st->scope.src = lean_rc_ptr(lean_mk_string(src_str));
+  st->scope.file = lean_rc_ptr(lean_mk_string(file_str));
+  st->scope.line_offset = PyLong_AsLong(line);
+  st->scope.pos.line = 0;
+  st->scope.pos.col = 0;
 
-done:
-  Py_XDECREF(getsrc);
-  Py_XDECREF(args);
-  Py_XDECREF(source);
   return m;
 }
 
-static lean_object* function_(struct state *st, lean_object *name, struct _stmt *s) {
-  lean_object *as = args(st, s->v.FunctionDef.args);
+// Returns Fun
+// On failure, returns NULL with an exception set
+static lean_rc_ptr function_(struct state *st, lean_rc_ptr name, struct _stmt *s) {
+  lean_rc_ptr as = args(st, s->v.FunctionDef.args);
   if (!as)
     return NULL;
 
   // dont follow decorators
   st->ignore_refs = true;
-  lean_object *decs = exprs(st, s->v.FunctionDef.decorator_list);
+  lean_rc_ptr decs = exprs(st, s->v.FunctionDef.decorator_list);
   st->ignore_refs = false;
+  if (!decs)
+    return NULL;
 
-  lean_object *body = stmts(st, s->v.FunctionDef.body);
+  lean_rc_ptr body = stmts(st, s->v.FunctionDef.body);
   if (!body || PyErr_Occurred())
     return NULL;
 
-  return Python_Fun_mk(name, st->scope.file,
-                       lean_unsigned_to_nat(st->scope.line_offset),
-                       st->scope.src, decs, as, body);
+  // incref strings from scope, before Python_Fun_mk() steals a reference
+  lean_rc_ptr file = st->scope.file;
+  lean_rc_ptr src = st->scope.src;
+
+  return lean_rc_ptr(Python_Fun_mk(
+    name.release(),
+    file.release(),
+    lean_unsigned_to_nat(st->scope.line_offset),
+    src.release(),
+    decs.release(),
+    as.release(),
+    body.release()));
 }
 
-static bool function(struct state *st, lean_object *name, struct _stmt *s) {
-  lean_object *f = function_(st, name, s);
+// Add Function to st->defs
+// On failure, returns false with an exception set
+static bool function_def(struct state *st, lean_rc_ptr name, struct _stmt *s) {
+  lean_rc_ptr f = function_(st, name, s);
   if (!f) return false;
 
-  struct definition *def = region_alloc(st->region, sizeof(*def));
-  def->str = name;
-  def->name = lean_string_cstr(name);
-  def->type = FUN;
-  def->obj = f;
+  state::definition &new_def = st->defs.emplace_back();
+  new_def.str = std::move(name);
+  new_def.type = state::definition::FUN;
+  new_def.obj = std::move(f);
 
-  def->next = st->defs;
-  st->defs = def;
   return true;
 }
 
 // Returns Keyword
-static lean_object* field(struct state *st, struct _expr *e) {
+// On failure, returns NULL with an exception set
+static lean_rc_ptr field(struct state *st, struct _expr *e) {
   if (e->kind != Name_kind) {
     syntax_error(st, "invalid left-hand side in assignment");
     return NULL;
   }
 
-  PyObject *id = e->v.Name.id;
-  lean_object *name = py_strdup(id);
-  lean_object *pos = Pos(e);
-  lean_object *val = NULL;
+  lean_rc_ptr name = py_strdup(e->v.Name.id);
+  if (!name)
+    return NULL;
 
-  PyObject *obj = PyObject_GetAttr(st->scope.cls, e->v.Name.id);
+
+  auto obj = python_rc_ptr(PyObject_GetAttr(st->scope.cls.get(), e->v.Name.id));
   PyErr_Clear();
 
+  lean_rc_ptr val;
   if (obj) {
-    val = const_expr(st, obj);
-    Py_DECREF(obj);
+    val = const_expr(st, obj.get());
     if (!val) {
       syntax_error(st, "Unsupported value in NKI class initializer");
       return NULL;
     }
   } else {
-    val = Python_Expr_mk(Python_Expr_const(Python_Const_none), pos);
+    lean_inc(Python_Const_none);
+    val = lean_rc_ptr(Python_Expr_mk(Python_Expr_const(Python_Const_none), Pos(e).release()));
   }
 
-  return Python_Keyword_mk(mkOption(name), val, pos);
+  return lean_rc_ptr(Python_Keyword_mk(
+    mkOption(std::move(name)).release(),
+    val.release(),
+    Pos(e).release()));
 }
 
 
-static bool class(struct state *st, lean_object *name, struct _stmt *s) {
+// Add Class to st->defs
+// On failure, returns false with an exception set
+static bool class_def(struct state *st, lean_rc_ptr name, struct _stmt *s) {
   if (s->v.ClassDef.keywords &&
       s->v.ClassDef.keywords->size > 0)
   {
@@ -1428,9 +1631,11 @@ static bool class(struct state *st, lean_object *name, struct _stmt *s) {
 
   // don't follow base classes or decorators
   st->ignore_refs = true;
-  lean_object *bases = exprs(st, s->v.ClassDef.bases);
-  lean_object *decs = exprs(st, s->v.ClassDef.decorator_list);
+  lean_rc_ptr bases = exprs(st, s->v.ClassDef.bases);
+  lean_rc_ptr decs = bases ? exprs(st, s->v.ClassDef.decorator_list) : NULL;
   st->ignore_refs = false;
+  if (!bases || !decs)
+    return false;
 
   // Check that class inherits from allowed base classes
   if (s->v.ClassDef.bases && s->v.ClassDef.bases->size > 0) {
@@ -1460,8 +1665,8 @@ static bool class(struct state *st, lean_object *name, struct _stmt *s) {
   }
 
   asdl_stmt_seq *python = s->v.ClassDef.body;
-  lean_object *fields = lean_mk_empty_array();
-  lean_object *methods = lean_mk_empty_array();
+  auto fields = lean_rc_ptr(lean_mk_empty_array());
+  auto methods = lean_rc_ptr(lean_mk_empty_array());
 
   for (int i = 0; i < python->size; i++) {
     struct _stmt *s = python->typed_elements[i];
@@ -1489,32 +1694,32 @@ static bool class(struct state *st, lean_object *name, struct _stmt *s) {
         syntax_error(st, "invalid assignment in NKI class");
         return false;
       }
-      lean_object *f = field(st, s->v.Assign.targets->typed_elements[0]);
+      lean_rc_ptr f = field(st, s->v.Assign.targets->typed_elements[0]);
       if (!f) return false;
 
-      fields = lean_array_push(fields, f);
+      fields = lean_rc_ptr(lean_array_push(fields.release(), f.release()));
       break;
     }
     case AnnAssign_kind: {
-      lean_object *f = field(st, s->v.AnnAssign.target);
+      lean_rc_ptr f = field(st, s->v.AnnAssign.target);
       if (!f) return false;
 
-      fields = lean_array_push(fields, f);
+      fields = lean_rc_ptr(lean_array_push(fields.release(), f.release()));
       break;
     }
     case FunctionDef_kind: {
-      PyObject *f = PyObject_GetAttr(st->scope.cls, s->v.FunctionDef.name);
+      auto f = python_rc_ptr(PyObject_GetAttr(st->scope.cls.get(), s->v.FunctionDef.name));
       if (!f) return false;
 
-      lean_object *m_name = py_method_name(name, f);
-      if (!name) return false;
+      lean_rc_ptr m_name = py_method_name(name, f.get());
+      if (!m_name) return false;
 
       st->scope.f = f;
-      lean_object *m = function_(st, m_name, s);
+      lean_rc_ptr m = function_(st, std::move(m_name), s);
       st->scope.f = NULL;
       if (!m) return false;
 
-      methods = lean_array_push(methods, m);
+      methods = lean_rc_ptr(lean_array_push(methods.release(), m.release()));
       break;
     }
     default:
@@ -1523,27 +1728,30 @@ static bool class(struct state *st, lean_object *name, struct _stmt *s) {
     }
   }
 
-  lean_object *cls = Python_Class_mk(
-    name,
-    bases,
-    decs,
-    lean_array_to_list(fields),
-    lean_array_to_list(methods));
+  auto cls = lean_rc_ptr(Python_Class_mk(
+    name.release(),
+    bases.release(),
+    decs.release(),
+    lean_array_to_list(fields.release()),
+    lean_array_to_list(methods.release())));
 
-  struct definition *def = region_alloc(st->region, sizeof(*def));
-  def->str = name;
-  def->name = lean_string_cstr(name);
-  def->type = CLS;
-  def->obj = cls;
+  state::definition &new_def = st->defs.emplace_back();
+  new_def.str = std::move(name);
+  new_def.type = state::definition::CLS;
+  new_def.obj = std::move(cls);
 
-  def->next = st->defs;
-  st->defs = def;
   return true;
 }
 
-static bool definition(struct state *st, PyObject *obj) {
+// Add definition to state.
+// On failure, returns false with an exception set.
+static bool definition(struct state *st, python_rc_ptr &obj) {
+  // goto cleanup if anything goes wrong
   bool result = false;
-  struct scope old_scope = st->scope;
+  lean_rc_ptr name;
+  struct _stmt *stmt = NULL;
+
+  state::scope_item old_scope = st->scope;
   struct _mod *m = parse_def(st, obj);
   if (!m ||
       m->kind != Interactive_kind ||
@@ -1556,26 +1764,27 @@ static bool definition(struct state *st, PyObject *obj) {
     goto cleanup;
   }
 
-  struct _stmt *stmt = m->v.Interactive.body->typed_elements[0];
+  stmt = m->v.Interactive.body->typed_elements[0];
   st->scope.pos.line = stmt->lineno;
   st->scope.pos.col = stmt->col_offset;
 
-  lean_object *name = py_def_name(obj);
+  name = py_def_name(obj.get());
   if (!name)
     goto cleanup;
 
   switch (stmt->kind) {
   case FunctionDef_kind:
     if (st->scope.f)
-      result = function(st, name, stmt);
+      result = function_def(st, std::move(name), stmt);
     break;
   case ClassDef_kind: {
     if (st->scope.cls)
-      result = class(st, name, stmt);
+      result = class_def(st, std::move(name), stmt);
     break;
     }
 
   default:
+    syntax_error(st, "unsupported definition type");
     result = false;
     break;
   }
@@ -1589,34 +1798,33 @@ cleanup:
 // ----------------------------------------------------------------------------
 // -- Entry points
 
+// On failure, returns false with an exception set.
 bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *grid, PyObject *schedule) {
 
-  struct state st = { 0 };
-  st.region = k->region;
+  struct state st;
 
   // add main function to work list, and process arguments
   // potentially adding more dependencies to the work list
   add_work(&st, k->f);
 
-  lean_object *l_args = args == Py_None ? mkNil() : const_exprs(&st, args);
+  lean_rc_ptr l_args = args == Py_None ? mkNil() : const_exprs(&st, args);
   if (!l_args) {
     if (!PyErr_Occurred())
       PyErr_SetString(PyExc_RuntimeError, "Failed to process kernel arguments");
     return false;
   }
 
-  lean_object *l_kwargs = kws == Py_None ? mkNil() : const_dict(&st, kws);
+  lean_rc_ptr l_kwargs = kws == Py_None ? mkNil() : const_dict(&st, kws);
   if (!l_kwargs) {
     if (!PyErr_Occurred())
       PyErr_SetString(PyExc_RuntimeError, "Failed to process kernel keyword arguments");
     return false;
   }
 
-  while (true) {
-    struct worklist *work = st.work;
-    if (!work) break;
-    st.work = work->next;
-    if (!definition(&st, work->obj)) {
+  // Go through worklist, adding definitions
+  // NOTE: using iterators (instead of range-based for loop), so we can safely add to list while we iterate
+  for (auto work_it = st.worklist.begin(); work_it != st.worklist.end(); ++work_it) {
+    if (!definition(&st, work_it->obj)) {
       if (!PyErr_Occurred())
         PyErr_SetString(PyExc_RuntimeError, "Failed to process kernel definition");
       return false;
@@ -1633,9 +1841,9 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *grid,
       return false;
     }
   }
-  lean_object *l_grid = lean_unsigned_to_nat((u32)grid_val);
+  auto l_grid = lean_rc_ptr(lean_unsigned_to_nat((u32)grid_val));
 
-  lean_object *l_sched = schedule == Py_None ? mkNil() : const_exprs(&st, schedule);
+  lean_rc_ptr l_sched = schedule == Py_None ? mkNil() : const_exprs(&st, schedule);
   if (!l_sched) {
     if (!PyErr_Occurred())
       PyErr_SetString(PyExc_RuntimeError, "Failed to process kernel schedule");
@@ -1646,78 +1854,87 @@ bool specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *grid,
     return false;
 
   // Build the kernel object
+  // from hereon we can't fail, so using lean_object* instead of lean_rc_ptr
   lean_object *fs = lean_mk_empty_array();
   lean_object *cs = lean_mk_empty_array();
   lean_object *gs = lean_mk_empty_array();
-  for (struct definition *d = st.defs; d; d = d->next) {
-    switch (d->type) {
-    case FUN: fs = lean_array_push(fs, d->obj); break;
-    case CLS: cs = lean_array_push(cs, d->obj); break;
-    case GLOBAL: gs = lean_array_push(gs, d->obj); break;
+  for (auto &d : st.defs) {
+    switch (d.type) {
+    case state::definition::FUN: fs = lean_array_push(fs, d.obj.release()); break;
+    case state::definition::CLS: cs = lean_array_push(cs, d.obj.release()); break;
+    case state::definition::GLOBAL: gs = lean_array_push(gs, d.obj.release()); break;
     }
   }
 
-  lean_object *l_k = Python_Kernel_mk(
-    py_def_name(k->f),
+  auto l_k = lean_rc_ptr(Python_Kernel_mk(
+    py_def_name(k->f).release(),
     lean_array_to_list(fs),
     lean_array_to_list(cs),
-    l_args,
-    l_kwargs,
+    l_args.release(),
+    l_kwargs.release(),
     lean_array_to_list(gs),
-    l_grid,
-    l_sched);
+    l_grid.release(),
+    l_sched.release()));
 
   // save the constructed kernel
-  if (k->lean_kernel) {
-    if (k->lean_kernel->kernel)
-      lean_dec(k->lean_kernel->kernel);
-  } else {
-    k->lean_kernel = calloc(1, sizeof(struct lean_kernel));
+  if (!k->lean_kernel) {
+    k->lean_kernel = new lean_kernel();
   }
-  k->lean_kernel->kernel = l_k;
+  k->lean_kernel->kernel = std::move(l_k);
   return true;
 }
 
-lean_object* nki_to_json(lean_object*);
+void free_lean_kernel(struct lean_kernel *l_kernel) {
+  delete l_kernel;
+}
 
-const char* serialize_python(struct kernel *k) {
+extern "C" lean_object* nki_to_json(lean_object*);
+
+// Returns Python string (or NULL, with an exception set)
+PyObject* serialize_python(struct kernel *k) {
   if (!k->lean_kernel) {
-    specialize(k, Py_None, Py_None, Py_None, Py_None);
+    if (!specialize(k, Py_None, Py_None, Py_None, Py_None))
+      return NULL;
   }
 
   if (!k->lean_kernel) {
     PyErr_SetString(PyExc_RuntimeError, "No valid kernel in serialize");
     return NULL;
   }
-  lean_inc(k->lean_kernel->kernel);
-  lean_object *json = nki_to_json(k->lean_kernel->kernel);
-  return lean_string_cstr(json);
+
+  // incref kernel, because nki_to_json() will steal a ref
+  lean_object *l_kernel = k->lean_kernel->kernel.get();
+  lean_inc(l_kernel);
+  auto json = lean_rc_ptr(nki_to_json(l_kernel));
+
+  return py_string_from_lean(std::move(json));
 }
 
-lean_object* nki_trace(lean_object*, lean_object*, lean_object*);
+extern "C" lean_object* nki_trace(lean_object*, lean_object*, lean_object*);
 
 // from util/io implemented in Init/System/IOError.lean
-lean_object* lean_io_error_to_string(lean_object*);
+extern "C" lean_object* lean_io_error_to_string(lean_object*);
 
-const char* trace(struct kernel *k, const char *dst_file) {
+// Returns Python string (or NULL, with an exception set)
+PyObject* trace(struct kernel *k, const char *dst_file) {
   if (!k->lean_kernel) {
     PyErr_SetString(PyExc_RuntimeError, "No valid kernel to serialize");
     return NULL;
   }
 
-  lean_object *file = lean_mk_string(dst_file);
-  lean_object *world = lean_io_mk_world();
-  lean_inc(k->lean_kernel->kernel);
-  lean_object *res = nki_trace(k->lean_kernel->kernel, file, world);
+  auto file = lean_rc_ptr(lean_mk_string(dst_file));
+  auto world = lean_rc_ptr(lean_io_mk_world());
+  lean_rc_ptr l_kernel = k->lean_kernel->kernel;
+  auto res = lean_rc_ptr(nki_trace(l_kernel.release(), file.release(), world.release()));
 
-  if (lean_io_result_is_ok(res)) {
-    lean_object *str = lean_io_result_take_value(res);
-    return lean_string_cstr(str);
+  if (lean_io_result_is_ok(res.get())) {
+    auto str = lean_rc_ptr(lean_io_result_take_value(res.release()));
+    return py_string_from_lean(std::move(str));
   } else {
-    lean_object *err = lean_io_result_get_error(res);
-    lean_object *str = lean_io_error_to_string(err);
-    PyErr_SetString(PyExc_RuntimeError, lean_string_cstr(str));
-    lean_dec(str);
+    lean_object *err = lean_io_result_get_error(res.get()); // takes borrowed ref, returns borrowed ref
+    lean_inc(err);
+    auto str = lean_rc_ptr(lean_io_error_to_string(err));
+    PyErr_SetString(PyExc_RuntimeError, lean_string_cstr(str.get()));
     return NULL;
   }
 }
