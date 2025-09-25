@@ -163,8 +163,8 @@ nki builtin.isa.activation
  (op : ActivationFunc)
  (data : Access)
  -- kwargs
- (bias : Immediate := .float 0) -- Also can be a tensor. Default is none
- (scale : Immediate := .float 1.0) -- This also can accept a tensor
+ (bias : Sum Immediate Access := .inl $ .float 0) -- Also can be a tensor. Default is none
+ (scale : Sum Immediate Access := .inl $ .float 1.0) -- This also can accept a tensor
  (reduce_op : Option AluOp := none)
  (reduce_res : Option Access := none)
  (reduce_cmd : AccumCmd := .Idle)
@@ -177,8 +177,12 @@ nki builtin.isa.activation
     src := .abstract data,
     accumulatorCmd := reduce_cmd,
     activationFunc := op,
-    scale := scale,
-    bias := bias,
+    scale := match scale with
+    | .inl imm => .imm imm
+    | .inr t => .tile $ .abstract t,
+    bias := match bias with
+    | .inl imm => .imm imm
+    | .inr t => .tile $ .abstract t,
     reduceOp := reduce_op,
     reduceRes := reduce_res.map .abstract,
     dtype := dst.tensor.dtype,
@@ -193,8 +197,8 @@ nki builtin.isa.activation_reduce
  (reduce_op : Option AluOp := none)
  (reduce_res : Option Access := none)
  (reduce_cmd : AccumCmd := .Idle)
- (bias : Immediate := .float 0)
- (scale : Sum Immediate Access := .inl (.float 1.0))
+ (bias : Sum Immediate Access := .inl $ .float 0)
+ (scale : Sum Immediate Access := .inl $ .float 1.0)
  (mask : Option Immediate := none)
  (name : Option String := none) := do
     if mask.isSome then
@@ -205,11 +209,15 @@ nki builtin.isa.activation_reduce
       dst := .abstract dst,
       activationFunc := op,
       src := .abstract data,
-      bias := bias,
+      scale := match scale with
+      | .inl imm => .imm imm
+      | .inr t => .tile $ .abstract t,
+      bias := match bias with
+      | .inl imm => .imm imm
+      | .inr t => .tile $ .abstract t,
       reduceOp := reduce_op,
       reduceRes := reduce_res.map .abstract,
       accumulatorCmd := reduce_cmd,
-      scale := <- scale.getLeft?,
       dtype := dst.tensor.dtype,
     }) name
     return .none
