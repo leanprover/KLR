@@ -1681,7 +1681,7 @@ PyObject* specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *
       free(buf);
     }
   }
-  append(&json, "], \"errors\":[";
+  append(&json, "], \"errors\":[");
 
   first = true;
   for (struct message *m = st.messages; m; m = m->next) {
@@ -1696,7 +1696,7 @@ PyObject* specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *
       free(buf);
     }
   }
-  append(&json, "]}";
+  append(&json, "]}");
   return json;
 }
 
