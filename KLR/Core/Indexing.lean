@@ -379,45 +379,45 @@ theorem get!_eq_comp : ∀ i : Int, start s1 s2 + step s1 s2 * i = s1.get! (s2.g
 
 end comp
 
-/-- Defines a clipped composition operator for IndexSpans -/
-def clipComp (s1 s2 : IndexSpan) : IndexSpan where
-  start := Int.toNat <| comp.start s1 s2
-  step := comp.step s1 s2
-  num := comp.num s1 s2
-  step_nz := Int.mul_ne_zero_iff.mpr ⟨s1.step_nz, s2.step_nz⟩
-  get_nonneg i Hlb Hub := by
-    rcases Decidable.em (0 ≤ (comp.start s1 s2)) with (H|H)
-    · rw [Int.ofNat_toNat, Int.max_eq_left H]
-      rw [comp.get!_eq_comp]
-      apply s1.get_nonneg _ _
-      · suffices comp.inbounds? s1 (s2.get! i) by
-          simp [comp.inbounds?] at this
-          apply this.2
-        unfold comp.num at Hub
-        have Hnum := @List.lenMaxPrefix_prefix_holds _ (List.range s2.num)
-                       (comp.inbounds? s1 ∘ s2.get! ∘ Int.ofNat)
-                       i.toNat ?G1 ((Int.toNat_lt Hlb).mpr Hub)
-        case G1 =>
-          apply Nat.lt_of_lt_of_le ((Int.toNat_lt Hlb).mpr Hub)
-          exact List.lenMaxPrefix_le_length
-        simp at Hnum
-        apply (Int.max_eq_left Hlb ▸ Hnum)
-      · apply s2.get_nonneg _ Hlb
-        apply Int.lt_of_lt_of_le Hub
-        apply Int.ofNat_le.mpr
-        exact comp.num_le_ub s1 s2
-    · simp only [comp.start, Int.not_le] at H
-      have _ := comp.start_neg_implies_num_zero (H := H)
-      omega
-
-@[simp] def clipComp.wf (s1 s2 : IndexSpan) : Prop := 0 ≤ comp.start s1 s2
-
-/-- As long as the composition is well-defined -/
-theorem clipComp.get!_eq (s1 s2 : IndexSpan) {i} (Hwf : clipComp.wf s1 s2) :
-    (clipComp s1 s2).get! i = s1.get! (s2.get! i) := by
-  rw [← comp.get!_eq_comp]
-  simp [clipComp]
-  exact Int.max_eq_left Hwf
+-- /-- Defines a clipped composition operator for IndexSpans -/
+-- def clipComp (s1 s2 : IndexSpan) : IndexSpan where
+--   start := Int.toNat <| comp.start s1 s2
+--   step := comp.step s1 s2
+--   num := comp.num s1 s2
+--   step_nz := Int.mul_ne_zero_iff.mpr ⟨s1.step_nz, s2.step_nz⟩
+--   get_nonneg i Hlb Hub := by
+--     rcases Decidable.em (0 ≤ (comp.start s1 s2)) with (H|H)
+--     · rw [Int.ofNat_toNat, Int.max_eq_left H]
+--       rw [comp.get!_eq_comp]
+--       apply s1.get_nonneg _ _
+--       · suffices comp.inbounds? s1 (s2.get! i) by
+--           simp [comp.inbounds?] at this
+--           apply this.2
+--         unfold comp.num at Hub
+--         have Hnum := @List.lenMaxPrefix_prefix_holds _ (List.range s2.num)
+--                        (comp.inbounds? s1 ∘ s2.get! ∘ Int.ofNat)
+--                        i.toNat ?G1 ((Int.toNat_lt Hlb).mpr Hub)
+--         case G1 =>
+--           apply Nat.lt_of_lt_of_le ((Int.toNat_lt Hlb).mpr Hub)
+--           exact List.lenMaxPrefix_le_length
+--         simp at Hnum
+--         apply (Int.max_eq_left Hlb ▸ Hnum)
+--       · apply s2.get_nonneg _ Hlb
+--         apply Int.lt_of_lt_of_le Hub
+--         apply Int.ofNat_le.mpr
+--         exact comp.num_le_ub s1 s2
+--     · simp only [comp.start, Int.not_le] at H
+--       have _ := comp.start_neg_implies_num_zero (H := H)
+--       omega
+--
+-- @[simp] def clipComp.wf (s1 s2 : IndexSpan) : Prop := 0 ≤ comp.start s1 s2
+--
+-- /-- As long as the composition is well-defined -/
+-- theorem clipComp.get!_eq (s1 s2 : IndexSpan) {i} (Hwf : clipComp.wf s1 s2) :
+--     (clipComp s1 s2).get! i = s1.get! (s2.get! i) := by
+--   rw [← comp.get!_eq_comp]
+--   simp [clipComp]
+--   exact Int.max_eq_left Hwf
 
 end IndexSpan
 
@@ -430,6 +430,7 @@ structure Layout (dim : Nat) where
   nums    : List Nat
   steps_dim : steps.length = dim
   nums_dim : nums.length = dim
+  deriving Repr
 
 /-- An element of ℕ^dim -/
 structure Coord (d : Nat) where
@@ -657,5 +658,171 @@ def Layout.rowMajorForm (s : Shape) : Layout s.freeDim where
   nums := s.freeDims
   steps_dim := by simp
   nums_dim := by simp
+
+
+def TensorName.toAP (a : TensorName) : KLR.Err AccessPattern := do
+  let layout := a.shape.toList
+  let steps := layout.tail ++ [1]
+  let steps := steps.scanr (· * ·) 1 |>.dropLast
+  return {
+    tensor := a
+    parNum := layout[0]!
+    freePattern := (List.zip steps layout).tail.map (fun (step, size) => ⟨step, size⟩)
+    freeOffset := 0
+  }
+
+private def getTensorName (shape : List Nat) : Err TensorName :=
+  let addr : Address := {
+    name := "A", memory := .sbuf,
+    parSize := 4, freeSize := 24,
+    parOffset := none, freeOffset := none
+  }
+  let t := TensorName.make "A" .int8 (.mk shape.head! shape.tail!) addr
+  match t with
+  | .ok t => .ok t
+  | .error err => .error err
+
+#guard (do
+  let t <- getTensorName [4,3,2]
+  let ac <- TensorName.toAP t
+  let bir := BirAccessPattern.fromAccessPattern ac
+  .ok (bir.pattern, bir.offset)) == .ok ([⟨6,4⟩, ⟨2,3⟩, ⟨1,2⟩], 0)
+
+#guard (do
+  let t <- getTensorName [4,3]
+  let ac <- TensorName.toAP t
+  let bir := BirAccessPattern.fromAccessPattern ac
+  .ok (bir.pattern, bir.offset)) == .ok ([⟨3,4⟩, ⟨1,3⟩], 0)
+
+
+def AccessBasic.idx_sz_and_offset (idxs : List Index) : List (Int × Int) :=
+  idxs.map (fun idx =>
+      match idx with
+      | .coord c => (1, c)
+      | .slice s => (((s.u - s.l) / s.step), min s.l s.u)
+      | .dynamic d => (d.size, d.offset)) -- TODO:(pavel) verify
+
+def idxToAp (layout : List Nat) (idxs : List Index) : (List APPair ×  Nat) :=
+  let steps := layout.tail ++ [1] -- step for dim 0 is 1 and the rest is prev dim
+  let steps := steps.scanr (· * ·) 1 |>.dropLast -- actual step is accum of all prev step sizes
+  let sz_off := AccessBasic.idx_sz_and_offset idxs -- get all index size and offset
+  let sz := sz_off.map (·.1.toNat)
+  let off := sz_off.map (·.2)
+  let totalOff := List.sum (List.zip off steps |>.map (fun (o, s) => o.toNat * s))
+  let pairs : List APPair :=  (List.zip steps sz).map (fun (st, sz) => ⟨ st, sz ⟩)
+  (pairs, totalOff)
+
+def AccessBasic.toAP (a : AccessBasic) : KLR.Err AccessPattern := do
+  let layout := a.tensor.shape.toList
+  let (pairs, offset) := idxToAp layout a.indexes
+  return {
+    tensor := a.tensor
+    parNum := pairs[0]!.num
+    freePattern := pairs.tail
+    freeOffset := offset
+  }
+
+private def testAccess (idxs : List Index) : KLR.Err (List APPair × Nat) := do
+  let addr : Address := {
+    name := "A", memory := .sbuf,
+    parSize := 4, freeSize := 24,
+    parOffset := none, freeOffset := none
+  }
+  let t <- TensorName.make "A" .int8 (.mk 4 [3, 2]) addr
+  let ac <- AccessBasic.make t idxs
+  match AccessBasic.toAP ac with
+  | .ok ac =>
+    let bir := BirAccessPattern.fromAccessPattern ac
+    .ok (bir.pattern, bir.offset)
+  | .error e => .error e
+
+#guard testAccess
+ [.coord 0, .coord 0, .coord 0] ==
+  .ok ([⟨6,1⟩, ⟨2,1⟩, ⟨1,1⟩], 0)
+#guard testAccess
+ [.coord 0, .slice (Slice.make! 0 3 1), .slice (Slice.make! 0 2 1)] ==
+  .ok ([⟨6,1⟩, ⟨2,3⟩, ⟨1,2⟩], 0)
+#guard testAccess
+ [.coord 1, .slice (Slice.make! 0 3 1), .slice (Slice.make! 0 2 1)] ==
+  .ok ([⟨6,1⟩, ⟨2,3⟩, ⟨1,2⟩], 6)
+#guard testAccess
+ [.slice (Slice.make! 1 3 1), .slice (Slice.make! 0 3 1), .slice (Slice.make! 0 2 1)] ==
+ .ok ([⟨6,2⟩, ⟨2,3⟩, ⟨1,2⟩], 6)
+#guard testAccess
+ [.slice (Slice.make! 0 4 1), .coord 0, .slice (Slice.make! 0 2 1)] ==
+ .ok ([⟨6,4⟩, ⟨2,1⟩, ⟨1,2⟩], 0)
+#guard testAccess
+ [.slice (Slice.make! 0 4 1), .coord 1, .slice (Slice.make! 0 2 1)] ==
+ .ok ([⟨6,4⟩, ⟨2,1⟩, ⟨1,2⟩], 2)
+#guard testAccess
+ [.slice (Slice.make! 0 4 1), .slice (Slice.make! 1 3 1), .slice (Slice.make! 0 2 1)] ==
+ .ok ([⟨6,4⟩, ⟨2,2⟩, ⟨1,2⟩], 2)
+#guard testAccess
+ [.slice (Slice.make! 0 4 1), .slice (Slice.make! 0 3 1), .coord 0] ==
+ .ok ([⟨6,4⟩, ⟨2,3⟩, ⟨1,1⟩], 0)
+#guard testAccess
+ [.slice (Slice.make! 0 4 1), .slice (Slice.make! 0 3 1), .coord 1] ==
+ .ok ([⟨6,4⟩, ⟨2,3⟩, ⟨1,1⟩], 1)
+
+def AccessPattern.toAP (a : AccessPattern) : KLR.Err AccessPattern :=
+  .ok a
+
+def Access.toAP (a : Access) : KLR.Err AccessPattern :=
+  match a with
+  | .simple s => TensorName.toAP s
+  | .basic b => AccessBasic.toAP b
+  | .pattern p => .ok p
+  | .birPattern _ => throw "Converting birAP to AP is lossy"
+
+def Access.combine (a : Access) (idx : List Index) : KLR.Err AccessPattern := do
+  for i in idx do
+    match i with
+    -- This is probably artificial. We need to test combine better with stride != 1
+    -- until this check can be dropped
+    | .slice s =>
+      if s.step != 1 then
+        throw "can't combine indecies with stride != 1"
+    | _ => pure ()
+  let shape := <- a.shape
+  let ap <- Access.toAP a
+  let pat1 := ⟨ap.freeDim, ap.parNum⟩ :: ap.freePattern
+  let off1 := ap.freeOffset
+  let (pat2, off2) := idxToAp shape.toList idx
+  let pairs := List.zipWith (fun p1 p2 => ⟨max p1.step p2.step, min p1.num p2.num⟩) pat1 pat2
+  let offset := off1 + off2
+  return {
+    tensor := ap.tensor
+    parNum := pairs[0]!.num
+    freePattern := pairs.tail
+    freeOffset := offset
+  }
+
+private def testAccess2 (idxs1 : List Index) (idxs2 : List Index) : KLR.Err (List APPair × Nat) := do
+  let addr : Address := {
+    name := "A", memory := .sbuf,
+    parSize := 4, freeSize := 24,
+    parOffset := none, freeOffset := none
+  }
+  let t <- TensorName.make "A" .int8 (.mk 4 [3, 2]) addr
+  let ab <- AccessBasic.make t idxs1
+  let ac <- AccessBasic.toAP ab
+  let ac2 <- Access.combine (.pattern ac) idxs2
+  let bir := BirAccessPattern.fromAccessPattern ac2
+  .ok (bir.pattern, bir.offset)
+
+#guard testAccess2
+    [.slice (Slice.make! 1 2 1), .slice (Slice.make! 0 3 1), .slice (Slice.make! 0 2 1)]
+    [.coord 0, .slice (Slice.make! 0 3 1), .coord 0] ==
+    .ok ([⟨6,1⟩, ⟨2,3⟩, ⟨1,1⟩], 6)
+#guard testAccess2
+    [.slice (Slice.make! 1 2 1), .slice (Slice.make! 0 3 1), .slice (Slice.make! 0 2 1)]
+    [.coord 0, .slice (Slice.make! 1 2 1), .slice (Slice.make! 0 2 1)] ==
+    .ok ([⟨6,1⟩, ⟨2,1⟩, ⟨1,2⟩], 8)
+#guard testAccess2
+    [.slice (Slice.make! 1 3 1), .slice (Slice.make! 1 3 1), .slice (Slice.make! 0 2 1)]
+    [.slice (Slice.make! 0 2 1), .slice (Slice.make! 0 2 1), .coord 1] ==
+     .ok ([⟨6,2⟩, ⟨2,2⟩, ⟨1,1⟩], 9)
+
+
 
 end KLR.Core

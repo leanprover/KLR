@@ -401,15 +401,13 @@ partial def access (e : Term) (indexes : List Term) : Trace Term := do
       let access <- Access.mkBasic tensor indices
       return .access access
   | .access (.basic tensor) => do
-      let newIndices <- toIndex tensor.getShape.toList indexes
-      let composedIndexSpans := List.zipWith₃
-        (fun x y size => Core.IndexSpan.clipComp (x.toIndexSpan size) (y.toIndexSpan size))
-        tensor.indexes newIndices tensor.getShape.toList
-      let composedIndices <- composedIndexSpans.mapM (fun span => do
-        let slice <- span.toSlice
-        return Index.slice slice)
-      let access <- Access.mkBasic tensor.tensor composedIndices
-      return .access access
+    let indices <- toIndex tensor.getShape.toList indexes
+    let ac <- Access.combine (.basic tensor) indices
+    return .access (.pattern ac)
+  | .access (.pattern pattern) => do
+    let indices <- toIndex pattern.tensor.shape.toList indexes
+    let ac <- Access.combine (.pattern pattern) indices
+    return .access (.pattern ac)
   | t => throw s!"subscript not supported, for term '{Term.kindStr t}'"
 
 /-
