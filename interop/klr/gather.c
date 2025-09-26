@@ -1665,7 +1665,7 @@ PyObject* specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *
   k->lean_kernel->kernel = l_k;
 
   // convert warnings and errors to JSON string for Python
-  char buf[128];
+  char *buf;
   PyObject *json = PyUnicode_FromString("{\"warnings\":[");
 
   bool first = true;
@@ -1676,10 +1676,12 @@ PyObject* specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *
     if (first) first = false;
     else append(&json, ",");
 
-    snprintf(buf, sizeof buf, "\"%s:%d:%d %s\"", m->file, m->line, m->col, m->message);
-    append(&json, buf);
+    if (asprintf(&buf, "\"%s:%d:%d %s\"", m->file, m->line, m->col, m->message) != -1) {
+      append(&json, buf);
+      free(buf);
+    }
   }
-  append(&json, "], \"errors\":[");
+  append(&json, "], \"errors\":[";
 
   first = true;
   for (struct message *m = st.messages; m; m = m->next) {
@@ -1689,10 +1691,12 @@ PyObject* specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *
     if (first) first = false;
     else append(&json, ",");
 
-    snprintf(buf, sizeof buf, "\"%s:%d:%d %s\"", m->file, m->line, m->col, m->message);
-    append(&json, buf);
+    if (asprintf(&buf, "\"%s:%d:%d %s\"", m->file, m->line, m->col, m->message) != -1) {
+      append(&json, buf);
+      free(buf);
+    }
   }
-  append(&json, "]}");
+  append(&json, "]}";
   return json;
 }
 
