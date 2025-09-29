@@ -4,7 +4,7 @@
 
 import os
 import pytest
-import neuronxcc.nki.typing as nt
+from runner import *
 
 from klr.frontend import Kernel
 
@@ -96,12 +96,7 @@ def reverse():
   reverse,
   ])
 def test_succeed(f):
-  t = nt.tensor("float32", (10,10,10))
-  F = Kernel(f)   # parse python
-  F.specialize((t,))
-  F.trace("tmp.klr")
-  os.remove("tmp.klr")
-
+  run_success(f, ())
 
 # Failing cases
 # (These functions are expected to fail elaboration to KLR)
@@ -114,8 +109,4 @@ def out_of_bounds():
   out_of_bounds,
 ])
 def test_fails(f):
-  with pytest.raises(Exception):
-    F = Kernel(f)
-    F.specialize()
-    F.trace("tmp.klr")
-    os.remove("tmp.klr")
+  run_fail(f, ())
