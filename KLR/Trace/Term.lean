@@ -299,7 +299,18 @@ def listAccess (l : List Term) : List Term -> Err Term
       let n := i.toNat
       if h:l.length > n then return l.get (Fin.mk n h)
       else throw "index out of bounds"
-  |_ => throw s!"index must be an integer or slice"
+  | [.slice start u step] => do
+      let start := start.getD 0
+      let e := u.getD l.length
+      let step := step.getD 1
+      if step <= 0 then throw "slice step cannot be zero or negative"
+      let start := if start < 0 then l.length + start else start
+      let e := if e < 0 then l.length + e else e
+      if start < 0 || start > l.length || e < 0 || e > l.length then
+        throw "slice index out of bounds"
+      let sliced := List.range ((e - start + step - 1) / step).toNat |>.map (fun i => l.get! (start.toNat + i * step.toNat))
+      return .list sliced.toArray
+  | e => throw s!"index must be an integer or slice, got {repr e}"
 
 /-
 Access to pointer types (a.k.a. Address)
