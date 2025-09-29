@@ -295,7 +295,7 @@ instance : FromNKI ActivationFunc where
     | .var name =>
       match name with
       | `neuronxcc.nki.language.copy | `numpy.copy => return .copy
-      | `neuronxcc.nki.language.square | `numpy.square => return .sqrt
+      | `neuronxcc.nki.language.square | `numpy.square => return .square
       | `neuronxcc.nki.language.sigmoid => return .sigmoid
       | `neuronxcc.nki.language.relu => return .relu
       | `neuronxcc.nki.language.gelu => return .gelu
