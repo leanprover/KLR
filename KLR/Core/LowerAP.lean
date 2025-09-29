@@ -36,7 +36,7 @@ def Access.lowerAccessPattern (a : Access) : KLR.Err BirAccessPattern := do
   let layout := Layout.rowMajorForm (← a.shape)
   let ap <- Access.toAP a
   if ap.tensor.address.memory != .hbm then
-    if ap.parNum ∉ [0, 32, 64, 96] then
+    if ap.parOffset ∉ [0, 32, 64, 96] then
       throw s!"Invalid partition start offset {ap.freeOffset} for non-HBM memory. Valid offsets are: 0, 32, 64, 96"
   let birAp := BirAccessPattern.fromAccessPattern ap
 
