@@ -83,7 +83,7 @@ def extractCmd : Cmd := `[Cli|
 ]
 
 def archiveCmd : Cmd := `[Cli|
-  archive VIA (fun _ => pure 0); ["0.0.1"]
+  archive NOOP; ["0.0.1"]
   "Work with tar archives"
 
   SUBCOMMANDS:
