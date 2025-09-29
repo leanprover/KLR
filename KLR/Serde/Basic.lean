@@ -677,7 +677,7 @@ TODO: lift this constraint.
 def cborTag (typeTag valTag len : Nat) : ByteArray :=
   assert! len < 0x18
   let len := 0x80 ||| len
-  .mk #[ 0xd9, typeTag.toUInt8, valTag.toUInt8, len]
+  .mk #[ 0xd9, typeTag.toUInt8, valTag.toUInt8, len.toUInt8]
 
 def parseCBORTag (arr : ByteArray) : Err (Nat × Nat × Nat × ByteArray) := do
   if h:arr.size > 4 then

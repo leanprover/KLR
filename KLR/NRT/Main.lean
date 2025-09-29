@@ -65,13 +65,13 @@ def runNeffCmd := `[Cli|
 
   ARGS:
     neffFile : String; "NEFF file"
-    ...inputFiles : String; "Pairs of names and input files corresponding to the tensor inputs in the NEFF." ++
-                            "For example, run-neff /tmp/foo.neff a_tensor /tmp/a.tensor b_tensor /var/b.tensor" ++
-                            "would map `a_tensor` which is expected by the NEFF to the bytes in `/tmp/a.tensor`, etc." ++
-                            "Currently only files of bytes are supported. NumPy format (.npy) files seem supported by " ++
-                            "the runtime, but we haven't got them to work yet. You can generate bytes from an ndarray by calling " ++
-                            "    with open('a_tensor', 'wb') as f:" ++
-                            "        arr.tofile(f)"
+    ...inputFiles : String; "Pairs of names and input files corresponding to the tensor inputs in the NEFF.
+                             For example, run-neff /tmp/foo.neff a_tensor /tmp/a.tensor b_tensor /var/b.tensor
+                             would map `a_tensor` which is expected by the NEFF to the bytes in `/tmp/a.tensor`, etc.
+                             Currently only files of bytes are supported. NumPy format (.npy) files seem supported by
+                             the runtime, but we haven't got them to work yet. You can generate bytes from an ndarray by calling
+                                 with open('a_tensor', 'wb') as f:
+                                     arr.tofile(f)"
 ]
 
 def runTests (_ : Parsed) : IO UInt32 := do

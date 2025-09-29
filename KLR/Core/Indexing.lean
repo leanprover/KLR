@@ -451,7 +451,7 @@ structure FreeSpans (d : Nat) where
 
 def FreeSpans.get! {d : Nat} (f : FreeSpans d) (c : Coord d) : Coord d where
   coords := List.zipWith (IndexSpan.get! · ·) f.spans c.coords
-  coords_dim := by simp [FreeSpans.spans_dim, Coord.coords_dim, Nat.min_self]
+  coords_dim := by simp [FreeSpans.spans_dim, Coord.coords_dim]
 
 /- ## Composition -/
 
@@ -470,7 +470,7 @@ def comp {d} (f : FreeSpans d) (l : Layout d) : Layout d where
   offset := Int.toNat <| offset f l
   steps := steps f l
   nums  := l.nums
-  steps_dim := by simp [FreeSpans.spans_dim, Layout.steps_dim, Nat.min_self, steps]
+  steps_dim := by simp [FreeSpans.spans_dim, Layout.steps_dim, steps]
   nums_dim := l.nums_dim
 
 end lcomp

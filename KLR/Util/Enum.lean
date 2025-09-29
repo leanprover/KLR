@@ -229,7 +229,6 @@ private enum Foo where
   | r := 9
   | m := 10
   | n
-deriving Repr
 
 #guard Enum.toUInt8 Foo.x == 0
 #guard Foo.toUInt8 .x == 0
