@@ -69,9 +69,6 @@ nki builtin.lang.par_dim (t : Term) := do
   warn "par_dim is deprecated"
   return t
 
-nki builtin.lang.get_nc_version := do
-  lookup `arch
-
 nki builtin.lang.program_id (axis : Int) := do
   if axis != 0 then
     throw s!"invalid program axis {axis} (must be zero)"

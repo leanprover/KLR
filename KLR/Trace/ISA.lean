@@ -85,6 +85,8 @@ def getTransposeOps(op: Option (List Int)) : Trace TransposeOps :=
   | some [3, 2, 0, 1] => return .XYWZ
   | some _ => throw "unsupported transpose operation"
 
+nki builtin.isa.get_nc_version := do
+  lookup `arch
 
 -- set_option linter.unusedVariables false
 

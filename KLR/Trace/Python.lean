@@ -138,10 +138,10 @@ private def fetchIter (t : Term) : Trace (List Term) := do
 private def fetchList (t : Term) : Trace (Name × Array Term) := do
   let name <- match t with
     | .ref name .list => pure name
-    | _ => throw "internal error: expecting list reference"
+    | _ => throw "expecting list reference"
   let arr <- match <- lookup name with
     | .list arr => pure arr
-    | _ => throw "internal error: expecting reference to list"
+    | _ => throw "internal error: expecting list literal"
   return (name, arr)
 
 private def modifyList (t : Term) (f : Array Term -> (Array Term × a)) : Trace a := do
@@ -149,6 +149,11 @@ private def modifyList (t : Term) (f : Array Term -> (Array Term × a)) : Trace 
   let (arr, x) := f arr
   extend_global name (.list arr)
   return x
+
+nki builtin.python.list (t : List Term := []) := do
+  let name <- genName `list
+  extend_global name (.list t.toArray)
+  return .ref name .list
 
 nki builtin.list.append (t : Term) (x : Term) := do
   modifyList t fun arr => (arr.push x, .none)
@@ -189,6 +194,70 @@ nki builtin.list.remove (t : Term) (v : Term) := do
 
 nki builtin.list.reverse (t : Term) := do
   modifyList t fun arr => (arr.reverse, .none)
+
+/-
+Python dict object
+-/
+
+private def fetchDict (t : Term) : Trace (Name × AA) := do
+  let name <- match t with
+    | .ref name .dict => pure name
+    | _ => throw "expecting dictionary reference"
+  let arr <- match <- lookup name with
+    | .dict arr => pure arr
+    | _ => throw "internal error: expecting dict literal"
+  return (name, arr)
+
+private def modifyDict (t : Term) (f : AA -> (AA × a)) : Trace a := do
+  let (name, arr) <- fetchDict t
+  let (arr, x) := f arr
+  extend_global name (.dict arr)
+  return x
+
+nki builtin.python.dict (t : List (String × Term) := []) := do
+  let name <- genName `dict
+  extend_global name (.dict t.toArray)
+  return .ref name .dict
+
+nki builtin.dict.clear (t : Term) := do
+  modifyDict t fun _ => (#[], .none)
+
+nki builtin.dict.copy (t : Term) := do
+  let (_, arr) <- fetchDict t
+  let name <- genName `dict
+  extend_global name (.dict arr)
+  return .ref name .dict
+
+nki builtin.dict.get (t : Term) (key : String) (dflt : Term := .none) := do
+  let (_, arr) <- fetchDict t
+  match arr.lookup? key with
+  | some t => return t
+  | none => return dflt
+
+nki builtin.dict.items (t : Term) := do
+  let (_, arr) <- fetchDict t
+  return .list $ arr.map fun (s, t) => .tuple [.string s, t]
+
+nki builtin.dict.keys (t : Term) := do
+  let (_, arr) <- fetchDict t
+  return .list $ arr.map fun (s, _) => .string s
+
+nki builtin.dict.values (t : Term) := do
+  let (_, arr) <- fetchDict t
+  return .list $ arr.map fun (_, t) => t
+
+nki builtin.dict.pop (t : Term) (key : String) (dflt : Term := .none) := do
+  modifyDict t fun arr =>
+    let (vs, arr) := arr.partition fun i => i.fst == key
+    if h:vs.size > 0
+    then (arr, (vs[0]'h).snd)
+    else (arr, dflt)
+
+nki builtin.dict.setdefault (t : Term) (key : String) (default : Term := .none) := do
+  modifyDict t fun arr =>
+    match arr.findIdx? fun item => item.fst = key with
+    | none => (arr.push (key, default), default)
+    | some i => (arr, (arr[i]!).snd)
 
 /-
 Python math library

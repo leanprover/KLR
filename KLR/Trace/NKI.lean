@@ -84,6 +84,7 @@ private def lookupName (name : Name) : Trace Term := do
   try lookupName' name
   catch | "empty" => throw s!"{name} not found!"
         | e => throw e
+
 /-
 Best effort checks for slice overflow
 
@@ -315,13 +316,16 @@ partial def mutate (x e : Expr) : Trace Unit :=
             extend name (.list (a.set i e h))
             return ()
           else throw "index out of range"
+        else throw "internal error: expecting list literal"
     | .ref name .dict =>
         if let .dict a <- lookup name then
           let i <- index i
           let i : String <- fromNKI? i
           let e <- expr e
+          let a := AA.insert a i e
           extend name (.dict (AA.insert a i e))
           return ()
+        else throw "internal error: expecting dictionary literal"
     | r@(.ref _ (.object cls)) =>
         if let some m <- method? r "__setitem__" then
           let _ <- fnCall m [<- index i, <- expr e] []

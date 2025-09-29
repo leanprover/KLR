@@ -312,6 +312,14 @@ def listAccess (l : List Term) : List Term -> Err Term
       return .list sliced.toArray
   | e => throw s!"index must be an integer or slice, got {repr e}"
 
+def dictAccess (arr : AA) : List Term -> Err Term
+  | [t] => do
+      let s : String <- fromNKI? t
+      match arr.lookup? s with
+      | none => throw s!"key {s} not found in dictionary"
+      | some t => return t
+  | _ => throw "expecting single string argument in dictionary access"
+
 /-
 Access to pointer types (a.k.a. Address)
 NKI users can define memory regions by using slices on other memory regions.
@@ -405,6 +413,7 @@ partial def access (e : Term) (indexes : List Term) : Trace Term := do
   | .string _ => throw "string subscript not implemented"
   | .tuple l => listAccess l indexes
   | .list l => listAccess l.toList indexes
+  | .dict arr => dictAccess arr indexes
   | .pointer addr => pointerAccess addr indexes
   | .access (.simple tensor) => do
       -- TODO: support Access
@@ -455,7 +464,19 @@ def Term.attr (t : Term) (id : String) : Trace Term :=
       | "remove"
       | "reverse"
       | "sort" => return .builtin (.str `builtin.list id) (some t)
-      |  _ => throw s!"unsupported attribute {id} (type is list)"
+      |  _ => throw s!"{id} is not an attribute of list"
+  | .ref _ .dict =>
+      match id with
+      | "clear"
+      | "copy"
+      | "get"
+      | "items"
+      | "keys"
+      | "pop"
+      | "setdefault"
+      | "values" => return .builtin (.str `builtin.dict id) (some t)
+      |  _ => throw s!"{id} is not an attribute of dict"
+
   | .ref name (.object c) => do
       match <- lookup? name with
       | some (.object _ fs) =>
