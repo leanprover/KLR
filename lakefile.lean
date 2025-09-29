@@ -43,20 +43,24 @@ lean_exe "klr" where
   moreLinkArgs := moreLinkArgs
   supportInterpreter := true
 
+-- FIXME: Without this, aesop version 4.20 is included, and the build fails. I can't figure out why.
+require aesop from git
+  "https://github.com/leanprover-community/aesop" @ "v4.23.0"
+
 require Archive from "KLR/Util/Archive"
 
 require Cli from git
-  "https://github.com/leanprover/lean4-cli.git" @ "v4.21.0"
+  "https://github.com/leanprover/lean4-cli.git" @ "v4.23.0"
 
 require Gzip from "KLR/Util/Gzip"
 
 require NRT from "KLR/NRT"
 
 require plausible from git
-  "https://github.com/leanprover-community/plausible" @ "v4.21.0"
+  "https://github.com/leanprover-community/plausible" @ "v4.23.0"
 
 require TensorLib from git
-  "https://github.com/leanprover/TensorLib.git" @ "v0.0.15"
+  "https://github.com/leanprover/TensorLib.git" @ "v0.0.16"
 
 require SHerLOC from git
   "https://github.com/leanprover/SHerLOC.git" @ "c74ae090d4326cca9ff636184c330a67ca039ef6"

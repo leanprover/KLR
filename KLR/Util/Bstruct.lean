@@ -158,7 +158,7 @@ where
     for item in items do
       match item with
       | `(item| $x:ident : $typ := $v:num) =>
-        fields := fields.push (x.getId, typ.getId, v.getNat)
+        fields := fields.push (x.getId, typ.getId, v.getNat.toUInt8)
         sfields := sfields.push (<- `(structSimpleBinder| $x:ident : $typ))
       | _ => throwError "illegal syntax"
     let cmd <-
@@ -213,9 +213,8 @@ private bstruct Foo where
   x : E := 5
   y : UInt8 := 2
   z : UInt8 := 1
-deriving Repr
 
-#guard ToBytes.toBytes (Foo.mk E.x 3 1) == ByteArray.mk #[ 5 <<< 3 ||| 3 <<< 1 ||| 1 ]
+#guard ToBytes.toBytes (Foo.mk E.x 3 1) == ByteArray.mk #[ (5:UInt8) <<< 3 ||| (3:UInt8) <<< 1 ||| 1 ]
 
 private bstruct Foo0 where
   x : UInt8 := 8
@@ -239,7 +238,7 @@ def roundTrip (n m : UInt4) : Bool :=
   let foo := Foo1.mk n m
   KLR.Util.fromBytes Foo1 (ToBytes.toBytes foo) == .ok (foo, ByteArray.empty)
 
-#guard ToBytes.toBytes (Foo1.mk 3 4) == ⟨ #[ (3 <<< 4) ||| 4 ] ⟩
+#guard ToBytes.toBytes (Foo1.mk 3 4) == ⟨ #[ ((3: UInt8) <<< 4) ||| 4 ] ⟩
 #guard
   let foo := Foo1.mk 10 4
   KLR.Util.fromBytes Foo1 (ToBytes.toBytes foo) == .ok (foo, ByteArray.empty)
@@ -260,7 +259,7 @@ info: Unable to find a counter-example
 warning: declaration uses 'sorry'
 -/
 #guard_msgs in
-  example (n m : UInt4) : ToBytes.toBytes (Foo1.mk m n) == ⟨ #[ m.toNat <<< 4 ||| n.toNat ] ⟩ := by plausible
+  example (n m : UInt4) : ToBytes.toBytes (Foo1.mk m n) == ⟨ #[ m.toNat.toUInt8 <<< 4 ||| n.toNat.toUInt8 ] ⟩ := by plausible
 
 /--
 info: Unable to find a counter-example
