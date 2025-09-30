@@ -1462,6 +1462,11 @@ static void class(struct state *st, lean_object *name, struct _stmt *s) {
       error(st, "NKI classes must inherit from either Enum or NKIObject");
       return;
     }
+  } else {
+    // Not inheriting from any base is also a failure since there are
+    // a good number of classes that are plain but are not valid in NKI
+    error(st, "NKI classes must inherit from either Enum or NKIObject");
+    return;
   }
 
   // don't follow base classes or decorators
