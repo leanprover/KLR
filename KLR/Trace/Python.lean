@@ -82,6 +82,15 @@ nki builtin.python.min (a : Term) (b : Term) := do
   | .int a, .int b => return .int (min a b)
   | _, _ => throw "invalid arguments"
 
+nki builtin.python.abs (t : Term) := do
+  match t with
+  | .bool true => return .int 1
+  | .bool false => return .int 0
+  | .int (.ofNat n) => return .int n
+  | .int (.negSucc n) => return .int (n+1)
+  | .float f => return .float f.abs
+  | _ => throw "abs expects an integer or float number"
+
 nki builtin.python.str (t : Term) := do
   return .string (<- t.toStr)
 
