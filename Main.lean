@@ -264,6 +264,18 @@ def trace (p : Parsed) : IO UInt32 := do
     pure () --IO.println (reprStr kernel)
   return 0
 
+def listBuiltins (_ : Parsed) : IO UInt32 := do
+  let mut cs := #[]
+  let mut max := 0
+  for (n,t) in Trace.globalEnv do
+    cs := cs.push (t.kindStr, n.toString)
+    let s := t.kindStr
+    if s.length >= max then
+      max := s.length + 1
+  let lines := cs.map fun (k, n) => s!"{k.pushn ' ' (max - k.length)} {n}"
+  lines.toList.mergeSort.forM IO.println
+  return 0
+
 /-
 private def evalKlrTensors
   (p : Parsed)
@@ -461,6 +473,11 @@ def traceCmd := `[Cli|
     file : String; "File of Python AST printed as JSON"
 ]
 
+def listCmd := `[Cli|
+  "list" VIA listBuiltins;
+  "List builtin functions and constants"
+]
+
 /-
 def evalKLRCmd := `[Cli|
   "eval-klr" VIA evalKLR;
@@ -526,7 +543,8 @@ def klrCmd : Cmd := `[Cli|
     --evalKLRCmd;
     gatherCmd;
     infoCmd;
-    traceCmd
+    traceCmd;
+    listCmd
     --compileHloCmd;
     --typecheckCmd;
     --modelKLRCmd;
