@@ -266,18 +266,17 @@ def nkiAST : MetaM (List LeanType) := do
 def klrAST: MetaM (List LeanType) := do
   collectTypes [
     -- Core.Tensor
+    `KLR.Core.Immediate,
     `KLR.Core.Memory,
     `KLR.Core.Dtype,
     `KLR.Core.Shape,
     `KLR.Core.Address,
     `KLR.Core.TensorName,
     `KLR.Core.Slice,
-    `KLR.Core.DynamicIdx,
     `KLR.Core.Index,
     `KLR.Core.AccessBasic,
     `KLR.Core.APPair,
     `KLR.Core.AccessPattern,
-    `KLR.Core.DynamicAPTerm,
     `KLR.Core.BirAccessPattern,
     `KLR.Core.Access,
     `KLR.Core.TensorHbm,
@@ -285,7 +284,6 @@ def klrAST: MetaM (List LeanType) := do
     `KLR.Core.TensorRef,
     -- Core.Operators (Parameters)
     `KLR.Core.Engine,
-    `KLR.Core.Immediate,
     `KLR.Core.ActivationImm,
     `KLR.Core.Operand,
     `KLR.Core.DataPattern,

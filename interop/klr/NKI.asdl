@@ -1,3 +1,9 @@
+Immediate =
+ | register(Reg reg)
+ | pointer()
+ | int(Int i)
+ | float(Float f)
+
 Memory =
   | hbm
   | sbuf
@@ -27,12 +33,9 @@ Address = (String name, Memory memory, Nat parSize, Nat freeSize, Nat? parOffset
 TensorName = (String name, Dtype dtype, Shape shape, Address address, Nat freeElements, Prop parWF, Prop freeWF)
 
 Slice = (Nat l, Nat u, Int step, Prop wf)
-
-DynamicIdx = (TensorName* ts, Int* cs, Int offset)
 Index =
  | coord(Nat e)
  | slice(Slice slice)
- | dynamic(DynamicIdx dynamic)
 
 
 AccessBasic = (TensorName tensor, Index* indexes, Prop lenWF)
@@ -41,9 +44,7 @@ APPair = (Int step, Nat num)
 
 AccessPattern = (TensorName tensor, Nat parNum, APPair* freePattern, Nat parOffset, Nat freeOffset)
 
-DynamicAPTerm = (TensorName t, Int c)
-
-BirAccessPattern = (TensorName tensor, Nat offset, APPair* pattern, DynamicAPTerm** terms)
+BirAccessPattern = (TensorName tensor, Nat offset, APPair* pattern, Immediate? scalarOffset, Access? vectorOffset, Int indirectDim)
 Access =
  | simple(TensorName tensor)
  | basic(AccessBasic access)
@@ -69,12 +70,6 @@ Engine =
   | pe
   | pool
   | sp
-Immediate =
- | register(Reg reg)
- | pointer()
- | int(Int i)
- | float(Float f)
-
 ActivationImm =
  | register(Reg reg)
  | pointer()

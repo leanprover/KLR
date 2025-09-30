@@ -576,7 +576,6 @@ def Index.toIndexSpan (i : Index) (size : Nat) : IndexSpan :=
   match i with
   | .coord x => coordToIndexSpan x
   | .slice s => s.toIndexSpan size
-  | .dynamic _ => .full size -- NOTE: do we need to fix clipping?
 
 def simpleInterpPar (t : TensorName) : IndexSpan :=
   .full t.shape.parDim
@@ -699,8 +698,7 @@ def AccessBasic.idx_sz_and_offset (idxs : List Index) : List (Int × Int) :=
   idxs.map (fun idx =>
       match idx with
       | .coord c => (1, c)
-      | .slice s => (((s.u - s.l) / s.step), min s.l s.u)
-      | .dynamic d => (d.size, d.offset)) -- TODO:(pavel) verify
+      | .slice s => (((s.u - s.l) / s.step), min s.l s.u))
 
 def idxToAp (layout : List Nat) (idxs : List Index) : (List APPair ×  Nat) :=
   let steps := layout.tail ++ [1] -- step for dim 0 is 1 and the rest is prev dim
@@ -822,7 +820,5 @@ private def testAccess2 (idxs1 : List Index) (idxs2 : List Index) : KLR.Err (Lis
     [.slice (Slice.make! 1 3 1), .slice (Slice.make! 1 3 1), .slice (Slice.make! 0 2 1)]
     [.slice (Slice.make! 0 2 1), .slice (Slice.make! 0 2 1), .coord 1] ==
      .ok ([⟨6,2⟩, ⟨2,2⟩, ⟨1,1⟩], 9)
-
-
 
 end KLR.Core

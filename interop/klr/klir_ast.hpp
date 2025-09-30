@@ -22,6 +22,36 @@ struct Pos final {
   Option<String> filename;
 };
 
+struct Immediate {
+  enum class Tag {
+    reg = 1,
+    pointer,
+    int32,
+    float32,
+  };
+  Tag tag;
+  Immediate(Tag tag) : tag(tag) {}
+};
+
+struct ImmediateRegisterWrapper final : Immediate {
+  Nat reg;
+  ImmediateRegisterWrapper() : Immediate(Tag::reg) {}
+};
+
+struct ImmediatePointerWrapper final : Immediate {
+  ImmediatePointerWrapper() : Immediate(Tag::pointer) {}
+};
+
+struct ImmediateIntWrapper final : Immediate {
+  Int i;
+  ImmediateIntWrapper() : Immediate(Tag::int32) {}
+};
+
+struct ImmediateFloatWrapper final : Immediate {
+  Float f;
+  ImmediateFloatWrapper() : Immediate(Tag::float32) {}
+};
+
 enum class Memory {
   hbm = 1,
   sbuf,
@@ -78,17 +108,10 @@ struct Slice final {
   Prop wf;
 };
 
-struct DynamicIdx final {
-  List<Ptr<TensorName>> ts;
-  List<Int> cs;
-  Int offset;
-};
-
 struct Index {
   enum class Tag {
     coord = 1,
     slice,
-    dynamic,
   };
   Tag tag;
   Index(Tag tag) : tag(tag) {}
@@ -102,11 +125,6 @@ struct IndexCoordWrapper final : Index {
 struct IndexSliceWrapper final : Index {
   Ptr<Slice> slice;
   IndexSliceWrapper() : Index(Tag::slice) {}
-};
-
-struct IndexDynamicWrapper final : Index {
-  Ptr<DynamicIdx> dynamic;
-  IndexDynamicWrapper() : Index(Tag::dynamic) {}
 };
 
 struct AccessBasic final {
@@ -128,16 +146,15 @@ struct AccessPattern final {
   Nat freeOffset;
 };
 
-struct DynamicAPTerm final {
-  Ptr<TensorName> t;
-  Int c;
-};
+struct Access;
 
 struct BirAccessPattern final {
   Ptr<TensorName> tensor;
   Nat offset;
   List<Ptr<APPair>> pattern;
-  List<List<Ptr<DynamicAPTerm>>> terms;
+  Option<Ptr<Immediate>> scalarOffset;
+  Option<Ptr<Access>> vectorOffset;
+  Int indirectDim;
 };
 
 struct Access {
@@ -232,36 +249,6 @@ enum class Engine {
   pe,
   pool,
   sp,
-};
-
-struct Immediate {
-  enum class Tag {
-    reg = 1,
-    pointer,
-    int32,
-    float32,
-  };
-  Tag tag;
-  Immediate(Tag tag) : tag(tag) {}
-};
-
-struct ImmediateRegisterWrapper final : Immediate {
-  Nat reg;
-  ImmediateRegisterWrapper() : Immediate(Tag::reg) {}
-};
-
-struct ImmediatePointerWrapper final : Immediate {
-  ImmediatePointerWrapper() : Immediate(Tag::pointer) {}
-};
-
-struct ImmediateIntWrapper final : Immediate {
-  Int i;
-  ImmediateIntWrapper() : Immediate(Tag::int32) {}
-};
-
-struct ImmediateFloatWrapper final : Immediate {
-  Float f;
-  ImmediateFloatWrapper() : Immediate(Tag::float32) {}
 };
 
 struct ActivationImm {

@@ -32,43 +32,12 @@ def Access.lowerAccessPattern (a : Access) : KLR.Err BirAccessPattern := do
   -- The layout of a tensor in memory
   -- Note that because accesses are values, we have are forced to assume that all tensors are
   -- laid out in row major form.
-
-  let layout := Layout.rowMajorForm (← a.shape)
   let ap <- Access.toAP a
   if ap.tensor.address.memory != .hbm then
     if ap.parOffset ∉ [0, 32, 64, 96] then
       throw s!"Invalid partition start offset {ap.freeOffset} for non-HBM memory. Valid offsets are: 0, 32, 64, 96"
   let birAp := BirAccessPattern.fromAccessPattern ap
-
-  -- This code collects the dynamic indicies a dynamic index is a
-  -- list of terms with [t1*c1+o1 + ... + tn*cn+on]
-  -- the BIR access pattern then contains 2 fields:
-  -- terms: list of [t1*c1 + ... + tn*cn]
-  -- offset: sum(o1..on)
-
-  -- We need to build a list of terms of (tensor, coefficent)
-  let terms := match a with
-  | .basic b => b.indexes.map (fun idx =>
-      match idx with
-      | .dynamic d => d.ts.zip d.cs |>.map (fun (t, c) => ⟨t, c⟩)
-      | _ => []
-    )
-  | _ => []
-
-  -- Compute offset from layout steps and index start positions
-  let layoutOffset := match a with
-  | .basic b =>
-    let starts := b.freeIndices.map (fun idx =>
-      match idx with
-      | .slice s => s.l
-      | .coord c => c
-      | .dynamic d => d.offset.toNat
-    )
-    (layout.steps.zip starts).foldl (fun acc (step, start) => acc + step * start) 0
-  | _ => 0
-  let dynOffset := Int.toNat layoutOffset
-  let rv := {birAp with terms := terms, offset := birAp.offset + dynOffset}
-  return rv
+  return birAp
 
 def TensorRef.lowerAccessPatterns : TensorRef → KLR.Err TensorRef
 | .abstract a => do return .abstract <| .birPattern (← a.lowerAccessPattern)

@@ -68,7 +68,7 @@ String String_des(FILE *in) {
     throw std::runtime_error("expecting String");
 
   String result = res;
-  free(res);  // std::string make a copy
+  free(res); // std::string make a copy
   return res;
 }
 

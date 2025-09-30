@@ -32,6 +32,17 @@ inductive Memory where
   | hbm | sbuf | psum | reg
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
+-- register number
+abbrev Reg := Nat
+
+@[serde tag = 131]
+inductive Immediate where
+  | register (reg : Reg)
+  | pointer -- TODO
+  | int (i : Int32)
+  | float (f : Float32)
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
 /-
 Tensor element types supported by hardware.
 
@@ -323,37 +334,16 @@ instance : FromCBOR Slice where
 
 end Slice
 
-@[serde tag = 116]
-structure DynamicIdx where
-  ts : List TensorName
-  cs : List Int
-  offset : Int
-  deriving BEq, Repr, FromJson, ToJson, FromSexp, ToSexp, FromCBOR, ToCBOR
-
-namespace DynamicIdx
-
-instance : Inhabited DynamicIdx where
-  default := DynamicIdx.mk [] [] 0
-
-def size (d : DynamicIdx) : Nat :=
-  match d.ts[0]? with
-  | some t => t.shape.parDim * t.shape.freeElements
-  | none => 0
-
-end DynamicIdx
-
 @[serde tag = 117]
 inductive Index where
   | coord (e : Nat)
   | slice (slice : Slice)
-  | dynamic (dynamic : DynamicIdx)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 -- Compute the number of elements an index represents
 def Index.size : Index -> Nat
  | .coord _ => 1
  | .slice s => s.size
- | .dynamic _ => 1
 
 /--
 Complete Basic Indexing expression
@@ -499,12 +489,6 @@ def freeElementOffset (ap : AccessPattern) : Nat :=
 
 end AccessPattern
 
-@[serde tag = 122]
-structure DynamicAPTerm where
-  t : TensorName
-  c : Int
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
 /-
 BIR compatible access patterns
 
@@ -519,13 +503,28 @@ After allocation, the physical offset can be computed by (pseudo code):
   freeOffset = offset % freeElements + address.freeOffset
   physicalOffset = parOffset * parSize + freeOffset * dtype.size
 -/
+mutual
 @[serde tag = 123]
 structure BirAccessPattern where
   tensor : TensorName
   offset : Nat
   pattern : List APPair
-  terms : List (List DynamicAPTerm)
+  scalarOffset : Option Immediate
+  vectorOffset : Option Access
+  indirectDim : Int
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+
+-- Tensor access: whole tensor (simple), basic indexing, or access pattern
+-- TODO: add advanced indexing (tensor indirect) inductive Access where
+@[serde tag = 124]
+inductive Access where
+  | simple  (tensor : TensorName)
+  | basic   (access : AccessBasic)
+  | pattern (access : AccessPattern)
+  | birPattern (access : BirAccessPattern)
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+end
 
 namespace BirAccessPattern
 
@@ -539,21 +538,11 @@ def fromAccessPattern (ap : AccessPattern) : BirAccessPattern :=
   { tensor := ap.tensor
     offset := free * ap.parOffset + ap.freeOffset
     pattern := ⟨ free, ap.parNum ⟩ :: ap.freePattern
-    terms := []
+    scalarOffset := none
+    vectorOffset := none
+    indirectDim := 0
   }
-
 end BirAccessPattern
-
--- Tensor access: whole tensor (simple), basic indexing, or access pattern
--- TODO: add advanced indexing (tensor indirect) inductive Access where
-
-@[serde tag = 124]
-inductive Access where
-  | simple  (tensor : TensorName)
-  | basic   (access : AccessBasic)
-  | pattern (access : AccessPattern)
-  | birPattern (access : BirAccessPattern)
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 namespace Access
 
@@ -579,7 +568,7 @@ theorem shape.noFail :
   unfold Monad.toApplicative
   unfold Except.instMonad Except.pure
   intro a
-  induction a <;> simp
+  cases a <;> simp
   apply AccessBasic.shape.noFail
   done
 
@@ -678,9 +667,6 @@ def fromAccessPattern (ap : AccessPattern) : Err TensorSram := do
    }
 
 end TensorSram
-
--- register number
-abbrev Reg := Nat
 
 /-
 The type that is passed to instructions to refer to a tensor in SBUF. We abstract
