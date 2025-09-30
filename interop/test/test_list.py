@@ -5,6 +5,7 @@
 import os
 import pytest
 from runner import *
+import numpy as np
 
 from klr.frontend import Kernel
 

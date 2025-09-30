@@ -8,6 +8,8 @@ from typing import Optional, Sequence, Union
 
 from . import frontend
 
+class NKIObject:
+    pass
 
 # wrapper around kernel.specialize()
 def _specialize_kernel(
@@ -35,4 +37,6 @@ def _trace_kernel(
     """
     metadata_json_str = kernel.trace(dst_filepath)
     metadata = json.loads(metadata_json_str)
+    if metadata["errors"]:
+        raise Exception("Error(s) during tracing:\n" + "\n".join(metadata["errors"]))
     return metadata

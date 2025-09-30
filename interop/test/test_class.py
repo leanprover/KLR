@@ -5,12 +5,13 @@
 import os
 import pytest
 
+from klr import NKIObject
 from runner import *
 
 # Success cases
 # (these functions should load and trace to KLR)
 
-class A:
+class A(NKIObject):
   x : int = 1
   y : bool
 
@@ -67,7 +68,7 @@ def modify2():
   a.check(1, 2)
 
 # Check manually written init functions
-class B:
+class B(NKIObject):
   x : int
   def __init__(self, x=1):
     self.x = x
@@ -81,14 +82,14 @@ def init_b2():
   assert b.x == 2
 
 # Check the classes as fields work properly
-class C:
+class C(NKIObject):
   b : B = B()
 
 def init_c1():
   c = C()
   assert c.b.x == 1
 
-class D:
+class D(NKIObject):
   b : B = B(10)
 
 def init_d1():
@@ -97,7 +98,7 @@ def init_d1():
 
 # test dynamic attributes
 
-class E():
+class E(NKIObject):
   pass
 
 def dynamic1():
@@ -119,7 +120,7 @@ def cls_methods():
 
 # overloading
 
-class LeftOver:
+class LeftOver(NKIObject):
   def __eq__(self, x): return 1
   def __ne__(self, x): return 2
   def __lt__(self, x): return 3
@@ -141,7 +142,7 @@ class LeftOver:
   def __xor__(self, x): return 23
   def __and__(self, x): return 24
 
-class RightOver:
+class RightOver(NKIObject):
   def __req__(self, x): return 1
   def __rne__(self, x): return 2
   def __rlt__(self, x): return 3
@@ -211,7 +212,7 @@ def overload2():
   assert (x ^ y) == 23
   assert (x & y) == 24
 
-class Access:
+class Access(NKIObject):
   def __setitem__(self, x, y):
     self.val = y
   def __getitem__(self, x):

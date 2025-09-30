@@ -4,7 +4,8 @@
 
 import os
 import pytest
-import neuronxcc.nki.typing as nt
+import numpy as np
+# import neuronxcc.nki.typing as nt
 
 from klr.frontend import Kernel
 
@@ -45,8 +46,9 @@ def fstr6():
   fstr6,
   ])
 def test_succeed(f):
-  t = nt.tensor("float32", (10,10,10))
+  t = np.ndarray((10, 10, 10), dtype=np.float32)
   F = Kernel(f)   # parse python
   F.specialize()
   F.trace("tmp.klr")
-  os.remove("tmp.klr")
+  if os.path.exists("tmp.klr"):
+    os.remove("tmp.klr")
