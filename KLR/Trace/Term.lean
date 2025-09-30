@@ -92,21 +92,6 @@ private def tensorBinOp(op : BinOp) (l r : TensorLib.Tensor) : Trace Term := do
   -- TODO : implement multiplication and division
   | _ => throw s!"tensors do not support scalar operator '{repr op}'"
 
-private def dynamicBinOp(op : BinOp) (d : Core.DynamicIdx) (v : Int) : Trace Term :=
-  match op with
-  | .add => return .dynamic {d with offset := d.offset + v}
-  | .sub => return .dynamic {d with offset := d.offset - v}
-  | .mul => return .dynamic {d with cs := d.cs.modifyLast (· * v)}
-  | .div => return .dynamic {d with cs := d.cs.modifyLast (· / v)}
-  | _ => throw s!"unsupported operation {repr op} with dynamic access pattern"
-
-private def mergeDynamicTerms(op : BinOp) (l r : Core.DynamicIdx) : Trace Term :=
-  match op with
-  -- merege the two dynamic terms by appending corresponding ts and cs and resolving offsets
-  | .add => return .dynamic {ts := l.ts ++ r.ts, cs := l.cs ++ r.cs, offset := l.offset + r.offset}
-  | .sub => return .dynamic {ts := l.ts ++ r.ts, cs := l.cs ++ (r.cs.map (· * (-1))), offset := l.offset - r.offset}
-  | _ => throw s!"unsupported operation {repr op} with dynamic access pattern"
-
 -- Note: both Lean and Python use big integers
 -- TODO: imcomplete
 private def valueOp : BinOp -> Term -> Term -> Trace Term
@@ -126,12 +111,6 @@ private def valueOp : BinOp -> Term -> Term -> Trace Term
   | op, .tensor l, .float r => tensorOpScalarFloat op l r
   | op, .tensor l, .int r => tensorOpScalarInt op l r
   | op, .tensor l, .tensor r => tensorBinOp op l r
-  -- dynamic access
-  | op, .dynamic d, .int r => dynamicBinOp op d r
-  | op, .dynamic d, .float r => dynamicBinOp op d r.toInt
-  | op, .int l, .dynamic d => dynamicBinOp op d l
-  | op, .float l, .dynamic d => dynamicBinOp op d l.toInt
-  | op, .dynamic l, .dynamic r => mergeDynamicTerms op l r
   | op,_,_ => throw s!"unimplemented operator '{op}'"
 
 -- Binary operators on terms
@@ -275,8 +254,6 @@ def toIndex (shape : List Nat) (ts : List Term) : Err (List Index) := do
           throw "index out of range of tensor dimension"
         return .slice (<- Slice.make x.toNat y.toNat z) :: (<- toIndex ds ts)
     | .tuple _ | .list  _ => throw "nested tuple/list indexes not supported"
-    | .dynamic d =>
-      return .dynamic d :: (<- toIndex ds ts)
     | t => do
         let i : Int <- fromNKI? t
         if i < 0 || i >= d then
@@ -579,7 +556,10 @@ nki builtin.access.reshape
 nki builtin.access.ap
     (self : Access)
     (pattern : List (Int × Nat))
-    (offset : Nat := 0) := do
+    (offset : Nat := 0)
+    (scalar_offset : Option Core.Immediate := none)
+    (vector_offset : Option Access := none)
+    (indirect_dim : Int := 0) := do
   match self with
   | .simple t =>
       let pattern := pattern.map fun (s,c) => Core.APPair.mk s c
@@ -587,7 +567,9 @@ nki builtin.access.ap
         tensor := t
         offset
         pattern
-        terms := []
+        scalarOffset := scalar_offset
+        vectorOffset := vector_offset
+        indirectDim := indirect_dim
       }
       return .access (.birPattern ap)
   | _ => throw "cannot specify an access pattern on an already indexed tensor"

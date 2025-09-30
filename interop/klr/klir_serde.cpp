@@ -147,6 +147,49 @@ Ptr<Pos> Pos_des(FILE *in) {
   return x;
 }
 
+Ptr<Immediate> Immediate_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not read tag");
+  if (t != 131)
+    throw std::runtime_error("Unexpected type tag");
+  switch (c) {
+  case 0: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<ImmediateRegisterWrapper> x = ptr<ImmediateRegisterWrapper>();
+    x->reg = Nat_des(in);
+    return x;
+    break;
+  }
+  case 1: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<ImmediatePointerWrapper> x = ptr<ImmediatePointerWrapper>();
+    return x;
+    break;
+  }
+  case 2: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<ImmediateIntWrapper> x = ptr<ImmediateIntWrapper>();
+    x->i = Int_des(in);
+    return x;
+    break;
+  }
+  case 3: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<ImmediateFloatWrapper> x = ptr<ImmediateFloatWrapper>();
+    x->f = Float_des(in);
+    return x;
+    break;
+  }
+  default:
+    throw std::runtime_error("Invalid value tag");
+  }
+}
+
 Memory Memory_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
@@ -344,19 +387,6 @@ Ptr<Slice> Slice_des(FILE *in) {
   return x;
 }
 
-Ptr<DynamicIdx> DynamicIdx_des(FILE *in) {
-  u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 116 || c != 0 || l != 3)
-    throw std::runtime_error("Invalid Tag");
-  Ptr<DynamicIdx> x = ptr<DynamicIdx>();
-  x->ts = List_TensorName_des(in);
-  x->cs = List_Int_des(in);
-  x->offset = Int_des(in);
-  return x;
-}
-
 Ptr<Index> Index_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
@@ -377,14 +407,6 @@ Ptr<Index> Index_des(FILE *in) {
       throw std::runtime_error("Wrong number of elements");
     Ptr<IndexSliceWrapper> x = ptr<IndexSliceWrapper>();
     x->slice = Slice_des(in);
-    return x;
-    break;
-  }
-  case 2: {
-    if (l != 1)
-      throw std::runtime_error("Wrong number of elements");
-    Ptr<IndexDynamicWrapper> x = ptr<IndexDynamicWrapper>();
-    x->dynamic = DynamicIdx_des(in);
     return x;
     break;
   }
@@ -433,29 +455,19 @@ Ptr<AccessPattern> AccessPattern_des(FILE *in) {
   return x;
 }
 
-Ptr<DynamicAPTerm> DynamicAPTerm_des(FILE *in) {
-  u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 122 || c != 0 || l != 2)
-    throw std::runtime_error("Invalid Tag");
-  Ptr<DynamicAPTerm> x = ptr<DynamicAPTerm>();
-  x->t = TensorName_des(in);
-  x->c = Int_des(in);
-  return x;
-}
-
 Ptr<BirAccessPattern> BirAccessPattern_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 123 || c != 0 || l != 4)
+  if (t != 123 || c != 0 || l != 6)
     throw std::runtime_error("Invalid Tag");
   Ptr<BirAccessPattern> x = ptr<BirAccessPattern>();
   x->tensor = TensorName_des(in);
   x->offset = Nat_des(in);
   x->pattern = List_APPair_des(in);
-  x->terms = List_List_DynamicAPTerm_des(in);
+  x->scalarOffset = Option_Immediate_des(in);
+  x->vectorOffset = Option_Access_des(in);
+  x->indirectDim = Int_des(in);
   return x;
 }
 
@@ -632,49 +644,6 @@ Engine Engine_des(FILE *in) {
     if (l != 0)
       throw std::runtime_error("Wrong number of elements");
     return Engine::sp;
-    break;
-  }
-  default:
-    throw std::runtime_error("Invalid value tag");
-  }
-}
-
-Ptr<Immediate> Immediate_des(FILE *in) {
-  u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not read tag");
-  if (t != 131)
-    throw std::runtime_error("Unexpected type tag");
-  switch (c) {
-  case 0: {
-    if (l != 1)
-      throw std::runtime_error("Wrong number of elements");
-    Ptr<ImmediateRegisterWrapper> x = ptr<ImmediateRegisterWrapper>();
-    x->reg = Nat_des(in);
-    return x;
-    break;
-  }
-  case 1: {
-    if (l != 0)
-      throw std::runtime_error("Wrong number of elements");
-    Ptr<ImmediatePointerWrapper> x = ptr<ImmediatePointerWrapper>();
-    return x;
-    break;
-  }
-  case 2: {
-    if (l != 1)
-      throw std::runtime_error("Wrong number of elements");
-    Ptr<ImmediateIntWrapper> x = ptr<ImmediateIntWrapper>();
-    x->i = Int_des(in);
-    return x;
-    break;
-  }
-  case 3: {
-    if (l != 1)
-      throw std::runtime_error("Wrong number of elements");
-    Ptr<ImmediateFloatWrapper> x = ptr<ImmediateFloatWrapper>();
-    x->f = Float_des(in);
-    return x;
     break;
   }
   default:
@@ -2664,19 +2633,6 @@ Ptr<LncKernel> LncKernel_des(FILE *in) {
   return x;
 }
 
-List<Ptr<TensorName>> List_TensorName_des(FILE *in) {
-  u64 size = 0;
-  if (!deserialize_array_start(in, &size))
-    throw std::runtime_error("expecting List");
-
-  List<Ptr<TensorName>> l;
-  while (size-- > 0) {
-    Ptr<TensorName> b = TensorName_des(in);
-    l.push_back(b);
-  }
-  return l;
-}
-
 List<Ptr<Index>> List_Index_des(FILE *in) {
   u64 size = 0;
   if (!deserialize_array_start(in, &size))
@@ -2703,30 +2659,26 @@ List<Ptr<APPair>> List_APPair_des(FILE *in) {
   return l;
 }
 
-List<List<Ptr<DynamicAPTerm>>> List_List_DynamicAPTerm_des(FILE *in) {
-  u64 size = 0;
-  if (!deserialize_array_start(in, &size))
-    throw std::runtime_error("expecting List");
+Option<Ptr<Immediate>> Option_Immediate_des(FILE *in) {
+  bool isSome;
+  if (!deserialize_option(in, &isSome))
+    throw std::runtime_error("expecting Bool");
 
-  List<List<Ptr<DynamicAPTerm>>> l;
-  while (size-- > 0) {
-    List<Ptr<DynamicAPTerm>> b = List_DynamicAPTerm_des(in);
-    l.push_back(b);
-  }
-  return l;
+  Option<Ptr<Immediate>> x;
+  if (isSome)
+    x = Immediate_des(in);
+  return x;
 }
 
-List<Ptr<DynamicAPTerm>> List_DynamicAPTerm_des(FILE *in) {
-  u64 size = 0;
-  if (!deserialize_array_start(in, &size))
-    throw std::runtime_error("expecting List");
+Option<Ptr<Access>> Option_Access_des(FILE *in) {
+  bool isSome;
+  if (!deserialize_option(in, &isSome))
+    throw std::runtime_error("expecting Bool");
 
-  List<Ptr<DynamicAPTerm>> l;
-  while (size-- > 0) {
-    Ptr<DynamicAPTerm> b = DynamicAPTerm_des(in);
-    l.push_back(b);
-  }
-  return l;
+  Option<Ptr<Access>> x;
+  if (isSome)
+    x = Access_des(in);
+  return x;
 }
 
 Option<Dtype> Option_Dtype_des(FILE *in) {
@@ -2797,17 +2749,6 @@ Option<AluOp> Option_AluOp_des(FILE *in) {
   return x;
 }
 
-Option<Ptr<Immediate>> Option_Immediate_des(FILE *in) {
-  bool isSome;
-  if (!deserialize_option(in, &isSome))
-    throw std::runtime_error("expecting Bool");
-
-  Option<Ptr<Immediate>> x;
-  if (isSome)
-    x = Immediate_des(in);
-  return x;
-}
-
 List<Ptr<TensorRef>> List_TensorRef_des(FILE *in) {
   u64 size = 0;
   if (!deserialize_array_start(in, &size))
@@ -2842,6 +2783,19 @@ List<Ptr<Keyword>> List_Keyword_des(FILE *in) {
   List<Ptr<Keyword>> l;
   while (size-- > 0) {
     Ptr<Keyword> b = Keyword_des(in);
+    l.push_back(b);
+  }
+  return l;
+}
+
+List<Ptr<TensorName>> List_TensorName_des(FILE *in) {
+  u64 size = 0;
+  if (!deserialize_array_start(in, &size))
+    throw std::runtime_error("expecting List");
+
+  List<Ptr<TensorName>> l;
+  while (size-- > 0) {
+    Ptr<TensorName> b = TensorName_des(in);
     l.push_back(b);
   }
   return l;

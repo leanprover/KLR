@@ -115,7 +115,6 @@ inductive Term where
   -- indexing
   | ellipsis : Term
   | slice    : Option Int -> Option Int -> Option Int -> Term
-  | dynamic  : Core.DynamicIdx -> Term
   | pointer  : Core.Address -> Term
   deriving Repr, BEq
 
@@ -141,7 +140,6 @@ def kindStr : Term → String
   | .tensor _ => "tensor"
   | .ellipsis => "ellipsis"
   | .slice _ _ _ => "slice"
-  | .dynamic _ => "dynamic"
   | .pointer _ => "pointer"
 end Term
 
@@ -335,7 +333,6 @@ partial def toStr : Term -> Trace String
       return s!"\{"++ ",".intercalate fs.toList ++"}"
   | .ellipsis => return "..."
   | .slice a b c => return s!"slice({a},{b},{c})"
-  | .dynamic .. => return "<DynamicIdx>"
   | .pointer a => return s!"<Ptr({a.name})>"
   | .tensor .. => return "<Tensor>"
 
@@ -364,8 +361,7 @@ partial def isTrue (t : Term) : Trace Bool := do
   -- indexing
   | .ellipsis ..
   | .slice ..
-  | .pointer ..
-  | .dynamic ..  => throw "ambigous" -- TODO fix me
+  | .pointer .. => throw "ambigous"
   | .tensor t =>
     if t.shape.count == 0 then
      return t.toList.toBool

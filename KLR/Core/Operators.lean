@@ -36,14 +36,6 @@ inductive Engine where
   | act | dma | dve | pe | pool | sp
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 131]
-inductive Immediate where
-  | register (reg : Reg)
-  | pointer -- TODO
-  | int (i : Int32)
-  | float (f : Float32)
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
 @[serde tag = 132]
 inductive ActivationImm where
   | register (reg : Reg)
