@@ -146,6 +146,7 @@ inductive Stmt' where
   | forLoop (x : Name) (iter: Iterator) (body: List Stmt)
   | breakLoop
   | continueLoop
+  | whileLoop (test : Expr) (body: List Stmt)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 end
 

@@ -91,6 +91,7 @@ private def stmt' (s : Stmt') : SimplifyOp Stmt' := do
   -- reccur on statemtns
   | .ifStm e thn els => return .ifStm e (<- stmts thn) (<- stmts els)
   | .forLoop x iter body => return .forLoop x iter (<- stmts body)
+  | .whileLoop test body => return .whileLoop test (<- stmts body)
   -- statments that only contain expressions don't need to be considered and can be simply passed back
   | .expr _ | .assert _ | .ret _ | .declare _ _ | .breakLoop | .continueLoop => return s
   termination_by sizeOf s

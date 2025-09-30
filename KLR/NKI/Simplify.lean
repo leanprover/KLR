@@ -358,14 +358,17 @@ private def stmt' (s : Python.Stmt') : Simplify (List Stmt') := do
   | .ifStm c t e => return [.ifStm (<- expr c) (<- stmts t) (<- stmts e)]
   | .forLoop x iter body orelse => do
       if orelse.length > 0 then
-        throw "for else is not supported in NKI"
+        throw "for-orelse is not supported in NKI"
       let x <- simpleVar (<- expr x)
       let iter := Iterator.expr (<- expr iter)
       let body <- stmts body
       return [.forLoop x iter body]
   | .breakLoop => return [.breakLoop]
   | .continueLoop => return [.continueLoop]
-  | .whileLoop .. => throw "while loops not implemented"
+  | .whileLoop test body orelse => do
+      if orelse.length > 0 then
+        throw "while-orelse is not supported in NKI"
+      return [.whileLoop (<- expr test) (<- stmts body)]
   termination_by sizeOf s
 end
 

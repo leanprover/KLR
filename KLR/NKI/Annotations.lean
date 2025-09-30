@@ -139,6 +139,7 @@ private def stmt' (s : Stmt') : Ann Stmt' := do
   | .forLoop x iter body => do return .forLoop x (<- iterator iter) (<- stmts body)
   | .breakLoop => return .breakLoop
   | .continueLoop => return .continueLoop
+  | .whileLoop test body => return .whileLoop test (<- stmts body)
   termination_by sizeOf s
 end
 
