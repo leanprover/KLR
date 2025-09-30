@@ -58,6 +58,34 @@ The builtin.python namespace is mapped to the top-level namespace.
 For example, builtin.python.f will appear as f.
 -/
 
+nki builtin.python.isinstance (t : Term) (ty : Term) := do
+  match t, ty with
+  | .object cls .., .source { name }
+  | .ref _ (.object cls), .source { name } => return .bool (cls == name)
+  | .none, .builtin `builtin.python.NoneType ..
+  | .bool .., .builtin `builtin.python.bool ..
+  | .int .., .builtin `builtin.python.int ..
+  | .float .., .builtin `builtin.python.float ..
+  | .string .., .builtin `builtin.python.str ..
+  | .tuple .., .builtin `builtin.python.tuple ..
+  | .list .., .builtin `builtin.python.list ..
+  | .ref _ .list, .builtin `builtin.python.list ..
+  | .dict .., .builtin `builtin.python.dict ..
+  | .ref _ .dict, .builtin `builtin.python.dict ..
+  | .scalar .., .builtin `builtin.typing.scalar ..
+  | .ellipsis, .builtin `builtin.python.ellipsis ..
+  | .slice .., .builtin `builtin.python.slice .. => return .bool true
+  | _, _ => return .bool false
+
+nki builtin.python.NoneType := do
+  return .none
+
+nki builtin.python.EllipsisType := do
+  return .ellipsis
+
+nki builtin.python.ellipsis := do
+  return .ellipsis
+
 nki builtin.python.slice (args : List Term) := do
   match args with
   | [e]     => return .slice (some 0) (<- fromNKI? e) (some 1)
@@ -90,6 +118,9 @@ nki builtin.python.abs (t : Term) := do
   | .int (.negSucc n) => return .int (n+1)
   | .float f => return .float f.abs
   | _ => throw "abs expects an integer or float number"
+
+nki builtin.python.tuple (l : List Term := []) := do
+  return .tuple l
 
 nki builtin.python.str (t : Term) := do
   return .string (<- t.toStr)

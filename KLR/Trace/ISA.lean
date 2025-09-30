@@ -88,6 +88,9 @@ def getTransposeOps(op: Option (List Int)) : Trace TransposeOps :=
 nki builtin.isa.get_nc_version := do
   lookup `arch
 
+nki builtin.typing.scalar (t : Term) := do
+  return .scalar t
+
 -- set_option linter.unusedVariables false
 
 nki builtin.isa.nc_matmul

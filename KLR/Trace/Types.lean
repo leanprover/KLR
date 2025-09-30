@@ -112,6 +112,7 @@ inductive Term where
   | list     : Array Term -> Term
   | dict     : Array (String × Term) -> Term
   | tensor   : TensorLib.Tensor -> Term
+  | scalar   : Term -> Term
   -- indexing
   | ellipsis : Term
   | slice    : Option Int -> Option Int -> Option Int -> Term
@@ -138,6 +139,7 @@ def kindStr : Term → String
   | .list _ => "list"
   | .dict _ => "dict"
   | .tensor _ => "tensor"
+  | .scalar .. => "scalar"
   | .ellipsis => "ellipsis"
   | .slice _ _ _ => "slice"
   | .pointer _ => "pointer"
@@ -335,6 +337,7 @@ partial def toStr : Term -> Trace String
   | .slice a b c => return s!"slice({a},{b},{c})"
   | .pointer a => return s!"<Ptr({a.name})>"
   | .tensor .. => return "<Tensor>"
+  | .scalar .. => return "<scalar>"
 
 -- This is partial because the user could have created a heap graph
 partial def isTrue (t : Term) : Trace Bool := do
@@ -369,7 +372,8 @@ partial def isTrue (t : Term) : Trace Bool := do
      throw "The truth value of an array with more than one element is ambiguous"
     else
      throw "The truth value of an empty array is ambiguous"
-
+  | .scalar .. =>
+    throw "boolean conversion of scalar not supported"
 
 def isFalse (t : Term) : Trace Bool :=
   return not (<- t.isTrue)
