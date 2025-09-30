@@ -117,7 +117,7 @@ private def stmt' (s : Stmt') : Simpat (List Stmt') := do
   | .breakLoop
   | .continueLoop
   | .letM (.var ..) .. => return [s]
-  | .letM (.tuple []) .. => throw "invalid pattern"
+  | .letM (.tuple []) .. => throw "internal errro: empty tuple pattern not allowed in let binding"
   | .letM (.tuple [.var n]) ty e => return [.letM (.var n) ty e]
   | .letM (.tuple ps) ty e => do
       let x <- freshName
