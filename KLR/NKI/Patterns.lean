@@ -124,7 +124,8 @@ private def stmt' (s : Stmt') : Simpat (List Stmt') := do
       let st : Stmt' := .letM (.var x) ty e
       return st :: expand x [] 0 ps
   | .ifStm c t e => return [.ifStm c (<- stmts t) (<- stmts e)]
-  | .forLoop x iter body => do return [.forLoop x iter (<- stmts body)]
+  | .forLoop x iter body => return [.forLoop x iter (<- stmts body)]
+  | .whileLoop test body => return [.whileLoop test (<- stmts body)]
   termination_by sizeOf s
 end
 

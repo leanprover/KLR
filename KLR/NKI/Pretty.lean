@@ -148,6 +148,9 @@ private def stmt' (s : Stmt') : Format :=
         stmts body
   | .breakLoop => "break"
   | .continueLoop => "continue"
+  | .whileLoop test body =>
+      "while " ++ format test ++ ":" ++ .line ++
+        stmts body
   termination_by sizeOf s
 end
 

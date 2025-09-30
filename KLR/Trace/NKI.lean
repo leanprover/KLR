@@ -396,6 +396,14 @@ partial def stmt' (s' : Stmt') : Trace Result := do
       return .next
   | .breakLoop => return .brk
   | .continueLoop => return .cont
+  | .whileLoop test body =>
+      repeat
+        if <- (<- expr test).isFalse then break
+        let res <- stmts body
+        if res == .cont then continue
+        if res == .brk then break
+        if let .ret t := res then return .ret t
+      return .next
 end
 
 /-
