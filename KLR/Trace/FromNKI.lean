@@ -290,7 +290,7 @@ instance : FromNKI AluOp where
 
 instance : FromNKI ActivationFunc where
   fromNKI? t :=
-    let err := .error "expecting activation function type"
+    let err := .error "expecting activation function (e.g., relu, sigmoid, tanh, gelu)"
     match t with
     | .var name =>
       match name with
