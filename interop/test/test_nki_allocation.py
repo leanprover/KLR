@@ -5,7 +5,7 @@ import pytest
 
 from apis import *
 
-from klr import Kernel
+from klr.frontend import Kernel
 
 # Success cases
 # (these functions should load and trace to KLR)
@@ -20,8 +20,10 @@ def simple():
   ])
 def test_succeed(f):
   F = Kernel(f)   # parse python
-  file = F()      # specialize, and reduce to KLR
-  os.remove(file)
+  F.specialize()
+  F.trace("tmp.klr")
+  if os.path.exists("tmp.klr"):
+    os.remove("tmp.klr")
 
 # Failing cases
 # (These functions are expected to fail elaboration to KLR)

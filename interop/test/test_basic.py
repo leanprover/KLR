@@ -3,8 +3,9 @@
 # handed to Lean, where it is checked and reduced to KLR.
 
 import pytest
-import neuronxcc.nki.typing as nt
+import numpy as np
 
+import klr.frontend
 from klr.frontend import Kernel
 
 # Success cases
@@ -25,7 +26,7 @@ floating = 1.23
 boolean = True
 nothing = None
 triple = (1, floating, False)
-list3 = [string, triple, nt]
+list3 = [string, triple, klr.frontend]
 
 def expr_name(t):
   # these names will end up in the global environment after parsing
@@ -141,7 +142,7 @@ def undefined_ok(t):
   undefined_ok
   ])
 def test_succeed(f):
-  t = nt.tensor("float32", (10,10,10))
+  t = np.zeros((10,10,10), dtype=np.float32)
   F = Kernel(f)   # parse python
   file = F.specialize((t,))
 

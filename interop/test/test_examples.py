@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 
 from examples import *
-from klr.parser import Parser
+from klr.frontend import Kernel
 
 
 @pytest.mark.parametrize("module,name",
@@ -35,13 +35,14 @@ from klr.parser import Parser
 
 def test_parse(module, name):
   f = getattr(module, name)
-  F = Parser(f)
-  print(F)
+  K = Kernel(f)
+  print(K)
 
 
 if __name__ == '__main__':
   module, name = getting_started, "nki_tensor_add_kernel"
   a = np.ndarray((128,512))
   f = getattr(module, name)
-  F = Parser(f)
-  print(F(a, a, a))
+  K = Kernel(f)
+  K.specialize((a,a,a))
+  print(K)
