@@ -85,26 +85,6 @@ nki builtin.lang.program_ndim := do
 nki builtin.lang.ds (start : Int) (size : Int) := do
   return .slice start (start + size) (some 1)
 
--- We can't change the variable names to add an "_" or the macros will
--- not resolve user parameters correctly.
--- TODO remove this setting one builtins are fully implemented (or removed)
-set_option linter.unusedVariables false
-
-nki builtin.lang.load
-  (src : Access)
-  (mask : Term := .none)
-  (dtype : Option Dtype := none) := do
-  warn "load is not supported"
-  return .access src
-
-nki builtin.lang.store (dst : Access) (src : Access) := do
-  warn "store is not supported"
-  return .none
-
-nki builtin.lang.copy (src : Access) (dst : Access) := do
-  warn "copy is not supported"
-  return .none
-
 nki builtin.lang.unique_name (name : String) := do
-  let uniqueName := <-genName name.toName
+  let uniqueName := <- genName name.toName
   return .string uniqueName.toString
