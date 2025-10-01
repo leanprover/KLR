@@ -1959,7 +1959,7 @@ Ptr<NcActivate> NcActivate_des(FILE *in) {
   x->accumulatorCmd = AccumCmd_des(in);
   x->activationFunc = ActivationFunc_des(in);
   x->scale = Operand_des(in);
-  x->bias = Operand_des(in);
+  x->bias = Option_TensorRef_des(in);
   x->reduceOp = Option_AluOp_des(in);
   x->reduceRes = Option_TensorRef_des(in);
   x->dtype = Option_Dtype_des(in);

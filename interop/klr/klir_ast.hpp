@@ -726,7 +726,7 @@ struct NcActivate final {
   AccumCmd accumulatorCmd;
   ActivationFunc activationFunc;
   Ptr<Operand> scale;
-  Ptr<Operand> bias;
+  Option<Ptr<TensorRef>> bias;
   Option<AluOp> reduceOp;
   Option<Ptr<TensorRef>> reduceRes;
   Option<Dtype> dtype;

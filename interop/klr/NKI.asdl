@@ -259,7 +259,7 @@ TensorScalarReduce = (TensorRef dst, TensorRef src, Operand operand0, AluOp op0,
 
 TensorPartitionReduce = (TensorRef dst, AluOp op, TensorRef data, Dtype? dtype)
 
-NcActivate = (TensorRef dst, TensorRef src, AccumCmd accumulatorCmd, ActivationFunc activationFunc, Operand scale, Operand bias, AluOp? reduceOp, TensorRef? reduceRes, Dtype? dtype)
+NcActivate = (TensorRef dst, TensorRef src, AccumCmd accumulatorCmd, ActivationFunc activationFunc, Operand scale, TensorRef? bias, AluOp? reduceOp, TensorRef? reduceRes, Dtype? dtype)
 
 NcAffineSelect = (TensorRef dst, DataPattern pred, TensorRef onTrueTile, Immediate onFalseValue, Dtype? dtype, AluOp cmpOp)
 

@@ -302,7 +302,7 @@ structure NcActivate where
   accumulatorCmd  : AccumCmd
   activationFunc  : ActivationFunc
   scale           : Operand
-  bias            : Operand
+  bias            : Option TensorRef
   reduceOp        : Option AluOp
   reduceRes       : Option TensorRef
   dtype           : Option Dtype
