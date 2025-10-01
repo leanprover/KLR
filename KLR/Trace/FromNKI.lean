@@ -323,8 +323,16 @@ instance : FromNKI ActivationFunc where
 
 instance : FromNKI AccumCmd where
   fromNKI? t :=
-    let err := .error "expecting activation function type"
+    let err := .error s!"expecting accumulator command (idle, reset, reduce, reset_reduce), got {repr t}"
     match t with
+    | .object `nki.isa.reduce_cmd vs
+    | .object `neuronxcc.nki.isa.reduce_cmd vs =>
+      match AA.lookup? vs "name" with
+      | some (.string "idle") => return .Idle
+      | some (.string "reset") => return .Zero
+      | some (.string "reduce") => return .Accumulate
+      | some (.string "reset_reduce") => return .ZeroAccumulate
+      | _ => err
     | .var name =>
       match name with
       | `neuronxcc.nki.isa.reduce_cmd.idle => return .Idle
