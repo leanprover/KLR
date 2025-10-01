@@ -69,7 +69,7 @@ String String_des(FILE *in) {
 
   String result = res;
   free(res); // std::string make a copy
-  return res;
+  return result;
 }
 
 } // namespace klr
