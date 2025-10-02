@@ -428,7 +428,10 @@ private def pattern (a : Access) : Trace Term := do
 
 def Term.attr (t : Term) (id : String) : Trace Term :=
   match t with
-  | .module n | .var n => lookup (.str n id)
+  | .module n
+  | .builtin n _
+  | .source { name := n, ..}
+  | .var n => lookup (.str n id)
   | .ref _ .list =>
       match id with
       | "append"
