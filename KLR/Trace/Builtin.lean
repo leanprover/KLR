@@ -39,6 +39,15 @@ def nl : String -> Name := .str nki_lang
 def nisa : String -> Name := .str nki_isa
 def nt : String -> Name := .str nki_typing
 
+def nki_' : Name := .str .anonymous "nki"
+def nki_isa' : Name := .str nki_' "isa"
+def nki_lang' : Name := .str nki_' "language"
+def nki_typing' : Name := .str nki_' "typing"
+
+def nl' : String -> Name := .str nki_lang'
+def nisa' : String -> Name := .str nki_isa'
+def nt' : String -> Name := .str nki_typing'
+
 -- conveience functions for creating environment entries
 
 def module (name : Name) : Name × Term :=
