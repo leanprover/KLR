@@ -51,7 +51,7 @@ like `x = C(...)`, will end up calling this generated function.
 Note, regular projections from the class, like `C.x`m will also work since we
 move all of these to the environment.
 -/
-private def genNew (c : Class) (init : Fun) : Cls Fun := do
+private def genNew' (c : Class) (init : Fun) : Cls Fun := do
   let name := c.name
   let pos := { line := 0 : Pos }
   let var n : Expr := ⟨ .var n, pos ⟩
@@ -67,6 +67,20 @@ private def genNew (c : Class) (init : Fun) : Cls Fun := do
     body := body.map fun b => Stmt.mk b pos
     args := init.args.tail
   }
+
+private def isEnum (c : Class) : Bool :=
+  c.bases.contains `Enum
+
+private def enumFields : List Keyword :=
+  let pos := { line := 0 : Pos }
+  let none := Expr.mk (.value .none) pos
+  [.mk "name" none, .mk "value" none]
+
+private def genNew (c : Class) (init : Fun) : Cls Fun := do
+  if isEnum c then
+    genNew' { c with fields := enumFields } init
+  else
+    genNew' c init
 
 /-
 Generate an init function.
@@ -102,18 +116,9 @@ private def genInitStandard (c : Class) : Cls Fun := do
     args := .mk "self" none :: args
   }
 
-private def genInitEnum (c : Class) : Cls Fun := do
-  let pos := { line := 0 : Pos }
-  let none := Expr.mk (.value .none) pos
-  let fs : List Keyword := [.mk "name" none, .mk "value" none]
-  genInitStandard { c with fields := fs }
-
-private def isEnum (c : Class) : Bool :=
-  c.bases.contains `Enum
-
 private def genInit (c : Class) : Cls Fun := do
   if isEnum c then
-    genInitEnum c
+    genInitStandard { c with fields := enumFields }
   else
     genInitStandard c
 
