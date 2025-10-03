@@ -275,6 +275,30 @@ SequenceBounds = (TensorRef dst, TensorRef segmentIds, Dtype? dtype)
 SendRecv = (TensorRef dst, TensorRef src, Immediate sendToRank, Immediate recvFromRank, Immediate pipeId, Bool useGpsimdDma)
 
 SendRecvCCE = (TensorRef dst, TensorRef* src, Immediate sendToRank, Immediate* recvFromRanks, Immediate pipeId, AluOp op)
+BrCmpOp =
+  | always
+  | lt_imm
+  | le_imm
+  | eq_imm
+  | ne_imm
+  | ge_imm
+  | gt_imm
+  | lt_reg
+  | le_reg
+  | eq_reg
+  | ne_reg
+  | ge_reg
+  | gt_reg
+
+TensorLoad = (String dst, TensorRef src)
+
+TensorStore = (TensorRef dst, String src)
+
+RegisterMove = (String dst, Int imm)
+
+CmpBranch = (String reg1, String reg2, Int imm, BrCmpOp op, String trueLabel, String falseLabel)
+
+RegisterAluOp = (String dst, String src, Int imm, AluOp op)
 Operator =
  | activate(Activate op)
  | ncActivate(NcActivate op)
@@ -319,28 +343,22 @@ Operator =
  | sequenceBounds(SequenceBounds op)
  | sendRecv(SendRecv op)
  | sendRecvCCE(SendRecvCCE op)
-
-Value =
- | var(String x)
- | bool(Bool value)
- | int(Int value)
- | float(Float value)
- | access(Access a)
-
-
-Keyword = (String name, Value value)
-Expr =
- | value(Value v)
- | call(String f, Value* args, Keyword* kwargs)
+ | tensorLoad(TensorLoad op)
+ | tensorStore(TensorStore op)
+ | registerMove(RegisterMove op)
+ | cmpBranch(CmpBranch op)
+ | registerAluOp(RegisterAluOp op)
 
 Stmt =
  | oper(Operator op, String? name, Pos pos)
 
 
-Kernel = (String name, TensorName* inputs, TensorName* outputs, Stmt* body)
+Block = (String label, Stmt* body)
+
+Kernel = (String name, TensorName* inputs, TensorName* outputs, Block* body)
 
 SharedConstantFile = (String name, String fileName)
 
 Edges = (String fromEdge, String* toEdges)
 
-LncKernel = (String name, TensorName* inputs, TensorName* outputs, Stmt** bodies, SharedConstantFile* sharedConstants, Edges* edges)
+LncKernel = (String name, TensorName* inputs, TensorName* outputs, Block** bodies, SharedConstantFile* sharedConstants, Edges* edges)

@@ -374,6 +374,24 @@ partial def stmts (l : List Stmt) : Trace Result := do
     | .next => stmts l
     | r => return r
 
+partial def scalar (e : Expr) : Trace String :=
+  withPos e.pos do
+    let rec getName (t : Term) : Trace String := do
+      match t with
+      | .bool true => getName (<- Isa.builtin_typing_scalar [.int 1] [])
+      | .bool false => getName (<- Isa.builtin_typing_scalar [.int 0] [])
+      | .int i => getName (<- Isa.builtin_typing_scalar [.int i] [])
+      | .scalar n => return n.toString
+      | _ => throw "expecting scalar value"
+    getName (<- expr' e.expr)
+
+partial def dynamic (l : List Stmt) : Trace Unit := do
+  match <- stmts l with
+  | .next => return ()
+  | .brk => throw "break not allowed within dynamic loop"
+  | .cont => throw "continue not allowed within dynamic loop"
+  | .ret _ => throw "return not allowed within dynamic loop"
+
 partial def stmt' (s' : Stmt') : Trace Result := do
   match s' with
   | .expr e => let _ <- expr e; return .next
@@ -387,9 +405,53 @@ partial def stmt' (s' : Stmt') : Trace Result := do
   | .letM (.tuple ..) .. => throw "internal error: complex pattern in trace"
   | .setM x e _ => mutate x e; return .next
   | .ifStm e thn els =>
-      if <- (<- expr e).isTrue
-      then stmts thn
-      else stmts els
+      match <- expr e with
+      | .scalar n =>
+          let trueLbl := (<- genName `then).toString
+          let falseLbl := (<- genName `else).toString
+          let endLbl := (<- genName `end).toString
+          brnz n.toString trueLbl falseLbl
+          endBlock
+          -- then:
+          let _ <- beginBlock trueLbl
+          let _ <- stmts thn
+          jmp endLbl
+          endBlock
+          -- else:
+          let _ <- beginBlock falseLbl
+          let _ <- stmts els
+          jmp endLbl
+          endBlock
+          -- end:
+          let _ <- beginBlock endLbl
+          return .next
+      | e =>
+          if <- e.isTrue
+          then stmts thn
+          else stmts els
+  | .forLoop x (.range .dynamic l u s) body => do
+      let bodyLbl := (<- genName `body).toString
+      let endLbl := (<- genName `exit).toString
+      -- init:
+      let _ <- beginBlock
+      let l <- scalar l
+      let u <- scalar u
+      let s <- @fromNKI? Nat _ (<- expr s)
+      extend x (.scalar l.toName)
+      -- entry:
+      let entryLbl <- beginBlock
+      brlt l u bodyLbl endLbl
+      endBlock
+      -- body:
+      let _ <- beginBlock bodyLbl
+      dynamic body
+      -- AluAdd reg += s
+      addImm l u s
+      jmp entryLbl
+      endBlock
+      -- end:
+      let _ <- beginBlock endLbl
+      return .next
   | .forLoop x iter body =>
       let ts : List Term <- iterator iter
       for t in ts do
@@ -408,6 +470,21 @@ partial def stmt' (s' : Stmt') : Trace Result := do
         if res == .cont then continue
         if res == .brk then break
         if let .ret t := res then return .ret t
+      return .next
+  | .dynWhile tensor body =>
+      let bodyLbl := (<- genName `body).toString
+      let endLbl := (<- genName `exit).toString
+      -- entry:
+      let entryLbl <- beginBlock
+      let s <- scalar tensor
+      brnz s bodyLbl endLbl
+      endBlock
+      let _ <- beginBlock bodyLbl
+      dynamic body
+      jmp entryLbl
+      endBlock
+      -- end:
+      let _ <- beginBlock endLbl
       return .next
 end
 
@@ -471,6 +548,7 @@ partial def lowerRes (t: Term) : Trace (List Core.Access) := do
   | _ => return [] -- all others invariants should not contain tensors
 
 def traceKernel (k : Kernel) : Trace Core.Kernel := do
+  let _ <- beginBlock
   addId
   globals k
   match k.funs.find? fun f => f.name == k.entry with
@@ -481,6 +559,7 @@ def traceKernel (k : Kernel) : Trace Core.Kernel := do
       let inputs <- inputs.mapM value
       let inputs := Core.tensors inputs
       let outputs := Core.tensors $ <- lowerRes res
+      endBlock
       return {
         name := k.entry.toString
         inputs := inputs

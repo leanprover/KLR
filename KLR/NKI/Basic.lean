@@ -119,6 +119,7 @@ enum RangeType where
   | static
   | affine
   | sequential
+  | dynamic
   deriving FromCBOR, ToCBOR
 
 @[serde tag = 9]
@@ -147,6 +148,7 @@ inductive Stmt' where
   | breakLoop
   | continueLoop
   | whileLoop (test : Expr) (body: List Stmt)
+  | dynWhile (tensor : Expr) (body : List Stmt)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 end
 

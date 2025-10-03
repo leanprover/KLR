@@ -100,6 +100,7 @@ private def rangeType : Name -> Ann RangeType
   | .str _ "static_range" => return .static
   | .str _ "affine_range" => return .affine
   | .str _ "sequential_range" => return .sequential
+  | .str _ "dynamic_range" => return .dynamic
   | n => throw s!"{n} is not a supported iterator"
 
 private def iterator : Iterator -> Ann Iterator
@@ -139,7 +140,12 @@ private def stmt' (s : Stmt') : Ann Stmt' := do
   | .forLoop x iter body => do return .forLoop x (<- iterator iter) (<- stmts body)
   | .breakLoop => return .breakLoop
   | .continueLoop => return .continueLoop
-  | .whileLoop test body => return .whileLoop test (<- stmts body)
+  | .whileLoop test body =>
+      let cn := match test.expr with
+        | .call ⟨.var (.str _ "scalar"), _⟩ .. => Stmt'.dynWhile
+        | _ => Stmt'.whileLoop
+      return cn test (<- stmts body)
+  | .dynWhile t body => return .dynWhile t (<- stmts body)
   termination_by sizeOf s
 end
 

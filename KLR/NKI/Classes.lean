@@ -188,8 +188,10 @@ def genClasses (k : Kernel) : Cls Kernel := do
     vs := vs.append vars.toArray
 
   -- Note: eraseDups removes the earlier elements in the list
-  return { k with
+  let k := { k with
     funs    := (k.funs ++ fs.toList).eraseDups
     cls     := []
     globals := (k.globals ++ vs.toList).eraseDups
   }
+  --dbg_trace s!"{Std.format k}"
+  return k

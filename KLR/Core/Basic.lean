@@ -47,43 +47,15 @@ structure Pos where
   filename : Option String := none
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-/-
-Fully reduced values
-
-While it may seem strange, an `Access` is really a value. It succinctly
-describes an (admittedly complex) set of physical memory locations. However,
-we only lookup or set the bits in those locations when applied to an operator.
--/
-@[serde tag = 101]
-inductive Value where
-  | var (x : String)
-  | bool (value : Bool)
-  | int (value : Int)
-  | float (value : Float)
-  | access (a : Access)
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-/--
-Expressions are trivial right now, waiting on dynamic loops.
-
-The call expression would only appear in a KLR program if the tracer
-encountered an unknown function.
--/
-@[serde tag = 102]
-structure Keyword where
-  name : String
-  value : Value
-  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
 @[serde tag = 103]
-inductive Expr where
-  | value (v : Value)
-  | call (f : String) (args : List Value) (kwargs : List Keyword)
+inductive Stmt where
+  | oper (op : Operator) (name : Option String) (pos : Pos)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 104]
-inductive Stmt where
-  | oper (op : Operator) (name : Option String) (pos : Pos)
+structure Block where
+  label : String
+  body : List Stmt
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 105]
@@ -91,7 +63,7 @@ structure Kernel where
   name : String
   inputs : List TensorName
   outputs : List TensorName
-  body : List Stmt
+  body : List Block
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 106]
@@ -111,7 +83,7 @@ structure LncKernel where
   name : String
   inputs : List TensorName
   outputs : List TensorName
-  bodies : List (List Stmt)
+  bodies : List (List Block)
   sharedConstants : List SharedConstantFile
   edges : List Edges
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
@@ -131,16 +103,6 @@ instance [Tensors a] : Tensors (List a) where
 
 instance : Tensors Access where
   tensors a := [a.tensor]
-
-instance : Tensors Value where
-  tensors
-  | .access a => tensors a
-  | _ => []
-
-instance : Tensors Expr where
-  tensors
-  | .value v => tensors v
-  | .call _ args kwargs => tensors (args ++ kwargs.map fun kw => kw.value)
 
 instance : Tensors TensorRef where
   tensors
@@ -206,6 +168,11 @@ instance : Tensors Operator where
       | .sequenceBounds s => [s.dst, s.segmentIds]
       | .sendRecv s => [s.dst, s.src]
       | .sendRecvCCE s => [s.dst]
+      | .tensorLoad s => [s.src]
+      | .tensorStore s => [s.dst]
+      | .registerMove _ => []
+      | .cmpBranch _ => []
+      | .registerAluOp _ => []
     let additionalTensors := match op with
       | .ncActivate d => tensors d.reduceRes
       | .ncAffineSelect a => tensors a.onTrueTile
@@ -225,6 +192,9 @@ instance : Tensors Operator where
 instance : Tensors Stmt where
   tensors
   | .oper op .. => tensors op
+
+instance : Tensors Block where
+  tensors b := (b.body.map tensors).flatten.eraseDups
 
 def Kernel.internal (k : Kernel) : List TensorName :=
   let ts := (k.body.map tensors).flatten.eraseDups

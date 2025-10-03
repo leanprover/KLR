@@ -766,7 +766,54 @@ structure SendRecvCCE where
   op : AluOp
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
+/-
+Dynamic control flow operators
+-/
+
 @[serde tag = 189]
+inductive BrCmpOp where
+  | always
+  | lt_imm | le_imm | eq_imm | ne_imm | ge_imm | gt_imm
+  | lt_reg | le_reg | eq_reg | ne_reg | ge_reg | gt_reg
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 190]
+structure TensorLoad where
+  dst : String    -- register name
+  src : TensorRef -- 1x1 tensor access
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 191]
+structure TensorStore where
+  dst : TensorRef -- 1x1 tensor access
+  src : String    -- register name
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 192]
+structure RegisterMove where
+  dst : String
+  imm : Int32
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 193]
+structure CmpBranch where
+  reg1 : String
+  reg2 : String
+  imm : Int32
+  op : BrCmpOp
+  trueLabel : String
+  falseLabel : String
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 194]
+structure RegisterAluOp where
+  dst : String
+  src : String
+  imm : Int32
+  op : AluOp
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 195]
 inductive Operator where
   | activate (op : Activate)
   | ncActivate (op : NcActivate)
@@ -811,9 +858,14 @@ inductive Operator where
   | sequenceBounds (op : SequenceBounds)
   | sendRecv (op : SendRecv)
   | sendRecvCCE (op : SendRecvCCE)
+  | tensorLoad (op : TensorLoad)
+  | tensorStore (op : TensorStore)
+  | registerMove (op : RegisterMove)
+  | cmpBranch (op : CmpBranch)
+  | registerAluOp (op : RegisterAluOp)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 190]
+@[serde tag = 196]
 inductive TGROperator where
   | activate (op : Activate)
   | affineSelect (op : AffineSelect)

@@ -122,18 +122,31 @@ def Operator.lowerAccessPatterns (k : Operator) : KLR.Err Operator :=
     dst := (<-op.dst.lowerAccessPatterns)
     src := (<- op.src.mapM TensorRef.lowerAccessPatterns)
     }
+  | .tensorStore op => return .tensorStore { op with
+    dst := <- op.dst.lowerAccessPatterns
+    }
+  | .tensorLoad op => return .tensorLoad { op with
+    src := <- op.src.lowerAccessPatterns
+    }
+  | .registerMove ..
+  | .cmpBranch ..
+  | .registerAluOp .. => return k
 
 
 def Stmt.lowerAccessPatterns : Stmt → KLR.Err Stmt
   | .oper op name pos => return .oper (<- op.lowerAccessPatterns) name pos
 
+def Block.lowerAccessPatterns (b : Block) : KLR.Err Block := do
+  let body <- b.body.mapM Stmt.lowerAccessPatterns
+  return { b with body := body }
+
 def Kernel.lowerAccessPatterns (k : Kernel) : KLR.Err Kernel := do
-  let body' ← k.body.mapM Stmt.lowerAccessPatterns
+  let body' ← k.body.mapM Block.lowerAccessPatterns
   return { k with body := body'}
 
 def lowerAccessPatterns (k : LncKernel) : KLR.Err LncKernel := do
   let mut bodies := []
   for body in k.bodies do
-    let body' ← body.mapM Stmt.lowerAccessPatterns
+    let body' ← body.mapM Block.lowerAccessPatterns
     bodies := body' :: bodies
   return { k with bodies := bodies.reverse }

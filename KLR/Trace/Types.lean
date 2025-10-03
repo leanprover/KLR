@@ -112,7 +112,7 @@ inductive Term where
   | list     : Array Term -> Term
   | dict     : Array (String × Term) -> Term
   | tensor   : TensorLib.Tensor -> Term
-  | scalar   : Term -> Term
+  | scalar   : Name -> Term
   -- indexing
   | ellipsis : Term
   | slice    : Option Int -> Option Int -> Option Int -> Term
@@ -168,9 +168,12 @@ structure State where
   globals : Env := ∅
   locals : Env := ∅
   refs : Env := ∅
-  body : Array Stmt := #[]
+  body : Array Block := #[]
   tensorNames : Std.HashSet String := ∅
   sharedConstants : SharedConstants := #[]
+  dynamicCtx : Bool := False
+  label : Option String := none
+  stmts : Array Stmt := #[]
 deriving Repr
 
 instance : Inhabited State where
@@ -224,7 +227,69 @@ def enterFun (m : Trace a) : Trace a := do
 -- append fully traced statement
 def add_stmt (stmt : Pos -> Stmt) : Trace Unit := do
   let pos <- getPos
-  modify fun s => { s with body := s.body.push (stmt pos) }
+  modify fun s => { s with stmts := s.stmts.push (stmt pos) }
+
+def jmp (target : String) : Trace Unit := do
+  add_stmt (.oper (.cmpBranch {
+       reg1 := ""
+       reg2 := ""
+       imm  := 0
+       op   := BrCmpOp.always
+       trueLabel := target
+       falseLabel := ""
+    })
+    (<- genName `jmp).toString)
+
+def brnz (reg1 trueLabel falseLabel : String) : Trace Unit := do
+  add_stmt (.oper (.cmpBranch {
+       reg1
+       reg2 := ""
+       imm  := 0
+       op   := BrCmpOp.ne_imm
+       trueLabel
+       falseLabel
+    })
+    (<- genName `brnz).toString)
+
+def brlt (reg1 reg2 trueLabel falseLabel : String) : Trace Unit := do
+  add_stmt (.oper (.cmpBranch {
+       reg1
+       reg2
+       imm  := 0
+       op   := BrCmpOp.lt_reg
+       trueLabel
+       falseLabel
+    })
+    (<- genName `brlt).toString)
+
+def addImm (src dst : String) (imm : Int) : Trace Unit := do
+  add_stmt (.oper (.registerAluOp {
+       src
+       dst
+       imm
+       op := AluOp.add
+    })
+    (<- genName `brnz).toString)
+
+
+def endBlock (next : Option String := none) : Trace Unit := do
+  -- Note: this statement may be discarded, which is correct
+  if let some target := next then
+    jmp target
+  modify fun st =>
+    match st.label with
+    | none => st
+    | some lbl =>
+      { st with
+        body := st.body.push ⟨lbl, st.stmts.toList⟩
+        label := next
+        stmts := #[]
+      }
+
+def beginBlock (label : Option String := none) : Trace String := do
+  let l := label.getD ((<- genName `label).toString)
+  endBlock l
+  return l
 
 private def identity (n : Nat) : TensorLib.Tensor := Id.run do
   let dtype := TensorLib.Dtype.int8
@@ -260,9 +325,10 @@ def addId : Trace Unit := do
     oobMode := .disable,
     dgeMode := 0,
   }) none pos
+  let lbl := (<- genName `init).toString
   let idTensor :=  identity 128
   modify fun s => { s with
-    body := #[initStmt] ++ s.body,
+    body := #[Block.mk lbl [initStmt]] ++ s.body,
     sharedConstants := s.sharedConstants.push (hbmInitName.toString, idTensor)
   }
   extend_global idName (.access (.simple tensorName))

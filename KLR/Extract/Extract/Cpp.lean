@@ -161,6 +161,7 @@ private def genTypes (tys : List LeanType) : MetaM Unit :=
 def generateKlrAST : MetaM Unit := do
   IO.println (headerH [])
   IO.println "// KLR.Core Abstract Syntax"
+  IO.println "struct Access;"
   genTypes (<- commonAST)
   genTypes (<- klrAST)
   --IO.println "struct Python_Kernel {};"

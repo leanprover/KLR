@@ -2099,11 +2099,167 @@ Ptr<SendRecvCCE> SendRecvCCE_des(FILE *in) {
   return x;
 }
 
-Ptr<Operator> Operator_des(FILE *in) {
+BrCmpOp BrCmpOp_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
   if (t != 189)
+    throw std::runtime_error("Unexpected type tag");
+  switch (c) {
+  case 0: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return BrCmpOp::always;
+    break;
+  }
+  case 1: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return BrCmpOp::lt_imm;
+    break;
+  }
+  case 2: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return BrCmpOp::le_imm;
+    break;
+  }
+  case 3: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return BrCmpOp::eq_imm;
+    break;
+  }
+  case 4: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return BrCmpOp::ne_imm;
+    break;
+  }
+  case 5: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return BrCmpOp::ge_imm;
+    break;
+  }
+  case 6: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return BrCmpOp::gt_imm;
+    break;
+  }
+  case 7: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return BrCmpOp::lt_reg;
+    break;
+  }
+  case 8: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return BrCmpOp::le_reg;
+    break;
+  }
+  case 9: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return BrCmpOp::eq_reg;
+    break;
+  }
+  case 10: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return BrCmpOp::ne_reg;
+    break;
+  }
+  case 11: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return BrCmpOp::ge_reg;
+    break;
+  }
+  case 12: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return BrCmpOp::gt_reg;
+    break;
+  }
+  default:
+    throw std::runtime_error("Invalid value tag");
+  }
+}
+
+Ptr<TensorLoad> TensorLoad_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 190 || c != 0 || l != 2)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<TensorLoad> x = ptr<TensorLoad>();
+  x->dst = String_des(in);
+  x->src = TensorRef_des(in);
+  return x;
+}
+
+Ptr<TensorStore> TensorStore_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 191 || c != 0 || l != 2)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<TensorStore> x = ptr<TensorStore>();
+  x->dst = TensorRef_des(in);
+  x->src = String_des(in);
+  return x;
+}
+
+Ptr<RegisterMove> RegisterMove_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 192 || c != 0 || l != 2)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<RegisterMove> x = ptr<RegisterMove>();
+  x->dst = String_des(in);
+  x->imm = Int_des(in);
+  return x;
+}
+
+Ptr<CmpBranch> CmpBranch_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 193 || c != 0 || l != 6)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<CmpBranch> x = ptr<CmpBranch>();
+  x->reg1 = String_des(in);
+  x->reg2 = String_des(in);
+  x->imm = Int_des(in);
+  x->op = BrCmpOp_des(in);
+  x->trueLabel = String_des(in);
+  x->falseLabel = String_des(in);
+  return x;
+}
+
+Ptr<RegisterAluOp> RegisterAluOp_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 194 || c != 0 || l != 4)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<RegisterAluOp> x = ptr<RegisterAluOp>();
+  x->dst = String_des(in);
+  x->src = String_des(in);
+  x->imm = Int_des(in);
+  x->op = AluOp_des(in);
+  return x;
+}
+
+Ptr<Operator> Operator_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not read tag");
+  if (t != 195)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -2458,97 +2614,43 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  default:
-    throw std::runtime_error("Invalid value tag");
-  }
-}
-
-Ptr<Value> Value_des(FILE *in) {
-  u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not read tag");
-  if (t != 101)
-    throw std::runtime_error("Unexpected type tag");
-  switch (c) {
-  case 0: {
+  case 43: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
-    Ptr<ValueVarWrapper> x = ptr<ValueVarWrapper>();
-    x->x = String_des(in);
+    Ptr<OperatorTensorLoadWrapper> x = ptr<OperatorTensorLoadWrapper>();
+    x->op = TensorLoad_des(in);
     return x;
     break;
   }
-  case 1: {
+  case 44: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
-    Ptr<ValueBoolWrapper> x = ptr<ValueBoolWrapper>();
-    x->value = Bool_des(in);
+    Ptr<OperatorTensorStoreWrapper> x = ptr<OperatorTensorStoreWrapper>();
+    x->op = TensorStore_des(in);
     return x;
     break;
   }
-  case 2: {
+  case 45: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
-    Ptr<ValueIntWrapper> x = ptr<ValueIntWrapper>();
-    x->value = Int_des(in);
+    Ptr<OperatorRegisterMoveWrapper> x = ptr<OperatorRegisterMoveWrapper>();
+    x->op = RegisterMove_des(in);
     return x;
     break;
   }
-  case 3: {
+  case 46: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
-    Ptr<ValueFloatWrapper> x = ptr<ValueFloatWrapper>();
-    x->value = Float_des(in);
+    Ptr<OperatorCmpBranchWrapper> x = ptr<OperatorCmpBranchWrapper>();
+    x->op = CmpBranch_des(in);
     return x;
     break;
   }
-  case 4: {
+  case 47: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
-    Ptr<ValueAccessWrapper> x = ptr<ValueAccessWrapper>();
-    x->a = Access_des(in);
-    return x;
-    break;
-  }
-  default:
-    throw std::runtime_error("Invalid value tag");
-  }
-}
-
-Ptr<Keyword> Keyword_des(FILE *in) {
-  u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 102 || c != 0 || l != 2)
-    throw std::runtime_error("Invalid Tag");
-  Ptr<Keyword> x = ptr<Keyword>();
-  x->name = String_des(in);
-  x->value = Value_des(in);
-  return x;
-}
-
-Ptr<Expr> Expr_des(FILE *in) {
-  u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not read tag");
-  if (t != 103)
-    throw std::runtime_error("Unexpected type tag");
-  switch (c) {
-  case 0: {
-    if (l != 1)
-      throw std::runtime_error("Wrong number of elements");
-    Ptr<ExprValueWrapper> x = ptr<ExprValueWrapper>();
-    x->v = Value_des(in);
-    return x;
-    break;
-  }
-  case 1: {
-    if (l != 3)
-      throw std::runtime_error("Wrong number of elements");
-    Ptr<ExprCallWrapper> x = ptr<ExprCallWrapper>();
-    x->f = String_des(in);
-    x->args = List_Value_des(in);
-    x->kwargs = List_Keyword_des(in);
+    Ptr<OperatorRegisterAluOpWrapper> x = ptr<OperatorRegisterAluOpWrapper>();
+    x->op = RegisterAluOp_des(in);
     return x;
     break;
   }
@@ -2561,7 +2663,7 @@ Ptr<Stmt> Stmt_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 104)
+  if (t != 103)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -2579,6 +2681,18 @@ Ptr<Stmt> Stmt_des(FILE *in) {
   }
 }
 
+Ptr<Block> Block_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 104 || c != 0 || l != 2)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<Block> x = ptr<Block>();
+  x->label = String_des(in);
+  x->body = List_Stmt_des(in);
+  return x;
+}
+
 Ptr<Kernel> Kernel_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
@@ -2589,7 +2703,7 @@ Ptr<Kernel> Kernel_des(FILE *in) {
   x->name = String_des(in);
   x->inputs = List_TensorName_des(in);
   x->outputs = List_TensorName_des(in);
-  x->body = List_Stmt_des(in);
+  x->body = List_Block_des(in);
   return x;
 }
 
@@ -2627,7 +2741,7 @@ Ptr<LncKernel> LncKernel_des(FILE *in) {
   x->name = String_des(in);
   x->inputs = List_TensorName_des(in);
   x->outputs = List_TensorName_des(in);
-  x->bodies = List_List_Stmt_des(in);
+  x->bodies = List_List_Block_des(in);
   x->sharedConstants = List_SharedConstantFile_des(in);
   x->edges = List_Edges_des(in);
   return x;
@@ -2762,27 +2876,14 @@ List<Ptr<TensorRef>> List_TensorRef_des(FILE *in) {
   return l;
 }
 
-List<Ptr<Value>> List_Value_des(FILE *in) {
+List<Ptr<Stmt>> List_Stmt_des(FILE *in) {
   u64 size = 0;
   if (!deserialize_array_start(in, &size))
     throw std::runtime_error("expecting List");
 
-  List<Ptr<Value>> l;
+  List<Ptr<Stmt>> l;
   while (size-- > 0) {
-    Ptr<Value> b = Value_des(in);
-    l.push_back(b);
-  }
-  return l;
-}
-
-List<Ptr<Keyword>> List_Keyword_des(FILE *in) {
-  u64 size = 0;
-  if (!deserialize_array_start(in, &size))
-    throw std::runtime_error("expecting List");
-
-  List<Ptr<Keyword>> l;
-  while (size-- > 0) {
-    Ptr<Keyword> b = Keyword_des(in);
+    Ptr<Stmt> b = Stmt_des(in);
     l.push_back(b);
   }
   return l;
@@ -2801,27 +2902,27 @@ List<Ptr<TensorName>> List_TensorName_des(FILE *in) {
   return l;
 }
 
-List<Ptr<Stmt>> List_Stmt_des(FILE *in) {
+List<Ptr<Block>> List_Block_des(FILE *in) {
   u64 size = 0;
   if (!deserialize_array_start(in, &size))
     throw std::runtime_error("expecting List");
 
-  List<Ptr<Stmt>> l;
+  List<Ptr<Block>> l;
   while (size-- > 0) {
-    Ptr<Stmt> b = Stmt_des(in);
+    Ptr<Block> b = Block_des(in);
     l.push_back(b);
   }
   return l;
 }
 
-List<List<Ptr<Stmt>>> List_List_Stmt_des(FILE *in) {
+List<List<Ptr<Block>>> List_List_Block_des(FILE *in) {
   u64 size = 0;
   if (!deserialize_array_start(in, &size))
     throw std::runtime_error("expecting List");
 
-  List<List<Ptr<Stmt>>> l;
+  List<List<Ptr<Block>>> l;
   while (size-- > 0) {
-    List<Ptr<Stmt>> b = List_Stmt_des(in);
+    List<Ptr<Block>> b = List_Block_des(in);
     l.push_back(b);
   }
   return l;

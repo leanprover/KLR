@@ -30,32 +30,7 @@ def converRevOps (reverse0 : Bool) (reverse1 : Bool) : TensorScalarReverseOps :=
     | false, true => .second
     | true, true => .both
 
-def immediateToValue (imm : Immediate) : Value :=
-  match imm with
-  | .int i => .int i.toInt
-  | .float f => .float f.toFloat
-  | .register r =>  .var s!"reg{r}" -- FIXME
-  | .pointer => .var "ptr" -- FIXME
-
-def engineToValue (engine : Engine) : Value :=
-  match engine with
-  | .unassigned => .var "Unknown Engine"
-  | .act => .var "Unknown Engine" -- FIXME
-  | .dma => .var "Unknown Engine" -- FIXME
-  | .dve => .var "Vector Engine"
-  | .pe => .var "Tensor Engine"
-  | .pool => .var "Unknown Engine"
-  | .sp => .var "Scalar Engine"
-
-def accumCmdToValue (ac : AccumCmd) : Value :=
-  match ac with
-  | .Idle => .int 0
-  | .Zero => .int 1
-  | .Accumulate => .int 2
-  | .ZeroAccumulate => .int 3
-  | .LoadAccumulate => .int 4 -- FIXME
-
-def dimsFromPythonDefs(d : Sum Int (List Int)) : Trace TensorSubDim :=
+def dimsFromPythonDefs (d : Sum Int (List Int)) : Trace TensorSubDim :=
   match d with
   | .inl 1 => return .X
   | .inl _ => throw  "not a valid dim"
@@ -89,7 +64,26 @@ nki builtin.isa.get_nc_version := do
   lookup `arch
 
 nki builtin.typing.scalar (t : Term) := do
-  return .scalar t
+  let reg <- genName `reg
+  match t with
+  | .int i =>
+      add_stmt (.oper (.registerMove {
+        dst := reg.toString
+        imm := i
+        })
+        (<- genName `move).toString
+      )
+      return .scalar reg
+  | .access (.simple tn) =>
+      add_stmt (.oper (.tensorLoad {
+        dst := reg.toString
+        src := .abstract (.simple tn)
+        })
+        (<- genName `load).toString
+      )
+      return .scalar reg
+  | .scalar n => return .scalar n
+  | _ => throw "cannot be converted to a scalar value"
 
 -- set_option linter.unusedVariables false
 

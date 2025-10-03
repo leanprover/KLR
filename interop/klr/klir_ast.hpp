@@ -13,6 +13,7 @@ Written by the KLR Contributors (https://github.com/leanprover/KLR)
 namespace klr {
 
 // KLR.Core Abstract Syntax
+struct Access;
 
 struct Pos final {
   Nat line;
@@ -145,8 +146,6 @@ struct AccessPattern final {
   Nat parOffset;
   Nat freeOffset;
 };
-
-struct Access;
 
 struct BirAccessPattern final {
   Ptr<TensorName> tensor;
@@ -813,6 +812,53 @@ struct SendRecvCCE final {
   AluOp op;
 };
 
+enum class BrCmpOp {
+  always = 1,
+  lt_imm,
+  le_imm,
+  eq_imm,
+  ne_imm,
+  ge_imm,
+  gt_imm,
+  lt_reg,
+  le_reg,
+  eq_reg,
+  ne_reg,
+  ge_reg,
+  gt_reg,
+};
+
+struct TensorLoad final {
+  String dst;
+  Ptr<TensorRef> src;
+};
+
+struct TensorStore final {
+  Ptr<TensorRef> dst;
+  String src;
+};
+
+struct RegisterMove final {
+  String dst;
+  Int imm;
+};
+
+struct CmpBranch final {
+  String reg1;
+  String reg2;
+  Int imm;
+  BrCmpOp op;
+  String trueLabel;
+  String falseLabel;
+};
+
+struct RegisterAluOp final {
+  String dst;
+  String src;
+  Int imm;
+  AluOp op;
+};
+
 struct Operator {
   enum class Tag {
     activate = 1,
@@ -858,6 +904,11 @@ struct Operator {
     sequenceBounds,
     sendRecv,
     sendRecvCCE,
+    tensorLoad,
+    tensorStore,
+    registerMove,
+    cmpBranch,
+    registerAluOp,
   };
   Tag tag;
   Operator(Tag tag) : tag(tag) {}
@@ -1079,67 +1130,29 @@ struct OperatorSendRecvCCEWrapper final : Operator {
   OperatorSendRecvCCEWrapper() : Operator(Tag::sendRecvCCE) {}
 };
 
-struct Value {
-  enum class Tag {
-    var = 1,
-    boolean,
-    int32,
-    float32,
-    access,
-  };
-  Tag tag;
-  Value(Tag tag) : tag(tag) {}
+struct OperatorTensorLoadWrapper final : Operator {
+  Ptr<TensorLoad> op;
+  OperatorTensorLoadWrapper() : Operator(Tag::tensorLoad) {}
 };
 
-struct ValueVarWrapper final : Value {
-  String x;
-  ValueVarWrapper() : Value(Tag::var) {}
+struct OperatorTensorStoreWrapper final : Operator {
+  Ptr<TensorStore> op;
+  OperatorTensorStoreWrapper() : Operator(Tag::tensorStore) {}
 };
 
-struct ValueBoolWrapper final : Value {
-  Bool value;
-  ValueBoolWrapper() : Value(Tag::boolean) {}
+struct OperatorRegisterMoveWrapper final : Operator {
+  Ptr<RegisterMove> op;
+  OperatorRegisterMoveWrapper() : Operator(Tag::registerMove) {}
 };
 
-struct ValueIntWrapper final : Value {
-  Int value;
-  ValueIntWrapper() : Value(Tag::int32) {}
+struct OperatorCmpBranchWrapper final : Operator {
+  Ptr<CmpBranch> op;
+  OperatorCmpBranchWrapper() : Operator(Tag::cmpBranch) {}
 };
 
-struct ValueFloatWrapper final : Value {
-  Float value;
-  ValueFloatWrapper() : Value(Tag::float32) {}
-};
-
-struct ValueAccessWrapper final : Value {
-  Ptr<Access> a;
-  ValueAccessWrapper() : Value(Tag::access) {}
-};
-
-struct Keyword final {
-  String name;
-  Ptr<Value> value;
-};
-
-struct Expr {
-  enum class Tag {
-    value = 1,
-    call,
-  };
-  Tag tag;
-  Expr(Tag tag) : tag(tag) {}
-};
-
-struct ExprValueWrapper final : Expr {
-  Ptr<Value> v;
-  ExprValueWrapper() : Expr(Tag::value) {}
-};
-
-struct ExprCallWrapper final : Expr {
-  String f;
-  List<Ptr<Value>> args;
-  List<Ptr<Keyword>> kwargs;
-  ExprCallWrapper() : Expr(Tag::call) {}
+struct OperatorRegisterAluOpWrapper final : Operator {
+  Ptr<RegisterAluOp> op;
+  OperatorRegisterAluOpWrapper() : Operator(Tag::registerAluOp) {}
 };
 
 struct Stmt {
@@ -1157,11 +1170,16 @@ struct StmtOperWrapper final : Stmt {
   StmtOperWrapper() : Stmt(Tag::oper) {}
 };
 
+struct Block final {
+  String label;
+  List<Ptr<Stmt>> body;
+};
+
 struct Kernel final {
   String name;
   List<Ptr<TensorName>> inputs;
   List<Ptr<TensorName>> outputs;
-  List<Ptr<Stmt>> body;
+  List<Ptr<Block>> body;
 };
 
 struct SharedConstantFile final {
@@ -1178,7 +1196,7 @@ struct LncKernel final {
   String name;
   List<Ptr<TensorName>> inputs;
   List<Ptr<TensorName>> outputs;
-  List<List<Ptr<Stmt>>> bodies;
+  List<List<Ptr<Block>>> bodies;
   List<Ptr<SharedConstantFile>> sharedConstants;
   List<Ptr<Edges>> edges;
 };
