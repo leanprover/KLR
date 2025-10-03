@@ -141,6 +141,7 @@ to be consistent with the NKI versions of the objects.
 
 private def isEnum : Keyword -> Bool
   | ⟨ "__objclass__", ⟨ .object `enum.EnumMeta _, _ ⟩ ⟩ => true
+  | ⟨ "__objclass__", ⟨ .object `enum.EnumType _, _ ⟩ ⟩ => true
   | _ => false
 
 private def rewriteEnumField : Keyword -> Option Keyword
