@@ -68,7 +68,7 @@ namespace KLR.Trace
 open KLR.Core
 open KLR.Compile.Pass
 export Core (Name)
-export KLR.Compile.Pass (withPos withFile getPos warn message)
+export KLR.Compile.Pass (withPos withFile getPos warn message resetPassState)
 export NKI (Pos BinOp)
 
 abbrev SharedConstant := String × TensorLib.Tensor
@@ -181,8 +181,8 @@ instance : Inhabited State where
 
 abbrev Trace := Pass State
 
--- generate a fresh name using an existing name as a prefix
-def genName (name : Name := `tmp) : Trace Name :=  freshName name
+def genName (name : Name := `tmp) : Trace Name := do
+  freshName name
 
 -- add a new binding to the global environment
 def extend_global (x : Name) (v : Term) : Trace Unit :=
