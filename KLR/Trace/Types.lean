@@ -165,6 +165,7 @@ warnings which may be shown to the user after tracing.
 abbrev Env := Std.HashMap Name Term
 
 structure State where
+  fvn := 0
   globals : Env := ∅
   locals : Env := ∅
   refs : Env := ∅
@@ -182,7 +183,11 @@ instance : Inhabited State where
 abbrev Trace := Pass State
 
 -- generate a fresh name using an existing name as a prefix
-def genName (name : Name := `tmp) : Trace Name :=  freshName name
+def genName (name : Name := `tmp) : Trace Name :=
+  modifyGet fun s =>
+    let n := s.fvn + 1
+    (.num name n, { s with fvn := n })
+
 
 -- add a new binding to the global environment
 def extend_global (x : Name) (v : Term) : Trace Unit :=
