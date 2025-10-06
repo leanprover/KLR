@@ -197,7 +197,7 @@ partial def expr' (e' : Expr') : Trace Term := do
       let e <- expr e
       let ix <- ix.mapM index
       if let some m <- method? e "__getitem__" then
-        fnCall m ix []
+        fnCall m [.tuple ix] []
       else
         access e ix
   | .binOp op l r =>
