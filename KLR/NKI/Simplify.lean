@@ -385,15 +385,7 @@ arguments). So, technically we allow a variable keyword argument parameter, as
 long as it is always empty.
 -/
 
-private def decorator (e : Python.Expr) : Simplify Name := do
-  let e <- expr e
-  withPos e.pos do
-    match e.expr with
-    | .var n
-    | .call ⟨ .var n, _ ⟩ .. => return n
-    | _ => throw "unsupported decorator"
-
--- TODO: for now generate an empty string for **kwargs case
+-- Generate an empty string for **kwargs case.
 -- We should not see any here as it would ne a syntax error in Python
 
 private def kwName (kw : Python.Keyword) : String := kw.id.getD ""
@@ -415,6 +407,19 @@ private def params (args : Python.Args) : Simplify (List Param) := do
     else
       params := Param.mk name none :: params
   return params.reverse
+
+private def decorator (e : Python.Expr) : Simplify Name := do
+  let e <- expr e
+  withPos e.pos do
+    match e.expr with
+    | .var n
+    | .call ⟨ .var n, _ ⟩ .. =>
+      match n with
+      | .str _ "staticmethod"
+      | .str _ "dataclass"
+      | (.str (.str _ "nki") "jit") => return n
+      | _ => throw "unsupported decorator {n}"
+    | _ => throw "unsupported decorator"
 
 private def func (f : Python.Fun) : Simplify Fun :=
   withFile f.fileName f.line f.source do
@@ -440,7 +445,6 @@ private def baseCls (e : Python.Expr) : Simplify Name := do
       match s with
       | "NKIObject"
       | "Enum"
-      | "IntEnum"
       | "NamedTuple" => return .str .anonymous s
       | _ => throw s!"unsupported base class {s}"
     | _ => throw "unsupported base class"
