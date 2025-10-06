@@ -22,6 +22,7 @@ import KLR.Trace.ISA
 import KLR.Trace.Term
 import KLR.Trace.Types
 import KLR.Trace.Lang
+import KLR.Compile.Pass
 
 /-
 # NKI built-ins
@@ -551,6 +552,7 @@ def traceKernel (k : Kernel) : Trace Core.Kernel := do
   let _ <- beginBlock (<- genName `main).toString
   addId
   globals k
+  resetPassState
   match k.funs.find? fun f => f.name == k.entry with
   | none => throw s!"function {k.entry} not found"
   | some f => do
