@@ -456,7 +456,6 @@ def Term.attr (t : Term) (id : String) : Trace Term :=
       | "setdefault"
       | "values" => return .builtin (.str `builtin.dict id) (some t)
       |  _ => throw s!"{id} is not an attribute of dict"
-
   | .ref name (.object c) => do
       match <- lookup? name with
       | some (.object _ fs) =>
@@ -485,6 +484,15 @@ def Term.attr (t : Term) (id : String) : Trace Term :=
       | "reshape" => return .builtin `builtin.access.reshape t
       | "ap" => return .builtin `builtin.access.ap t
       | _ => throw s!"unsupported attribute {id} (type is tensor access)"
+  | .slice a b c =>
+      let opt : Option Int -> Term
+        | .none => .none
+        | .some i => .int i
+      match id with
+      | "start" => return opt a
+      | "stop" => return opt b
+      | "step" => return opt c
+      | _ => throw s!"{id} is not an attribute {id} of slice"
   | _ => throw s!"unsupported attribute {id}"
 where
   dtype dty :=
