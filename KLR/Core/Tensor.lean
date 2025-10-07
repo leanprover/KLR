@@ -57,6 +57,8 @@ inductive Dtype where
   | float16 | float32 | float32r
   | int8 | int16 | int64 | int32
   | uint8 | uint16 | uint32 | uint64
+  | float8_e4m3fn | float8_e5m2_x4
+  | float8_e4m3fn_x4 | float4_e2m1fn_x4
   with
     @[computed_field]
     size : Dtype -> Nat
@@ -64,6 +66,8 @@ inductive Dtype where
     | .uint16 | .int16 | .bfloat16 | .float16 => 2
     | .uint32 | .int32 | .float32 | .float32r => 4
     | .uint64 | .int64 => 8
+    | .float8_e4m3fn | .float8_e5m2_x4
+    | .float8_e4m3fn_x4 | .float4_e2m1fn_x4 => 4
     @[computed_field]
     isInt : Dtype -> Bool
     | .int8 | .int16 | .int64 | .int32
@@ -103,6 +107,10 @@ instance : ToString Dtype where
     | .uint16 => "u16"
     | .uint32 => "u32"
     | .uint64 => "u64"
+    | .float8_e4m3fn => "float8_e4m3fn"
+    | .float8_e5m2_x4 => "float8_e5m2_x4"
+    | .float8_e4m3fn_x4 => "float8_e4m3fn_x4"
+    | .float4_e2m1fn_x4 => "float4_e2m1fn_x4"
 
 namespace Dtype
 

@@ -76,6 +76,10 @@ enum class Dtype {
   uint16,
   uint32,
   uint64,
+  float8_e4m3fn,
+  float8_e5m2_x4,
+  float8_e4m3fn_x4,
+  float4_e2m1fn_x4,
 };
 
 struct Shape final {
@@ -812,6 +816,56 @@ struct SendRecvCCE final {
   AluOp op;
 };
 
+struct QuantizeMX final {
+  Ptr<TensorRef> dst;
+  Ptr<TensorRef> src;
+  Ptr<TensorRef> dstScale;
+};
+
+struct MatMulMX final {
+  Ptr<TensorRef> dst;
+  Ptr<TensorRef> stationary;
+  Ptr<TensorRef> moving;
+  Ptr<TensorRef> stationaryScale;
+  Ptr<TensorRef> movingScale;
+  MatmulGroupElement psumAccumulateFlag;
+  Option<List<Nat>> tilePosition;
+  Option<List<Nat>> tileSize;
+};
+
+struct DmaCompute final {
+  Ptr<TensorRef> dst;
+  List<Ptr<TensorRef>> srcs;
+  List<Ptr<Immediate>> scales;
+  AluOp reduceOp;
+};
+
+struct CollectiveOp final {
+  List<Ptr<TensorRef>> dsts;
+  List<Ptr<TensorRef>> srcs;
+  Option<AluOp> op;
+  Option<List<List<Int>>> replicaGroups;
+  Option<Int> reduceScatterDim;
+  Option<Int> allGatherDim;
+  Option<List<List<Int>>> sourceTargetPairs;
+  Option<List<Int>> broacastSizes;
+  Option<Int> splitDim;
+  Option<Int> concatDim;
+};
+
+struct Send final {
+  AluOp op;
+  List<Ptr<TensorRef>> srcs;
+  Int peerId;
+};
+
+struct Recv final {
+  AluOp op;
+  List<Ptr<TensorRef>> dsts;
+  List<Int> replicaGroups;
+  Int peerId;
+};
+
 enum class BrCmpOp {
   always = 1,
   lt_imm,
@@ -909,6 +963,17 @@ struct Operator {
     registerMove,
     cmpBranch,
     registerAluOp,
+    quantizeMX,
+    ncMatMulMX,
+    dmaCompute,
+    allReduce,
+    allGather,
+    reduceScatter,
+    collectivePermute,
+    broadcast,
+    allToAll,
+    send,
+    recv,
   };
   Tag tag;
   Operator(Tag tag) : tag(tag) {}
@@ -1153,6 +1218,61 @@ struct OperatorCmpBranchWrapper final : Operator {
 struct OperatorRegisterAluOpWrapper final : Operator {
   Ptr<RegisterAluOp> op;
   OperatorRegisterAluOpWrapper() : Operator(Tag::registerAluOp) {}
+};
+
+struct OperatorQuantizeMXWrapper final : Operator {
+  Ptr<QuantizeMX> op;
+  OperatorQuantizeMXWrapper() : Operator(Tag::quantizeMX) {}
+};
+
+struct OperatorNcMatMulMXWrapper final : Operator {
+  Ptr<MatMulMX> op;
+  OperatorNcMatMulMXWrapper() : Operator(Tag::ncMatMulMX) {}
+};
+
+struct OperatorDmaComputeWrapper final : Operator {
+  Ptr<DmaCompute> op;
+  OperatorDmaComputeWrapper() : Operator(Tag::dmaCompute) {}
+};
+
+struct OperatorAllReduceWrapper final : Operator {
+  Ptr<CollectiveOp> op;
+  OperatorAllReduceWrapper() : Operator(Tag::allReduce) {}
+};
+
+struct OperatorAllGatherWrapper final : Operator {
+  Ptr<CollectiveOp> op;
+  OperatorAllGatherWrapper() : Operator(Tag::allGather) {}
+};
+
+struct OperatorReduceScatterWrapper final : Operator {
+  Ptr<CollectiveOp> op;
+  OperatorReduceScatterWrapper() : Operator(Tag::reduceScatter) {}
+};
+
+struct OperatorCollectivePermuteWrapper final : Operator {
+  Ptr<CollectiveOp> op;
+  OperatorCollectivePermuteWrapper() : Operator(Tag::collectivePermute) {}
+};
+
+struct OperatorBroadcastWrapper final : Operator {
+  Ptr<CollectiveOp> op;
+  OperatorBroadcastWrapper() : Operator(Tag::broadcast) {}
+};
+
+struct OperatorAllToAllWrapper final : Operator {
+  Ptr<CollectiveOp> op;
+  OperatorAllToAllWrapper() : Operator(Tag::allToAll) {}
+};
+
+struct OperatorSendWrapper final : Operator {
+  Ptr<Send> op;
+  OperatorSendWrapper() : Operator(Tag::send) {}
+};
+
+struct OperatorRecvWrapper final : Operator {
+  Ptr<Recv> op;
+  OperatorRecvWrapper() : Operator(Tag::recv) {}
 };
 
 struct Stmt {

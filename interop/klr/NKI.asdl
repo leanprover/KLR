@@ -25,6 +25,10 @@ Dtype =
   | uint16
   | uint32
   | uint64
+  | float8_e4m3fn
+  | float8_e5m2_x4
+  | float8_e4m3fn_x4
+  | float4_e2m1fn_x4
 
 Shape = (Nat parDim, Nat* freeDims)
 
@@ -275,6 +279,18 @@ SequenceBounds = (TensorRef dst, TensorRef segmentIds, Dtype? dtype)
 SendRecv = (TensorRef dst, TensorRef src, Immediate sendToRank, Immediate recvFromRank, Immediate pipeId, Bool useGpsimdDma)
 
 SendRecvCCE = (TensorRef dst, TensorRef* src, Immediate sendToRank, Immediate* recvFromRanks, Immediate pipeId, AluOp op)
+
+QuantizeMX = (TensorRef dst, TensorRef src, TensorRef dstScale)
+
+MatMulMX = (TensorRef dst, TensorRef stationary, TensorRef moving, TensorRef stationaryScale, TensorRef movingScale, MatmulGroupElement psumAccumulateFlag, Nat*? tilePosition, Nat*? tileSize)
+
+DmaCompute = (TensorRef dst, TensorRef* srcs, Immediate* scales, AluOp reduceOp)
+
+CollectiveOp = (TensorRef* dsts, TensorRef* srcs, AluOp? op, Int**? replicaGroups, Int? reduceScatterDim, Int? allGatherDim, Int**? sourceTargetPairs, Int*? broacastSizes, Int? splitDim, Int? concatDim)
+
+Send = (AluOp op, TensorRef* srcs, Int peerId)
+
+Recv = (AluOp op, TensorRef* dsts, Int* replicaGroups, Int peerId)
 BrCmpOp =
   | always
   | lt_imm
@@ -348,6 +364,17 @@ Operator =
  | registerMove(RegisterMove op)
  | cmpBranch(CmpBranch op)
  | registerAluOp(RegisterAluOp op)
+ | quantizeMX(QuantizeMX op)
+ | ncMatMulMX(MatMulMX op)
+ | dmaCompute(DmaCompute op)
+ | allReduce(CollectiveOp op)
+ | allGather(CollectiveOp op)
+ | reduceScatter(CollectiveOp op)
+ | collectivePermute(CollectiveOp op)
+ | broadcast(CollectiveOp op)
+ | allToAll(CollectiveOp op)
+ | send(Send op)
+ | recv(Recv op)
 
 Stmt =
  | oper(Operator op, String? name, Pos pos)

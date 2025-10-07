@@ -215,8 +215,11 @@ def commonAST : MetaM (List LeanType) := do
   let atomic := [.bool, .nat, .int, .float, .string]
   let lists := atomic.map fun t => .simple (.list t)
   let options := atomic.map fun t => .simple (.option t)
+  let optionLists := atomic.map fun t => .simple (.option (.list t))
+  let listLists := atomic.map fun t => .simple (.list (.list t))
+  let optionListList := atomic.map fun t => .simple (.option (.list (.list t)))
   let tys <- collectLeanTypes [ `KLR.Core.Pos ]
-  return lists ++ options ++ tys
+  return lists ++ options ++ optionLists ++ listLists ++ optionListList ++ tys
 
 def fileAST : MetaM (List LeanType) := do
   let tys <- collectLeanTypes [
@@ -342,6 +345,12 @@ def klrAST: MetaM (List LeanType) := do
     `KLR.Core.SequenceBounds,
     `KLR.Core.SendRecv,
     `KLR.Core.SendRecvCCE,
+    `KLR.Core.QuantizeMX,
+    `KLR.Core.MatMulMX,
+    `KLR.Core.DmaCompute,
+    `KLR.Core.CollectiveOp,
+    `KLR.Core.Send,
+    `KLR.Core.Recv,
     `KLR.Core.BrCmpOp,
     `KLR.Core.TensorLoad,
     `KLR.Core.TensorStore,

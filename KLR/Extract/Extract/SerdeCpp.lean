@@ -33,6 +33,8 @@ private def desName : SimpleType -> String
   | .const `KLR.Core.Reg => "Nat_des"
   | .list (.list t) => s!"List_List_{t.name}_des"
   | .list t => s!"List_{t.name}_des"
+  | .option (.list (.list t)) => s!"Option_List_List_{t.name}_des"
+  | .option (.list t) => s!"Option_List_{t.name}_des"
   | .option t => s!"Option_{t.name}_des"
   | t => s!"{t.name}_des"
 
@@ -82,6 +84,7 @@ private def genFields (var : String) (fs : List Field) : MetaM Unit := do
 private def genDes (ty : LeanType) : MetaM Unit := do
   genSig ty " {"
   match ty with
+  | .simple (.option (.list ty)) => genOptionDes (.list ty)
   | .simple (.option ty) => genOptionDes ty
   | .simple (.list ty) => genListDes ty
   | .simple _ => pure ()
