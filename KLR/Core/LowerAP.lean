@@ -131,7 +131,37 @@ def Operator.lowerAccessPatterns (k : Operator) : KLR.Err Operator :=
   | .registerMove ..
   | .cmpBranch ..
   | .registerAluOp .. => return k
-
+  | .quantizeMX op => return .quantizeMX { op with
+      dst := (<- op.dst.lowerAccessPatterns),
+      src := (<- op.src.lowerAccessPatterns),
+      dstScale := (<- op.dstScale.lowerAccessPatterns)
+    }
+  | .ncMatMulMX op => return .ncMatMulMX { op with
+      dst := (<- op.dst.lowerAccessPatterns),
+      stationary := (<- op.stationary.lowerAccessPatterns),
+      moving := (<- op.moving.lowerAccessPatterns),
+      stationaryScale := (<- op.stationaryScale.lowerAccessPatterns),
+      movingScale := (<- op.movingScale.lowerAccessPatterns)
+    }
+  | .dmaCompute op => return .dmaCompute { op with
+      dst := (<- op.dst.lowerAccessPatterns),
+      srcs := (<- op.srcs.mapM TensorRef.lowerAccessPatterns),
+    }
+  | .allReduce op
+  | .allGather op
+  | .reduceScatter op
+  | .collectivePermute op
+  | .broadcast op
+  | .allToAll op => return .allToAll { op with
+      dsts := (<- op.dsts.mapM TensorRef.lowerAccessPatterns),
+      srcs := (<- op.srcs.mapM TensorRef.lowerAccessPatterns),
+    }
+  | .send s => return .send { s with
+      srcs := (<- s.srcs.mapM TensorRef.lowerAccessPatterns)
+    }
+  | .recv r => return .recv { r with
+      dsts := (<- r.dsts.mapM TensorRef.lowerAccessPatterns)
+    }
 
 def Stmt.lowerAccessPatterns : Stmt → KLR.Err Stmt
   | .oper op name pos => return .oper (<- op.lowerAccessPatterns) name pos

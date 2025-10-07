@@ -824,3 +824,192 @@ nki builtin.isa.sendrecv_cce
       op := op
     }) name
     return .none
+
+nki quantize_mx
+  (dst : Access)
+  (src: Access)
+  (dst_scale : Access) := do
+    Trace.add_stmt $ .oper (.quantizeMX {
+      dst := .abstract dst,
+      src := .abstract src,
+      dstScale := .abstract dst_scale,
+    }) none
+    return .none
+
+nki nc_matmul_mx
+  (dst : Access)
+  (stationary: Access)
+  (moving: Access)
+  (stationary_scale: Access)
+  (moving_scale: Access)
+  (tile_position : Option (List Nat) := none)
+  (tile_size : Option (List Nat) := none) := do
+    Trace.add_stmt $ .oper (.ncMatMulMX {
+        dst := .abstract dst
+        stationary := .abstract stationary
+        moving := .abstract moving
+        stationaryScale := .abstract stationary_scale
+        movingScale := .abstract moving_scale
+        psumAccumulateFlag := .whole,
+        tilePosition := tile_position,
+        tileSize :=  tile_size,
+      }) none
+    return .none
+
+nki dma_compute
+  (dst : Access)
+  (srcs : List Access)
+  (scales : List Immediate)
+  (reduce_op : AluOp) := do
+    Trace.add_stmt $ .oper (.dmaCompute {
+      dst := .abstract dst,
+      srcs := srcs.map .abstract,
+      scales := scales,
+      reduceOp := reduce_op,
+    }) none
+    return .none
+
+nki all_reduce
+  (op : AluOp)
+  (srcs : List Access)
+  (dsts : List Access)
+  (replica_groups: List (List Int)) := do
+    Trace.add_stmt $ .oper ( .allReduce {
+      dsts := dsts.map .abstract
+      srcs := srcs.map .abstract
+      op := some op
+      replicaGroups := some replica_groups
+      reduceScatterDim := none
+      allGatherDim := none
+      sourceTargetPairs := none
+      broacastSizes := none
+      splitDim := none
+      concatDim := none
+    }) none
+    return .none
+
+
+nki all_gather
+  (op : AluOp)
+  (srcs : List Access)
+  (dsts : List Access)
+  (replica_groups : List (List Int))
+  (all_gather_dim : Int) := do
+    Trace.add_stmt $ .oper (.allGather {
+      dsts := dsts.map .abstract
+      srcs := srcs.map .abstract
+      op := some op
+      replicaGroups := some replica_groups
+      allGatherDim := some all_gather_dim
+      reduceScatterDim := none
+      sourceTargetPairs := none
+      broacastSizes := none
+      splitDim := none
+      concatDim := none
+    }) none
+    return .none
+
+
+nki reduce_scatter
+  (op : AluOp)
+  (srcs : List Access)
+  (dsts : List Access)
+  (replica_groups : List (List Int))
+  (reduce_scatter_dim : Int) := do
+    Trace.add_stmt $ .oper (.reduceScatter {
+      dsts := dsts.map .abstract
+      srcs := srcs.map .abstract
+      op := some op
+      replicaGroups := some replica_groups
+      reduceScatterDim := some reduce_scatter_dim
+      allGatherDim := none
+      sourceTargetPairs := none
+      broacastSizes := none
+      splitDim := none
+      concatDim := none
+    }) none
+    return .none
+
+
+nki collective_permute
+  (srcs : List Access)
+  (dsts : List Access)
+  (source_target_pairs: List (List Int)) := do
+    Trace.add_stmt $ .oper (.collectivePermute {
+      dsts := dsts.map .abstract
+      srcs := srcs.map .abstract
+      op := none
+      replicaGroups := none
+      sourceTargetPairs := some source_target_pairs
+      reduceScatterDim := none
+      allGatherDim := none
+      broacastSizes := none
+      splitDim := none
+      concatDim := none
+    }) none
+    return .none
+
+nki broadcast
+  (op : AluOp)
+  (srcs : List Access)
+  (dsts : List Access)
+  (replica_groups : List (List Int))
+  (broadcast_sizes : List Int) := do
+    Trace.add_stmt $ .oper (.broadcast {
+      dsts := dsts.map .abstract
+      srcs := srcs.map .abstract
+      op := some op
+      replicaGroups := some replica_groups
+      reduceScatterDim := none
+      allGatherDim := none
+      sourceTargetPairs := none
+      broacastSizes := some broadcast_sizes
+      splitDim := none
+      concatDim := none
+    }) none
+    return .none
+
+nki all_to_all
+  (op : AluOp)
+  (srcs : List Access)
+  (dsts : List Access)
+  (replica_groups : List (List Int))
+  (split_dimension : Int)
+  (concat_dimension : Int) := do
+    Trace.add_stmt $ .oper (.allToAll {
+      dsts := dsts.map .abstract
+      srcs := srcs.map .abstract
+      op := some op
+      replicaGroups := some replica_groups
+      reduceScatterDim := none
+      allGatherDim := none
+      sourceTargetPairs := none
+      broacastSizes := none
+      splitDim := some split_dimension
+      concatDim := some concat_dimension
+    }) none
+    return .none
+
+nki send
+  (op : AluOp)
+  (srcs : List Access)
+  (peerId : Int) := do
+    Trace.add_stmt $ .oper (.send {
+      op := op,
+      srcs := srcs.map .abstract
+      peerId := peerId
+    }) none
+    return .none
+
+nki recv
+  (op : AluOp)
+  (dsts : List Access)
+  (replica_groups : List Int)
+  (peer_id : Int) := do
+    Trace.add_stmt $ .oper (.recv {
+      op := op,
+      dsts := dsts.map .abstract
+      replicaGroups := replica_groups
+      peerId := peer_id
+    }) none
+    return .none

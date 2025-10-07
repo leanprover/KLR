@@ -132,6 +132,181 @@ Option<String> Option_String_des(FILE *in) {
   return x;
 }
 
+Option<List<Bool>> Option_List_Bool_des(FILE *in) {
+  bool isSome;
+  if (!deserialize_option(in, &isSome))
+    throw std::runtime_error("expecting Bool");
+
+  Option<List<Bool>> x;
+  if (isSome)
+    x = List_Bool_des(in);
+  return x;
+}
+
+Option<List<Nat>> Option_List_Nat_des(FILE *in) {
+  bool isSome;
+  if (!deserialize_option(in, &isSome))
+    throw std::runtime_error("expecting Bool");
+
+  Option<List<Nat>> x;
+  if (isSome)
+    x = List_Nat_des(in);
+  return x;
+}
+
+Option<List<Int>> Option_List_Int_des(FILE *in) {
+  bool isSome;
+  if (!deserialize_option(in, &isSome))
+    throw std::runtime_error("expecting Bool");
+
+  Option<List<Int>> x;
+  if (isSome)
+    x = List_Int_des(in);
+  return x;
+}
+
+Option<List<Float>> Option_List_Float_des(FILE *in) {
+  bool isSome;
+  if (!deserialize_option(in, &isSome))
+    throw std::runtime_error("expecting Bool");
+
+  Option<List<Float>> x;
+  if (isSome)
+    x = List_Float_des(in);
+  return x;
+}
+
+Option<List<String>> Option_List_String_des(FILE *in) {
+  bool isSome;
+  if (!deserialize_option(in, &isSome))
+    throw std::runtime_error("expecting Bool");
+
+  Option<List<String>> x;
+  if (isSome)
+    x = List_String_des(in);
+  return x;
+}
+
+List<List<Bool>> List_List_Bool_des(FILE *in) {
+  u64 size = 0;
+  if (!deserialize_array_start(in, &size))
+    throw std::runtime_error("expecting List");
+
+  List<List<Bool>> l;
+  while (size-- > 0) {
+    List<Bool> b = List_Bool_des(in);
+    l.push_back(b);
+  }
+  return l;
+}
+
+List<List<Nat>> List_List_Nat_des(FILE *in) {
+  u64 size = 0;
+  if (!deserialize_array_start(in, &size))
+    throw std::runtime_error("expecting List");
+
+  List<List<Nat>> l;
+  while (size-- > 0) {
+    List<Nat> b = List_Nat_des(in);
+    l.push_back(b);
+  }
+  return l;
+}
+
+List<List<Int>> List_List_Int_des(FILE *in) {
+  u64 size = 0;
+  if (!deserialize_array_start(in, &size))
+    throw std::runtime_error("expecting List");
+
+  List<List<Int>> l;
+  while (size-- > 0) {
+    List<Int> b = List_Int_des(in);
+    l.push_back(b);
+  }
+  return l;
+}
+
+List<List<Float>> List_List_Float_des(FILE *in) {
+  u64 size = 0;
+  if (!deserialize_array_start(in, &size))
+    throw std::runtime_error("expecting List");
+
+  List<List<Float>> l;
+  while (size-- > 0) {
+    List<Float> b = List_Float_des(in);
+    l.push_back(b);
+  }
+  return l;
+}
+
+List<List<String>> List_List_String_des(FILE *in) {
+  u64 size = 0;
+  if (!deserialize_array_start(in, &size))
+    throw std::runtime_error("expecting List");
+
+  List<List<String>> l;
+  while (size-- > 0) {
+    List<String> b = List_String_des(in);
+    l.push_back(b);
+  }
+  return l;
+}
+
+Option<List<List<Bool>>> Option_List_List_Bool_des(FILE *in) {
+  bool isSome;
+  if (!deserialize_option(in, &isSome))
+    throw std::runtime_error("expecting Bool");
+
+  Option<List<List<Bool>>> x;
+  if (isSome)
+    x = List_List_Bool_des(in);
+  return x;
+}
+
+Option<List<List<Nat>>> Option_List_List_Nat_des(FILE *in) {
+  bool isSome;
+  if (!deserialize_option(in, &isSome))
+    throw std::runtime_error("expecting Bool");
+
+  Option<List<List<Nat>>> x;
+  if (isSome)
+    x = List_List_Nat_des(in);
+  return x;
+}
+
+Option<List<List<Int>>> Option_List_List_Int_des(FILE *in) {
+  bool isSome;
+  if (!deserialize_option(in, &isSome))
+    throw std::runtime_error("expecting Bool");
+
+  Option<List<List<Int>>> x;
+  if (isSome)
+    x = List_List_Int_des(in);
+  return x;
+}
+
+Option<List<List<Float>>> Option_List_List_Float_des(FILE *in) {
+  bool isSome;
+  if (!deserialize_option(in, &isSome))
+    throw std::runtime_error("expecting Bool");
+
+  Option<List<List<Float>>> x;
+  if (isSome)
+    x = List_List_Float_des(in);
+  return x;
+}
+
+Option<List<List<String>>> Option_List_List_String_des(FILE *in) {
+  bool isSome;
+  if (!deserialize_option(in, &isSome))
+    throw std::runtime_error("expecting Bool");
+
+  Option<List<List<String>>> x;
+  if (isSome)
+    x = List_List_String_des(in);
+  return x;
+}
+
 Ptr<Pos> Pos_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
@@ -321,6 +496,30 @@ Dtype Dtype_des(FILE *in) {
     if (l != 0)
       throw std::runtime_error("Wrong number of elements");
     return Dtype::uint64;
+    break;
+  }
+  case 15: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return Dtype::float8_e4m3fn;
+    break;
+  }
+  case 16: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return Dtype::float8_e5m2_x4;
+    break;
+  }
+  case 17: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return Dtype::float8_e4m3fn_x4;
+    break;
+  }
+  case 18: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return Dtype::float4_e2m1fn_x4;
     break;
   }
   default:
@@ -2099,6 +2298,98 @@ Ptr<SendRecvCCE> SendRecvCCE_des(FILE *in) {
   return x;
 }
 
+Ptr<QuantizeMX> QuantizeMX_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 195 || c != 0 || l != 3)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<QuantizeMX> x = ptr<QuantizeMX>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  x->dstScale = TensorRef_des(in);
+  return x;
+}
+
+Ptr<MatMulMX> MatMulMX_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 196 || c != 0 || l != 8)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<MatMulMX> x = ptr<MatMulMX>();
+  x->dst = TensorRef_des(in);
+  x->stationary = TensorRef_des(in);
+  x->moving = TensorRef_des(in);
+  x->stationaryScale = TensorRef_des(in);
+  x->movingScale = TensorRef_des(in);
+  x->psumAccumulateFlag = MatmulGroupElement_des(in);
+  x->tilePosition = Option_List_Nat_des(in);
+  x->tileSize = Option_List_Nat_des(in);
+  return x;
+}
+
+Ptr<DmaCompute> DmaCompute_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 197 || c != 0 || l != 4)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<DmaCompute> x = ptr<DmaCompute>();
+  x->dst = TensorRef_des(in);
+  x->srcs = List_TensorRef_des(in);
+  x->scales = List_Immediate_des(in);
+  x->reduceOp = AluOp_des(in);
+  return x;
+}
+
+Ptr<CollectiveOp> CollectiveOp_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 198 || c != 0 || l != 10)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<CollectiveOp> x = ptr<CollectiveOp>();
+  x->dsts = List_TensorRef_des(in);
+  x->srcs = List_TensorRef_des(in);
+  x->op = Option_AluOp_des(in);
+  x->replicaGroups = Option_List_List_Int_des(in);
+  x->reduceScatterDim = Option_Int_des(in);
+  x->allGatherDim = Option_Int_des(in);
+  x->sourceTargetPairs = Option_List_List_Int_des(in);
+  x->broacastSizes = Option_List_Int_des(in);
+  x->splitDim = Option_Int_des(in);
+  x->concatDim = Option_Int_des(in);
+  return x;
+}
+
+Ptr<Send> Send_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 199 || c != 0 || l != 3)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<Send> x = ptr<Send>();
+  x->op = AluOp_des(in);
+  x->srcs = List_TensorRef_des(in);
+  x->peerId = Int_des(in);
+  return x;
+}
+
+Ptr<Recv> Recv_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 200 || c != 0 || l != 4)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<Recv> x = ptr<Recv>();
+  x->op = AluOp_des(in);
+  x->dsts = List_TensorRef_des(in);
+  x->replicaGroups = List_Int_des(in);
+  x->peerId = Int_des(in);
+  return x;
+}
+
 BrCmpOp BrCmpOp_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
@@ -2259,7 +2550,7 @@ Ptr<Operator> Operator_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 195)
+  if (t != 201)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -2651,6 +2942,95 @@ Ptr<Operator> Operator_des(FILE *in) {
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorRegisterAluOpWrapper> x = ptr<OperatorRegisterAluOpWrapper>();
     x->op = RegisterAluOp_des(in);
+    return x;
+    break;
+  }
+  case 48: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorQuantizeMXWrapper> x = ptr<OperatorQuantizeMXWrapper>();
+    x->op = QuantizeMX_des(in);
+    return x;
+    break;
+  }
+  case 49: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorNcMatMulMXWrapper> x = ptr<OperatorNcMatMulMXWrapper>();
+    x->op = MatMulMX_des(in);
+    return x;
+    break;
+  }
+  case 50: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorDmaComputeWrapper> x = ptr<OperatorDmaComputeWrapper>();
+    x->op = DmaCompute_des(in);
+    return x;
+    break;
+  }
+  case 51: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorAllReduceWrapper> x = ptr<OperatorAllReduceWrapper>();
+    x->op = CollectiveOp_des(in);
+    return x;
+    break;
+  }
+  case 52: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorAllGatherWrapper> x = ptr<OperatorAllGatherWrapper>();
+    x->op = CollectiveOp_des(in);
+    return x;
+    break;
+  }
+  case 53: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorReduceScatterWrapper> x = ptr<OperatorReduceScatterWrapper>();
+    x->op = CollectiveOp_des(in);
+    return x;
+    break;
+  }
+  case 54: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorCollectivePermuteWrapper> x =
+        ptr<OperatorCollectivePermuteWrapper>();
+    x->op = CollectiveOp_des(in);
+    return x;
+    break;
+  }
+  case 55: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorBroadcastWrapper> x = ptr<OperatorBroadcastWrapper>();
+    x->op = CollectiveOp_des(in);
+    return x;
+    break;
+  }
+  case 56: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorAllToAllWrapper> x = ptr<OperatorAllToAllWrapper>();
+    x->op = CollectiveOp_des(in);
+    return x;
+    break;
+  }
+  case 57: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorSendWrapper> x = ptr<OperatorSendWrapper>();
+    x->op = Send_des(in);
+    return x;
+    break;
+  }
+  case 58: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorRecvWrapper> x = ptr<OperatorRecvWrapper>();
+    x->op = Recv_des(in);
     return x;
     break;
   }

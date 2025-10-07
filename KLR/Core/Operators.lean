@@ -814,6 +814,62 @@ structure RegisterAluOp where
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 195]
+structure QuantizeMX where
+    dst :       TensorRef  -- NOTE: do we need special tensor types for MX ones. ISA does
+    src :       TensorRef
+    dstScale :  TensorRef
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 196]
+structure MatMulMX where
+    dst : TensorRef
+    stationary : TensorRef
+    moving : TensorRef
+    stationaryScale : TensorRef
+    movingScale : TensorRef
+    psumAccumulateFlag: MatmulGroupElement
+    tilePosition : Option (List Nat)
+    tileSize : Option (List Nat)
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 197]
+structure DmaCompute where
+    dst : TensorRef
+    srcs : List TensorRef
+    scales : List Immediate
+    reduceOp : AluOp
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 198]
+structure CollectiveOp where
+  dsts : List TensorRef
+  srcs : List TensorRef
+  op : Option AluOp
+  replicaGroups : Option (List (List Int))
+  reduceScatterDim : Option Int
+  allGatherDim : Option Int
+  sourceTargetPairs : Option (List (List Int))
+  broacastSizes : Option (List Int)
+  splitDim : Option Int
+  concatDim : Option Int
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 199]
+structure Send where
+  op : AluOp
+  srcs : List TensorRef
+  peerId : Int
+deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 200]
+structure Recv where
+  op : AluOp
+  dsts : List TensorRef
+  replicaGroups : List Int
+  peerId : Int
+deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 201]
 inductive Operator where
   | activate (op : Activate)
   | ncActivate (op : NcActivate)
@@ -863,9 +919,20 @@ inductive Operator where
   | registerMove (op : RegisterMove)
   | cmpBranch (op : CmpBranch)
   | registerAluOp (op : RegisterAluOp)
+  | quantizeMX (op : QuantizeMX)
+  | ncMatMulMX (op : MatMulMX)
+  | dmaCompute (op : DmaCompute)
+  | allReduce (op : CollectiveOp)
+  | allGather (op : CollectiveOp)
+  | reduceScatter (op : CollectiveOp)
+  | collectivePermute (op : CollectiveOp)
+  | broadcast (op : CollectiveOp)
+  | allToAll (op : CollectiveOp)
+  | send (op : Send)
+  | recv (op : Recv)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 196]
+@[serde tag = 202]
 inductive TGROperator where
   | activate (op : Activate)
   | affineSelect (op : AffineSelect)
