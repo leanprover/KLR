@@ -314,8 +314,12 @@ static inline lean_object* curPos(struct state *st) {
                st->scope.file);
 }
 
-#define Pos(obj) mkPos(obj->lineno, obj->end_lineno, \
-                       obj->col_offset, obj->end_col_offset, st->scope.file)
+#define Pos(obj) \
+  ((obj) ? \
+    mkPos(obj->lineno, obj->end_lineno, \
+          obj->col_offset, obj->end_col_offset, st->scope.file) : \
+    mkPos(0,0,0,0, st->scope.file))
+
 
 static lean_object* value(struct state *st, PyObject *obj);
 static lean_object* const_exprs(struct state *st, PyObject *obj);
@@ -870,13 +874,13 @@ static lean_object* keywords(struct state *st, asdl_keyword_seq *python);
 
 static lean_object* expr(struct state *st, struct _expr *python) {
   struct pos old_pos = st->scope.pos;
-  st->scope.pos.line = python->lineno;
-  st->scope.pos.col = python->col_offset;
-
   lean_object *e = NULL;
 
   if (!python)
     goto done;
+
+  st->scope.pos.line = python->lineno;
+  st->scope.pos.col = python->col_offset;
 
   //static int indent = 0;
   //indent++;
@@ -1138,13 +1142,13 @@ static lean_object* stmts(struct state *st, asdl_stmt_seq *python);
 
 static lean_object* stmt(struct state *st, struct _stmt *python) {
   struct pos old_pos = st->scope.pos;
-  st->scope.pos.line = python->lineno;
-  st->scope.pos.col = python->col_offset;
-
   lean_object *s = Python_Stmt_pass;
 
   if (!python)
     goto done;
+
+  st->scope.pos.line = python->lineno;
+  st->scope.pos.col = python->col_offset;
 
   //printf("STMT %d %p\n", python->kind, python);
   switch (python->kind) {

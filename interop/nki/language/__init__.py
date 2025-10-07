@@ -2,6 +2,7 @@
 
 def par_dim(x): return x
 
+bfloat16 = "bfloat16"
 float32 = "float32"
 class tile_size:
   pmax = 128
