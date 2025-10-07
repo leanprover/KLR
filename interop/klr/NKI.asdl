@@ -47,8 +47,12 @@ AccessBasic = (TensorName tensor, Index* indexes, Prop lenWF)
 APPair = (Int step, Nat num)
 
 AccessPattern = (TensorName tensor, Nat parNum, APPair* freePattern, Nat parOffset, Nat freeOffset)
+ScalarOffset =
+ | reg(Reg r)
+ | acc(Access a)
 
-BirAccessPattern = (TensorName tensor, Nat offset, APPair* pattern, Immediate? scalarOffset, Access? vectorOffset, Int indirectDim)
+
+BirAccessPattern = (TensorName tensor, Nat offset, APPair* pattern, ScalarOffset? scalarOffset, Access? vectorOffset, Int indirectDim)
 Access =
  | simple(TensorName tensor)
  | basic(AccessBasic access)

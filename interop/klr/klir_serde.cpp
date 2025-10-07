@@ -654,17 +654,45 @@ Ptr<AccessPattern> AccessPattern_des(FILE *in) {
   return x;
 }
 
+Ptr<ScalarOffset> ScalarOffset_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not read tag");
+  if (t != 123)
+    throw std::runtime_error("Unexpected type tag");
+  switch (c) {
+  case 0: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<ScalarOffsetRegWrapper> x = ptr<ScalarOffsetRegWrapper>();
+    x->r = Nat_des(in);
+    return x;
+    break;
+  }
+  case 1: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<ScalarOffsetAccWrapper> x = ptr<ScalarOffsetAccWrapper>();
+    x->a = Access_des(in);
+    return x;
+    break;
+  }
+  default:
+    throw std::runtime_error("Invalid value tag");
+  }
+}
+
 Ptr<BirAccessPattern> BirAccessPattern_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 123 || c != 0 || l != 6)
+  if (t != 124 || c != 0 || l != 6)
     throw std::runtime_error("Invalid Tag");
   Ptr<BirAccessPattern> x = ptr<BirAccessPattern>();
   x->tensor = TensorName_des(in);
   x->offset = Nat_des(in);
   x->pattern = List_APPair_des(in);
-  x->scalarOffset = Option_Immediate_des(in);
+  x->scalarOffset = Option_ScalarOffset_des(in);
   x->vectorOffset = Option_Access_des(in);
   x->indirectDim = Int_des(in);
   return x;
@@ -674,7 +702,7 @@ Ptr<Access> Access_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 124)
+  if (t != 125)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -718,7 +746,7 @@ Ptr<TensorHbm> TensorHbm_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 125 || c != 0 || l != 4)
+  if (t != 126 || c != 0 || l != 4)
     throw std::runtime_error("Invalid Tag");
   Ptr<TensorHbm> x = ptr<TensorHbm>();
   x->name = String_des(in);
@@ -732,7 +760,7 @@ Ptr<TensorSram> TensorSram_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 126 || c != 0 || l != 6)
+  if (t != 127 || c != 0 || l != 6)
     throw std::runtime_error("Invalid Tag");
   Ptr<TensorSram> x = ptr<TensorSram>();
   x->name = String_des(in);
@@ -748,7 +776,7 @@ Ptr<TensorRef> TensorRef_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 127)
+  if (t != 128)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -3153,14 +3181,14 @@ List<Ptr<APPair>> List_APPair_des(FILE *in) {
   return l;
 }
 
-Option<Ptr<Immediate>> Option_Immediate_des(FILE *in) {
+Option<Ptr<ScalarOffset>> Option_ScalarOffset_des(FILE *in) {
   bool isSome;
   if (!deserialize_option(in, &isSome))
     throw std::runtime_error("expecting Bool");
 
-  Option<Ptr<Immediate>> x;
+  Option<Ptr<ScalarOffset>> x;
   if (isSome)
-    x = Immediate_des(in);
+    x = ScalarOffset_des(in);
   return x;
 }
 
@@ -3240,6 +3268,17 @@ Option<AluOp> Option_AluOp_des(FILE *in) {
   Option<AluOp> x;
   if (isSome)
     x = AluOp_des(in);
+  return x;
+}
+
+Option<Ptr<Immediate>> Option_Immediate_des(FILE *in) {
+  bool isSome;
+  if (!deserialize_option(in, &isSome))
+    throw std::runtime_error("expecting Bool");
+
+  Option<Ptr<Immediate>> x;
+  if (isSome)
+    x = Immediate_des(in);
   return x;
 }
 

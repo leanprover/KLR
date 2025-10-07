@@ -568,17 +568,20 @@ nki builtin.access.ap
     (self : Access)
     (pattern : List (Int × Nat))
     (offset : Nat := 0)
-    (scalar_offset : Option Core.Immediate := none)
+    (scalar_offset : Option (Sum Access Core.Reg) := none)
     (vector_offset : Option Access := none)
     (indirect_dim : Int := 0) := do
   match self with
   | .simple t =>
       let pattern := pattern.map fun (s,c) => Core.APPair.mk s c
+      let scalarOffset := scalar_offset.map fun
+        | .inl a => .acc a
+        | .inr r => .reg r
       let ap : Core.BirAccessPattern := {
         tensor := t
         offset
         pattern
-        scalarOffset := scalar_offset
+        scalarOffset
         vectorOffset := vector_offset
         indirectDim := indirect_dim
       }
