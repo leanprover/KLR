@@ -513,13 +513,22 @@ After allocation, the physical offset can be computed by (pseudo code):
   freeOffset = offset % freeElements + address.freeOffset
   physicalOffset = parOffset * parSize + freeOffset * dtype.size
 -/
+
+
 mutual
+
 @[serde tag = 123]
+inductive ScalarOffset where
+  | reg (r : Reg)
+  | acc (a : Access)
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 124]
 structure BirAccessPattern where
   tensor : TensorName
   offset : Nat
   pattern : List APPair
-  scalarOffset : Option Immediate
+  scalarOffset : Option ScalarOffset
   vectorOffset : Option Access
   indirectDim : Int
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
@@ -527,7 +536,7 @@ structure BirAccessPattern where
 
 -- Tensor access: whole tensor (simple), basic indexing, or access pattern
 -- TODO: add advanced indexing (tensor indirect) inductive Access where
-@[serde tag = 124]
+@[serde tag = 125]
 inductive Access where
   | simple  (tensor : TensorName)
   | basic   (access : AccessBasic)
@@ -596,7 +605,7 @@ end Access
 /-
 A tensor access pattern in HBM. The address is an offset into HBM.
 -/
-@[serde tag = 125]
+@[serde tag = 126]
 structure TensorHbm where
   name : String
   dtype   : Dtype
@@ -642,7 +651,7 @@ parQuadrant─►96│    ┌───────┐│        │
                     │
                parOffset
 -/
-@[serde tag = 126]
+@[serde tag = 127]
 structure TensorSram where
   name : String
   dtype : Dtype
@@ -682,7 +691,7 @@ end TensorSram
 The type that is passed to instructions to refer to a tensor in SBUF. We abstract
 over whether the tensor is a literal or stored in a shape register.
 -/
-@[serde tag = 127]
+@[serde tag = 128]
 inductive TensorRef where
   | abstract (access : Access)
   | sbuf (view : TensorSram)

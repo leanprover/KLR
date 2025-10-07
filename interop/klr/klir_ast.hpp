@@ -151,11 +151,30 @@ struct AccessPattern final {
   Nat freeOffset;
 };
 
+struct ScalarOffset {
+  enum class Tag {
+    reg = 1,
+    acc,
+  };
+  Tag tag;
+  ScalarOffset(Tag tag) : tag(tag) {}
+};
+
+struct ScalarOffsetRegWrapper final : ScalarOffset {
+  Nat r;
+  ScalarOffsetRegWrapper() : ScalarOffset(Tag::reg) {}
+};
+
+struct ScalarOffsetAccWrapper final : ScalarOffset {
+  Ptr<Access> a;
+  ScalarOffsetAccWrapper() : ScalarOffset(Tag::acc) {}
+};
+
 struct BirAccessPattern final {
   Ptr<TensorName> tensor;
   Nat offset;
   List<Ptr<APPair>> pattern;
-  Option<Ptr<Immediate>> scalarOffset;
+  Option<Ptr<ScalarOffset>> scalarOffset;
   Option<Ptr<Access>> vectorOffset;
   Int indirectDim;
 };
