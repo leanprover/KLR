@@ -27,6 +27,8 @@ deriving Inhabited
 
 namespace Padding
 
+def get (_ : Padding n) (_ : Nat) : Nat := 0
+
 instance : GetElem (Padding n) Nat Nat (fun _ i => i < n) where
   getElem _ _ _ := 0
 
