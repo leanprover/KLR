@@ -35,15 +35,10 @@ open KLR.NKI
 -- NKI environment, including constants and the names of builtin functions
 -- TODO: these should be defined in Python, not here
 def NKIEnv : List (Name × Term) :=
-  [ module neuronxcc
-  , module nki_
+  [ module nki_
   , module nki_isa
   , module nki_lang
   , module nki_typing
-  , module nki_'
-  , module nki_isa'
-  , module nki_lang'
-  , module nki_typing'
   , module `math
   , const_int (.str (nl "tile_size") "pmax") 128
   , const_int (.str (nl "tile_size") "gemm_stationary_fmax") 128

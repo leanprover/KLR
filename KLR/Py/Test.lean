@@ -215,9 +215,9 @@ def a(x:int=10):
 
 /--
 info: ok:
-from neuronxcc import nki
+import nki
 
-import neuronxcc.nki.language as nl
+import nki.language as nl
 
 @nki.jit
 def nki_tensor_add_kernel(a_input, b_input):
@@ -233,8 +233,8 @@ def nki_tensor_add_kernel(a_input, b_input):
   return c_output
 -/
 #guard_msgs in #py "
-from neuronxcc import nki
-import neuronxcc.nki.language as nl
+import nki
+import nki.language as nl
 
 
 @nki.jit

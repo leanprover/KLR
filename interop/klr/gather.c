@@ -448,15 +448,15 @@ static const char* suggest_nki_dtype(PyObject *obj) {
   const char* t = ((PyTypeObject*)obj)->tp_name;
   if (!t) return NULL;
 
-  if (strstr(t, "numpy.uint8")) return "neuronxcc.nki.language.uint8";
-  if (strstr(t, "numpy.int8")) return "neuronxcc.nki.language.int8";
-  if (strstr(t, "numpy.uint16")) return "neuronxcc.nki.language.uint16";
-  if (strstr(t, "numpy.int16")) return "neuronxcc.nki.language.int16";
-  if (strstr(t, "numpy.uint32")) return "neuronxcc.nki.language.uint32";
-  if (strstr(t, "numpy.int32")) return "neuronxcc.nki.language.int32";
-  if (strstr(t, "numpy.float16")) return "neuronxcc.nki.language.float16";
-  if (strstr(t, "numpy.float32")) return "neuronxcc.nki.language.float32";
-  if (strstr(t, "numpy.bool")) return "neuronxcc.nki.language.bool";
+  if (strstr(t, "numpy.uint8")) return "nki.language.uint8";
+  if (strstr(t, "numpy.int8")) return "nki.language.int8";
+  if (strstr(t, "numpy.uint16")) return "nki.language.uint16";
+  if (strstr(t, "numpy.int16")) return "nki.language.int16";
+  if (strstr(t, "numpy.uint32")) return "nki.language.uint32";
+  if (strstr(t, "numpy.int32")) return "nki.language.int32";
+  if (strstr(t, "numpy.float16")) return "nki.language.float16";
+  if (strstr(t, "numpy.float32")) return "nki.language.float32";
+  if (strstr(t, "numpy.bool")) return "nki.language.bool";
 
   return NULL;
 }

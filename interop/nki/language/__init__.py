@@ -1,5 +1,8 @@
 # KLR implemetations of NKI langauge APIs
 
+class NKIObject:
+    pass
+
 def par_dim(x): return x
 
 bfloat16 = "bfloat16"
@@ -19,5 +22,3 @@ def ndarray(shape, dtype, buffer=None, name=''):
     assert False, "invalid buffer argument"
   return buffer.view(dtype, shape, name)
 
-class NKIObject:
-  pass

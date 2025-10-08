@@ -1,7 +1,7 @@
 import pytest
 
-import neuronxcc.nki.isa as nisa 
-import neuronxcc.nki.language as nl 
+import nki.isa as nisa 
+import nki.language as nl 
 
 from runner import *
 
