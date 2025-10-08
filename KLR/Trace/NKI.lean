@@ -34,8 +34,7 @@ open KLR.NKI
 -- NKI environment, including constants and the names of builtin functions
 -- TODO: these should be defined in Python, not here
 def NKIEnv : List (Name × Term) :=
-  [ module neuronxcc
-  , module nki_
+  [ module nki_
   , module nki_isa
   , module nki_lang
   , module nki_typing

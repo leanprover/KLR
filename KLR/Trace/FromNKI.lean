@@ -126,22 +126,22 @@ instance : FromNKI Dtype where
     | .var name =>
       match name with
       -- NKI variants (see table in NKI docs)
-      | `neuronxcc.nki.language.uint8 => .ok .uint8
-      | `neuronxcc.nki.language.int8 => .ok .int8
-      | `neuronxcc.nki.language.uint16 => .ok .uint16
-      | `neuronxcc.nki.language.int16 => .ok .int16
-      | `neuronxcc.nki.language.uint32 => .ok .int32
-      | `neuronxcc.nki.language.int32 => .ok .int32
-      | `neuronxcc.nki.language.float8e3 => .ok .float8e3
-      | `neuronxcc.nki.language.float8e4 => .ok .float8e4
-      | `neuronxcc.nki.language.float8e5 => .ok .float8e5
-      | `neuronxcc.nki.language.float8_e4m3 => .ok .float8e4
-      | `neuronxcc.nki.language.float8_e5m2 => .ok .float8e5
-      | `neuronxcc.nki.language.float16 => .ok .float16
-      | `neuronxcc.nki.language.bfloat16 => .ok .bfloat16
-      | `neuronxcc.nki.language.tfloat32 => .ok .float32r  -- TODO check this
-      | `neuronxcc.nki.language.float32 => .ok .float32
-      | `neuronxcc.nki.language.bool_ => .ok .uint8
+      | `nki.language.uint8 => .ok .uint8
+      | `nki.language.int8 => .ok .int8
+      | `nki.language.uint16 => .ok .uint16
+      | `nki.language.int16 => .ok .int16
+      | `nki.language.uint32 => .ok .int32
+      | `nki.language.int32 => .ok .int32
+      | `nki.language.float8e3 => .ok .float8e3
+      | `nki.language.float8e4 => .ok .float8e4
+      | `nki.language.float8e5 => .ok .float8e5
+      | `nki.language.float8_e4m3 => .ok .float8e4
+      | `nki.language.float8_e5m2 => .ok .float8e5
+      | `nki.language.float16 => .ok .float16
+      | `nki.language.bfloat16 => .ok .bfloat16
+      | `nki.language.tfloat32 => .ok .float32r  -- TODO check this
+      | `nki.language.float32 => .ok .float32
+      | `nki.language.bool_ => .ok .uint8
       -- torch variants
       | `torch.uint8 => .ok .uint8
       | `torch.int8 => .ok .int8
@@ -201,11 +201,11 @@ instance : FromNKI Memory where
     | .var name =>
       match name with
       -- TODO: do we need to distinguish the different HBM types?
-      | `neuronxcc.nki.language.shared_hbm => .ok .hbm
-      | `neuronxcc.nki.language.private_hbm => .ok .hbm
-      | `neuronxcc.nki.language.hbm => .ok .hbm
-      | `neuronxcc.nki.language.sbuf => .ok .sbuf
-      | `neuronxcc.nki.language.psum => .ok .psum
+      | `nki.language.shared_hbm => .ok .hbm
+      | `nki.language.private_hbm => .ok .hbm
+      | `nki.language.hbm => .ok .hbm
+      | `nki.language.sbuf => .ok .sbuf
+      | `nki.language.psum => .ok .psum
       | _ => err
     | .pointer p => return p.memory
     | _ => err
@@ -216,10 +216,10 @@ instance : FromNKI Engine where
     match t with
     | .var name =>
       match name with
-      | `neuronxcc.nki.isa.unknown_engine => .ok .unassigned
-      | `neuronxcc.nki.isa.tensor_engine => .ok .pe
-      | `neuronxcc.nki.isa.vector_engine => .ok .dve
-      | `neuronxcc.nki.isa.scalar_engine => .ok .sp
+      | `nki.isa.unknown_engine => .ok .unassigned
+      | `nki.isa.tensor_engine => .ok .pe
+      | `nki.isa.vector_engine => .ok .dve
+      | `nki.isa.scalar_engine => .ok .sp
       | _ => err
     | _ => err
 
@@ -239,12 +239,12 @@ instance : FromNKI AluOp where
     | .var name =>
         match name with
         -- bitwise operations
-        | `neuronxcc.nki.language.invert => return .bitwise_not
-        | `neuronxcc.nki.language.bitwise_and => return .bitwise_and
-        | `neuronxcc.nki.language.bitwise_or => return .bitwise_or
-        | `neuronxcc.nki.language.bitwise_xor => return .bitwise_xor
-        | `neuronxcc.nki.language.left_shift => return .logical_shift_left
-        | `neuronxcc.nki.language.right_shift => return .logical_shift_right
+        | `nki.language.invert => return .bitwise_not
+        | `nki.language.bitwise_and => return .bitwise_and
+        | `nki.language.bitwise_or => return .bitwise_or
+        | `nki.language.bitwise_xor => return .bitwise_xor
+        | `nki.language.left_shift => return .logical_shift_left
+        | `nki.language.right_shift => return .logical_shift_right
         -- numpy variants
         | `numpy.bitwise_not => return .bitwise_not
         | `numpy.bitwise_invert => return .bitwise_not
@@ -254,21 +254,21 @@ instance : FromNKI AluOp where
         | `numpy.bitwise_left_shift => return .logical_shift_left
         | `numpy.bitwise_right_shift => return .logical_shift_right
         -- arithemetic operations
-        | `neuronxcc.nki.language.add => return .add
-        | `neuronxcc.nki.language.subtract => return .subtract
-        | `neuronxcc.nki.language.multiply => return .mult
-        | `neuronxcc.nki.language.maximum => return .max
-        | `neuronxcc.nki.language.minimum => return .min
-        | `neuronxcc.nki.language.equal => return .is_equal
-        | `neuronxcc.nki.language.not_equal => return .not_equal
-        | `neuronxcc.nki.language.greater_equal => return .is_ge
-        | `neuronxcc.nki.language.greater => return .is_gt
-        | `neuronxcc.nki.language.less_equal => return .is_le
-        | `neuronxcc.nki.language.less => return .is_lt
-        | `neuronxcc.nki.language.logical_not => throw "'logical_not' operator not supported"
-        | `neuronxcc.nki.language.logical_and => return .logical_and
-        | `neuronxcc.nki.language.logical_or => return .logical_or
-        | `neuronxcc.nki.language.logical_xor => return .logical_xor
+        | `nki.language.add => return .add
+        | `nki.language.subtract => return .subtract
+        | `nki.language.multiply => return .mult
+        | `nki.language.maximum => return .max
+        | `nki.language.minimum => return .min
+        | `nki.language.equal => return .is_equal
+        | `nki.language.not_equal => return .not_equal
+        | `nki.language.greater_equal => return .is_ge
+        | `nki.language.greater => return .is_gt
+        | `nki.language.less_equal => return .is_le
+        | `nki.language.less => return .is_lt
+        | `nki.language.logical_not => throw "'logical_not' operator not supported"
+        | `nki.language.logical_and => return .logical_and
+        | `nki.language.logical_or => return .logical_or
+        | `nki.language.logical_xor => return .logical_xor
         -- numpy variants
         | `numpy.add => return .add
         | `numpy.subtract => return .subtract
@@ -294,29 +294,29 @@ instance : FromNKI ActivationFunc where
     match t with
     | .var name =>
       match name with
-      | `neuronxcc.nki.language.copy | `numpy.copy => return .copy
-      | `neuronxcc.nki.language.square | `numpy.square => return .square
-      | `neuronxcc.nki.language.sigmoid => return .sigmoid
-      | `neuronxcc.nki.language.relu => return .relu
-      | `neuronxcc.nki.language.gelu => return .gelu
-      | `neuronxcc.nki.language.gelu_dx => return .gelu_dx
-      | `neuronxcc.nki.language.gelu_apprx_tanh => return .gelu_apprx_tanh
-      | `neuronxcc.nki.language.silu => return .silu
-      | `neuronxcc.nki.language.silu_dx => return .silu_dx
-      | `neuronxcc.nki.language.tanh | `numpy.tanh => return .tanh
-      | `neuronxcc.nki.language.softplus => return .softplus
-      | `neuronxcc.nki.language.mish => return .mish
-      | `neuronxcc.nki.language.erf => return .erf
-      | `neuronxcc.nki.language.erf_dx => return .erf_dx
-      | `neuronxcc.nki.language.exp | `numpy.exp => return .exp
-      | `neuronxcc.nki.language.log | `numpy.log => return .log
-      | `neuronxcc.nki.language.sin | `numpy.sin => return .sin
-      | `neuronxcc.nki.language.arctan | `numpy.arctan => return .arctan
-      | `neuronxcc.nki.language.sqrt | `numpy.sqrt => return .sqrt
-      | `neuronxcc.nki.language.rsqrt => return .rsqrt
-      | `neuronxcc.nki.language.reciprocal | `numpy.reciprocal => return .reciprocal
-      | `neuronxcc.nki.language.sign | `numpy.sign => return .sign
-      | `neuronxcc.nki.language.abs | `numpy.abs => return .abs
+      | `nki.language.copy | `numpy.copy => return .copy
+      | `nki.language.square | `numpy.square => return .square
+      | `nki.language.sigmoid => return .sigmoid
+      | `nki.language.relu => return .relu
+      | `nki.language.gelu => return .gelu
+      | `nki.language.gelu_dx => return .gelu_dx
+      | `nki.language.gelu_apprx_tanh => return .gelu_apprx_tanh
+      | `nki.language.silu => return .silu
+      | `nki.language.silu_dx => return .silu_dx
+      | `nki.language.tanh | `numpy.tanh => return .tanh
+      | `nki.language.softplus => return .softplus
+      | `nki.language.mish => return .mish
+      | `nki.language.erf => return .erf
+      | `nki.language.erf_dx => return .erf_dx
+      | `nki.language.exp | `numpy.exp => return .exp
+      | `nki.language.log | `numpy.log => return .log
+      | `nki.language.sin | `numpy.sin => return .sin
+      | `nki.language.arctan | `numpy.arctan => return .arctan
+      | `nki.language.sqrt | `numpy.sqrt => return .sqrt
+      | `nki.language.rsqrt => return .rsqrt
+      | `nki.language.reciprocal | `numpy.reciprocal => return .reciprocal
+      | `nki.language.sign | `numpy.sign => return .sign
+      | `nki.language.abs | `numpy.abs => return .abs
       | _ => err
     | _ => err
 
@@ -325,8 +325,7 @@ instance : FromNKI AccumCmd where
   fromNKI? t :=
     let err := .error s!"expecting accumulator command (idle, reset, reduce, reset_reduce), got {repr t}"
     match t with
-    | .object `nki.isa.reduce_cmd vs
-    | .object `neuronxcc.nki.isa.reduce_cmd vs =>
+    | .object `nki.isa.reduce_cmd vs =>
       match AA.lookup? vs "name" with
       | some (.string "idle") => return .Idle
       | some (.string "reset") => return .Zero
@@ -335,10 +334,10 @@ instance : FromNKI AccumCmd where
       | _ => err
     | .var name =>
       match name with
-      | `neuronxcc.nki.isa.reduce_cmd.idle => return .Idle
-      | `neuronxcc.nki.isa.reduce_cmd.reset => return .Zero
-      | `neuronxcc.nki.isa.reduce_cmd.reduce => return .Accumulate
-      | `neuronxcc.nki.isa.reduce_cmd.reset_reduce => return .ZeroAccumulate
+      | `nki.isa.reduce_cmd.idle => return .Idle
+      | `nki.isa.reduce_cmd.reset => return .Zero
+      | `nki.isa.reduce_cmd.reduce => return .Accumulate
+      | `nki.isa.reduce_cmd.reset_reduce => return .ZeroAccumulate
       -- Something should emit LoadAccumulate? Not sure what
       | _ => err
     | _ => err

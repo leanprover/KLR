@@ -29,7 +29,7 @@ open Compile.Pass
 abbrev SimplifyOp := Pass Unit
 
 private def isISA : Expr -> Bool
-  | ⟨ .var (.str `neuronxcc.nki.isa _), _ ⟩ => true
+  | ⟨ .var (.str `nki.isa _), _ ⟩ => true
   | _ => false
 
 private def rewriteOp (rhs: Expr) (dst: Expr) : SimplifyOp (Option Stmt') := do
