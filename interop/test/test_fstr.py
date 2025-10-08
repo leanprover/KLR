@@ -5,7 +5,7 @@
 import os
 import pytest
 import numpy as np
-# import neuronxcc.nki.typing as nt
+# import nki.typing as nt
 
 from klr.frontend import Kernel
 
