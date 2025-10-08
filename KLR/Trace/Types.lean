@@ -278,7 +278,10 @@ def endBlock (next : Option String := none) : Trace Unit := do
     jmp target
   modify fun st =>
     match st.label with
-    | none => st
+    | none => { st with
+        label := next
+        stmts := #[]
+      }
     | some lbl =>
       { st with
         body := st.body.push ⟨lbl, st.stmts.toList⟩
