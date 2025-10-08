@@ -142,6 +142,10 @@ instance : FromNKI Dtype where
       | `neuronxcc.nki.language.tfloat32 => .ok .float32r  -- TODO check this
       | `neuronxcc.nki.language.float32 => .ok .float32
       | `neuronxcc.nki.language.bool_ => .ok .uint8
+      | `neuronxcc.nki.language.float8_e4m3fn => .ok .float8_e4m3fn
+      | `neuronxcc.nki.language.float8_e5m2_x4 => .ok .float8_e5m2_x4
+      | `neuronxcc.nki.language.float8_e4m3fn_x4 => .ok .float8_e4m3fn_x4
+      | `neuronxcc.nki.language.float4_e2m1fn_x4 => .ok .float4_e2m1fn_x4
       -- torch variants
       | `torch.uint8 => .ok .uint8
       | `torch.int8 => .ok .int8
@@ -183,6 +187,10 @@ instance : FromNKI Dtype where
         | "tfloat32" => .ok .float32r  -- TODO check this
         | "float32" => .ok .float32
         | "bool" => .ok .uint8
+        | "float8_e4m3fn" => .ok .float8_e4m3fn
+        | "float8_e5m2_x4" => .ok .float8_e5m2_x4
+        | "float8_e4m3fn_x4" => .ok .float8_e4m3fn_x4
+        | "float4_e2m1fn_x4" => .ok .float4_e2m1fn_x4
         | _ => throw s!"unsupported dtype '{name}'"
       | none => throw s!"unsupported dtype '{name}'"
     | t => throw s!"expecting 'dtype', got '{Term.kindStr t}'"

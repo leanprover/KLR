@@ -66,8 +66,10 @@ inductive Dtype where
     | .uint16 | .int16 | .bfloat16 | .float16 => 2
     | .uint32 | .int32 | .float32 | .float32r => 4
     | .uint64 | .int64 => 8
-    | .float8_e4m3fn | .float8_e5m2_x4
-    | .float8_e4m3fn_x4 | .float4_e2m1fn_x4 => 4
+    | .float8_e4m3fn => 1
+    | .float8_e5m2_x4 => 4
+    | .float8_e4m3fn_x4 => 4
+    | .float4_e2m1fn_x4 =>  2
     @[computed_field]
     isInt : Dtype -> Bool
     | .int8 | .int16 | .int64 | .int32
