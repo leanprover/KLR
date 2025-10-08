@@ -583,7 +583,11 @@ nki builtin.access.ap
         indirectDim := indirect_dim
       }
       return .access (.birPattern ap)
-  | _ => throw "cannot specify an access pattern on an already indexed tensor"
+  | .basic t =>
+    let pat := pattern.map fun (s,c) => Core.APPair.mk s c
+    let ac <- Access.combineAP self pat offset
+    return .access (.pattern ac)
+  | _ => throw s!"cannot specify an access pattern on an already indexed tensor"
 
 /-
 # Static environment of builtins
