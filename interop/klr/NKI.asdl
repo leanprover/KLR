@@ -48,7 +48,7 @@ APPair = (Int step, Nat num)
 
 AccessPattern = (TensorName tensor, Nat parNum, APPair* freePattern, Nat parOffset, Nat freeOffset)
 ScalarOffset =
- | reg(Reg r)
+ | reg(String r)
  | acc(Access a)
 
 

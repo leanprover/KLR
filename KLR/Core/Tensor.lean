@@ -519,7 +519,7 @@ mutual
 
 @[serde tag = 123]
 inductive ScalarOffset where
-  | reg (r : Reg)
+  | reg (r : String)
   | acc (a : Access)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
