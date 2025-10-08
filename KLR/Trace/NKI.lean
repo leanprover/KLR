@@ -548,7 +548,7 @@ partial def lowerRes (t: Term) : Trace (List Core.Access) := do
   | _ => return [] -- all others invariants should not contain tensors
 
 def traceKernel (k : Kernel) : Trace Core.Kernel := do
-  let _ <- beginBlock
+  let _ <- beginBlock (<- genName `main).toString
   addId
   globals k
   match k.funs.find? fun f => f.name == k.entry with
