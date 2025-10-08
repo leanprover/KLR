@@ -772,6 +772,19 @@ def Access.toAP (a : Access) : KLR.Err AccessPattern :=
   | .pattern p => .ok p
   | .birPattern _ => throw "Converting birAP to AP is lossy"
 
+def Access.combineAP (a : Access) (pat: List APPair) (offset : Nat) : KLR.Err AccessPattern := do
+  let ap <- Access.toAP a
+  let pat1 := ⟨ap.freeDim, ap.parNum⟩ :: ap.freePattern
+  let off1 := ap.freeOffset
+  let pairs := List.zipWith (fun p1 p2 => ⟨max p1.step p2.step, min p1.num p2.num⟩) pat1 pat
+  let offset := off1 + offset
+  return {
+    tensor := ap.tensor
+    parNum := pairs[0]!.num
+    freePattern := pairs.tail
+    freeOffset := offset
+  }
+
 def Access.combine (a : Access) (idx : List Index) : KLR.Err AccessPattern := do
   for i in idx do
     match i with
@@ -782,18 +795,8 @@ def Access.combine (a : Access) (idx : List Index) : KLR.Err AccessPattern := do
         throw "can't combine indecies with stride != 1"
     | _ => pure ()
   let shape := <- a.shape
-  let ap <- Access.toAP a
-  let pat1 := ⟨ap.freeDim, ap.parNum⟩ :: ap.freePattern
-  let off1 := ap.freeOffset
   let (pat2, off2) := idxToAp shape.toList idx
-  let pairs := List.zipWith (fun p1 p2 => ⟨max p1.step p2.step, min p1.num p2.num⟩) pat1 pat2
-  let offset := off1 + off2
-  return {
-    tensor := ap.tensor
-    parNum := pairs[0]!.num
-    freePattern := pairs.tail
-    freeOffset := offset
-  }
+  Access.combineAP a pat2 off2
 
 private def testAccess2 (idxs1 : List Index) (idxs2 : List Index) : KLR.Err (List APPair × Nat) := do
   let addr : Address := {
