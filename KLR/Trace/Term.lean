@@ -568,15 +568,17 @@ nki builtin.access.ap
     (self : Access)
     (pattern : List (Int × Nat))
     (offset : Nat := 0)
-    (scalar_offset : Option (Sum Access Core.Reg) := none)
+    (scalar_offset : Option (Sum Access Term) := none)
     (vector_offset : Option Access := none)
     (indirect_dim : Int := 0) := do
   match self with
   | .simple t =>
       let pattern := pattern.map fun (s,c) => Core.APPair.mk s c
-      let scalarOffset := scalar_offset.map fun
-        | .inl a => .acc a
-        | .inr r => .reg r
+      let scalarOffset <- scalar_offset.mapM fun
+        | .inl a => pure (.acc a)
+        | .inr r => match r with
+          | .scalar s => pure (.reg s.toString)
+          | _ => throw s!"scalar_offset requires scalar argument, got {r.kindStr}"
       let ap : Core.BirAccessPattern := {
         tensor := t
         offset

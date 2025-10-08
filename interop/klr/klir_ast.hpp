@@ -161,7 +161,7 @@ struct ScalarOffset {
 };
 
 struct ScalarOffsetRegWrapper final : ScalarOffset {
-  Nat r;
+  String r;
   ScalarOffsetRegWrapper() : ScalarOffset(Tag::reg) {}
 };
 

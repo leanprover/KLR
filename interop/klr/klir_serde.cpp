@@ -665,7 +665,7 @@ Ptr<ScalarOffset> ScalarOffset_des(FILE *in) {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<ScalarOffsetRegWrapper> x = ptr<ScalarOffsetRegWrapper>();
-    x->r = Nat_des(in);
+    x->r = String_des(in);
     return x;
     break;
   }
