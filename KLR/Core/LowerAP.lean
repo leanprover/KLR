@@ -91,6 +91,7 @@ def Operator.lowerAccessPatterns (k : Operator) : KLR.Err Operator :=
       dst := (<- op.dst.lowerAccessPatterns)
       src := (<- op.src.lowerAccessPatterns)
       reduceRes := (<- op.reduceRes.mapM TensorRef.lowerAccessPatterns)
+      bias := (<- op.bias.mapM TensorRef.lowerAccessPatterns)
     }
   | .tensorPartitionReduce op => do
     return .tensorPartitionReduce {op with
