@@ -402,14 +402,14 @@ theorem shape.noFail :
 -- NOTE: The Prop fields count towards the list, but have zero size
 instance : ToCBOR AccessBasic where
   toCBOR t :=
-    Serde.cborTag 117 0 3
+    Serde.cborTag 118 0 3
     ++ @Serde.toCBOR TensorName _ t.tensor
     ++ @Serde.toCBOR (List Index) _ t.indexes
 
 instance : FromCBOR AccessBasic where
   parse arr := do
     let (ty,val,len,arr) <- Serde.parseCBORTag arr
-    if ty != 117 then
+    if ty != 118 then
       throw s!"expecting AccessBasic (got tag {ty})"
     if val != 0 then
       throw s!"expecting AccessBasic (got val tag {val})"
