@@ -60,8 +60,8 @@ For example, builtin.python.f will appear as f.
 
 nki builtin.python.isinstance (t : Term) (ty : Term) := do
   match t, ty with
-  | .object cls .., .source { name }
-  | .ref _ (.object cls), .source { name } => return .bool (cls == name)
+  | .object cls .., .source { name, .. }
+  | .ref _ (.object cls), .source { name, .. } => return .bool (cls == name)
   | .none, .builtin `builtin.python.NoneType ..
   | .bool .., .builtin `builtin.python.bool ..
   | .int .., .builtin `builtin.python.int ..
