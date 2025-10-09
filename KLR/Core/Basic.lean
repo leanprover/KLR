@@ -186,7 +186,7 @@ partial def operatorAdditionalTensors : Operator → List TensorName
   | .tensorTensorScan t => tensors t.imm0
   | .tensorScalar t => (tensors t.imm0) ++ (tensors t.imm1)
   | .scalarTensorTensor s => (tensors s.src0) ++ (tensors s.src1)
-  | .activationReduce t => tensors t.reduceRes
+  | .activationReduce t => tensors t.reduceRes ++ tensors t.bias
   | .tensorScalarReduce t => tensors t.operand0
   | .selectReduce s => (tensors s.onFalse) ++ (tensors s.reduceRes)
   | .sendRecvCCE s => tensors s.src
