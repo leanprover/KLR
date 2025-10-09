@@ -227,7 +227,7 @@ instance : FromNKI Engine where
       | `nki.isa.unknown_engine => .ok .unassigned
       | `nki.isa.tensor_engine => .ok .pe
       | `nki.isa.vector_engine => .ok .dve
-      | `nki.isa.scalar_engine => .ok .sp
+      | `nki.isa.scalar_engine => .ok .act
       | _ => err
     | _ => err
 
