@@ -25,30 +25,6 @@ NKI Language builtins
 namespace KLR.Trace
 open Core
 
-def langSyms := [
-  -- datatypes
-  "uint8", "int8", "uint16", "int16", "uint32", "int32",
-  "float8e3", "float8e4", "float8e5",
-  "float8_e4m3", "float8_e5m2",
-  "float16", "bfloat16", "tfloat32", "float32",
-  "bool_",
-  -- buffer names
-  "shared_hbm", "private_hbm", "hbm", "sbuf", "psum",
-  -- activation function types
-  "idle", "reset", "reduce", "reset_reduce",
-  -- functions
-  "invert", "bitwise_and", "bitwise_or", "bitwise_xor",
-  "left_shift", "right_shift",
-  "add", "subtract", "multiply", "maximum", "minimum",
-  "equal", "not_equal", "greater_equal",
-  "greater", "less_equal", "less",
-  "logical_not", "logical_and", "logical_or", "logical_xor",
-  -- activation functions
-  "copy", "square", "sigmoid", "relu", "gelu", "gelu_dx", "gelu_apprx_tanh",
-  "silu", "silu_dx", "tanh", "softplus", "mish", "erf", "erf_dx", "exp",
-  "log", "sin", "arctan", "sqrt", "rsqrt", "reciprocal", "sign", "abs",
-]
-
 nki builtin.lang.ndarray
   (shape : Shape)
   (dtype : Dtype)
