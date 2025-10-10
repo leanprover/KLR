@@ -178,6 +178,7 @@ structure Address where
   freeSize : Nat
   parOffset : Option Nat := none
   freeOffset : Option Nat := none
+  isShared : Bool := false
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 namespace Address

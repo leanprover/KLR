@@ -103,13 +103,15 @@ nki builtin.lang.shared_constant
   let dtype := Dtype.fromTensorLibDtype t.dtype
   let shape := Shape.mk t.shape.val.head! t.shape.val.tail!
   let (parSize, freeSize) := Address.defaultSize shape dtype
-  let addr := {
+  let addr : Address := {
     name := name.toString,
     memory := .hbm,
-    parSize, freeSize,
-    parOffset := none, freeOffset := none : Address
+    parSize := parSize,
+    freeSize := freeSize
+    isShared := true
   }
   let tensorName <- TensorName.make name.toString dtype shape addr
+
   modify fun s => { s with
     sharedConstants := s.sharedConstants.push (name.toString, t)
   }
