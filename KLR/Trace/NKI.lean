@@ -51,7 +51,7 @@ def NKIEnv : List (Name × Term) :=
   , const_var (nisa "tensor_engine")
   , const_var (nisa "vector_engine")
   , const_var (nisa "scalar_engine")
-  ] ++ langSyms.map fun s => const_var (nl s)
+  ]
 
 -- The result of a statement evaluation
 inductive Result where

@@ -5,8 +5,14 @@ class NKIObject:
 
 def par_dim(x): return x
 
-bfloat16 = "bfloat16"
-float32 = "float32"
+float16 = "float16"
+
+class uint8(NKIObject):
+  itemsize = 1
+
+class float32(NKIObject):
+  itemsize = 4
+
 class tile_size:
   pmax = 128
   psum_fmax = 128
