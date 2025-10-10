@@ -315,15 +315,17 @@ def addId : Trace Unit := do
   let id : KLR.Core.TensorRef := .abstract (.simple tensorName)
   let pos : Pos := { line := 0, column := 0 }
   let hbmInitName := <-genName
-  let idHbm : TensorRef := .hbm {
+  let idAddr : Address := {
     name := hbmInitName.toString,
-    dtype := dtype,
-    address := 0,
-    dims := [⟨1, 128⟩, ⟨1, 128⟩]
+    memory := .hbm,
+    parSize := 128
+    freeSize := 128
+    isShared := true
   }
+  let idHbm : TensorName <- Core.TensorName.make hbmInitName.toString dtype shape idAddr
   let initStmt := Core.Stmt.oper (.ncDmaCopy {
     dst := id,
-    src := idHbm,
+    src := .abstract (.simple idHbm),
     compute_op := .none,
     oobMode := .disable,
     dgeMode := 0,
