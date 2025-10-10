@@ -543,7 +543,7 @@ Ptr<Address> Address_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 113 || c != 0 || l != 6)
+  if (t != 113 || c != 0 || l != 7)
     throw std::runtime_error("Invalid Tag");
   Ptr<Address> x = ptr<Address>();
   x->name = String_des(in);
@@ -552,6 +552,7 @@ Ptr<Address> Address_des(FILE *in) {
   x->freeSize = Nat_des(in);
   x->parOffset = Option_Nat_des(in);
   x->freeOffset = Option_Nat_des(in);
+  x->isShared = Bool_des(in);
   return x;
 }
 

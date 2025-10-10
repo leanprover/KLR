@@ -94,6 +94,7 @@ struct Address final {
   Nat freeSize;
   Option<Nat> parOffset;
   Option<Nat> freeOffset;
+  Bool isShared;
 };
 
 struct TensorName final {

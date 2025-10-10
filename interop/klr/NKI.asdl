@@ -32,7 +32,7 @@ Dtype =
 
 Shape = (Nat parDim, Nat* freeDims)
 
-Address = (String name, Memory memory, Nat parSize, Nat freeSize, Nat? parOffset, Nat? freeOffset)
+Address = (String name, Memory memory, Nat parSize, Nat freeSize, Nat? parOffset, Nat? freeOffset, Bool isShared)
 
 TensorName = (String name, Dtype dtype, Shape shape, Address address, Nat freeElements, Prop parWF, Prop freeWF)
 
