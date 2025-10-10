@@ -123,6 +123,7 @@ instance : FromNKI TensorLib.Tensor where
 -- TODO: when new NKI API is settled, rewrite is a nicer way
 instance : FromNKI Dtype where
   fromNKI?
+    | .source {name ..}
     | .var name =>
       match name with
       -- NKI variants (see table in NKI docs)
