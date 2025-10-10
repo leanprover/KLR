@@ -127,6 +127,24 @@ def loops(t):
 def undefined_ok(t):
   nl.foo(t)
 
+def min_max_test(t):
+  assert 1 == min(1, 2)
+  assert 1 == min(2, 1)
+  assert 1.0 == min(2.0, 1)
+  assert 1.0 == min(1, 2.0)
+  assert 1 == min([1, 2])
+  assert 1 == min([2, 1])
+  assert 1.0 == min([2.0, 1])
+  assert 1.0 == min([1, 2.0])
+  assert 2 == max(1, 2)
+  assert 2 == max(2, 1)
+  assert 2.0 == max(2.0, 1)
+  assert 2.0 == max(1, 2.0)
+  assert 2 == max([1, 2])
+  assert 2 == max([2, 1])
+  assert 2.0 == max([2.0, 1])
+  assert 2.0 == max([1, 2.0])
+
 # test each function in turn
 @pytest.mark.parametrize("f", [
   const_stmt,
@@ -139,7 +157,8 @@ def undefined_ok(t):
   assign,
   ifs,
   loops,
-  undefined_ok
+  undefined_ok,
+  min_max_test
   ])
 def test_succeed(f):
   t = np.zeros((10,10,10), dtype=np.float32)

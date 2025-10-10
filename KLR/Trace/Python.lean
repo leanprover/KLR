@@ -104,11 +104,57 @@ nki builtin.python.len (t : Term) := do
   | .list a => return .int a.size
   | _ => throw "invalid argument"
 
--- TODO: should take arbitrary number of arguments and work on more types
-nki builtin.python.min (a : Term) (b : Term) := do
+-- TODO: DRY up the below code once we have more time
+private def minTerms (a b : Term) : Trace Term := do
   match a, b with
   | .int a, .int b => return .int (min a b)
+  | .float a, .float b => return .float (min a b)
+  | .float a, .int b => return .float (min a b.toFloat64)
+  | .int a, .float b => return .float (min a.toFloat64 b)
   | _, _ => throw "invalid arguments"
+
+nki builtin.python.min (args : List Term) := do
+  match args with
+  | [] => throw "min expected at least 1 argument, got 0"
+  | [.ref name .list] =>
+    let arr <- match <- lookup name with
+      | .list arr => pure arr
+      | _ => throw "internal error: expecting list"
+    if arr.isEmpty then throw "can't take min of empty sequence"
+    arr.foldlM minTerms arr[0]!
+  | [.tuple a]
+  | [.list a] =>
+    if a.isEmpty then throw "can't take min of empty sequence"
+    a.foldlM minTerms a[0]!
+  | [a, b] =>
+    minTerms a b
+  | _ => throw s!"invalid arguments {repr args}"
+
+private def maxTerms (a b : Term) : Trace Term := do
+  match a, b with
+  | .int a, .int b => return .int (max a b)
+  | .float a, .float b => return .float (max a b)
+  | .float a, .int b => return .float (max a b.toFloat64)
+  | .int a, .float b => return .float (max a.toFloat64 b)
+  | _, _ => throw "invalid arguments"
+
+nki builtin.python.max (args : List Term) := do
+  match args with
+  | [] => throw "max expected at least 1 argument, got 0"
+  | [.ref name .list] =>
+    let arr <- match <- lookup name with
+      | .list arr => pure arr
+      | _ => throw "internal error: expecting list"
+    if arr.isEmpty then throw "can't take max of empty sequence"
+    arr.foldlM maxTerms arr[0]!
+  | [.tuple a]
+  | [.list a] =>
+    if a.isEmpty then throw "can't take max of empty sequence"
+    let max := a[0]!
+    a.foldlM maxTerms max
+  | [a, b] =>
+    maxTerms a b
+  | _ => throw s!"invalid arguments {repr args}"
 
 nki builtin.python.abs (t : Term) := do
   match t with

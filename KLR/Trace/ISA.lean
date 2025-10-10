@@ -825,7 +825,7 @@ nki builtin.isa.sendrecv_cce
     }) name
     return .none
 
-nki quantize_mx
+nki builtin.isa.quantize_mx
   (dst : Access)
   (src: Access)
   (dst_scale : Access)
@@ -837,7 +837,7 @@ nki quantize_mx
     }) name
     return .none
 
-nki nc_matmul_mx
+nki builtin.isa.nc_matmul_mx
   (dst : Access)
   (stationary: Access)
   (moving: Access)
@@ -858,7 +858,7 @@ nki nc_matmul_mx
       }) name
     return .none
 
-nki dma_compute
+nki builtin.isa.dma_compute
   (dst : Access)
   (srcs : List Access)
   (scales : List Immediate)
@@ -872,7 +872,7 @@ nki dma_compute
     }) name
     return .none
 
-nki all_reduce
+nki builtin.isa.all_reduce
   (op : AluOp)
   (srcs : List Access)
   (dsts : List Access)
@@ -893,7 +893,7 @@ nki all_reduce
     return .none
 
 
-nki all_gather
+nki builtin.isa.all_gather
   (op : AluOp)
   (srcs : List Access)
   (dsts : List Access)
@@ -915,7 +915,7 @@ nki all_gather
     return .none
 
 
-nki reduce_scatter
+nki builtin.isa.reduce_scatter
   (op : AluOp)
   (srcs : List Access)
   (dsts : List Access)
@@ -937,7 +937,7 @@ nki reduce_scatter
     return .none
 
 
-nki collective_permute
+nki builtin.isa.collective_permute
   (srcs : List Access)
   (dsts : List Access)
   (source_target_pairs: List (List Int))
@@ -956,7 +956,7 @@ nki collective_permute
     }) name
     return .none
 
-nki broadcast
+nki builtin.isa.broadcast
   (op : AluOp)
   (srcs : List Access)
   (dsts : List Access)
@@ -977,7 +977,7 @@ nki broadcast
     }) name
     return .none
 
-nki all_to_all
+nki builtin.isa.all_to_all
   (op : AluOp)
   (srcs : List Access)
   (dsts : List Access)
@@ -999,7 +999,7 @@ nki all_to_all
     }) name
     return .none
 
-nki send
+nki builtin.isa.send
   (op : AluOp)
   (srcs : List Access)
   (peerId : Int)
@@ -1011,7 +1011,7 @@ nki send
     }) name
     return .none
 
-nki recv
+nki builtin.isa.recv
   (op : AluOp)
   (dsts : List Access)
   (replica_groups : List Int)
