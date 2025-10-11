@@ -18,6 +18,7 @@ import KLR.Util
 import KLR.Core
 import KLR.NKI.Basic
 import KLR.Compile.Pass
+import Lean
 
 /-
 # Basic types for tracing
@@ -70,9 +71,6 @@ open KLR.Compile.Pass
 export Core (Name)
 export KLR.Compile.Pass (withPos withFile getPos warn message resetPassState)
 export NKI (Pos BinOp)
-
-abbrev SharedConstant := String × TensorLib.Tensor
-abbrev SharedConstants := Array SharedConstant
 
 /-
 A term contains KLR expressions plus things that may exists at trace time.
@@ -162,19 +160,25 @@ traced statements is held in the `body` field, and there is an array of
 warnings which may be shown to the user after tracing.
 -/
 
+abbrev SharedConstant := String × TensorLib.Tensor
+abbrev SharedConstants := Array SharedConstant
 abbrev Env := Std.HashMap Name Term
 
 structure State where
   globals : Env := ∅
   locals : Env := ∅
-  refs : Env := ∅
   body : Array Block := #[]
-  tensorNames : Std.HashSet String := ∅
+  -- PHashSet is better for huge sets (which this is)
+  --tensorNames : Std.HashSet String := ∅
+  tensorNames : Lean.PersistentHashSet String := ∅
   sharedConstants : SharedConstants := #[]
   dynamicCtx : Bool := False
   label : Option String := none
   stmts : Array Stmt := #[]
-deriving Repr
+  iv : Array Name := #[]
+  stack : Array Name := #[]
+  ivs : Std.HashMap String (Array (Name × Int)) := ∅
+  stacks : Std.HashMap String (Array Name) := ∅
 
 instance : Inhabited State where
   default := {}
@@ -216,18 +220,38 @@ def enter (m : Trace a) : Trace a := do
     modify fun s => { s with locals := locals }
 
 -- Enter a new function scope, removing all local bindings
-def enterFun (m : Trace a) : Trace a := do
+def enterFun (name : Name) (m : Trace a) : Trace a := do
   let s ← get
   let locals := s.locals
-  set { s with locals := ∅ }
+  let iv := s.iv
+  set { s with locals := ∅, iv := #[], stack := s.stack.push name }
   try m
   finally
-    modify fun s => { s with locals := locals }
+    modify fun s => { s with locals, iv, stack := s.stack.pop }
+
+def enterLoop (var : Name) (m : Trace a) : Trace a := do
+  let s ← get
+  set { s with iv := s.iv.push var }
+  try m
+  finally
+    modify fun s => { s with iv := s.iv.pop }
 
 -- append fully traced statement
 def add_stmt (stmt : Pos -> Stmt) : Trace Unit := do
   let pos <- getPos
-  modify fun s => { s with stmts := s.stmts.push (stmt pos) }
+  let s <- get
+  let stmt := stmt pos
+  let stmts := s.stmts.push stmt
+  match stmt with
+  | .oper _ none _ => set { s with stmts }
+  | .oper _ (some name) _ =>
+      let iv <- s.iv.mapM fun n => do
+        match <- lookup? n with
+        | some (.int i) => pure (n, i)
+        | _ => pure (n, -1)
+      let ivs := s.ivs.insert name iv
+      let stacks := s.stacks.insert name s.stack
+      set { s with stmts, ivs, stacks }
 
 def jmp (target : String) : Trace Unit := do
   add_stmt (.oper (.cmpBranch {
@@ -352,7 +376,7 @@ def checkTensorName (name : String) : Trace Unit := do
 -- generate a unique tensor name
 def genTensorName : Trace String := do
   let st <- get
-  let mut n := st.tensorNames.size -- arbitrary
+  let mut n := st.stmts.size * st.body.size -- arbitrary
   let mut name := ""
   repeat
     name := s!"tensor{n}"
@@ -366,13 +390,19 @@ def tensorName : Option String -> Trace String
   | none => genTensorName
   | some n => do checkTensorName n; return n
 
+structure TraceResult (a : Type) where
+  sharedConstants : SharedConstants
+  ivs : Std.HashMap String (Array (Name × Int))
+  stacks : Std.HashMap String (Array Name)
+  result : a
+
 -- Run a `Trace` monad computation, and handle any generated warnings or errors.
-def tracer (g : List (Name × Term)) (m : Trace a) : PassM (SharedConstants × a) := do
+def tracer (g : List (Name × Term)) (m : Trace a) : PassM (TraceResult a) := do
   let initialState : State := { globals := .ofList g }
   runPassWith initialState do
     let x <- m
     let st <- get
-    return (st.sharedConstants, x)
+    return ⟨st.sharedConstants, st.ivs, st.stacks, x⟩
 
 -- Truthiness of Terms following Python
 namespace Term

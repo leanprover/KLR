@@ -28,7 +28,6 @@ open Lean (FromJson ToJson)
 open Core (LncKernel SharedConstantFile)
 open Pass (CompileResult)
 
-
 private def sharedConstant
     (outfolder : String)
     (c : String × TensorLib.Tensor)
@@ -41,8 +40,23 @@ private def sharedConstant
   data.save! (System.FilePath.mk fName)
   return ⟨name, fName⟩
 
+structure DebugInfo where
+  lnc : Nat
+  ivs : Std.HashMap String (Array (Lean.Name × Int))
+  stacks : Std.HashMap String (Array Lean.Name)
+  deriving Lean.ToJson
+
+private def writeDebugInfo
+     (filename : String)
+     (tr : List (Trace.TraceResult Unit)) : IO Unit := do
+  let h <- IO.FS.Handle.mk filename IO.FS.Mode.write
+  let info := (tr.zipIdx 1).map fun (res, n) => DebugInfo.mk n res.ivs res.stacks
+  let json := Lean.toJson info
+  h.putStr (toString json)
+  h.flush
+
 private def compile (kernel : Python.Kernel)
-  : Pass.PassM (Trace.SharedConstants × LncKernel) := do
+  : Pass.PassM (List (Trace.TraceResult Unit) × LncKernel) := do
   let kernel <- NKI.compile kernel
   let (shared, kernel) <- Trace.runLncKernels kernel
   let kernel <- Core.lowerAccessPatterns kernel
@@ -52,16 +66,19 @@ private def compile (kernel : Python.Kernel)
 def compilePython
     (kernel : Python.Kernel)
     (outfolder : Option String)
+    (debugfile : Option String)
     : IO (CompileResult LncKernel) := do
   let (kernel, _warnings) := kernel.inferArguments
   let res := Pass.runPasses (compile kernel)
   match res.result with
   | none => return { res with result := none }
-  | some (shared, kernel) =>
+  | some (tr, kernel) =>
+    if let some dbg := debugfile then
+      writeDebugInfo dbg tr
     let cs <- match outfolder with
-    | some p => shared.mapM (fun c => sharedConstant p c)
-    | none => .ok #[]
-    let kernel := { kernel with sharedConstants := cs.toList }
+    | some p => tr.flatMapM fun res => res.sharedConstants.toList.mapM (sharedConstant p)
+    | none => .ok []
+    let kernel := { kernel with sharedConstants := cs }
     return { res with result := some kernel }
 
 structure TensorInfo where
@@ -121,7 +138,8 @@ def frontend_trace (kernel : Python.Kernel) (dstKlrFileName : String) (format : 
   | "json" => .json
   | "sexp" => .sexp
   | _ => .cbor
-  let res <- compilePython kernel (outfolder dstKlrFileName)
+  -- TODO: maybe the debug info filename should be a parameter?
+  let res <- compilePython kernel (outfolder dstKlrFileName) (dstKlrFileName ++ ".debuginfo.json")
   if let some kernel := res.result then
     let f := FilePath.mk (dstKlrFileName)
     File.writeKLRFile f fmt kernel

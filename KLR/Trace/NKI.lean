@@ -258,7 +258,7 @@ partial def keyword (kw : Keyword) : Trace (String × Term) :=
 
 partial def callFn (f : Fun) (args : List (String × Term)) : Trace Term := do
   args.forM fun (_,t) => checkAccess t (warnOnly := false)
-  withFile f.file f.line f.source $ enterFun do
+  withFile f.file f.line f.source $ enterFun f.name do
     args.forM fun kw => extend kw.1.toName kw.2
     match <- stmts f.body with
     | .ret t => return t
@@ -459,13 +459,14 @@ partial def stmt' (s' : Stmt') : Trace Result := do
       return .next
   | .forLoop x iter body =>
       let ts : List Term <- iterator iter
-      for t in ts do
-        extend x t
-        let res <- stmts body
-        if res == .cont then continue
-        if res == .brk then break
-        if let .ret t := res then return .ret t
-      return .next
+      enterLoop x do
+        for t in ts do
+          extend x t
+          let res <- stmts body
+          if res == .cont then continue
+          if res == .brk then break
+          if let .ret t := res then return .ret t
+        return .next
   | .breakLoop => return .brk
   | .continueLoop => return .cont
   | .whileLoop test body =>
