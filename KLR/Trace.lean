@@ -41,7 +41,7 @@ def globalEnv := keywords ++ builtinEnv ++ pythonEnv ++ NKIEnv
 def runNkiKernel
      (k : KLR.NKI.Kernel)
      (pid : Option (Nat × Nat) := none)
-     : PassM (SharedConstants × Core.Kernel) := do
+     : PassM (TraceResult Core.Kernel) := do
   let int i := Term.int i
   let env := match pid with
     | none => (nl "_program_id", int 0) ::
@@ -55,13 +55,18 @@ def runNkiKernel
 -- TODO: check that inputs and outputs are the same
 -- TODO: check that shared constants are the same
 -- TODO: check that schedule edges make sense
-def runLncKernels (k : NKI.Kernel) : PassM (SharedConstants × Core.LncKernel) := do
+def runLncKernels (k : NKI.Kernel) : PassM (List (TraceResult Unit) × Core.LncKernel) := do
   let num := k.grid.max 1
-  let (sharedConstants0, k0) <- runNkiKernel k (0, num)
-  let mut bodies := [k0.body]
+  let res <- runNkiKernel k (0, num)
+  let k0 := res.result
+
+  let mut result := [{ res with result := () }]
+  let mut bodies := [res.result.body]
   for i in [1:num] do
-    let (_, k) <- runNkiKernel k (i,num)
-    bodies := k.body :: bodies
+    let res <- runNkiKernel k (i,num)
+    result := { res with result := () } :: result
+    bodies := res.result.body :: bodies
+
   let kernel : Core.LncKernel := {
     name := k0.name
     inputs := k0.inputs
@@ -70,4 +75,4 @@ def runLncKernels (k : NKI.Kernel) : PassM (SharedConstants × Core.LncKernel) :
     sharedConstants := []
     edges := k.edges
   }
-  return (sharedConstants0, kernel)
+  return (result.reverse, kernel)
