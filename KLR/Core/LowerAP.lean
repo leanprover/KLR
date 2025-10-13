@@ -51,8 +51,8 @@ def Operand.lowerAccessPatterns : Operand -> KLR.Err Operand
 def Operator.lowerAccessPatterns (k : Operator) : KLR.Err Operator :=
   match k with
   | .activate           op => do return .activate           { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
-  | .ncActivate         op => do return .ncActivate         { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns), reduceRes := (<- op.reduceRes.mapM TensorRef.lowerAccessPatterns) }
-  | .affineSelect       op => do return .affineSelect       { op with dst := (← op.dst.lowerAccessPatterns) }
+  | .ncActivate         op => do return .ncActivate         { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns), scale := (← op.scale.lowerAccessPatterns), bias := (<- op.bias.mapM TensorRef.lowerAccessPatterns), reduceRes := (<- op.reduceRes.mapM TensorRef.lowerAccessPatterns) }
+  | .affineSelect       op => do return .affineSelect       { op with dst := (← op.dst.lowerAccessPatterns), src := (← op.src.lowerAccessPatterns) }
   | .ncAffineSelect     op => do return .ncAffineSelect     { op with dst := (← op.dst.lowerAccessPatterns), onTrueTile := (<- op.onTrueTile.lowerAccessPatterns) }
   | .batchNormAggregate op => do return .batchNormAggregate { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
   | .batchNormStats     op => do return .batchNormStats     { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
@@ -148,11 +148,26 @@ def Operator.lowerAccessPatterns (k : Operator) : KLR.Err Operator :=
       dst := (<- op.dst.lowerAccessPatterns),
       srcs := (<- op.srcs.mapM TensorRef.lowerAccessPatterns),
     }
-  | .allReduce op
-  | .allGather op
-  | .reduceScatter op
-  | .collectivePermute op
-  | .broadcast op
+  | .allReduce op => return .allReduce { op with
+      dsts := (<- op.dsts.mapM TensorRef.lowerAccessPatterns),
+      srcs := (<- op.srcs.mapM TensorRef.lowerAccessPatterns),
+    }
+  | .allGather op => return .allGather { op with
+      dsts := (<- op.dsts.mapM TensorRef.lowerAccessPatterns),
+      srcs := (<- op.srcs.mapM TensorRef.lowerAccessPatterns),
+    }
+  | .reduceScatter op => return .reduceScatter { op with
+      dsts := (<- op.dsts.mapM TensorRef.lowerAccessPatterns),
+      srcs := (<- op.srcs.mapM TensorRef.lowerAccessPatterns),
+    }
+  | .collectivePermute op => return .collectivePermute { op with
+      dsts := (<- op.dsts.mapM TensorRef.lowerAccessPatterns),
+      srcs := (<- op.srcs.mapM TensorRef.lowerAccessPatterns),
+    }
+  | .broadcast op => return .broadcast { op with
+      dsts := (<- op.dsts.mapM TensorRef.lowerAccessPatterns),
+      srcs := (<- op.srcs.mapM TensorRef.lowerAccessPatterns),
+    }
   | .allToAll op => return .allToAll { op with
       dsts := (<- op.dsts.mapM TensorRef.lowerAccessPatterns),
       srcs := (<- op.srcs.mapM TensorRef.lowerAccessPatterns),
