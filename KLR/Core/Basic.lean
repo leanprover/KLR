@@ -126,7 +126,7 @@ partial def operatorBasicTensors : Operator → List TensorRef
   | .activate d => [d.dst, d.src]
   | .ncActivate d => [d.dst, d.src]
   | .affineSelect a => [a.dst, a.src]
-  | .ncAffineSelect a => [a.dst]
+  | .ncAffineSelect a => [a.dst, a.onTrueTile]
   | .dmaCopy d => [d.dst, d.src]
   | .ncDmaCopy d => [d.dst, d.src]
   | .dmaTranspose d => [d.dst, d.src]
@@ -171,21 +171,22 @@ partial def operatorBasicTensors : Operator → List TensorRef
   | .registerMove _ => []
   | .cmpBranch _ => []
   | .registerAluOp _ => []
-  | .quantizeMX q => [q.dst, q.src]
+  | .quantizeMX q => [q.dst, q.src, q.dstScale]
   | .ncMatMulMX m => [m.dst, m.stationary, m.moving, m.stationaryScale, m.movingScale]
   | .dmaCompute d => [d.dst]
   | .allReduce _ | .allGather _ | .reduceScatter _ | .collectivePermute _ | .broadcast _ | .allToAll _ => []
   | .send _ | .recv _ => []
 
 partial def operatorAdditionalTensors : Operator → List TensorName
-  | .ncActivate d => tensors d.reduceRes
-  | .ncAffineSelect a => tensors a.onTrueTile
+  | .ncActivate d => (tensors d.scale) ++ (tensors d.bias) ++ (tensors d.reduceRes)
+  | .ncAffineSelect _ => []
   | .ncRangeSelect r => (tensors r.reduceRes) ++ (tensors r.bound0) ++ (tensors r.bound1) ++ (tensors r.onTrueTile)
   | .dropout d => tensors d.threshold
   | .matchReplace8 m => tensors m.dstIdx
   | .tensorTensorScan t => tensors t.imm0
   | .tensorScalar t => (tensors t.imm0) ++ (tensors t.imm1)
   | .scalarTensorTensor s => (tensors s.src0) ++ (tensors s.src1)
+  | .ncScalarTensorTensor s => (tensors s.src0) ++ (tensors s.src1)
   | .activationReduce t => tensors t.reduceRes ++ tensors t.bias
   | .tensorScalarReduce t => tensors t.operand0
   | .selectReduce s => (tensors s.onFalse) ++ (tensors s.reduceRes)
