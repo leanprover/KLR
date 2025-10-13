@@ -588,7 +588,7 @@ nki builtin.access.ap
         indirectDim := indirect_dim
       }
       return .access (.birPattern ap)
-  | .basic t =>
+  | .basic _ =>
     let pat := pattern.map fun (s,c) => Core.APPair.mk s c
     let ac <- Access.combineAP self pat offset
     return .access (.pattern ac)

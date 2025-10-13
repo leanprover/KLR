@@ -1,15 +1,18 @@
-# KLR implemetations of NKI ISA APIs
-
 from enum import Enum
 # KLR implemetations of NKI ISA APIs
 
-from enum import Enum
 class reduce_cmd(Enum):
   """Engine Register Reduce commands"""
   idle = 0
   reset = 1
   reset_reduce = 3
   reduce = 2
+
+class dge_mode(Enum):
+  none = 0
+  swde = 1
+  hwge = 2
+  unknown = 3
 
 def psum_raw_ptr(address, size):
   p_start, f_start = address
