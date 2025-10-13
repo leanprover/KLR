@@ -710,6 +710,7 @@ struct NcMatMul final {
   Bool isTranspose;
   List<Nat> tilePosition;
   List<Nat> tileSize;
+  Nat psumAccumulateFlag;
 };
 
 struct TensorScalarReduce final {
@@ -848,7 +849,7 @@ struct MatMulMX final {
   Ptr<TensorRef> moving;
   Ptr<TensorRef> stationaryScale;
   Ptr<TensorRef> movingScale;
-  MatmulGroupElement psumAccumulateFlag;
+  Nat psumAccumulateFlag;
   Option<List<Nat>> tilePosition;
   Option<List<Nat>> tileSize;
 };

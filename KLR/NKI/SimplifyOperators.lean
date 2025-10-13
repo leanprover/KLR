@@ -32,13 +32,14 @@ private def isISA : Expr -> Bool
   | ⟨ .var (.str `nki.isa _), _ ⟩ => true
   | _ => false
 
-private def rewriteOp (rhs: Expr) (dst: Expr) : SimplifyOp (Option Stmt') := do
+private def rewriteOp (rhs: Expr) (dst: Expr) (accum : Bool) : SimplifyOp (Option Stmt') := do
   match rhs.expr with
   | .call f args kws =>
     if isISA f then
-      if kws.any fun x => x.name == "dst" then
-          throw  "Operation with destination specified should not use assignment form"
-      let kws : List Keyword := ⟨ "dst",  dst⟩ :: kws
+      -- The way we resolve args would treat first positional arg as dst even if
+      -- keyword arg is present
+      let args := dst :: args
+      let kws := if accum then ⟨ "psumAccumulateFlag", ⟨.value (.int (1 <<< 7)), rhs.pos⟩⟩ :: kws else kws
       let call : Expr' := .call f args kws
       return some (.expr ⟨call, rhs.pos⟩)
     else
@@ -76,16 +77,30 @@ private def stmts (s : List Stmt) : SimplifyOp (List Stmt) := do
   termination_by sizeOf s
 
 private def stmt' (s : Stmt') : SimplifyOp Stmt' := do
+  let mutAssignWarning := "Mutating assignment (a[...] = foo(...)) form is deprecated. Use foo(..., dst=a[...]) instead"
   match s with
-  | .letM _ _ e =>
-    if let .call f .. := e.expr then
+  | .letM x ty e =>
+    if let .binOp _ _ ⟨.call f args kws, _⟩ := e.expr then
       if isISA f then
-        warn "ISA function does not return a value"
+        if let .var xExpr := x then
+          match <- rewriteOp ⟨.call f args kws, e.pos⟩ ⟨.var xExpr, e.pos⟩ true with
+          | some op =>
+            warn mutAssignWarning
+            return op
+          | none => return .letM x ty e
+    if let .call f _ _ := e.expr then
+      if isISA f then
+        if let .var xExpr := x then
+          match <- rewriteOp e ⟨.var xExpr, e.pos⟩ false with
+          | some op =>
+            warn mutAssignWarning
+            return op
+          | none => return .letM x ty e
     return rewriteNdarray s
   | .setM x e accum =>
-    match <- rewriteOp e x with
+    match <- rewriteOp e x accum with
     | some op =>
-      warn "Mutating assignment (a[...] = foo(...)) form is deprecated. Use foo(..., dst=a[...]) instead"
+      warn mutAssignWarning
       return op
     | none => return .setM x e accum
   -- reccur on statemtns
