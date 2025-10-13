@@ -206,7 +206,7 @@ instance : FromNKI Shape where
 
 instance : FromNKI Memory where
   fromNKI? t :=
-    let err := .error "expecting buffer type"
+    let err := .error s!"expecting buffer type, got {Term.kindStr t}"
     match t with
     | .var name =>
       match name with

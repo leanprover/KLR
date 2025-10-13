@@ -483,6 +483,7 @@ def Term.attr (t : Term) (id : String) : Trace Term :=
       | "pattern" => pattern a
       | "reshape" => return .builtin `builtin.access.reshape t
       | "ap" => return .builtin `builtin.access.ap t
+      | "buffer" => return .var (`nki.language ++ a.tensor.address.memory.toName)
       | _ => throw s!"unsupported attribute {id} (type is tensor access)"
   | .slice a b c =>
       let opt : Option Int -> Term
@@ -588,7 +589,7 @@ nki builtin.access.ap
         indirectDim := indirect_dim
       }
       return .access (.birPattern ap)
-  | .basic t =>
+  | .basic _ =>
     let pat := pattern.map fun (s,c) => Core.APPair.mk s c
     let ac <- Access.combineAP self pat offset
     return .access (.pattern ac)

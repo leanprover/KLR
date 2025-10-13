@@ -32,6 +32,15 @@ inductive Memory where
   | hbm | sbuf | psum | reg
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
+namespace Memory
+def toName (m : Memory) :=
+  match m with
+  | .hbm => `hbm
+  | .sbuf => `sbuf
+  | .psum => `psum
+  | .reg => `reg
+end Memory
+
 -- register number
 abbrev Reg := Nat
 

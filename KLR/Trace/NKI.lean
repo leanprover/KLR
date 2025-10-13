@@ -51,6 +51,15 @@ def NKIEnv : List (Name × Term) :=
   , const_var (nisa "tensor_engine")
   , const_var (nisa "vector_engine")
   , const_var (nisa "scalar_engine")
+  -- TODO: these should probably be defined inside python
+  -- however we can't define `sbuf = sbuf`, even when we
+  -- supply the sbuf as keyword ourself and defining these
+  -- as a plain string seems meaningless to a degree
+  , const_var (nl "psum")
+  , const_var (nl "sbuf")
+  , const_var (nl "hbm")
+  , const_var (nl "shared_hbm")
+  , const_var (nl "private_hbm")
   ]
 
 -- The result of a statement evaluation
