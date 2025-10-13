@@ -80,6 +80,10 @@ instance : FromNKI Int where
     | .bool true => return 1
     | .bool false => return 0
     | .int i => return i
+    | t@(.object _ fields) =>
+      match AA.lookup? fields "value" with
+      | some (.int n) => return n
+      | _ => throw s!"expecting 'integer', got '{Term.kindStr t}'. Couldn't cast object to integer"
     | t => throw s!"expecting 'integer', got '{Term.kindStr t}'"
 
 instance : FromNKI Nat where
@@ -87,6 +91,10 @@ instance : FromNKI Nat where
     | .bool true => return 1
     | .bool false => return 0
     | .int (.ofNat n) => return n
+    | t@(.object _ fields) =>
+      match AA.lookup? fields "value" with
+      | some (.int (.ofNat n)) => return n
+      | _ => throw s!"expecting positive 'integer', got '{Term.kindStr t}'. Couldn't cast object to positive integer"
     | t => throw s!"expecting positive 'integer', got '{Term.kindStr t}'"
 
 instance : FromNKI Float where
