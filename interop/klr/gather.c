@@ -703,8 +703,15 @@ static struct ref reference(struct state *st, struct _expr *e) {
   switch(e->kind) {
   case Name_kind:
     ref.obj = lookup(st, e->v.Name.id);
-    if (ref.obj)
-      ref.name = py_strdup(st, e->v.Name.id);
+    if (ref.obj) {
+      if (PyModule_Check(ref.obj)) {
+        PyObject *name = PyModule_GetNameObject(ref.obj);
+        ref.name = py_strdup(st, name);
+        Py_XDECREF(name);
+      } else {
+        ref.name = py_strdup(st, e->v.Name.id);
+      }
+    }
     break;
 
   case Attribute_kind:

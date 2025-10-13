@@ -311,7 +311,8 @@ instance : FromNKI ActivationFunc where
   fromNKI? t :=
     let err := .error "expecting activation function (e.g., relu, sigmoid, tanh, gelu)"
     match t with
-    | .var name =>
+    | .var name
+    | .source {name, ..} =>
       match name with
       | `nki.language.copy | `numpy.copy => return .copy
       | `nki.language.square | `numpy.square => return .square
@@ -342,7 +343,7 @@ instance : FromNKI ActivationFunc where
 
 instance : FromNKI AccumCmd where
   fromNKI? t :=
-    let err := .error s!"expecting accumulator command (idle, reset, reduce, reset_reduce), got {repr t}"
+    let err := .error "expecting accumulator command (idle, reset, reduce, reset_reduce)"
     match t with
     | .object `nki.isa.reduce_cmd vs =>
       match AA.lookup? vs "name" with

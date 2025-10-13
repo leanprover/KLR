@@ -716,6 +716,7 @@ structure NcMatMul where
   isTranspose : Bool
   tilePosition : List Nat
   tileSize : List Nat
+  psumAccumulateFlag : Nat
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 184]
@@ -827,7 +828,7 @@ structure MatMulMX where
     moving : TensorRef
     stationaryScale : TensorRef
     movingScale : TensorRef
-    psumAccumulateFlag: MatmulGroupElement
+    psumAccumulateFlag: Nat
     tilePosition : Option (List Nat)
     tileSize : Option (List Nat)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
