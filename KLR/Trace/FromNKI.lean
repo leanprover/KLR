@@ -75,27 +75,28 @@ instance : FromNKI Bool where
     | .bool b => return b
     | t => throw s!"expecting 'boolean', got '{Term.kindStr t}'"
 
+-- Avoid lean limitation of partial instances. Seems like the language
+-- doesn't understand well when we just call to FromNKI? from FromNKI?
+-- instance itself, but has no problem with defs
+partial def fromNKIInt : Term -> Err Int
+  | .bool true => return 1
+  | .bool false => return 0
+  | .int i => return i
+  | t@(.object _ fields) =>
+    match AA.lookup? fields "value" with
+    | some v => fromNKIInt v
+    | _ => throw s!"expecting 'integer', got '{Term.kindStr t}'. Couldn't cast object to integer"
+  | t => throw s!"expecting 'integer', got '{Term.kindStr t}'"
+
 instance : FromNKI Int where
-  fromNKI?
-    | .bool true => return 1
-    | .bool false => return 0
-    | .int i => return i
-    | t@(.object _ fields) =>
-      match AA.lookup? fields "value" with
-      | some (.int n) => return n
-      | _ => throw s!"expecting 'integer', got '{Term.kindStr t}'. Couldn't cast object to integer"
-    | t => throw s!"expecting 'integer', got '{Term.kindStr t}'"
+  fromNKI? := fromNKIInt
 
 instance : FromNKI Nat where
-  fromNKI?
-    | .bool true => return 1
-    | .bool false => return 0
-    | .int (.ofNat n) => return n
-    | t@(.object _ fields) =>
-      match AA.lookup? fields "value" with
-      | some (.int (.ofNat n)) => return n
-      | _ => throw s!"expecting positive 'integer', got '{Term.kindStr t}'. Couldn't cast object to positive integer"
-    | t => throw s!"expecting positive 'integer', got '{Term.kindStr t}'"
+  fromNKI? t := do
+    let i <- fromNKIInt t
+    match i with
+    | .ofNat n => return n
+    | _ => throw s!"expecting positive 'integer', got '{Term.kindStr t}'"
 
 instance : FromNKI Float where
   fromNKI?
