@@ -418,7 +418,7 @@ private def decorator (e : Python.Expr) : Simplify Name := do
       | .str _ "staticmethod"
       | .str _ "dataclass"
       | (.str (.str _ "nki") "jit") => return n
-      | _ => throw "unsupported decorator {n}"
+      | _ => throw s!"unsupported decorator {n}"
     | _ => throw "unsupported decorator"
 
 private def func (f : Python.Fun) : Simplify Fun :=
