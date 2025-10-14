@@ -85,6 +85,9 @@ struct state {
 };
 
 static void add_msg(struct state *st, bool isError, const char *fmt, ...) {
+  if (isError && st->errors >= 100) return;
+  if (!isError && st->warnings >= 10000) return;
+
   va_list args;
   va_start(args, fmt);
 
