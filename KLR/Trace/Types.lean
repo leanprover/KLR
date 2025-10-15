@@ -327,7 +327,7 @@ def addId : Trace Unit := do
     dst := id,
     src := .abstract (.simple idHbm),
     compute_op := .none,
-    oobMode := .disable,
+    oobMode := .skip,
     dgeMode := 0,
   }) none pos
   let lbl := (<- genName `init).toString
