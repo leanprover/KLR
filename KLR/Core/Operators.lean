@@ -56,7 +56,7 @@ LEA in x86.
 -/
 @[serde tag = 134]
 structure DataPattern where
-  offset  : Nat
+  offset  : Int
   pattern  : List APPair
   channelMultiplier : Int
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp

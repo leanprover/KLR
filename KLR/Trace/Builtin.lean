@@ -82,13 +82,20 @@ def getArg (a : Type) [Resolve a]
            (kw : List (String × Term))
            (pos : Nat) (name : String) (dflt : Option a) : Trace a := do
   if h:pos < args.length then
-    Resolve.resolve (args[pos]'h)
+    try
+      Resolve.resolve (args[pos]'h)
+    catch e =>
+      throw s!"Failed to resolve an argument '{name}', {e}"
   else
     match kw.find? fun (n,_) => n == name with
-    | .some (_,x) => Resolve.resolve x
+    | .some (_,x) => do
+      try
+        Resolve.resolve x
+      catch e =>
+        throw s!"Failed to resolve an argument '{name}', {e}"
     | .none => match dflt with
               | .some a => return a
-              | .none => throw s!"argument {name} not found, in builtin function {fnName}"
+              | .none => throw s!"argument '{name}' not found, in builtin function '{fnName}'"
 
 /-
 The code below implements the nki command. The `nki` command is meant to be
