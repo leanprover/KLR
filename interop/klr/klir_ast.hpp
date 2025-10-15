@@ -318,7 +318,7 @@ struct OperandTileWrapper final : Operand {
 };
 
 struct DataPattern final {
-  Nat offset;
+  Int offset;
   List<Ptr<APPair>> pattern;
   Int channelMultiplier;
 };

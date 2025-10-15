@@ -949,7 +949,7 @@ Ptr<DataPattern> DataPattern_des(FILE *in) {
   if (t != 134 || c != 0 || l != 3)
     throw std::runtime_error("Invalid Tag");
   Ptr<DataPattern> x = ptr<DataPattern>();
-  x->offset = Nat_des(in);
+  x->offset = Int_des(in);
   x->pattern = List_APPair_des(in);
   x->channelMultiplier = Int_des(in);
   return x;

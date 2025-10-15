@@ -88,7 +88,7 @@ Operand =
  | tile(TensorRef t)
 
 
-DataPattern = (Nat offset, APPair* pattern, Int channelMultiplier)
+DataPattern = (Int offset, APPair* pattern, Int channelMultiplier)
 AluOp =
   | abs
   | add
