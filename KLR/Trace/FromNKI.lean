@@ -255,6 +255,7 @@ instance : FromNKI TensorName where
 instance : FromNKI AluOp where
   fromNKI?
     | .none => return .bypass
+    | .source {name, ..}
     | .var name =>
         match name with
         -- bitwise operations
