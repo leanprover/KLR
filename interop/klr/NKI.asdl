@@ -161,8 +161,8 @@ DgeComputeOp =
   | none
   | add
 DmaBounds =
- | disable()
- | enable()
+ | skip()
+ | error()
  | reg(Reg reg)
 
 MatmulGroupElement =

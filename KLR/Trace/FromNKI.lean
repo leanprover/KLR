@@ -166,16 +166,6 @@ instance : FromNKI Dtype where
       | `torch.float32 => .ok .float32
       | `torch.bfloat16 => .ok .bfloat16
       | `torch.bool => .ok .uint8
-      -- numpy variants
-      | `numpy.uint8 => .ok .uint8
-      | `numpy.int8 => .ok .int8
-      | `numpy.uint16 => .ok .uint16
-      | `numpy.int16 => .ok .int16
-      | `numpy.uint32 => .ok .uint32
-      | `numpy.int32 => .ok .int32
-      | `numpy.float16 => .ok .float16
-      | `numpy.float32 => .ok .float32
-      | `numpy.bool => .ok .uint8
       | _ => throw s!"unsupported dtype '{name}'"
     | .string name =>
       match (name.split (· == '.')).getLast? with
@@ -265,14 +255,6 @@ instance : FromNKI AluOp where
         | `nki.language.bitwise_xor => return .bitwise_xor
         | `nki.language.left_shift => return .logical_shift_left
         | `nki.language.right_shift => return .logical_shift_right
-        -- numpy variants
-        | `numpy.bitwise_not => return .bitwise_not
-        | `numpy.bitwise_invert => return .bitwise_not
-        | `numpy.bitwise_and => return .bitwise_and
-        | `numpy.bitwise_or => return .bitwise_or
-        | `numpy.bitwise_xor => return .bitwise_xor
-        | `numpy.bitwise_left_shift => return .logical_shift_left
-        | `numpy.bitwise_right_shift => return .logical_shift_right
         -- arithemetic operations
         | `nki.language.add => return .add
         | `nki.language.subtract => return .subtract
@@ -289,22 +271,6 @@ instance : FromNKI AluOp where
         | `nki.language.logical_and => return .logical_and
         | `nki.language.logical_or => return .logical_or
         | `nki.language.logical_xor => return .logical_xor
-        -- numpy variants
-        | `numpy.add => return .add
-        | `numpy.subtract => return .subtract
-        | `numpy.multiply => return .mult
-        | `numpy.maximum => return .max
-        | `numpy.minimum => return .min
-        | `numpy.equal => return .is_equal
-        | `numpy.not_equal => return .not_equal
-        | `numpy.greater_equal => return .is_ge
-        | `numpy.greater => return .is_gt
-        | `numpy.less_equal => return .is_le
-        | `numpy.less => return .is_lt
-        | `numpy.logical_not => throw "'logical_not' operator not supported"
-        | `numpy.logical_and => return .logical_and
-        | `numpy.logical_or => return .logical_or
-        | `numpy.logical_xor => return .logical_xor
         | _ => throw s!"unsupported operator {name}"
     | t => throw s!"expecting operator, got '{Term.kindStr t}'"
 
@@ -315,8 +281,8 @@ instance : FromNKI ActivationFunc where
     | .var name
     | .source {name, ..} =>
       match name with
-      | `nki.language.copy | `numpy.copy => return .copy
-      | `nki.language.square | `numpy.square => return .square
+      | `nki.language.copy => return .copy
+      | `nki.language.square => return .square
       | `nki.language.sigmoid => return .sigmoid
       | `nki.language.relu => return .relu
       | `nki.language.gelu => return .gelu
@@ -324,20 +290,20 @@ instance : FromNKI ActivationFunc where
       | `nki.language.gelu_apprx_tanh => return .gelu_apprx_tanh
       | `nki.language.silu => return .silu
       | `nki.language.silu_dx => return .silu_dx
-      | `nki.language.tanh | `numpy.tanh => return .tanh
+      | `nki.language.tanh => return .tanh
       | `nki.language.softplus => return .softplus
       | `nki.language.mish => return .mish
       | `nki.language.erf => return .erf
       | `nki.language.erf_dx => return .erf_dx
-      | `nki.language.exp | `numpy.exp => return .exp
-      | `nki.language.log | `numpy.log => return .log
-      | `nki.language.sin | `numpy.sin => return .sin
-      | `nki.language.arctan | `numpy.arctan => return .arctan
-      | `nki.language.sqrt | `numpy.sqrt => return .sqrt
+      | `nki.language.exp => return .exp
+      | `nki.language.log => return .log
+      | `nki.language.sin => return .sin
+      | `nki.language.arctan => return .arctan
+      | `nki.language.sqrt => return .sqrt
       | `nki.language.rsqrt => return .rsqrt
-      | `nki.language.reciprocal | `numpy.reciprocal => return .reciprocal
-      | `nki.language.sign | `numpy.sign => return .sign
-      | `nki.language.abs | `numpy.abs => return .abs
+      | `nki.language.reciprocal => return .reciprocal
+      | `nki.language.sign => return .sign
+      | `nki.language.abs => return .abs
       | _ => err
     | _ => err
 

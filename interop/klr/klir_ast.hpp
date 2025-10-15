@@ -408,20 +408,20 @@ enum class DgeComputeOp {
 
 struct DmaBounds {
   enum class Tag {
-    disable = 1,
-    enable,
+    skip = 1,
+    error,
     reg,
   };
   Tag tag;
   DmaBounds(Tag tag) : tag(tag) {}
 };
 
-struct DmaBoundsDisableWrapper final : DmaBounds {
-  DmaBoundsDisableWrapper() : DmaBounds(Tag::disable) {}
+struct DmaBoundsSkipWrapper final : DmaBounds {
+  DmaBoundsSkipWrapper() : DmaBounds(Tag::skip) {}
 };
 
-struct DmaBoundsEnableWrapper final : DmaBounds {
-  DmaBoundsEnableWrapper() : DmaBounds(Tag::enable) {}
+struct DmaBoundsErrorWrapper final : DmaBounds {
+  DmaBoundsErrorWrapper() : DmaBounds(Tag::error) {}
 };
 
 struct DmaBoundsRegWrapper final : DmaBounds {
