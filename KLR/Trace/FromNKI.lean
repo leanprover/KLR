@@ -255,7 +255,8 @@ instance : FromNKI TensorName where
 instance : FromNKI AluOp where
   fromNKI?
     | .none => return .bypass
-    | .var name =>
+    | .var name
+    | .source {name, ..} =>
         match name with
         -- bitwise operations
         | `nki.language.invert => return .bitwise_not
