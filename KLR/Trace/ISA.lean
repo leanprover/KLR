@@ -653,9 +653,9 @@ nki builtin.isa.dma_copy
       src := .abstract src,
       compute_op := op,
       oobMode := match oob_mode with
-        | 0 => .enable
-        | 1 => .disable
-        | _ => .disable,
+        | 0 => .error
+        | 1 => .skip
+        | _ => .skip,
       dgeMode := dge_mode,
   }) name
   return .none

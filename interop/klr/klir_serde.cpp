@@ -1427,14 +1427,14 @@ Ptr<DmaBounds> DmaBounds_des(FILE *in) {
   case 0: {
     if (l != 0)
       throw std::runtime_error("Wrong number of elements");
-    Ptr<DmaBoundsDisableWrapper> x = ptr<DmaBoundsDisableWrapper>();
+    Ptr<DmaBoundsSkipWrapper> x = ptr<DmaBoundsSkipWrapper>();
     return x;
     break;
   }
   case 1: {
     if (l != 0)
       throw std::runtime_error("Wrong number of elements");
-    Ptr<DmaBoundsEnableWrapper> x = ptr<DmaBoundsEnableWrapper>();
+    Ptr<DmaBoundsErrorWrapper> x = ptr<DmaBoundsErrorWrapper>();
     return x;
     break;
   }

@@ -200,8 +200,8 @@ inductive DgeComputeOp where
 /- The DMA bounds check flag can either be an immediate or in a register -/
 @[serde tag = 141]
 inductive DmaBounds where
-  | disable
-  | enable
+  | skip
+  | error
   | reg (reg : Reg)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
