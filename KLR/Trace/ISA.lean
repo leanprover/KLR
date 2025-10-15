@@ -669,6 +669,10 @@ nki builtin.isa.dma_transpose
   (dge_mode : Nat := 0)
   (name : Option String := none) := do
   if mask.isSome then throw maskNotSupported
+  if src.shapePure.toList.length != 4 then
+    throw "source tensor must have 4 dimmensions"
+  if dst.shapePure.toList.length != 4 then
+    throw "destination tensor must have 4 dimmensions"
   Trace.add_stmt $ .oper (.dmaTranspose {
     dst := .abstract dst,
     src := .abstract src,
