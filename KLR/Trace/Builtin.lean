@@ -176,9 +176,15 @@ def klrElab : CommandElab
     let (ids, tys, dflts) <- elabArgs args
     let pos := ((List.range ids.size).map Syntax.mkNatLit).toArray
     let names := ids.map idToStrLit
+    let validNames := ids.map idToStrLit
     let cmd <- `(
       def $name (args : List Term) (kw : List (String × Term)) : Trace Term := do
         let fnName := $(idToStrLit name)
+        let validNames := [$validNames,*]
+        let _ <- kw.foldlM (fun _ (kwName, _) => do
+          if !validNames.contains kwName then
+            throw s!"unexpected keyword argument '{kwName}' in builtin function '{fnName}'"
+          return ()) ()
         $[let $ids <- getArg $tys fnName args kw $pos $names $dflts]*
         $[$rhs]*
     )
