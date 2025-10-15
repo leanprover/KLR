@@ -272,7 +272,7 @@ partial def bindArgs
         (kwargs : List (String × Term))
         : Trace (List (String × Term)) := do
   if args.length + kwargs.length > f.args.length then
-    throw "too mant arguments given (varargs not supported)"
+    throw "too many arguments given (varargs not supported)"
   f.args.zipIdx.mapM fun ({name := x, dflt := d}, i) => do
     if h:args.length > i then
       pure ⟨x, args.get (Fin.mk i h)⟩
