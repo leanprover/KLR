@@ -225,35 +225,60 @@ instance : FromNKI TensorName where
     | t => throw s!"expecting 'tensor', got '{Term.kindStr t}'"
 
 instance : FromNKI AluOp where
-  fromNKI? t :=
-    match fromEnum t with
-    -- bitwise operations
-    | some "invert" => return .bitwise_not
-    | some "bitwise_and" => return .bitwise_and
-    | some "bitwise_or" => return .bitwise_or
-    | some "bitwise_xor" => return .bitwise_xor
-    | some "left_shift" => return .logical_shift_left
-    | some "right_shift" => return .logical_shift_right
-    -- arithemetic operations
-    | some "add" => return .add
-    | some "subtract" => return .subtract
-    | some "multiply" => return .mult
-    | some "maximum" => return .max
-    | some "minimum" => return .min
-    | some "equal" => return .is_equal
-    | some "not_equal" => return .not_equal
-    | some "greater_equal" => return .is_ge
-    | some "greater" => return .is_gt
-    | some "less_equal" => return .is_le
-    | some "less" => return .is_lt
-    | some "logical_not" => throw "'logical_not' operator not supported"
-    | some "logical_and" => return .logical_and
-    | some "logical_or" => return .logical_or
-    | some "logical_xor" => return .logical_xor
-    | some "rsqrt" => return .rsqrt
-    | some "abs" => return .abs
-    | some "power" => return .pow
-    | _ => throw s!"expecting operator, got '{Term.kindStr t}'"
+  fromNKI?
+    | .none => return .bypass
+    | .source {name, ..}
+    | .var name =>
+        match name with
+        -- bitwise operations
+        | `nki.language.invert => return .bitwise_not
+        | `nki.language.bitwise_and => return .bitwise_and
+        | `nki.language.bitwise_or => return .bitwise_or
+        | `nki.language.bitwise_xor => return .bitwise_xor
+        | `nki.language.left_shift => return .logical_shift_left
+        | `nki.language.right_shift => return .logical_shift_right
+        -- numpy variants
+        | `numpy.bitwise_not => return .bitwise_not
+        | `numpy.bitwise_invert => return .bitwise_not
+        | `numpy.bitwise_and => return .bitwise_and
+        | `numpy.bitwise_or => return .bitwise_or
+        | `numpy.bitwise_xor => return .bitwise_xor
+        | `numpy.bitwise_left_shift => return .logical_shift_left
+        | `numpy.bitwise_right_shift => return .logical_shift_right
+        -- arithemetic operations
+        | `nki.language.add => return .add
+        | `nki.language.subtract => return .subtract
+        | `nki.language.multiply => return .mult
+        | `nki.language.maximum => return .max
+        | `nki.language.minimum => return .min
+        | `nki.language.equal => return .is_equal
+        | `nki.language.not_equal => return .not_equal
+        | `nki.language.greater_equal => return .is_ge
+        | `nki.language.greater => return .is_gt
+        | `nki.language.less_equal => return .is_le
+        | `nki.language.less => return .is_lt
+        | `nki.language.logical_not => throw "'logical_not' operator not supported"
+        | `nki.language.logical_and => return .logical_and
+        | `nki.language.logical_or => return .logical_or
+        | `nki.language.logical_xor => return .logical_xor
+        -- numpy variants
+        | `numpy.add => return .add
+        | `numpy.subtract => return .subtract
+        | `numpy.multiply => return .mult
+        | `numpy.maximum => return .max
+        | `numpy.minimum => return .min
+        | `numpy.equal => return .is_equal
+        | `numpy.not_equal => return .not_equal
+        | `numpy.greater_equal => return .is_ge
+        | `numpy.greater => return .is_gt
+        | `numpy.less_equal => return .is_le
+        | `numpy.less => return .is_lt
+        | `numpy.logical_not => throw "'logical_not' operator not supported"
+        | `numpy.logical_and => return .logical_and
+        | `numpy.logical_or => return .logical_or
+        | `numpy.logical_xor => return .logical_xor
+        | _ => throw s!"unsupported operator {name}"
+    | t => throw s!"expecting operator, got '{Term.kindStr t}'"
 
 instance : FromNKI ActivationFunc where
   fromNKI? t :=
