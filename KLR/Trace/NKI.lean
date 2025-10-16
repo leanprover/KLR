@@ -383,9 +383,9 @@ partial def scalar (e : Expr) : Trace String :=
   withPos e.pos do
     let rec getName (t : Term) : Trace String := do
       match t with
-      | .bool true => getName (<- Isa.builtin_typing_scalar [.int 1] [])
-      | .bool false => getName (<- Isa.builtin_typing_scalar [.int 0] [])
-      | .int i => getName (<- Isa.builtin_typing_scalar [.int i] [])
+      | .bool true => getName (<- Isa.builtin_isa_register_alloc [.int 1] [])
+      | .bool false => getName (<- Isa.builtin_isa_register_alloc [.int 0] [])
+      | .int i => getName (<- Isa.builtin_isa_register_alloc [.int i] [])
       | .scalar n => return n.toString
       | _ => throw "expecting scalar value"
     getName (<- expr' e.expr)
@@ -444,7 +444,7 @@ partial def stmt' (s' : Stmt') : Trace Result := do
       let s <- @fromNKI? Nat _ (<- expr s)
       extend x (.scalar l.toName)
       -- entry:
-      let entryLbl <- beginBlock
+      let _ <- beginBlock
       brlt l u bodyLbl endLbl
       endBlock
       -- body:
@@ -452,7 +452,7 @@ partial def stmt' (s' : Stmt') : Trace Result := do
       dynamic body
       -- AluAdd reg += s
       addImm l u s
-      jmp entryLbl
+      brlt l u bodyLbl endLbl
       endBlock
       -- end:
       let _ <- beginBlock endLbl
@@ -481,13 +481,13 @@ partial def stmt' (s' : Stmt') : Trace Result := do
       let bodyLbl := (<- genName `body).toString
       let endLbl := (<- genName `exit).toString
       -- entry:
-      let entryLbl <- beginBlock
+      let _ <- beginBlock
       let s <- scalar tensor
       brnz s bodyLbl endLbl
       endBlock
       let _ <- beginBlock bodyLbl
       dynamic body
-      jmp entryLbl
+      brnz s bodyLbl endLbl
       endBlock
       -- end:
       let _ <- beginBlock endLbl
