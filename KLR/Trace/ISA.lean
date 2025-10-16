@@ -63,29 +63,53 @@ def getTransposeOps(op: Option (List Int)) : Trace TransposeOps :=
 nki builtin.isa.get_nc_version := do
   lookup `arch
 
-nki builtin.typing.scalar (t : Term) := do
-  let reg <- genName `reg
-  match t with
-  | .int i =>
-      add_stmt (.oper (.registerMove {
-        dst := reg.toString
-        imm := i
-        })
-        (<- genName `move).toString
-      )
-      return .scalar reg
-  | .access (.simple tn) =>
-      add_stmt (.oper (.tensorLoad {
-        dst := reg.toString
-        src := .abstract (.simple tn)
-        })
-        (<- genName `load).toString
-      )
-      return .scalar reg
-  | .scalar n => return .scalar n
-  | _ => throw "cannot be converted to a scalar value"
+---- Register APIs
 
--- set_option linter.unusedVariables false
+private def getReg : Term -> Trace Name
+  | .scalar s => return s
+  | _ => throw "expecting register value"
+
+nki builtin.isa.register_alloc (t : Option Int := none) := do
+  let reg <- genName `reg
+  add_stmt (.oper (.registerMove {
+    dst := reg.toString
+    imm := t.getD 0
+    })
+    (<- genName `move).toString
+  )
+  return .scalar reg
+
+nki builtin.isa.register_move (dst : Term) (imm : Int) := do
+  let reg <- getReg dst
+  add_stmt (.oper (.registerMove {
+    dst := reg.toString
+    imm := imm
+    })
+    (<- genName `move).toString
+  )
+  return .scalar reg
+
+nki builtin.isa.register_load (dst : Term) (src : Access) := do
+  let reg <- getReg dst
+  add_stmt (.oper (.tensorLoad {
+    dst := reg.toString
+    src := .abstract src
+    })
+    (<- genName `load).toString
+  )
+  return .scalar reg
+
+nki builtin.isa.register_store (dst : Access) (src : Term) := do
+  let reg <- getReg src
+  add_stmt (.oper (.tensorStore {
+    dst := .abstract dst
+    src := reg.toString
+    })
+    (<- genName `store).toString
+  )
+  return .scalar reg
+
+---- ISA APIs
 
 nki builtin.isa.nc_matmul
  (dst : Access)
