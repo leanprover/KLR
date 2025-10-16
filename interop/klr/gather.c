@@ -696,9 +696,32 @@ struct ref {
   PyObject *obj;
 };
 
+// Check if a Python object is from a different file than the current scope
+static bool is_different_file(struct state *st, PyObject *obj) {
+  if (!st->scope.file || !obj)
+    return false;
+  
+  PyObject *code = PyObject_GetAttrString(obj, "__code__");
+  if (!code)
+    return false;
+  
+  PyObject *filename = PyObject_GetAttrString(code, "co_filename");
+  Py_DECREF(code);
+  if (!filename)
+    return false;
+  
+  const char *obj_file = PyUnicode_AsUTF8(filename);
+  const char *cur_file = lean_string_cstr(st->scope.file);
+  bool different = obj_file && cur_file && strcmp(obj_file, cur_file) != 0;
+  Py_DECREF(filename);
+  return different;
+}
+
 static struct ref reference(struct state *st, struct _expr *e) {
   struct ref ref = { NULL, NULL };
   if (!e) return ref;
+
+  bool is_attribute = false;
 
   switch(e->kind) {
   case Name_kind:
@@ -715,6 +738,7 @@ static struct ref reference(struct state *st, struct _expr *e) {
     break;
 
   case Attribute_kind:
+    is_attribute = true;
     ref = reference(st, e->v.Attribute.value);
     if (!ref.obj) {
       ref.name = NULL;
@@ -736,8 +760,13 @@ static struct ref reference(struct state *st, struct _expr *e) {
   }
 
   if (ref.name && ref.obj) {
+
+    if (is_attribute && is_different_file(st, ref.obj) && !st->ignore_refs) {
+      lean_inc(ref.name);
+      add_global(st, ref.name, ref.obj);
+    }
+
     if (PyFunction_Check(ref.obj) || PyType_Check(ref.obj)) {
-      lean_dec(ref.name);
       ref.name = py_def_name(st, ref.obj);
       if (!st->ignore_refs)
         add_work(st, ref.obj);
@@ -745,6 +774,7 @@ static struct ref reference(struct state *st, struct _expr *e) {
       if (!st->ignore_refs)
         add_global(st, ref.name, ref.obj);
     }
+
   }
   return ref;
 }
