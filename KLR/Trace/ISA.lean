@@ -484,7 +484,7 @@ nki builtin.isa.reciprocal
 nki builtin.isa.iota
  (dst: Access)
  (pattern : List (Int × Nat))
- (offset : Nat := 0)
+ (offset : Int := 0)
  (channel_multiplier : Int := 0)
  -- kwargs
  (name : Option String := none) := do
@@ -518,11 +518,12 @@ nki builtin.isa.dropout
 nki builtin.isa.affine_select
  (dst: Access)
  (pattern : List (Int × Nat))
- (offset : Nat := 0)
+ (offset : Int := 0)
  (channel_multiplier : Int := 0)
  (on_true_tile : Access)
  (on_false_value : Immediate)
  -- kwargs
+ (cmp_op : AluOp := .is_equal)
  (mask : Option Immediate := none)
  (name : Option String := none) := do
     if mask.isSome then throw maskNotSupported
@@ -533,7 +534,7 @@ nki builtin.isa.affine_select
       onTrueTile := .abstract on_true_tile,
       onFalseValue := on_false_value,
       dtype := dst.tensor.dtype,
-      cmpOp := .is_equal,
+      cmpOp := cmp_op,
     }) name
     return .none
 
