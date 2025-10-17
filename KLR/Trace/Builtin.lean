@@ -38,6 +38,8 @@ def nl : String -> Name := .str nki_lang
 def nisa : String -> Name := .str nki_isa
 def nt : String -> Name := .str nki_typing
 
+def numpy : Name := .str .anonymous "numpy"
+
 -- conveience functions for creating environment entries
 
 def module (name : Name) : Name × Term :=
