@@ -68,37 +68,6 @@ inductive Dtype where
   | uint8 | uint16 | uint32 | uint64
   | float8_e4m3fn | float8_e5m2_x4
   | float8_e4m3fn_x4 | float4_e2m1fn_x4
-  with
-    @[computed_field]
-    size : Dtype -> Nat
-    | .uint8 | .int8 | .float8e3 | .float8e4 | .float8e5 => 1
-    | .uint16 | .int16 | .bfloat16 | .float16 => 2
-    | .uint32 | .int32 | .float32 | .float32r => 4
-    | .uint64 | .int64 => 8
-    | .float8_e4m3fn => 1
-    | .float8_e5m2_x4 => 4
-    | .float8_e4m3fn_x4 => 4
-    | .float4_e2m1fn_x4 =>  2
-    @[computed_field]
-    isInt : Dtype -> Bool
-    | .int8 | .int16 | .int64 | .int32
-    | .uint8 | .uint16 | .uint32 | .uint64 => true
-    | _ => false
-    @[computed_field]
-    toTensorLibDtype : Dtype -> TensorLib.Dtype
-    | .uint8 => TensorLib.Dtype.uint8
-    | .uint16 => TensorLib.Dtype.uint16
-    | .uint32 => TensorLib.Dtype.uint32
-    | .uint64 => TensorLib.Dtype.uint64
-    | .int8 => TensorLib.Dtype.int8
-    | .int16 => TensorLib.Dtype.int16
-    | .int32 => TensorLib.Dtype.int32
-    | .int64 => TensorLib.Dtype.int64
-    | .float16 => TensorLib.Dtype.float32
-    | .float32 => TensorLib.Dtype.float32
-    | .float32r => TensorLib.Dtype.float32
-    | .bfloat16 => TensorLib.Dtype.float32
-    | _ => TensorLib.Dtype.float32
   deriving BEq, Inhabited, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 instance : ToString Dtype where
@@ -123,19 +92,46 @@ instance : ToString Dtype where
     | .float8_e4m3fn_x4 => "float8_e4m3fn_x4"
     | .float4_e2m1fn_x4 => "float4_e2m1fn_x4"
 
+def Dtype.size : Dtype -> Nat
+  | .uint8 | .int8 | .float8e3 | .float8e4 | .float8e5 => 1
+  | .uint16 | .int16 | .bfloat16 | .float16 => 2
+  | .uint32 | .int32 | .float32 | .float32r => 4
+  | .uint64 | .int64 => 8
+  | .float8_e4m3fn => 1
+  | .float8_e5m2_x4 => 4
+  | .float8_e4m3fn_x4 => 4
+  | .float4_e2m1fn_x4 => 2
+
+def Dtype.isInt : Dtype -> Bool
+  | .int8 | .int16 | .int64 | .int32
+  | .uint8 | .uint16 | .uint32 | .uint64 => true
+  | _ => false
+
+def Dtype.toTensorLibDtype : Dtype -> Err TensorLib.Dtype
+  | .uint8 => .ok TensorLib.Dtype.uint8
+  | .uint16 => .ok TensorLib.Dtype.uint16
+  | .uint32 => .ok TensorLib.Dtype.uint32
+  | .uint64 => .ok TensorLib.Dtype.uint64
+  | .int8 => .ok TensorLib.Dtype.int8
+  | .int16 => .ok TensorLib.Dtype.int16
+  | .int32 => .ok TensorLib.Dtype.int32
+  | .int64 => .ok TensorLib.Dtype.int64
+  | .float32 => .ok TensorLib.Dtype.float32
+  | d => .error s!"Dtype {d} is not supported for trace time computed matrices. Supported types: uint8, uint16, uint32, uint64, int8, int16, int32, int64, float32"
+
 namespace Dtype
 
-def fromTensorLibDtype : TensorLib.Dtype -> Dtype
-  | TensorLib.Dtype.uint8 => .uint8
-  | TensorLib.Dtype.uint16 => .uint16
-  | TensorLib.Dtype.uint32 => .uint32
-  | TensorLib.Dtype.uint64 => .uint64
-  | TensorLib.Dtype.int8 => .int8
-  | TensorLib.Dtype.int16 => .int16
-  | TensorLib.Dtype.int32 => .int32
-  | TensorLib.Dtype.int64 => .int64
-  | TensorLib.Dtype.float32 => .float32
-  | _ => .float32
+def fromTensorLibDtype : TensorLib.Dtype -> Err Dtype
+  | TensorLib.Dtype.uint8 => .ok .uint8
+  | TensorLib.Dtype.uint16 => .ok .uint16
+  | TensorLib.Dtype.uint32 => .ok .uint32
+  | TensorLib.Dtype.uint64 => .ok .uint64
+  | TensorLib.Dtype.int8 => .ok .int8
+  | TensorLib.Dtype.int16 => .ok .int16
+  | TensorLib.Dtype.int32 => .ok .int32
+  | TensorLib.Dtype.int64 => .ok .int64
+  | TensorLib.Dtype.float32 => .ok .float32
+  | t => .error s!"Dtype {t} is not supported for constants. Supported types: uint8, uint16, uint32, uint64, int8, int16, int32, int64, float32. Cast to a supported type during loading."
 
 end Dtype
 
