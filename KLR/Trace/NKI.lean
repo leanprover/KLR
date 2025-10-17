@@ -40,6 +40,7 @@ def NKIEnv : List (Name × Term) :=
   , module nki_lang
   , module nki_typing
   , module `math
+  , module `numpy
   , const_int (.str (nl "tile_size") "pmax") 128
   , const_int (.str (nl "tile_size") "gemm_stationary_fmax") 128
   , const_int (.str (nl "tile_size") "gemm_moving_fmax") 512
