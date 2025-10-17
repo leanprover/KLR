@@ -65,7 +65,7 @@ nki builtin.lang.transpose (src : Access) := do
 
 nki builtin.lang.zeros (shape: Shape) (dtype: Dtype) := do
   let tlShape := TensorLib.Shape.mk shape.toList
-  let tlDtype := dtype.toTensorLibDtype
+  let tlDtype <- dtype.toTensorLibDtype
   let tensor := TensorLib.Tensor.zeros tlDtype tlShape
   return .tensor tensor
 
@@ -74,7 +74,7 @@ nki builtin.lang.arange
  (stop : Nat)
  (step : Nat := 1)
  (dtype : Dtype := .float32) := do
-  let tlDtype := dtype.toTensorLibDtype
+  let tlDtype <- dtype.toTensorLibDtype
   let cnt := (stop - start + step - 1).div  step
   let tlShape := TensorLib.Shape.mk [cnt]
   let values := List.range cnt |>.map (fun i => start + i * step)
@@ -87,7 +87,7 @@ nki builtin.lang.arange
 nki builtin.lang.identity
   (N : Nat)
   (dtype : Dtype := .float32) := do
-  let tlDtype := dtype.toTensorLibDtype
+  let tlDtype <- dtype.toTensorLibDtype
   let tlShape := TensorLib.Shape.mk [N, N]
   let mut data := ByteArray.emptyWithCapacity (N * N * tlDtype.itemsize)
   for i in [0:N] do
@@ -100,7 +100,7 @@ nki builtin.lang.identity
 nki builtin.lang.shared_constant
   (t : TensorLib.Tensor) := do
   let name <- genName
-  let dtype := Dtype.fromTensorLibDtype t.dtype
+  let dtype <- Dtype.fromTensorLibDtype t.dtype
   let shape := Shape.mk t.shape.val.head! t.shape.val.tail!
   let (parSize, freeSize) := Address.defaultSize shape dtype
   let addr : Address := {
