@@ -41,6 +41,7 @@ struct state {
   struct worklist {
     struct worklist *next;
     const char *name;  // this is in the Lean heap
+    char *suggested_name; // this is owned by the structure
     lean_object *str;  // this is the string "name"
     PyObject *obj;
   } *work;
@@ -235,7 +236,12 @@ static lean_object* py_method_name(struct state *st, lean_object *clsname, PyObj
 // Add a new item to the work-list (if necessary)
 // Note: we are ignoring possible errors from Python as this function
 // is allowed to fail.
-static void add_work(struct state *st, PyObject *obj) {
+// Note: name is a suggestion to resolve the symbol to along to what
+// the object itself will resolve to.
+// I.e:
+// from foo import bar
+// will add a symbol for `foo.bar` and `<my_module>.bar`
+static void add_work(struct state *st, char *suggested_name, PyObject *obj) {
   if (!obj) return;
 
   lean_object *str = py_def_name(st, obj);
@@ -266,6 +272,7 @@ static void add_work(struct state *st, PyObject *obj) {
       struct worklist *node = region_alloc(st->region, sizeof(*node));
       node->next = NULL;
       node->name = name;
+      node->suggested_name = suggested_name;
       node->str = str;
       node->obj = obj;
       *work = node;
@@ -531,7 +538,7 @@ static lean_object* const_expr(struct state *st, PyObject *obj) {
     lean_object *l_dict = const_dict(st, dict);
     Py_XDECREF(dict);
 
-    add_work(st, cls);
+    add_work(st, NULL, cls);
     e = Python_Expr_mk(Python_Expr_object(cls_name, l_dict), pos);
   }
   else {
@@ -737,10 +744,12 @@ static struct ref reference(struct state *st, struct _expr *e) {
 
   if (ref.name && ref.obj) {
     if (PyFunction_Check(ref.obj) || PyType_Check(ref.obj)) {
+      char* orig_name = strdup(lean_string_cstr(ref.name));
       lean_dec(ref.name);
       ref.name = py_def_name(st, ref.obj);
-      if (!st->ignore_refs)
-        add_work(st, ref.obj);
+      if (!st->ignore_refs) {
+        add_work(st, orig_name, ref.obj);
+      }
     } else {
       if (!st->ignore_refs)
         add_global(st, ref.name, ref.obj);
@@ -1563,7 +1572,7 @@ static void class(struct state *st, lean_object *name, struct _stmt *s) {
   st->defs = def;
 }
 
-static void definition(struct state *st, PyObject *obj) {
+static void definition(struct state *st, PyObject *obj, char* suggested_name) {
   struct scope old_scope = st->scope;
   struct _mod *m = parse_def(st, obj);
   if (!m ||
@@ -1586,13 +1595,21 @@ static void definition(struct state *st, PyObject *obj) {
 
   switch (stmt->kind) {
   case FunctionDef_kind:
-    if (st->scope.f)
+    if (st->scope.f) {
       function(st, name, stmt);
+      if (suggested_name && strcmp(lean_string_cstr(name), suggested_name) != 0) {
+        function(st, lean_mk_string(suggested_name), stmt);
+      }
+    }
     break;
 
   case ClassDef_kind:
-    if (st->scope.cls)
+    if (st->scope.cls) {
       class(st, name, stmt);
+      if (suggested_name && strcmp(lean_string_cstr(name), suggested_name) != 0) {
+        class(st, lean_mk_string(suggested_name), stmt);
+      }
+    }
     break;
 
   default:
@@ -1602,6 +1619,9 @@ static void definition(struct state *st, PyObject *obj) {
 cleanup:
   if (m) free_python_ast(m);
   st->scope = old_scope;
+  if (suggested_name) {
+    free(suggested_name);
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -1628,7 +1648,7 @@ PyObject* specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *
 
   // add main function to work list, and process arguments
   // potentially adding more dependencies to the work list
-  add_work(&st, k->f);
+  add_work(&st, NULL, k->f);
   lean_object *l_args = args == Py_None ? mkNil() : const_exprs(&st, args);
   lean_object *l_kwargs = kws == Py_None ? mkNil() : const_dict(&st, kws);
 
@@ -1636,7 +1656,7 @@ PyObject* specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *
     struct worklist *work = st.work;
     if (!work) break;
     st.work = work->next;
-    definition(&st, work->obj);
+    definition(&st, work->obj, work->suggested_name);
   }
 
   // Process additional kernel data from user
