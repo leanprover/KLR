@@ -29,6 +29,7 @@ open Compile.Pass
 abbrev SimplifyOp := Pass Unit
 
 private def isISA : Expr -> Bool
+  | ⟨ .var (.str `nki.isa "register_alloc"), _ ⟩ => false
   | ⟨ .var (.str `nki.isa _), _ ⟩ => true
   | _ => false
 
