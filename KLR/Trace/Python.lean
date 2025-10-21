@@ -165,9 +165,6 @@ nki builtin.python.abs (t : Term) := do
   | .float f => return .float f.abs
   | _ => throw "abs expects an integer or float number"
 
-nki builtin.python.tuple (l : List Term := []) := do
-  return .tuple l
-
 nki builtin.python.str (t : Term) := do
   return .string (<- t.toStr)
 
@@ -217,6 +214,7 @@ private def fetchIter (t : Term) : Trace (List Term) := do
     | .ref name _ => lookup name
     | _ => pure t
   match t with
+  | .none => return []
   | .tuple l => return l
   | .list a => return a.toList
   | _ => throw "not an iterable object"
@@ -236,9 +234,14 @@ private def modifyList (t : Term) (f : Array Term -> (Array Term × a)) : Trace 
   extend_global name (.list arr)
   return x
 
-nki builtin.python.list (t : List Term := []) := do
+nki builtin.python.tuple (t : Term) := do
+  let l <- fetchIter t
+  return .tuple l
+
+nki builtin.python.list (t : Term) := do
   let name <- genName `list
-  extend_global name (.list t.toArray)
+  let l <- fetchIter t
+  extend_global name (.list l.toArray)
   return .ref name .list
 
 nki builtin.list.append (t : Term) (x : Term) := do

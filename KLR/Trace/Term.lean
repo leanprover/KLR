@@ -269,13 +269,13 @@ def listAccess (l : List Term) : List Term -> Err Term
       else throw "index out of bounds"
   | [.bool true] => do
       if h:l.length > 1 then return l.get (Fin.mk 1 h)
-      else throw "index out of bounds"
+      else throw "index out of bounds."
   | [.int i] => do
       let i := if i < 0 then l.length + i else i
-      if i < 0 then throw "index out of bounds"
+      if i < 0 then throw "negative index ({i}) out of bounds"
       let n := i.toNat
       if h:l.length > n then return l.get (Fin.mk n h)
-      else throw "index out of bounds"
+      else throw "index ({n}) out of bounds"
   | [.slice start u step] => do
       let start := start.getD 0
       let e := u.getD l.length

@@ -260,7 +260,7 @@ structure CompileResult (a : Type) where
   deriving BEq, Repr
 
 def runPasses (m : PassM a) : CompileResult a :=
-  match withFile "<unknown file>" 0 "<source unavailable>" m {} with
+  match m {} with
   | .ok x st =>
     { messages := st.getMessages
       warnings := st.getWarnings
