@@ -471,28 +471,30 @@ partial def stmt' (s' : Stmt') : Trace Result := do
   | .breakLoop => return .brk
   | .continueLoop => return .cont
   | .whileLoop test body =>
-      repeat
-        if <- (<- expr test).isFalse then break
-        let res <- stmts body
-        if res == .cont then continue
-        if res == .brk then break
-        if let .ret t := res then return .ret t
-      return .next
-  | .dynWhile tensor body =>
-      let bodyLbl := (<- genName `body).toString
-      let endLbl := (<- genName `exit).toString
-      -- entry:
-      let _ <- beginBlock
-      let s <- scalar tensor
-      brnz s bodyLbl endLbl
-      endBlock
-      let _ <- beginBlock bodyLbl
-      dynamic body
-      brnz s bodyLbl endLbl
-      endBlock
-      -- end:
-      let _ <- beginBlock endLbl
-      return .next
+      match <- expr test with
+      | .scalar .. =>
+        let bodyLbl := (<- genName `body).toString
+        let endLbl := (<- genName `exit).toString
+        -- entry:
+        let _ <- beginBlock
+        let s <- scalar test
+        brnz s bodyLbl endLbl
+        endBlock
+        let _ <- beginBlock bodyLbl
+        dynamic body
+        brnz s bodyLbl endLbl
+        endBlock
+        -- end:
+        let _ <- beginBlock endLbl
+        return .next
+      | _ =>
+        repeat
+          if <- (<- expr test).isFalse then break
+          let res <- stmts body
+          if res == .cont then continue
+          if res == .brk then break
+          if let .ret t := res then return .ret t
+        return .next
 end
 
 /-
