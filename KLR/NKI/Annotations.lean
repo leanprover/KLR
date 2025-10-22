@@ -131,7 +131,7 @@ private def stmts (l : List Stmt) : Ann (List Stmt) := do
 private def stmt' (s : Stmt') : Ann Stmt' := do
   match s with
   | .expr e => return .expr (<- expr e)
-  | .assert e => return .assert (<- expr e)
+  | .assert e msg => return .assert (<- expr e) (<- msg.mapM expr)
   | .ret e => return .ret (<- expr e)
   | .declare n e => return .declare n (<- expr e)
   | .letM p ty e => return .letM p (<- optExpr ty) (<- expr e)

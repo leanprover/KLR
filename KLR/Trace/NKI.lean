@@ -401,9 +401,13 @@ partial def dynamic (l : List Stmt) : Trace Unit := do
 partial def stmt' (s' : Stmt') : Trace Result := do
   match s' with
   | .expr e => let _ <- expr e; return .next
-  | .assert e =>
+  | .assert e msg =>
       if <- (<- expr e).isFalse then
-        throw "assertion failed"
+        let msg <- msg.mapM expr
+        match msg with
+        | some $ .string m =>
+          throw s!"assertion failed, {m}"
+        | _ => throw "assertion failed"
       return .next
   | .ret e => return .ret (<- expr e)
   | .declare .. => return .next

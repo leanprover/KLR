@@ -137,7 +137,7 @@ structure Stmt where
 inductive Stmt' where
   | pass
   | expr (e : Expr)
-  | assert (e : Expr)
+  | assert (e : Expr) (msg : Option Expr)
   | ret (e : Expr)
   | assign (xs : List Expr) (e: Expr)
   | augAssign (x : Expr) (op : BinOp) (e : Expr)

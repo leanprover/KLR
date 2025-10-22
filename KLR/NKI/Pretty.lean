@@ -131,7 +131,7 @@ private def stmts (l : List Stmt) : Format :=
 private def stmt' (s : Stmt') : Format :=
   match s with
   | .expr e => expr e
-  | .assert e => "assert " ++ expr e
+  | .assert e msg => "assert " ++ expr e ++ (msg.map (fun m => ", " ++ expr m)).getD ""
   | .ret e => "ret " ++ expr e
   | .declare x ty => x.toString ++ " : " ++ expr ty
   | .letM p none e => format p ++ " = " ++ expr e

@@ -138,7 +138,7 @@ structure Stmt where
 @[serde tag = 11]
 inductive Stmt' where
   | expr (e : Expr)
-  | assert (e : Expr)
+  | assert (e : Expr) (msg : Option Expr)
   | ret (e : Expr)
   | declare (x : Name) (ty : Expr)
   | letM (p : Pattern) (ty : Option Expr) (e : Expr)

@@ -15,7 +15,7 @@ lean_object* Python_Expr_mk(lean_object*,lean_object*);
 lean_object* Python_Kernel_mk(lean_object*,lean_object*,lean_object*,lean_object*,lean_object*,lean_object*,lean_object*,lean_object*);
 lean_object* Python_Class_mk(lean_object*,lean_object*,lean_object*,lean_object*,lean_object*);
 lean_object* Python_Stmt_expr(lean_object*);
-lean_object* Python_Stmt_assert(lean_object*);
+lean_object* Python_Stmt_assert(lean_object*,lean_object*);
 lean_object* Python_Stmt_ret(lean_object*);
 lean_object* Python_Stmt_assign(lean_object*,lean_object*);
 lean_object* Python_Stmt_augAssign(lean_object*,uint8_t,lean_object*);
