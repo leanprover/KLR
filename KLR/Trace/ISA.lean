@@ -1057,3 +1057,15 @@ nki builtin.isa.recv
       peerId := peer_id
     }) name
     return .none
+
+nki builtin.isa.core_barrier
+  (data : Access)
+  (cores : List Int)
+  (engine : Engine := .unassigned)
+  (name : Option String := none) := do
+    Trace.add_stmt $ .oper (.coreBarrier {
+      data := .abstract data,
+      cores := cores,
+      engine := engine
+    }) name
+    return .none

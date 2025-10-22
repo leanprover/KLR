@@ -178,6 +178,9 @@ def Operator.lowerAccessPatterns (k : Operator) : KLR.Err Operator :=
   | .recv r => return .recv { r with
       dsts := (<- r.dsts.mapM TensorRef.lowerAccessPatterns)
     }
+  | .coreBarrier c => return .coreBarrier { c with
+    data := (<- c.data.lowerAccessPatterns)
+  }
 
 def Stmt.lowerAccessPatterns : Stmt → KLR.Err Stmt
   | .oper op name pos => return .oper (<- op.lowerAccessPatterns) name pos
