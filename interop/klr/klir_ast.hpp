@@ -934,6 +934,12 @@ struct RegisterAluOp final {
   AluOp op;
 };
 
+struct CoreBarrier final {
+  Ptr<TensorRef> data;
+  List<Int> cores;
+  Engine engine;
+};
+
 struct Operator {
   enum class Tag {
     activate = 1,
@@ -995,6 +1001,7 @@ struct Operator {
     allToAll,
     send,
     recv,
+    coreBarrier,
   };
   Tag tag;
   Operator(Tag tag) : tag(tag) {}
@@ -1294,6 +1301,11 @@ struct OperatorSendWrapper final : Operator {
 struct OperatorRecvWrapper final : Operator {
   Ptr<Recv> op;
   OperatorRecvWrapper() : Operator(Tag::recv) {}
+};
+
+struct OperatorCoreBarrierWrapper final : Operator {
+  Ptr<CoreBarrier> op;
+  OperatorCoreBarrierWrapper() : Operator(Tag::coreBarrier) {}
 };
 
 struct Stmt {

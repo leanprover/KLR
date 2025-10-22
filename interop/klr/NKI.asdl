@@ -319,6 +319,8 @@ RegisterMove = (String dst, Int imm)
 CmpBranch = (String reg1, String reg2, Int imm, BrCmpOp op, String trueLabel, String falseLabel)
 
 RegisterAluOp = (String dst, String src, Int imm, AluOp op)
+
+CoreBarrier = (TensorRef data, Int* cores, Engine engine)
 Operator =
  | activate(Activate op)
  | ncActivate(NcActivate op)
@@ -379,6 +381,7 @@ Operator =
  | allToAll(CollectiveOp op)
  | send(Send op)
  | recv(Recv op)
+ | coreBarrier(CoreBarrier op)
 
 Stmt =
  | oper(Operator op, String? name, Pos pos)

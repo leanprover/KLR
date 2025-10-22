@@ -2576,11 +2576,24 @@ Ptr<RegisterAluOp> RegisterAluOp_des(FILE *in) {
   return x;
 }
 
+Ptr<CoreBarrier> CoreBarrier_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 201 || c != 0 || l != 3)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<CoreBarrier> x = ptr<CoreBarrier>();
+  x->data = TensorRef_des(in);
+  x->cores = List_Int_des(in);
+  x->engine = Engine_des(in);
+  return x;
+}
+
 Ptr<Operator> Operator_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 201)
+  if (t != 202)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -3061,6 +3074,14 @@ Ptr<Operator> Operator_des(FILE *in) {
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorRecvWrapper> x = ptr<OperatorRecvWrapper>();
     x->op = Recv_des(in);
+    return x;
+    break;
+  }
+  case 59: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorCoreBarrierWrapper> x = ptr<OperatorCoreBarrierWrapper>();
+    x->op = CoreBarrier_des(in);
     return x;
     break;
   }
