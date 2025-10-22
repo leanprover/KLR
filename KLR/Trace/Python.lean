@@ -98,12 +98,6 @@ nki builtin.python.print (args : List Term) := do
   message (" ".intercalate ts)
   return .none
 
-nki builtin.python.len (t : Term) := do
-  match t with
-  | .tuple l => return .int l.length
-  | .list a => return .int a.size
-  | _ => throw "invalid argument"
-
 -- TODO: DRY up the below code once we have more time
 private def minTerms (a b : Term) : Trace Term := do
   match a, b with
@@ -233,6 +227,10 @@ private def modifyList (t : Term) (f : Array Term -> (Array Term × a)) : Trace 
   let (arr, x) := f arr
   extend_global name (.list arr)
   return x
+
+nki builtin.python.len (t : Term) := do
+  let l <- fetchIter t
+  return .int l.length
 
 nki builtin.python.tuple (t : Term) := do
   let l <- fetchIter t
