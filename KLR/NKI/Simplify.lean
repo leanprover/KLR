@@ -339,7 +339,8 @@ private def stmt' (s : Python.Stmt') : Simplify (List Stmt') := do
   match s with
   | .pass => return []
   | .expr e => return [.expr (<- expr e)]
-  | .assert e => return [.assert (<- expr e)]
+  | .assert e msg =>
+    return [.assert (<- expr e) (<- msg.mapM expr)]
   | .ret e => return [.ret (<- expr e)]
   | .assign xs e => do assign (<- exprs xs) (<- expr e) none
   | .augAssign x op e => do
