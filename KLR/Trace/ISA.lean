@@ -35,9 +35,9 @@ def dimsFromPythonDefs (d : Sum Int (List Int)) : Trace TensorSubDim :=
   | .inl 1 => return .X
   | .inl _ => throw  "not a valid dim"
   | .inr r => match r with
-    | [1] => return .X
-    | [1, 2] => return .XY
-    | [1, 2, 3] => return .XYZ
+    | [4] => return .X
+    | [3, 4] => return .XY
+    | [2, 3, 4] => return .XYZ
     | [1, 2, 3, 4] => return .XYZW
     | _ => throw "not a valid dim"
 

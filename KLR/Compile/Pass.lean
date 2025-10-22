@@ -262,12 +262,14 @@ structure CompileResult (a : Type) where
 def runPasses (m : PassM a) : CompileResult a :=
   match m {} with
   | .ok x st =>
+    let st := st.addFile "" 0
     { messages := st.getMessages
       warnings := st.getWarnings
       errors   := []
       result   := some x
     }
   | .error x st =>
+    let st := st.addFile "" 0
     { messages := st.getMessages
       warnings := st.getWarnings
       errors   := [toString x]

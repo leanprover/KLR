@@ -151,9 +151,6 @@ private def stmt' (s : Stmt') : Format :=
   | .whileLoop test body =>
       "while " ++ format test ++ ":" ++ .line ++
         stmts body
-  | .dynWhile t body =>
-      "while scalar(" ++ format t++ "):" ++ .line ++
-        stmts body
   termination_by sizeOf s
 end
 
