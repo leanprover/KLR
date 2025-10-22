@@ -193,7 +193,7 @@ nki builtin.isa.activation
  (scale : Sum Immediate Access := .inl $ .float 1.0) -- This also can accept a tensor
  (reduce_op : Option AluOp := none)
  (reduce_res : Option Access := none)
- (reduce_cmd : AccumCmd := .Idle)
+ (reduce_cmd : AccumCmd := .ZeroAccumulate)
  (mask : Option Immediate := none)
  (name : Option String := none) := do
   if mask.isSome then
@@ -220,7 +220,6 @@ nki builtin.isa.activation_reduce
  -- kwargs
  (reduce_op : Option AluOp := none)
  (reduce_res : Option Access := none)
- (reduce_cmd : AccumCmd := .Idle)
  (bias : Option Access := none )
  (scale : Sum Immediate Access := .inl $ .float 1.0)
  (mask : Option Immediate := none)
@@ -239,7 +238,7 @@ nki builtin.isa.activation_reduce
       bias := bias.map .abstract,
       reduceOp := reduce_op,
       reduceRes := reduce_res.map .abstract,
-      accumulatorCmd := reduce_cmd,
+      accumulatorCmd := .ZeroAccumulate,
       dtype := dst.tensor.dtype,
     }) name
     return .none
