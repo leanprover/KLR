@@ -78,6 +78,20 @@ def values():
   d = {'a':1, 'b':2}
   assert d.values() == [1, 2]
 
+def dict_len():
+  assert len({}) == 0
+  assert len({'a':1, 'b':2}) == 2
+  d1 = {}
+  assert len(d1) == 0
+  d2 = {'a':1, 'b':2}
+  assert len(d2) == 2
+  d2.pop('c')
+  assert len(d2) == 2
+  d2.pop('a')
+  assert len(d2) == 1
+  d2.pop('b')
+  assert len(d2) == 0
+
 # test each function in turn
 @pytest.mark.parametrize("f", [
   expr_dict,
@@ -90,6 +104,7 @@ def values():
   pop,
   setdefault,
   values,
+  dict_len,
   ])
 def test_succeed(f):
   run_success(f, ())

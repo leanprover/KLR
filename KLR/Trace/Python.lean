@@ -203,15 +203,20 @@ nki builtin.python.divmod (x : Int) (y : Int) := do
 Python List object
 -/
 
-private def fetchIter (t : Term) : Trace (List Term) := do
+private def fetchIterExcept (t : Term) : Trace (Except String (List Term)) := do
   let t <- match t with
     | .ref name _ => lookup name
     | _ => pure t
   match t with
-  | .none => return []
-  | .tuple l => return l
-  | .list a => return a.toList
-  | _ => throw "not an iterable object"
+  | .none => return Except.ok []
+  | .tuple l => return Except.ok l
+  | .list a => return Except.ok a.toList
+  | _ => return Except.error "not an iterable object"
+
+private def fetchIter (t : Term) : Trace (List Term) := do
+  match <- fetchIterExcept t with
+  | Except.ok val => return val
+  | Except.error msg => throw msg
 
 private def fetchList (t : Term) : Trace (Name × Array Term) := do
   let name <- match t with
@@ -227,10 +232,6 @@ private def modifyList (t : Term) (f : Array Term -> (Array Term × a)) : Trace 
   let (arr, x) := f arr
   extend_global name (.list arr)
   return x
-
-nki builtin.python.len (t : Term) := do
-  let l <- fetchIter t
-  return .int l.length
 
 nki builtin.python.tuple (t : Term) := do
   let l <- fetchIter t
@@ -286,14 +287,19 @@ nki builtin.list.reverse (t : Term) := do
 Python dict object
 -/
 
-private def fetchDict (t : Term) : Trace (Name × AA) := do
+private def fetchDictExcept (t : Term) : Trace (Except String (Name × AA)) := do
   let name <- match t with
     | .ref name .dict => pure name
-    | _ => throw "expecting dictionary reference"
+    | _ => return Except.error "expecting dictionary reference"
   let arr <- match <- lookup name with
     | .dict arr => pure arr
-    | _ => throw "internal error: expecting dict literal"
-  return (name, arr)
+    | _ => return Except.error "internal error: expecting dict literal"
+  return Except.ok (name, arr)
+
+private def fetchDict (t : Term) : Trace (Name × AA) := do
+  match <- fetchDictExcept t with
+  | Except.ok val => return val
+  | Except.error msg => throw msg
 
 private def modifyDict (t : Term) (f : AA -> (AA × a)) : Trace a := do
   let (name, arr) <- fetchDict t
@@ -345,6 +351,17 @@ nki builtin.dict.setdefault (t : Term) (key : String) (default : Term := .none) 
     match arr.findIdx? fun item => item.fst = key with
     | none => (arr.push (key, default), default)
     | some i => (arr, (arr[i]!).snd)
+
+/-
+Python utilities common to lists and dicts
+-/
+nki builtin.python.len (t : Term) := do
+  match <- fetchIterExcept t with
+  | Except.ok l => return .int l.length
+  | Except.error _ =>
+    match <- fetchDictExcept t with
+    | Except.ok (_, l) => return .int l.size
+    | Except.error _ => throw s!"expected a list of a dictionary; found {Term.kindStr t}"
 
 /-
 Python math library
