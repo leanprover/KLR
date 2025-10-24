@@ -77,6 +77,24 @@ nki builtin.python.isinstance (t : Term) (ty : Term) := do
   | .slice .., .builtin `builtin.python.slice .. => return .bool true
   | _, _ => return .bool false
 
+nki builtin.python.type (t : Term) := do
+  match t with
+  | .object cls _ => return .cls cls
+  | .ref _ (.object cls) => return .cls cls
+  | .none => return .none
+  | .bool .. => return .builtin `builtin.python.bool none
+  | .int .. => return .builtin `builtin.python.int none
+  | .float .. => return .builtin `builtin.python.float none
+  | .string .. => return .builtin `builtin.python.str none
+  | .tuple .. => return .builtin `builtin.python.tuple none
+  | .list .. => return .builtin `builtin.python.list none
+  | .ref _ .list => return .builtin `builtin.python.list none
+  | .dict .. => return .builtin `builtin.python.dict none
+  | .ref _ .dict => return .builtin `builtin.python.dict none
+  | .scalar .. => return .builtin `builtin.typing.scalar none
+  | .slice .. => return .builtin `builtin.python.slice none
+  | _ => throw "can't take a type of {kindStr t}"
+
 nki builtin.python.NoneType := do
   return .none
 
