@@ -535,11 +535,18 @@ static lean_object* const_expr(struct state *st, PyObject *obj) {
     PyObject *dict = PyObject_GetAttrString(obj, "__dict__");
 
     lean_object *cls_name = py_def_name(st, cls);
-    lean_object *l_dict = const_dict(st, dict);
-    Py_XDECREF(dict);
 
-    add_work(st, NULL, cls);
-    e = Python_Expr_mk(Python_Expr_object(cls_name, l_dict), pos);
+    if (PyObject_HasAttrString(cls, "__defer__")) {
+      lean_object *cls_expr = Python_Expr_mk(Python_Expr_name(cls_name, Python_Ctx_load), pos);
+      add_work(st, NULL, cls);
+      e = Python_Expr_mk(Python_Expr_call(cls_expr, mkNil(), mkNil()), pos);
+    } else {
+      lean_object *l_dict = const_dict(st, dict);
+      add_work(st, NULL, cls);
+      e = Python_Expr_mk(Python_Expr_object(cls_name, l_dict), pos);
+    }
+    
+    Py_XDECREF(dict);
   }
   else {
     e = Python_Expr_mk(Python_Expr_const(value(st, obj)), pos);
@@ -693,6 +700,10 @@ static PyObject* lookup(struct state *st, PyObject *id) {
   return obj;
 }
 
+static inline bool is_tile_size(const char* name) {
+  return strncmp(name, "nki.language.tile_size.", 23) == 0;
+}
+
 // Record reference to expression `e`, which is either a name or an attribute,
 // which we can think of as a pathname. For each element of the pathname, we
 // lookup the name in the Python environment and either: add the value to our
@@ -751,7 +762,7 @@ static struct ref reference(struct state *st, struct _expr *e) {
         add_work(st, orig_name, ref.obj);
       }
     } else {
-      if (!st->ignore_refs)
+      if (!st->ignore_refs && !is_tile_size(lean_string_cstr(ref.name))) 
         add_global(st, ref.name, ref.obj);
     }
   }
