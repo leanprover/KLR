@@ -176,6 +176,7 @@ partial def operatorBasicTensors : Operator → List TensorRef
   | .dmaCompute d => [d.dst]
   | .allReduce _ | .allGather _ | .reduceScatter _ | .collectivePermute _ | .broadcast _ | .allToAll _ => []
   | .send _ | .recv _ => []
+  | .coreBarrier c => [c.data]
 
 partial def operatorAdditionalTensors : Operator → List TensorName
   | .ncActivate d => (tensors d.scale) ++ (tensors d.bias) ++ (tensors d.reduceRes)

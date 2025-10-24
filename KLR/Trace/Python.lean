@@ -77,6 +77,24 @@ nki builtin.python.isinstance (t : Term) (ty : Term) := do
   | .slice .., .builtin `builtin.python.slice .. => return .bool true
   | _, _ => return .bool false
 
+nki builtin.python.type (t : Term) := do
+  match t with
+  | .object cls _ => return .cls cls
+  | .ref _ (.object cls) => return .cls cls
+  | .none => return .none
+  | .bool .. => return .builtin `builtin.python.bool none
+  | .int .. => return .builtin `builtin.python.int none
+  | .float .. => return .builtin `builtin.python.float none
+  | .string .. => return .builtin `builtin.python.str none
+  | .tuple .. => return .builtin `builtin.python.tuple none
+  | .list .. => return .builtin `builtin.python.list none
+  | .ref _ .list => return .builtin `builtin.python.list none
+  | .dict .. => return .builtin `builtin.python.dict none
+  | .ref _ .dict => return .builtin `builtin.python.dict none
+  | .scalar .. => return .builtin `builtin.typing.scalar none
+  | .slice .. => return .builtin `builtin.python.slice none
+  | _ => throw "can't take a type of {kindStr t}"
+
 nki builtin.python.NoneType := do
   return .none
 
@@ -97,12 +115,6 @@ nki builtin.python.print (args : List Term) := do
   let ts <- args.mapM Term.toStr
   message (" ".intercalate ts)
   return .none
-
-nki builtin.python.len (t : Term) := do
-  match t with
-  | .tuple l => return .int l.length
-  | .list a => return .int a.size
-  | _ => throw "invalid argument"
 
 -- TODO: DRY up the below code once we have more time
 private def minTerms (a b : Term) : Trace Term := do
@@ -347,6 +359,22 @@ nki builtin.dict.setdefault (t : Term) (key : String) (default : Term := .none) 
     match arr.findIdx? fun item => item.fst = key with
     | none => (arr.push (key, default), default)
     | some i => (arr, (arr[i]!).snd)
+
+/-
+Utilities common to lists and dicts
+-/
+nki builtin.python.len (t : Term) := do
+  try
+    let l <- fetchIter t
+    return .int l.length
+  catch
+    | _ =>
+      try
+        let d <- fetchDict t
+        return .int d.snd.size
+      catch
+        | _ => throw s!"expected a list of a dictionary; found {Term.kindStr t}"
+
 
 /-
 Python math library

@@ -240,18 +240,20 @@ def enterLoop (var : Name) (m : Trace a) : Trace a := do
 def add_stmt (stmt : Pos -> Stmt) : Trace Unit := do
   let pos <- getPos
   let s <- get
-  let stmt := stmt pos
+  let (stmt, name) <- match stmt pos with
+    | .oper op none pos =>
+       let name := (<- genName `inst).toString
+       pure (.oper op name pos, name)
+    | .oper op (some name) pos =>
+       pure (.oper op (some name) pos, name)
   let stmts := s.stmts.push stmt
-  match stmt with
-  | .oper _ none _ => set { s with stmts }
-  | .oper _ (some name) _ =>
-      let iv <- s.iv.mapM fun n => do
-        match <- lookup? n with
-        | some (.int i) => pure (n, i)
-        | _ => pure (n, -1)
-      let ivs := s.ivs.insert name iv
-      let stacks := s.stacks.insert name s.stack
-      set { s with stmts, ivs, stacks }
+  let iv <- s.iv.mapM fun n => do
+    match <- lookup? n with
+    | some (.int i) => pure (n, i)
+    | _ => pure (n, -1)
+  let ivs := s.ivs.insert name iv
+  let stacks := s.stacks.insert name s.stack
+  set { s with stmts, ivs, stacks }
 
 def jmp (target : String) : Trace Unit := do
   add_stmt (.oper (.cmpBranch {
@@ -297,18 +299,14 @@ def addImm (src dst : String) (imm : Int) : Trace Unit := do
 
 
 def endBlock (next : Option String := none) : Trace Unit := do
-  -- Note: this statement may be discarded, which is correct
+  let st <- get
   if let some target := next then
     jmp target
-  modify fun st =>
-    match st.label with
-    | none => { st with
-        label := next
-        stmts := #[]
-      }
-    | some lbl =>
-      { st with
-        body := st.body.push ⟨lbl, st.stmts.toList⟩
+  let body := match st.label with
+    | none => st.body
+    | some lbl => st.body.push ⟨ lbl, st.stmts.toList ⟩
+  set { st with
+        body := body
         label := next
         stmts := #[]
       }

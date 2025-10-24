@@ -1181,8 +1181,8 @@ static lean_object* stmt(struct state *st, struct _stmt *python) {
       break;
     }
     case Assert_kind: {
-      // TODO capture message
-      s = Python_Stmt_assert(expr(st, python->v.Assert.test));
+      lean_object *msg = python->v.Assert.msg ? mkSome(expr(st, python->v.Assert.msg)) : mkNone();
+      s = Python_Stmt_assert(expr(st, python->v.Assert.test), msg);
       break;
     }
     case Return_kind: {
@@ -1699,8 +1699,11 @@ PyObject* specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *
 
   // save the constructed kernel
   if (k->lean_kernel) {
-    if (k->lean_kernel->kernel)
-      lean_dec(k->lean_kernel->kernel);
+    if (k->lean_kernel->kernel) {
+      if (k->lean_kernel->kernel->m_rc != 0) {
+        lean_dec(k->lean_kernel->kernel);
+      }
+    }
   } else {
     k->lean_kernel = calloc(1, sizeof(struct lean_kernel));
   }

@@ -871,6 +871,13 @@ structure Recv where
 deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 201]
+structure CoreBarrier where
+  data : TensorRef
+  cores : List Int
+  engine : Engine
+deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 202]
 inductive Operator where
   | activate (op : Activate)
   | ncActivate (op : NcActivate)
@@ -931,9 +938,10 @@ inductive Operator where
   | allToAll (op : CollectiveOp)
   | send (op : Send)
   | recv (op : Recv)
+  | coreBarrier (op : CoreBarrier)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 202]
+@[serde tag = 203]
 inductive TGROperator where
   | activate (op : Activate)
   | affineSelect (op : AffineSelect)
