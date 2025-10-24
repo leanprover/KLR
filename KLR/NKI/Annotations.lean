@@ -95,27 +95,29 @@ end
 
 -- Statements
 
-private def rangeType : Name -> Ann RangeType
-  | .str _ "range" => return .static
-  | .str _ "static_range" => return .static
-  | .str _ "affine_range" => return .affine
-  | .str _ "sequential_range" => return .sequential
-  | .str _ "dynamic_range" => return .dynamic
-  | n => throw s!"{n} is not a supported iterator"
+private def rangeType : Name -> Option RangeType
+  | .str _ "range" => some .static
+  | .str _ "static_range" => some .static
+  | .str _ "affine_range" => some .affine
+  | .str _ "sequential_range" => some .sequential
+  | .str _ "dynamic_range" => some .dynamic
+  | _ => none
 
 private def iterator : Iterator -> Ann Iterator
   | .range ty l u s => return .range ty l u s
   | .expr e => withPos e.pos do
-    let zero := Expr.mk (.value $ .int 0) e.pos
-    let one  := Expr.mk (.value $ .int 1) e.pos
     match e.expr with
     | .call ⟨.var n, _⟩ args [] =>
-      let ty <- rangeType n
-      match args with
-      | [u] => return .range ty zero u one
-      | [l,u] => return .range ty l u one
-      | [l,u,s] => return .range ty l u s
-      | _ => throw "invalid range arguments"
+      match rangeType n with
+      | none => return .expr e
+      | some ty =>
+        let zero := Expr.mk (.value $ .int 0) e.pos
+        let one  := Expr.mk (.value $ .int 1) e.pos
+        match args with
+        | [u] => return .range ty zero u one
+        | [l,u] => return .range ty l u one
+        | [l,u,s] => return .range ty l u s
+        | _ => throw "invalid range arguments"
     | _ => return .expr e
 
 mutual
