@@ -44,7 +44,7 @@ private def getTensorName (shape : List Nat) : Err TensorName :=
     parSize := 4, freeSize := 24,
     parOffset := none, freeOffset := none
   }
-  let t := TensorName.make "A" .int8 (.mk shape.head! shape.tail!) addr
+  let t := TensorName.make "A" .int8 (.mk shape.head! shape.tail!) addr false
   match t with
   | .ok t => .ok t
   | .error err => .error err
@@ -98,7 +98,7 @@ private def testAccess (idxs : List Index) : KLR.Err (List APPair × Nat) := do
     parSize := 4, freeSize := 24,
     parOffset := none, freeOffset := none
   }
-  let t <- TensorName.make "A" .int8 (.mk 4 [3, 2]) addr
+  let t <- TensorName.make "A" .int8 (.mk 4 [3, 2]) addr false
   let ac <- AccessBasic.make t idxs
   match AccessBasic.toAP ac with
   | .ok ac =>
@@ -203,7 +203,7 @@ private def testAccess2 (idxs1 : List Index) (idxs2 : List Index) : KLR.Err (Lis
     parSize := 4, freeSize := 24,
     parOffset := none, freeOffset := none
   }
-  let t <- TensorName.make "A" .int8 (.mk 4 [3, 2]) addr
+  let t <- TensorName.make "A" .int8 (.mk 4 [3, 2]) addr false
   let ab <- AccessBasic.make t idxs1
   let ac <- AccessBasic.toAP ab
   let ac2 <- Access.combine (.pattern ac) idxs2

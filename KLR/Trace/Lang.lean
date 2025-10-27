@@ -30,15 +30,19 @@ nki builtin.lang.ndarray
   (dtype : Dtype)
   (buffer : Option Memory := none)
   (name : Option String := none)
-  (address : Option (Nat × Nat) := none) := do
+  (address : Option (Nat × Nat) := none)
+  (address_rotation : Option Bool := none) := do
     let memory := buffer.getD .sbuf
     let (parSize, freeSize) := Address.defaultSize shape dtype
     let (parOffset, freeOffset) := match address with
     | some (par, free) => (some par, some free)
     | none => (none, none)
     let name <- tensorName name
+    let address_rotation <- match address_rotation with
+    | some v => pure v
+    | none => flags.address_rotation
     let address := { name, memory, parSize, freeSize, parOffset, freeOffset : Address }
-    let tensor <- TensorName.make name dtype shape address
+    let tensor <- TensorName.make name dtype shape address address_rotation
     return .access (.simple tensor)
 
 nki builtin.lang.par_dim (t : Term) := do

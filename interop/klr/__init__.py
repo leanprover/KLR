@@ -21,7 +21,8 @@ def _specialize_kernel(
     schedule: Optional[Sequence[tuple[str, Union[str, Sequence[str]]]]] = None,
     address_rotation: bool = False,
 ):
-    metadata_json_str = kernel.specialize(args, kwargs, grid, schedule)
+    flags = [("address_rotation", address_rotation)]
+    metadata_json_str = kernel.specialize(args, kwargs, grid, schedule, flags)
     metadata = json.loads(metadata_json_str)
     return metadata
 

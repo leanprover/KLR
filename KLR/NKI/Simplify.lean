@@ -500,6 +500,19 @@ private def edge (py : Python.Expr) : Simplify Edges := do
     return .mk e1 e2
   | _ => throw "Schedule edge must be a pair"
 
+private def flags (py : Python.Expr) : Simplify (String × Value) := do
+  let e <- expr py
+  match e.expr with
+  | .tuple [e1, e2] =>
+    let key <- match e1.expr with
+      | .value (.string s) => pure s
+      | _ => throw "Flag key must be a string"
+    let value <- match e2.expr with
+      | .value v => pure v
+      | _ => throw "Flag value must be a primitive type"
+    return ⟨key, value⟩
+  | _ => throw s!"Flags must be a list of pairs"
+
 def simplify (py : Python.Kernel) : Simplify Kernel := do
   let funs <- py.funcs.mapM func
   let cls <- py.classes.mapM class_
@@ -516,4 +529,5 @@ def simplify (py : Python.Kernel) : Simplify Kernel := do
     globals := <- kwargs py.globals
     grid    := py.grid
     edges   := <- py.scheduleEdges.mapM edge
+    flags   := <- py.flags.mapM flags
   }

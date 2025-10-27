@@ -200,4 +200,5 @@ structure Kernel where
   globals : List Arg
   grid : Nat
   edges : List Edges
+  flags : List (String × Value)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp

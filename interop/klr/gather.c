@@ -1642,7 +1642,7 @@ static void append(PyObject **l, const char *r) {
   PyUnicode_AppendAndDel(l, str);
 }
 
-PyObject* specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *grid, PyObject *schedule) {
+PyObject* specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *grid, PyObject *schedule, PyObject *flags) {
   struct state st = { 0 };
   st.region = k->region;
 
@@ -1675,6 +1675,12 @@ PyObject* specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *
   st.ignore_refs = false;
   st.work = NULL;
 
+  st.ignore_refs = true;
+  lean_object *l_flags = const_exprs(&st, flags);
+  checkPyErr(&st);
+  st.ignore_refs = false;
+  st.work = NULL;
+
   // Build the kernel object
   lean_object *fs = lean_mk_empty_array();
   lean_object *cs = lean_mk_empty_array();
@@ -1695,7 +1701,8 @@ PyObject* specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *
     l_kwargs,
     lean_array_to_list(gs),
     l_grid,
-    l_sched);
+    l_sched,
+    l_flags);
 
   // save the constructed kernel
   if (k->lean_kernel) {
@@ -1749,7 +1756,7 @@ lean_object* nki_to_json(lean_object*);
 
 const char* serialize_python(struct kernel *k) {
   if (!k->lean_kernel) {
-    specialize(k, Py_None, Py_None, Py_None, Py_None);
+    specialize(k, Py_None, Py_None, Py_None, Py_None, Py_None);
   }
 
   if (!k->lean_kernel) {

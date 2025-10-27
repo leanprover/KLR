@@ -220,6 +220,7 @@ structure TensorName where
   freeElements : Nat := shape.freeElements
   parWF   : shape.parDim <= address.parSize
   freeWF  : shape.freeElements * dtype.size <= address.freeSize
+  addressRotation : Bool
   deriving Repr
 
 instance : BEq TensorName where
@@ -240,15 +241,16 @@ namespace TensorName
 def make (name : String)
          (dtype : Dtype)
          (shape : Shape)
-         (addr : Option Address) : Err TensorName := do
+         (addr : Option Address)
+         (address_rotation : Bool) : Err TensorName := do
   let addr := addr.getD (Address.withDefaultSize default shape dtype)
   if parWF : shape.parDim <= addr.parSize then
     if freeWF : shape.freeElements * dtype.size <= addr.freeSize then
-      return ⟨ name, dtype, shape, addr, shape.freeElements, parWF, freeWF ⟩
+      return ⟨ name, dtype, shape, addr, shape.freeElements, parWF, freeWF, address_rotation ⟩
   throw "Tensor does not fit within memory location"
 
 def withShape (name : TensorName) (shape : Shape) : Err TensorName :=
-  make name.name name.dtype shape (name.address.withDefaultSize shape name.dtype)
+  make name.name name.dtype shape (name.address.withDefaultSize shape name.dtype) name.addressRotation
 
 -- NOTE: The Prop fields count towards the list, but have zero size
 instance : ToCBOR TensorName where
@@ -259,6 +261,7 @@ instance : ToCBOR TensorName where
     ++ @Serde.toCBOR Shape _ t.shape
     ++ @Serde.toCBOR Address _ t.address
     ++ @Serde.toCBOR Nat _ t.freeElements
+    ++ @Serde.toCBOR Bool _ t.addressRotation
 
 instance : FromCBOR TensorName where
   parse arr := do
@@ -273,8 +276,9 @@ instance : FromCBOR TensorName where
     let (arr, sz, dtype) <- @Serde.parseCBOR' Dtype _ arr sz
     let (arr, sz, shape) <- @Serde.parseCBOR' Shape _ arr sz
     let (arr, sz, address) <- @Serde.parseCBOR' Address _ arr sz
-    let (_, sz, _) <- @Serde.parseCBOR' Nat _ arr sz
-    let t <- make name dtype shape address
+    let (arr, sz, _) <- @Serde.parseCBOR' Nat _ arr sz
+    let (_, sz, addressRotation) <- @Serde.parseCBOR' Bool _ arr sz
+    let t <- make name dtype shape address addressRotation
     return (sz, t)
 
 end TensorName
