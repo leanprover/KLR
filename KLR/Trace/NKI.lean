@@ -131,7 +131,7 @@ def value : Value -> Trace Term
         parSize := shape.parDim
         freeSize := shape.freeElements * dtype.size
       }
-      let tensor <- Core.TensorName.make name dtype shape (some addr)
+      let tensor <- Core.TensorName.make name dtype shape (some addr) (<- flags.address_rotation)
       return .access (.simple tensor)
   | .tensor _ _ none =>
       throw "internal error: tensor argument does not have a name"
@@ -565,6 +565,7 @@ def traceKernel (k : Kernel) : Trace Core.Kernel := do
   let _ <- beginBlock (<- genName `main).toString
   addId
   globals k
+  flags k.flags
   match k.funs.find? fun f => f.name == k.entry with
   | none => throw s!"function {k.entry} not found"
   | some f => do

@@ -168,6 +168,7 @@ structure State where
   globals : Env := ∅
   locals : Env := ∅
   body : Array Block := #[]
+  flags : Array (String × NKI.Value) := #[]
   -- PHashSet is better for huge sets (which this is)
   --tensorNames : Std.HashSet String := ∅
   tensorNames : Lean.PersistentHashSet String := ∅
@@ -210,6 +211,22 @@ def lookup (name : Name) : Trace Term := do
   match <- lookup? name with
   | none => throw s!"name {name} not found"
   | some x => return x
+
+def flags (flags : List (String × NKI.Value)) : Trace Unit := do
+  modify fun s => { s with flags := flags.toArray }
+
+def lookup_flag? (flag : String) : Trace $ Option NKI.Value := do
+  return (<-get).flags.find? (·.1 == flag) |>.map (·.2)
+
+namespace flags
+
+
+def address_rotation : Trace $ Bool := do
+  match <- lookup_flag? "address_rotation" with
+  | some $ .bool b => return b
+  | _ => return false
+
+end flags
 
 -- Enter a new local scope, replacing the local environment on exit.
 def enter (m : Trace a) : Trace a := do
@@ -333,7 +350,7 @@ def addId : Trace Unit := do
     throw "identity already initialized"
   let dtype := .int8
   let shape := Core.Shape.mk 128 [128]
-  let tensorName <- Core.TensorName.make idName.toString dtype shape none
+  let tensorName <- Core.TensorName.make idName.toString dtype shape none (<- flags.address_rotation)
   let id : KLR.Core.TensorRef := .abstract (.simple tensorName)
   let pos : Pos := { line := 0, column := 0 }
   let hbmInitName := <-genName
@@ -344,7 +361,7 @@ def addId : Trace Unit := do
     freeSize := 128
     isShared := true
   }
-  let idHbm : TensorName <- Core.TensorName.make hbmInitName.toString dtype shape idAddr
+  let idHbm : TensorName <- Core.TensorName.make hbmInitName.toString dtype shape idAddr (<- flags.address_rotation)
   let initStmt := Core.Stmt.oper (.ncDmaCopy {
     dst := id,
     src := .abstract (.simple idHbm),

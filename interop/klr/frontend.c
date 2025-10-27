@@ -51,8 +51,9 @@ static PyObject* kernel_specialize(struct kernel *self, PyObject *args_tuple) {
   PyObject* kwargs = Py_None;   // O
   PyObject* grid = Py_None;     // O
   PyObject* schedule = Py_None; // O
+  PyObject* flags = Py_None;    // O
 
-  if (!PyArg_ParseTuple(args_tuple, "|OOOO", &args, &kwargs, &grid, &schedule)) {
+  if (!PyArg_ParseTuple(args_tuple, "|OOOOO", &args, &kwargs, &grid, &schedule, &flags)) {
       PyErr_SetString(PyExc_TypeError, "Failed to parse the arguments");
       return NULL;
   }
@@ -73,7 +74,12 @@ static PyObject* kernel_specialize(struct kernel *self, PyObject *args_tuple) {
       return NULL;
   }
 
-  return specialize(self, args, kwargs, grid, schedule);
+  if (flags != Py_None && !PySequence_Check(flags)) {
+      PyErr_SetString(PyExc_TypeError, "Invalid Argument: 'flags' must be a dictionary");
+      return NULL;
+  }
+
+  return specialize(self, args, kwargs, grid, schedule, flags);
 }
 
 // frontend.Kernel.serialize_python

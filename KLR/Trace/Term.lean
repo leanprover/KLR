@@ -546,12 +546,16 @@ nki builtin.pointer.view
     (self : Address)
     (dtype : Dtype)
     (shape : Shape)
-    (name : Option String := none) := do
+    (name : Option String := none)
+    (address_rotation : Option Bool := none) := do
   let name <- tensorName name
   let self := {self with name := name}
+  let address_rotation <- match address_rotation with
+  | some v => pure v
+  | none => flags.address_rotation
   if parWF: shape.parDim <= self.parSize then
     if freeWF: shape.freeElements * dtype.size <= self.freeSize then
-      let tensor := ⟨ name, dtype, shape, self, shape.freeElements, parWF, freeWF ⟩
+      let tensor := ⟨ name, dtype, shape, self, shape.freeElements, parWF, freeWF, address_rotation ⟩
       return .access (.simple tensor)
     else throw "shape is too large for memory region"
   else throw "partition size is too large for memory region"
@@ -560,13 +564,19 @@ nki builtin.access.reshape
     (self : Access)
     (shape : List Nat)
     (dtype : Option Dtype := none)
-    (name : Option String := none) := do
+    (name : Option String := none)
+    (address_rotation : Option Bool := none) := do
   let tensor <- match self with
     | .simple t => pure t
     | _ => throw "cannot reshape a complex access pattern"
   let dtype := dtype.getD tensor.dtype
   let name <- tensorName name
   let shape' <- Shape.fromList shape
+
+  let address_rotation <- match address_rotation with
+  | some v => pure v
+  | none => flags.address_rotation
+
   let addr <- if tensor.address.memory == .hbm then
       let shape_sz := shape.foldl (. * .) tensor.dtype.size
       let addr_sz := tensor.address.parSize * tensor.address.freeSize
@@ -577,7 +587,7 @@ nki builtin.access.reshape
       pure addr
     else
       pure tensor.address
-  let t <- TensorName.make name dtype shape' addr
+  let t <- TensorName.make name dtype shape' addr address_rotation
   return .access (.simple t)
 
 nki builtin.access.ap

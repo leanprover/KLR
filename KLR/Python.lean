@@ -244,6 +244,7 @@ structure Kernel where
   globals : List Keyword
   grid : Nat
   scheduleEdges : List Expr
+  flags : List Expr
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /-

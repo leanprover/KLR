@@ -164,4 +164,5 @@ def annotate (k : Kernel) : Ann Kernel := do
     globals := <- k.globals.mapM arg
     grid    := k.grid
     edges   := k.edges
+    flags   := k.flags
   }

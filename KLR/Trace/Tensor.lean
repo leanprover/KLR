@@ -110,7 +110,7 @@ nki builtin.lang.shared_constant
     freeSize := freeSize
     isShared := true
   }
-  let tensorName <- TensorName.make name.toString dtype shape addr
+  let tensorName <- TensorName.make name.toString dtype shape addr (<- flags.address_rotation)
 
   modify fun s => { s with
     sharedConstants := s.sharedConstants.push (name.toString, t)
