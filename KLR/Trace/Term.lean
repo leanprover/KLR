@@ -398,7 +398,7 @@ partial def access (e : Term) (indexes : List Term) : Trace Term := do
       let access <- Access.mkBasic tensor indices
       return .access access
   | .access (.basic tensor) => do
-    let indices <- toIndex tensor.getShape.toList indexes
+    let indices <- toIndex (<-tensor.shape).toList indexes
     let ac <- Access.combine (.basic tensor) indices
     return .access (.pattern ac)
   | .access (.pattern pattern) => do
@@ -574,7 +574,7 @@ nki builtin.access.ap
     (indirect_dim : Int := 0) := do
   match self with
   | .simple t =>
-      let pattern := pattern.map fun (s,c) => Core.APPair.mk s c
+      let pattern := pattern.map fun (s,c) => Core.APPair.mk s c 0
       let scalarOffset <- scalar_offset.mapM fun
         | .inl a => pure (.acc a)
         | .inr r => match r with
@@ -589,10 +589,12 @@ nki builtin.access.ap
         indirectDim := indirect_dim
       }
       return .access (.birPattern ap)
-  | .basic _ =>
-    let pat := pattern.map fun (s,c) => Core.APPair.mk s c
-    let ac <- Access.combineAP self pat offset
-    return .access (.pattern ac)
+  -- TODO: need to figoure out how to combine cannonical form AP with user specified AP
+  -- The difficulty lies in understanding which portions of AP does offset belong to
+  -- | .basic _ =>
+  --   let pat := pattern.map fun (s,c) => Core.APPair.mk s c 0
+  --   let ac <- Access.combineAP self { pairs := pat, fixedAxis := [] }
+  --   return .access (.pattern ac)
   | _ => throw s!"cannot specify an access pattern on an already indexed tensor"
 
 /-
