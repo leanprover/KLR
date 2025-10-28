@@ -495,6 +495,8 @@ Fixed axis represent the index of axis that been intexed with coordinate style
 index.
 -/
 
+-- TODO: now that we migrated to have full pattern we don't really need all of the fields aside from
+-- tensor and pattern
 @[serde tag = 120]
 structure AccessPattern where
   tensor : TensorName
@@ -508,8 +510,10 @@ structure AccessPattern where
 namespace AccessPattern
 
 def shape (ap : AccessPattern) : Shape :=
-  -- TODO: this is valid for a form produced from step 1, check if it is valid for step != 1
-  .mk ap.parNum (ap.pattern.tail.map fun pair => pair.num)
+  let sizes := ap.pattern.mapIdx (fun idx x => (idx, x))
+   |>.filter (fun p => p.1 ∉ ap.fixedAxis)
+   |>.map (fun p => p.2.num)
+  .mk sizes[0]! sizes.tail
 
 def offset (ap : AccessPattern) : Int :=
   ap.pattern.foldl (fun acc x => acc + x.tensor_offset) 0

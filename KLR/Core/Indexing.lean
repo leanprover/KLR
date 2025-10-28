@@ -194,7 +194,6 @@ def Access.combine (a : Access) (idx : List Index) : KLR.Err AccessPattern := do
   let (pat2, fixed2) := idxToAp shape.toList idx
   let normResult := Access.normWithAP ⟨pat2, fixed2⟩ ⟨ap.pattern, ap.fixedAxis⟩
   let rv <- Access.combineAP a normResult
-  dbg_trace s!"{repr rv.fixedAxis}"
   .ok rv
 
 
@@ -234,6 +233,6 @@ private def testAccess2 (idxs1 : List Index) (idxs2 : List Index) : KLR.Err (Lis
 #guard testAccess2
     [.coord 1, .slice (Slice.make! 1 3 1), .slice (Slice.make! 0 2 1)]
     [.coord 1, .slice (Slice.make! 0 2 1)] ==
-     .ok ([⟨6,2,1⟩, ⟨2,1,2⟩, ⟨1,1,1⟩], 10)
+     .ok ([⟨6,1,1⟩, ⟨2,1,2⟩, ⟨1,2,0⟩], 10)
 
 end KLR.Core
