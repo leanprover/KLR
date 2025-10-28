@@ -142,14 +142,16 @@ struct AccessBasic final {
 struct APPair final {
   Int step;
   Nat num;
+  Nat offset;
 };
 
 struct AccessPattern final {
   Ptr<TensorName> tensor;
   Nat parNum;
-  List<Ptr<APPair>> freePattern;
+  List<Ptr<APPair>> pattern;
   Nat parOffset;
   Nat freeOffset;
+  List<Nat> fixedAxis;
 };
 
 struct ScalarOffset {
@@ -222,7 +224,7 @@ struct TensorSram final {
   String name;
   Dtype dtype;
   Nat parNum;
-  List<Ptr<APPair>> freePattern;
+  List<Ptr<APPair>> pattern;
   Nat parOffset;
   Nat freeOffset;
 };
