@@ -632,11 +632,12 @@ Ptr<APPair> APPair_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 119 || c != 0 || l != 2)
+  if (t != 119 || c != 0 || l != 3)
     throw std::runtime_error("Invalid Tag");
   Ptr<APPair> x = ptr<APPair>();
   x->step = Int_des(in);
   x->num = Nat_des(in);
+  x->offset = Nat_des(in);
   return x;
 }
 
@@ -644,14 +645,15 @@ Ptr<AccessPattern> AccessPattern_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 120 || c != 0 || l != 5)
+  if (t != 120 || c != 0 || l != 6)
     throw std::runtime_error("Invalid Tag");
   Ptr<AccessPattern> x = ptr<AccessPattern>();
   x->tensor = TensorName_des(in);
   x->parNum = Nat_des(in);
-  x->freePattern = List_APPair_des(in);
+  x->pattern = List_APPair_des(in);
   x->parOffset = Nat_des(in);
   x->freeOffset = Nat_des(in);
+  x->fixedAxis = List_Nat_des(in);
   return x;
 }
 
@@ -767,7 +769,7 @@ Ptr<TensorSram> TensorSram_des(FILE *in) {
   x->name = String_des(in);
   x->dtype = Dtype_des(in);
   x->parNum = Nat_des(in);
-  x->freePattern = List_APPair_des(in);
+  x->pattern = List_APPair_des(in);
   x->parOffset = Nat_des(in);
   x->freeOffset = Nat_des(in);
   return x;
