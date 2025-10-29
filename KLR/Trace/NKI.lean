@@ -490,6 +490,7 @@ partial def stmt' (s' : Stmt') : Trace Result := do
         endBlock
         -- end:
         let _ <- beginBlock endLbl
+        endBlock
         return .next
       | _ =>
         repeat
