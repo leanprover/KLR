@@ -397,6 +397,7 @@ structure TraceResult (a : Type) where
 -- Run a `Trace` monad computation, and handle any generated warnings or errors.
 def tracer (g : List (Name × Term)) (m : Trace a) : PassM (TraceResult a) := do
   let initialState : State := { globals := .ofList g }
+  resetPassState
   runPassWith initialState do
     let x <- m
     let st <- get

@@ -297,7 +297,8 @@ def listAccess (l : List Term) : List Term -> Err Term
       let e := if e < 0 then l.length + e else e
       if start < 0 || start > l.length || e < 0 || e > l.length then
         throw "slice index out of bounds"
-      let sliced := List.range ((e - start + step - 1) / step).toNat |>.map (fun i => l.get! (start.toNat + i * step.toNat))
+      let sliced := List.range ((e - start + step - 1) / step).toNat |>.map fun i =>
+        l[start.toNat + i * step.toNat]!
       return .list sliced.toArray
   | e => throw s!"index must be an integer or slice, got {repr e}"
 
@@ -470,7 +471,9 @@ def Term.attr (t : Term) (id : String) : Trace Term :=
       |  _ => throw s!"{id} is not an attribute of dict"
   | .ref name (.object c) => do
       match <- lookup? name with
-      | some (.object _ fs) =>
+      | some (.object c' fs) =>
+        if c != c' then
+          throw s!"internal error: reference {name}:{c} points to obj:{c'}"
         match AA.lookup? fs id with
         | .some t => return t
         | .none =>
