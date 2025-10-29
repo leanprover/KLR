@@ -182,6 +182,18 @@ where
       else return (x == y) && (<- listLt xs ys)
 
 private def binop' (op : BinOp) (l r : Term) : Trace Term := do
+
+  let resolveTerm := fun t => match t with
+    | .var name => do
+        match <- lookup? name with
+        | some (.source {name, ..}) => pure (.var name)
+        | some t => pure t
+        | none => pure .none
+    | .source {name, ..} => pure (.var name)
+    | _ => pure t
+  let l <- resolveTerm l
+  let r <- resolveTerm r
+
   match op with
   -- logical
   | .land => return .bool ((<- l.isTrue) && (<- r.isTrue))
