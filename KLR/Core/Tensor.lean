@@ -444,12 +444,28 @@ values 0,1,2. Added together, the pairs produce the values:
   0, 1, 2, 3, 4, 5.
 
 which is equivalent to the basic index [0:2,0:3] for a standard tensor layout.
+
+we also need to keep track of pair's offset parameter. This is done for AP combination
+purposes. When we combine AP's the step of pair might change due to fixing an axis
+or using a step != 1 in the pair or subsequent pairs(visually to the right of the pair in question)
+in the AP
 -/
 @[serde tag = 119]
 structure APPair where
   step : Int := 1
   num : Nat := 1
+  offset : Nat := 1
   deriving Inhabited, BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+namespace APPair
+
+def combine(l : APPair) (r : APPair) : APPair :=
+    { step := max l.step r.step, num := min l.num r.num, offset := l.offset + r.offset }
+
+-- calculates offset in terms of tensor
+def tensor_offset (p: APPair) : Int := p.step * p.offset
+
+end APPair
 
 def accessSize (pairs : List APPair) : Nat :=
   pairs.foldl (fun acc p => acc * p.num) 1
@@ -474,21 +490,33 @@ With a meaning of:
 
 The elements generated above are multiplied by the dtype size of the tensor to
 get the final memory addresses.
+
+Fixed axis represent the index of axis that been intexed with coordinate style
+index.
 -/
 
+-- TODO: now that we migrated to have full pattern we don't really need all of the fields aside from
+-- tensor and pattern
 @[serde tag = 120]
 structure AccessPattern where
   tensor : TensorName
   parNum : Nat
-  freePattern : List APPair
+  pattern : List APPair
   parOffset : Nat := 0
   freeOffset : Nat := 0
+  fixedAxis : List Nat := []
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 namespace AccessPattern
 
 def shape (ap : AccessPattern) : Shape :=
-  .mk ap.parNum $ ap.freePattern.map fun pair => pair.num
+  let sizes := ap.pattern.mapIdx (fun idx x => (idx, x))
+   |>.filter (fun p => p.1 ∉ ap.fixedAxis)
+   |>.map (fun p => p.2.num)
+  .mk sizes[0]! sizes.tail
+
+def offset (ap : AccessPattern) : Int :=
+  ap.pattern.foldl (fun acc x => acc + x.tensor_offset) 0
 
 -- Partitions are not counted in bytes or elements; I'll call them logical "rows".
 def partitionRowOffset (ap : AccessPattern) : Nat :=
@@ -556,13 +584,12 @@ namespace BirAccessPattern
 def shape (bap : BirAccessPattern) : Shape :=
   match bap.pattern with
   | [] => .mk 0 []
-  | ⟨ _, parNum ⟩ :: rest => .mk parNum $ rest.map fun pair => pair.num
+  | ⟨ _, parNum, _ ⟩ :: rest => .mk parNum $ rest.map fun pair => pair.num
 
 def fromAccessPattern (ap : AccessPattern) : BirAccessPattern :=
-  let free := ap.tensor.shape.freeElements
   { tensor := ap.tensor
-    offset := free * ap.parOffset + ap.freeOffset
-    pattern := ⟨ free, ap.parNum ⟩ :: ap.freePattern
+    offset := if ap.offset < 0 then 0 else ap.offset.natAbs -- TODO: probably throw an error here
+    pattern := ap.pattern
     scalarOffset := none
     vectorOffset := none
     indirectDim := 0
@@ -633,7 +660,7 @@ def fromAccessPattern (ap : AccessPattern) : Err TensorHbm := do
      name := ap.tensor.name
      dtype := ap.tensor.dtype
      address := parOffset * ap.tensor.shape.freeElements + freeOffset
-     dims := ⟨ 1, ap.parNum ⟩ :: ap.freePattern
+     dims := ap.pattern
    }
 
 end TensorHbm
@@ -664,7 +691,7 @@ structure TensorSram where
   -- The size of this tensor in the parallel dimension
   parNum : Nat
   -- The length and stride of each dimension besides the first
-  freePattern: List APPair
+  pattern : List APPair
   -- Which parallel dimension channel this tensor starts at
   parOffset : Nat := 0
   -- The offset in the partition channel of this tensor
@@ -686,7 +713,7 @@ def fromAccessPattern (ap : AccessPattern) : Err TensorSram := do
      name := ap.tensor.name
      dtype := ap.tensor.dtype
      parNum := ap.parNum
-     freePattern := ap.freePattern
+     pattern := ap.pattern
      parOffset
      freeOffset
    }

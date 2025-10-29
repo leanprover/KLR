@@ -511,7 +511,7 @@ nki builtin.isa.iota
  (channel_multiplier : Int := 0)
  -- kwargs
  (name : Option String := none) := do
-    let pairs := pattern.map fun (i, n) => APPair.mk i n
+    let pairs := pattern.map fun (i, n) => APPair.mk i n 0
     Trace.add_stmt $ .oper (.iota {
       dst := .abstract dst,
       pattern := ⟨ offset, pairs, channel_multiplier ⟩
@@ -550,7 +550,7 @@ nki builtin.isa.affine_select
  (mask : Option Immediate := none)
  (name : Option String := none) := do
     if mask.isSome then throw maskNotSupported
-    let pairs := pattern.map fun (i, n) => APPair.mk i n
+    let pairs := pattern.map fun (i, n) => APPair.mk i n 0
     Trace.add_stmt $ .oper (.ncAffineSelect {
       dst := .abstract dst,
       pred := ⟨offset, pairs, channel_multiplier⟩ ,

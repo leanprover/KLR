@@ -44,9 +44,9 @@ Index =
 
 AccessBasic = (TensorName tensor, Index* indexes, Prop lenWF)
 
-APPair = (Int step, Nat num)
+APPair = (Int step, Nat num, Nat offset)
 
-AccessPattern = (TensorName tensor, Nat parNum, APPair* freePattern, Nat parOffset, Nat freeOffset)
+AccessPattern = (TensorName tensor, Nat parNum, APPair* pattern, Nat parOffset, Nat freeOffset, Nat* fixedAxis)
 ScalarOffset =
  | reg(String r)
  | acc(Access a)
@@ -62,7 +62,7 @@ Access =
 
 TensorHbm = (String name, Dtype dtype, Nat address, APPair* dims)
 
-TensorSram = (String name, Dtype dtype, Nat parNum, APPair* freePattern, Nat parOffset, Nat freeOffset)
+TensorSram = (String name, Dtype dtype, Nat parNum, APPair* pattern, Nat parOffset, Nat freeOffset)
 TensorRef =
  | abstract(Access access)
  | sbuf(TensorSram view)
