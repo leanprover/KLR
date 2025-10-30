@@ -570,6 +570,7 @@ Ptr<TensorName> TensorName_des(FILE *in) {
   x->freeElements = Nat_des(in);
   x->parWF = Prop_des(in);
   x->freeWF = Prop_des(in);
+  x->addressRotation = Bool_des(in);
   return x;
 }
 
