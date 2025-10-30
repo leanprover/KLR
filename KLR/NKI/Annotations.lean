@@ -28,6 +28,8 @@ For instance, for loops of the form:
 are considered a special syntactic form that must be written in just this way
 to effect the "affine" annotation. The use of affine_range in other contexts
 will generate a warning and be treated as a call to range.
+
+This pass also checks the validity of variable names.
 -/
 
 namespace KLR.NKI
@@ -37,6 +39,13 @@ abbrev Ann := Pass Unit
 
 -- Expressions
 
+private def isValidName : Name -> Ann Unit
+  | .str `neuronxcc.nki._pre_prod_kernels _
+  | .str `neuronxcc.nki._pre_prod_nkl _ => return ()
+  | .str _ "neuronxcc" => throw "beta-1 API used in kernel: APIs from neuronxcc may not be used in Beta-2 kernels"
+  | .str n _ => isValidName n
+  | _ => return ()
+
 private def checkName : Name -> Ann Name
   | .str _ "range" => return `range
   | .str _ "static_range"
@@ -44,7 +53,7 @@ private def checkName : Name -> Ann Name
   | .str _ "sequential_range" => do
     warn "annotation has no effect"
     return `range
-  | n => return n
+  | n => do isValidName n; return n
 
 mutual
 private def expr (e : Expr) : Ann Expr :=
