@@ -105,6 +105,7 @@ struct TensorName final {
   Nat freeElements;
   Prop parWF;
   Prop freeWF;
+  Bool addressRotation;
 };
 
 struct Slice final {
