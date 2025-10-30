@@ -320,8 +320,10 @@ def endBlock (next : Option String := none) : Trace Unit := do
   if let some target := next then
     jmp target
   let body := match st.label with
-    | none => st.body
-    | some lbl => st.body.push ⟨ lbl, st.stmts.toList ⟩
+    | none =>
+        st.body
+    | some lbl =>
+        st.body.push ⟨ lbl, st.stmts.toList ⟩
   set { st with
         body := body
         label := next

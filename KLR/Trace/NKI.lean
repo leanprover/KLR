@@ -480,17 +480,17 @@ partial def stmt' (s' : Stmt') : Trace Result := do
         let bodyLbl := (<- genName `body).toString
         let endLbl := (<- genName `exit).toString
         -- entry:
-        let _ <- beginBlock
         let s <- scalar test
         brnz s bodyLbl endLbl
-        endBlock
+
         let _ <- beginBlock bodyLbl
         dynamic body
         brnz s bodyLbl endLbl
         endBlock
         -- end:
         let _ <- beginBlock endLbl
-        endBlock
+        -- endBlock don't need this endblock since this is an exit block for endLbl
+        -- the rest of the program should execute from here
         return .next
       | _ =>
         repeat
