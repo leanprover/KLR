@@ -150,7 +150,7 @@ where
       def $valuesFunName : List $name := [ $terms,* ]
     )
     let instances <- `(
-      deriving instance BEq, DecidableEq, FromJson, FromSexp, Inhabited, Repr, ToJson, ToSexp for $name
+      deriving instance BEq, DecidableEq, FromJson, FromSexp, Hashable, Inhabited, Repr, ToJson, ToSexp for $name
     )
     let fromUInt8!Name : Lean.Ident := mkIdent (.str typeName "fromUInt8!")
     let n : Lean.Ident := Lean.mkIdent (.str .anonymous "n")
