@@ -75,7 +75,7 @@ static PyObject* kernel_specialize(struct kernel *self, PyObject *args_tuple) {
   }
 
   if (flags != Py_None && !PySequence_Check(flags)) {
-      PyErr_SetString(PyExc_TypeError, "Invalid Argument: 'flags' must be a dictionary");
+      PyErr_SetString(PyExc_TypeError, "Invalid Argument: 'flags' must be a list of tuples");
       return NULL;
   }
 

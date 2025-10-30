@@ -1676,7 +1676,7 @@ PyObject* specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *
   st.work = NULL;
 
   st.ignore_refs = true;
-  lean_object *l_flags = const_exprs(&st, flags);
+  lean_object *l_flags = flags == Py_None ? mkNil() : const_exprs(&st, flags);
   checkPyErr(&st);
   st.ignore_refs = false;
   st.work = NULL;
