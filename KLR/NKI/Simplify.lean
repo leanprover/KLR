@@ -527,6 +527,7 @@ def simplify (py : Python.Kernel) : Simplify Kernel := do
     cls     := cls
     args    := <- args main_fun.args py.args py.kwargs
     globals := <- kwargs py.globals
+    arch    := py.arch
     grid    := py.grid
     edges   := <- py.scheduleEdges.mapM edge
     flags   := <- py.flags.mapM flags

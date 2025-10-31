@@ -49,21 +49,25 @@ static void kernel_dealloc(struct kernel *self) {
 static PyObject* kernel_specialize(struct kernel *self, PyObject *args_tuple) {
   PyObject* args = Py_None;     // O
   PyObject* kwargs = Py_None;   // O
+  PyObject* arch = Py_None;     // O
   PyObject* grid = Py_None;     // O
   PyObject* schedule = Py_None; // O
   PyObject* flags = Py_None;    // O
 
-  if (!PyArg_ParseTuple(args_tuple, "|OOOOO", &args, &kwargs, &grid, &schedule, &flags)) {
+  if (!PyArg_ParseTuple(args_tuple, "|OOOOOO", &args, &kwargs, &arch, &grid, &schedule, &flags)) {
       PyErr_SetString(PyExc_TypeError, "Failed to parse the arguments");
       return NULL;
   }
-
   if (args != Py_None && !PyTuple_Check(args)) {
       return NULL;
   }
   if (kwargs != Py_None && !PyDict_Check(kwargs)) {
       PyErr_SetString(PyExc_TypeError, "Invalid Argument: 'kwargs' must be a dictionary");
       return NULL;
+  }
+  if (arch != Py_None && !PyLong_Check(arch)) {
+    PyErr_SetString(PyExc_TypeError, "Invalid Argument: 'arch' must be an int");
+    return NULL;
   }
   if (grid != Py_None && !PyLong_Check(grid)) {
       PyErr_SetString(PyExc_TypeError, "Invalid Argument: 'grid' must be an int");
@@ -73,13 +77,12 @@ static PyObject* kernel_specialize(struct kernel *self, PyObject *args_tuple) {
       PyErr_SetString(PyExc_TypeError, "Invalid Argument: 'schedule' must be a sequence");
       return NULL;
   }
-
   if (flags != Py_None && !PySequence_Check(flags)) {
       PyErr_SetString(PyExc_TypeError, "Invalid Argument: 'flags' must be a list of tuples");
       return NULL;
   }
 
-  return specialize(self, args, kwargs, grid, schedule, flags);
+  return specialize(self, args, kwargs, arch, grid, schedule, flags);
 }
 
 // frontend.Kernel.serialize_python

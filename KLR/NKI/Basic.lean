@@ -198,6 +198,7 @@ structure Kernel where
   cls : List Class
   args : List Arg
   globals : List Arg
+  arch: Nat
   grid : Nat
   edges : List Edges
   flags : List (String × Value)

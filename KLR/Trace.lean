@@ -30,13 +30,28 @@ open Compile.Pass (PassM)
 def keywords : List (Name × Term) :=
   let ptr name memory parSize freeSize :=
     (name, Term.pointer { name := name.toString, memory, parSize, freeSize })
-  [ const_int `arch 2
-  , ptr `hbm  .hbm  0xffffffff 0xffffffff -- TODO: size of HBM?
+  [ ptr `hbm  .hbm  0xffffffff 0xffffffff -- TODO: size of HBM?
   , ptr `sbuf .sbuf 128 0x30000
   , ptr `psum .psum 128 0x4000
   ]
 
 def globalEnv := keywords ++ builtinEnv ++ pythonEnv ++ NKIEnv
+
+def kernelEnv (arch : Nat) : List (Name × Term) :=
+  let base := [
+    const_int (.str (nl "tile_size") "pmax") 128,
+    const_int (.str (nl "tile_size") "psum_fmax") 512,
+    const_int (.str (nl "tile_size") "gemm_stationary_fmax") 128,
+    const_int (.str (nl "tile_size") "gemm_moving_fmax") 512,
+    const_int (.str (nl "tile_size") "bn_stats_fmax") 512,
+    const_int (.str (nl "tile_size") "psum_min_align") 4,
+    const_int (.str (nl "tile_size") "sbuf_min_align") 1,
+    ]
+  match arch with
+  | 2 => base ++ [const_int (.str (nl "tile_size") "total_available_sbuf_size") 180224]
+  | 3 => base ++ [const_int (.str (nl "tile_size") "total_available_sbuf_size") 212984]
+  | 4 => base ++ [const_int (.str (nl "tile_size") "total_available_sbuf_size") 245752]
+  | _ => []
 
 def runNkiKernel
      (k : KLR.NKI.Kernel)
@@ -46,10 +61,10 @@ def runNkiKernel
   let env := match pid with
     | none => (nl "_program_id", int 0) ::
               (nl "_num_programs", int 1) ::
-              (nl "_program_ndim", int 0) :: globalEnv
+              (nl "_program_ndim", int 0) :: kernelEnv k.arch ++ globalEnv
     | some (p,n) => (nl "_program_id", int p) ::
                     (nl "_num_programs", int n) ::
-                    (nl "_program_ndim", int 1) :: globalEnv
+                    (nl "_program_ndim", int 1) :: kernelEnv k.arch ++ globalEnv
   tracer env (traceKernel k)
 
 -- TODO: check that inputs and outputs are the same

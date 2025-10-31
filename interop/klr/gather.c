@@ -1642,7 +1642,9 @@ static void append(PyObject **l, const char *r) {
   PyUnicode_AppendAndDel(l, str);
 }
 
-PyObject* specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *grid, PyObject *schedule, PyObject *flags) {
+PyObject* specialize(
+  struct kernel *k, PyObject *args, PyObject *kws, PyObject *arch, PyObject *grid, PyObject *schedule, PyObject *flags
+) {
   struct state st = { 0 };
   st.region = k->region;
 
@@ -1661,6 +1663,15 @@ PyObject* specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *
 
   // Process additional kernel data from user
   // (ignoring any generated work items)
+
+  long arch_val = 2;
+  if (arch != Py_None) {
+    arch_val = PyLong_AsLong(arch);
+    if (arch_val < 2 || arch_val > 4)
+      error(&st, "arch must between 2 and 4");
+  }
+  lean_object *l_arch = lean_unsigned_to_nat((u32)arch_val);
+
   long grid_val = 0;
   if (grid != Py_None) {
     grid_val = PyLong_AsLong(grid);
@@ -1700,6 +1711,7 @@ PyObject* specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *
     l_args,
     l_kwargs,
     lean_array_to_list(gs),
+    l_arch,
     l_grid,
     l_sched,
     l_flags);
@@ -1756,7 +1768,7 @@ lean_object* nki_to_json(lean_object*);
 
 const char* serialize_python(struct kernel *k) {
   if (!k->lean_kernel) {
-    specialize(k, Py_None, Py_None, Py_None, Py_None, Py_None);
+    specialize(k, Py_None, Py_None, Py_None, Py_None, Py_None, Py_None);
   }
 
   if (!k->lean_kernel) {
