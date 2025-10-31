@@ -429,7 +429,10 @@ private def clsName : Name -> String
 
 partial def toStr : Term -> Trace String
   | .module name => return name.toString
-  | .builtin name _ => return name.toString
+  | .builtin name _ =>
+    match name with
+    | .str `builtin.python n => return n
+    | _ => return name.toString
   | .ref name _ => do toStr (<- lookup name)
   | .source f => return f.name.toString
   | .cls c => return s!"<class {clsName c}>"
