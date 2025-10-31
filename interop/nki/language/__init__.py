@@ -10,8 +10,14 @@ def par_dim(x): return x
 
 float16 = "float16"
 
-class uint8(NKIObject):
+class int8(NKIObject):
   itemsize = 1
+  
+  def __init__(self, x):
+    self.value = x
+  
+  def __str__(self):
+    return "uint8"
 
 class float32(NKIObject):
   itemsize = 4

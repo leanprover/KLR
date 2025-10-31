@@ -664,6 +664,8 @@ nki builtin.isa.dma_copy
  (dst_rmw_op : Option AluOp := none)
  (oob_mode : Nat := 0)
  (dge_mode : Nat := 0)
+ (unique_indices : Bool := false)
+ (engine : Engine := .unassigned)
  (name : Option String := none) := do
   if mask.isSome then throw maskNotSupported
   let op : DgeComputeOp := <- match dst_rmw_op with
@@ -681,6 +683,8 @@ nki builtin.isa.dma_copy
         | 1 => .skip
         | _ => .skip,
       dgeMode := dge_mode,
+      uniqueIndices := unique_indices
+      engine
   }) name
   return .none
 
@@ -1068,3 +1072,78 @@ nki builtin.isa.core_barrier
       engine := engine
     }) name
     return .none
+
+-- Random number generation
+
+nki builtin.isa.rng
+  (dst : Access)
+  (engine : Engine := .unassigned)
+  (name : Option String := none) := do
+    Trace.add_stmt $ .oper (.rng {
+      dst := .abstract dst,
+      engine := engine
+    }) name
+    return .none
+
+nki builtin.isa.rand2
+  (dst : Access)
+  (min : Sum Immediate Access)
+  (max : Sum Immediate Access)
+  (name : Option String := none) := do
+  let min : Operand := match min with
+    | .inl imm => .imm imm
+    | .inr tensor => .tile $ .abstract tensor
+  let max : Operand := match max with
+    | .inl imm => .imm imm
+    | .inr tensor => .tile $ .abstract tensor
+  Trace.add_stmt $ .oper (.rand2 {
+    dst := .abstract dst, min, max
+  }) name
+  return .none
+
+nki builtin.isa.rand_get_state
+  (dst : Access)
+  (engine : Engine := .unassigned)
+  (name : Option String := none) := do
+  Trace.add_stmt $ .oper (.randGetState {
+    dst := .abstract dst, engine
+  }) name
+  return .none
+
+-- trn1 and trn2 only
+nki builtin.isa.set_rng_seed
+  (src_seeds : Access)
+  (name : Option String := none) := do
+  Trace.add_stmt $ .oper (.setRngSeed {
+    src := .abstract src_seeds
+  }) name
+  return .none
+
+-- trn2+
+nki builtin.isa.rand_set_state
+  (src_seeds : Access)
+  (engine : Engine := .unassigned)
+  (name : Option String := none) := do
+  Trace.add_stmt $ .oper (.randSetState {
+    src := .abstract src_seeds
+    engine
+  }) name
+  return .none
+
+nki builtin.isa.extended_inst
+  (opcode : Nat)
+  (hasWrite : Bool)
+  (hasRead : Bool)
+  (ports : Nat)
+  (data0 : List Nat)
+  (data1 : List Nat)
+  (name : Option String := none) := do
+  Trace.add_stmt $ .oper (.extendedInst {
+    opcode
+    hasWrite
+    hasRead
+    ports
+    data0
+    data1
+  }) name
+  return .none

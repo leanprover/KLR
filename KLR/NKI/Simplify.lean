@@ -81,11 +81,9 @@ private def cmpOp : Python.CmpOp -> Simplify BinOp
   | .gt => return .gt
   | .ge => return .ge
   | .is => do
-    warn "the 'is' operator is not supported in NKI, use =="
-    return .eq
+    throw "the 'is' operator is not supported in NKI, use =="
   | .isNot => do
-    warn "the 'is not' operator is not supported in NKI, use !="
-    return .ne
+    throw "the 'is not' operator is not supported in NKI, use !="
   | .isIn | .notIn =>
     throw "the 'in' operator is not supported in NKI"
 

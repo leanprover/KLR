@@ -420,6 +420,8 @@ def addId : Trace Unit := do
     compute_op := .none,
     oobMode := .skip,
     dgeMode := 0,
+    uniqueIndices := false
+    engine := .unassigned
   }) none pos
   let lbl := (<- genName `init).toString
   let idTensor :=  identity 128

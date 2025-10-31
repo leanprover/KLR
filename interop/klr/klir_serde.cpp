@@ -2187,7 +2187,7 @@ Ptr<NcDmaCopy> NcDmaCopy_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 153 || c != 0 || l != 5)
+  if (t != 153 || c != 0 || l != 7)
     throw std::runtime_error("Invalid Tag");
   Ptr<NcDmaCopy> x = ptr<NcDmaCopy>();
   x->dst = TensorRef_des(in);
@@ -2195,6 +2195,8 @@ Ptr<NcDmaCopy> NcDmaCopy_des(FILE *in) {
   x->compute_op = DgeComputeOp_des(in);
   x->oobMode = DmaBounds_des(in);
   x->dgeMode = Nat_des(in);
+  x->uniqueIndices = Bool_des(in);
+  x->engine = Engine_des(in);
   return x;
 }
 
@@ -2592,11 +2594,87 @@ Ptr<CoreBarrier> CoreBarrier_des(FILE *in) {
   return x;
 }
 
+Ptr<Rng> Rng_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 202 || c != 0 || l != 2)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<Rng> x = ptr<Rng>();
+  x->dst = TensorRef_des(in);
+  x->engine = Engine_des(in);
+  return x;
+}
+
+Ptr<Rand2> Rand2_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 203 || c != 0 || l != 3)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<Rand2> x = ptr<Rand2>();
+  x->dst = TensorRef_des(in);
+  x->min = Operand_des(in);
+  x->max = Operand_des(in);
+  return x;
+}
+
+Ptr<RandGetState> RandGetState_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 204 || c != 0 || l != 2)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<RandGetState> x = ptr<RandGetState>();
+  x->dst = TensorRef_des(in);
+  x->engine = Engine_des(in);
+  return x;
+}
+
+Ptr<SetRngSeed> SetRngSeed_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 205 || c != 0 || l != 1)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<SetRngSeed> x = ptr<SetRngSeed>();
+  x->src = TensorRef_des(in);
+  return x;
+}
+
+Ptr<RandSetState> RandSetState_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 206 || c != 0 || l != 2)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<RandSetState> x = ptr<RandSetState>();
+  x->src = TensorRef_des(in);
+  x->engine = Engine_des(in);
+  return x;
+}
+
+Ptr<ExtendedInst> ExtendedInst_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 207 || c != 0 || l != 6)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<ExtendedInst> x = ptr<ExtendedInst>();
+  x->opcode = Nat_des(in);
+  x->hasRead = Bool_des(in);
+  x->hasWrite = Bool_des(in);
+  x->ports = Nat_des(in);
+  x->data0 = List_Nat_des(in);
+  x->data1 = List_Nat_des(in);
+  return x;
+}
+
 Ptr<Operator> Operator_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 202)
+  if (t != 208)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -3085,6 +3163,54 @@ Ptr<Operator> Operator_des(FILE *in) {
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorCoreBarrierWrapper> x = ptr<OperatorCoreBarrierWrapper>();
     x->op = CoreBarrier_des(in);
+    return x;
+    break;
+  }
+  case 60: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorRngWrapper> x = ptr<OperatorRngWrapper>();
+    x->op = Rng_des(in);
+    return x;
+    break;
+  }
+  case 61: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorRand2Wrapper> x = ptr<OperatorRand2Wrapper>();
+    x->op = Rand2_des(in);
+    return x;
+    break;
+  }
+  case 62: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorRandGetStateWrapper> x = ptr<OperatorRandGetStateWrapper>();
+    x->op = RandGetState_des(in);
+    return x;
+    break;
+  }
+  case 63: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorSetRngSeedWrapper> x = ptr<OperatorSetRngSeedWrapper>();
+    x->op = SetRngSeed_des(in);
+    return x;
+    break;
+  }
+  case 64: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorRandSetStateWrapper> x = ptr<OperatorRandSetStateWrapper>();
+    x->op = RandSetState_des(in);
+    return x;
+    break;
+  }
+  case 65: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorExtendedInstWrapper> x = ptr<OperatorExtendedInstWrapper>();
+    x->op = ExtendedInst_des(in);
     return x;
     break;
   }

@@ -349,6 +349,8 @@ structure NcDmaCopy where
   compute_op         : DgeComputeOp
   oobMode            : DmaBounds
   dgeMode            : Nat
+  uniqueIndices      : Bool
+  engine             : Engine
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- DmaTranspose instruction
@@ -878,6 +880,48 @@ structure CoreBarrier where
 deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 202]
+structure Rng where
+  dst : TensorRef
+  engine : Engine
+deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 203]
+structure Rand2 where
+  dst : TensorRef
+  min : Operand
+  max : Operand
+deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 204]
+structure RandGetState where
+  dst : TensorRef
+  engine : Engine
+deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+-- trn1 and trn2
+@[serde tag = 205]
+structure SetRngSeed where
+  src : TensorRef
+deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+-- trn2+
+@[serde tag = 206]
+structure RandSetState where
+  src : TensorRef
+  engine : Engine
+deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 207]
+structure ExtendedInst where
+  opcode : Nat
+  hasRead : Bool
+  hasWrite : Bool
+  ports : Nat
+  data0 : List Nat
+  data1 : List Nat
+deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 208]
 inductive Operator where
   | activate (op : Activate)
   | ncActivate (op : NcActivate)
@@ -939,9 +983,15 @@ inductive Operator where
   | send (op : Send)
   | recv (op : Recv)
   | coreBarrier (op : CoreBarrier)
+  | rng (op : Rng)
+  | rand2 (op : Rand2)
+  | randGetState (op : RandGetState)
+  | setRngSeed (op : SetRngSeed)
+  | randSetState (op : RandSetState)
+  | extendedInst (op : ExtendedInst)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 203]
+@[serde tag = 209]
 inductive TGROperator where
   | activate (op : Activate)
   | affineSelect (op : AffineSelect)

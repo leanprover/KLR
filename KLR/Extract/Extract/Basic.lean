@@ -359,6 +359,12 @@ def klrAST: MetaM (List LeanType) := do
     `KLR.Core.CmpBranch,
     `KLR.Core.RegisterAluOp,
     `KLR.Core.CoreBarrier,
+    `KLR.Core.Rng,
+    `KLR.Core.Rand2,
+    `KLR.Core.RandGetState,
+    `KLR.Core.SetRngSeed,
+    `KLR.Core.RandSetState,
+    `KLR.Core.ExtendedInst,
     `KLR.Core.Operator,
     -- Core.Basic
     `KLR.Core.Stmt,

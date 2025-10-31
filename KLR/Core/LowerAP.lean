@@ -181,6 +181,16 @@ def Operator.lowerAccessPatterns (k : Operator) : KLR.Err Operator :=
   | .coreBarrier c => return .coreBarrier { c with
     data := (<- c.data.lowerAccessPatterns)
   }
+  | .rng r => return .rng { r with dst := (<- r.dst.lowerAccessPatterns)}
+  | .rand2 r => return .rand2 {
+      dst := <- r.dst.lowerAccessPatterns
+      min := <- r.min.lowerAccessPatterns
+      max := <- r.max.lowerAccessPatterns
+      }
+  | .randGetState r => return .randGetState { r with dst := (<- r.dst.lowerAccessPatterns)}
+  | .setRngSeed r => return .setRngSeed { r with src := (<- r.src.lowerAccessPatterns)}
+  | .randSetState r => return .randSetState { r with src := (<- r.src.lowerAccessPatterns)}
+  | .extendedInst i => return .extendedInst i
 
 def Stmt.lowerAccessPatterns : Stmt → KLR.Err Stmt
   | .oper op name pos => return .oper (<- op.lowerAccessPatterns) name pos

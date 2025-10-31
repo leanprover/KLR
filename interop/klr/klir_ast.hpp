@@ -761,6 +761,8 @@ struct NcDmaCopy final {
   DgeComputeOp compute_op;
   Ptr<DmaBounds> oobMode;
   Nat dgeMode;
+  Bool uniqueIndices;
+  Engine engine;
 };
 
 struct NcLocalGather final {
@@ -943,6 +945,40 @@ struct CoreBarrier final {
   Engine engine;
 };
 
+struct Rng final {
+  Ptr<TensorRef> dst;
+  Engine engine;
+};
+
+struct Rand2 final {
+  Ptr<TensorRef> dst;
+  Ptr<Operand> min;
+  Ptr<Operand> max;
+};
+
+struct RandGetState final {
+  Ptr<TensorRef> dst;
+  Engine engine;
+};
+
+struct SetRngSeed final {
+  Ptr<TensorRef> src;
+};
+
+struct RandSetState final {
+  Ptr<TensorRef> src;
+  Engine engine;
+};
+
+struct ExtendedInst final {
+  Nat opcode;
+  Bool hasRead;
+  Bool hasWrite;
+  Nat ports;
+  List<Nat> data0;
+  List<Nat> data1;
+};
+
 struct Operator {
   enum class Tag {
     activate = 1,
@@ -1005,6 +1041,12 @@ struct Operator {
     send,
     recv,
     coreBarrier,
+    rng,
+    rand2,
+    randGetState,
+    setRngSeed,
+    randSetState,
+    extendedInst,
   };
   Tag tag;
   Operator(Tag tag) : tag(tag) {}
@@ -1309,6 +1351,36 @@ struct OperatorRecvWrapper final : Operator {
 struct OperatorCoreBarrierWrapper final : Operator {
   Ptr<CoreBarrier> op;
   OperatorCoreBarrierWrapper() : Operator(Tag::coreBarrier) {}
+};
+
+struct OperatorRngWrapper final : Operator {
+  Ptr<Rng> op;
+  OperatorRngWrapper() : Operator(Tag::rng) {}
+};
+
+struct OperatorRand2Wrapper final : Operator {
+  Ptr<Rand2> op;
+  OperatorRand2Wrapper() : Operator(Tag::rand2) {}
+};
+
+struct OperatorRandGetStateWrapper final : Operator {
+  Ptr<RandGetState> op;
+  OperatorRandGetStateWrapper() : Operator(Tag::randGetState) {}
+};
+
+struct OperatorSetRngSeedWrapper final : Operator {
+  Ptr<SetRngSeed> op;
+  OperatorSetRngSeedWrapper() : Operator(Tag::setRngSeed) {}
+};
+
+struct OperatorRandSetStateWrapper final : Operator {
+  Ptr<RandSetState> op;
+  OperatorRandSetStateWrapper() : Operator(Tag::randSetState) {}
+};
+
+struct OperatorExtendedInstWrapper final : Operator {
+  Ptr<ExtendedInst> op;
+  OperatorExtendedInstWrapper() : Operator(Tag::extendedInst) {}
 };
 
 struct Stmt {

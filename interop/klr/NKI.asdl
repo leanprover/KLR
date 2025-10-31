@@ -266,7 +266,7 @@ NcActivate = (TensorRef dst, TensorRef src, AccumCmd accumulatorCmd, ActivationF
 
 NcAffineSelect = (TensorRef dst, DataPattern pred, TensorRef onTrueTile, Immediate onFalseValue, Dtype? dtype, AluOp cmpOp)
 
-NcDmaCopy = (TensorRef dst, TensorRef src, DgeComputeOp compute_op, DmaBounds oobMode, Nat dgeMode)
+NcDmaCopy = (TensorRef dst, TensorRef src, DgeComputeOp compute_op, DmaBounds oobMode, Nat dgeMode, Bool uniqueIndices, Engine engine)
 
 NcLocalGather = (TensorRef dst, TensorRef src, TensorRef index, Immediate numElemPerIdx, Immediate? numValidIndicies)
 
@@ -321,6 +321,18 @@ CmpBranch = (String reg1, String reg2, Int imm, BrCmpOp op, String trueLabel, St
 RegisterAluOp = (String dst, String src, Int imm, AluOp op)
 
 CoreBarrier = (TensorRef data, Int* cores, Engine engine)
+
+Rng = (TensorRef dst, Engine engine)
+
+Rand2 = (TensorRef dst, Operand min, Operand max)
+
+RandGetState = (TensorRef dst, Engine engine)
+
+SetRngSeed = (TensorRef src)
+
+RandSetState = (TensorRef src, Engine engine)
+
+ExtendedInst = (Nat opcode, Bool hasRead, Bool hasWrite, Nat ports, Nat* data0, Nat* data1)
 Operator =
  | activate(Activate op)
  | ncActivate(NcActivate op)
@@ -382,6 +394,12 @@ Operator =
  | send(Send op)
  | recv(Recv op)
  | coreBarrier(CoreBarrier op)
+ | rng(Rng op)
+ | rand2(Rand2 op)
+ | randGetState(RandGetState op)
+ | setRngSeed(SetRngSeed op)
+ | randSetState(RandSetState op)
+ | extendedInst(ExtendedInst op)
 
 Stmt =
  | oper(Operator op, String? name, Pos pos)

@@ -177,6 +177,9 @@ partial def operatorBasicTensors : Operator → List TensorRef
   | .allReduce _ | .allGather _ | .reduceScatter _ | .collectivePermute _ | .broadcast _ | .allToAll _ => []
   | .send _ | .recv _ => []
   | .coreBarrier c => [c.data]
+  | .rng r | .rand2 r | .randGetState r  => [r.dst]
+  | .setRngSeed r | .randSetState r => [r.src]
+  | .extendedInst _ => []
 
 partial def operatorAdditionalTensors : Operator → List TensorName
   | .ncActivate d => (tensors d.scale) ++ (tensors d.bias) ++ (tensors d.reduceRes)
@@ -196,6 +199,7 @@ partial def operatorAdditionalTensors : Operator → List TensorName
   | .allReduce op | .allGather op | .reduceScatter op | .collectivePermute op | .broadcast op | .allToAll op => tensors $ op.dsts ++ op.srcs
   | .send s => tensors s.srcs
   | .recv r => tensors r.dsts
+  | .rand2 r => tensors r.min ++ tensors r.max
   | _ => []
 
 instance : Tensors Operator where

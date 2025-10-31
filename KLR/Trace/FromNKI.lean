@@ -206,10 +206,12 @@ instance : FromNKI Engine where
     | some "tensor_engine" => return .pe
     | some "vector_engine" => return .dve
     | some "scalar_engine" => return .act
+    | some "gpsimd_engine" => return .pool
     | some "unknown" => return .unassigned
     | some "tensor" => return .pe
     | some "vector" => return .dve
     | some "scalar" => return .act
+    | some "gpsimd" => return .pool
     | _ => throw s!"expecting engine type, got {Term.kindStr t}"
 
 instance : FromNKI Access where

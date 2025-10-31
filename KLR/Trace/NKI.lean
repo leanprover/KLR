@@ -38,22 +38,13 @@ def NKIEnv : List (Name × Term) :=
   [ module nki_
   , module nki_isa
   , module nki_lang
-  , module nki_stdlib  
+  , module nki_stdlib
   , module nki_typing
   , module `math
   , module `numpy
   , const_int (.str (nisa "nc_version") "gen1") 1
   , const_int (.str (nisa "nc_version") "gen2") 2
   , const_int (.str (nisa "nc_version") "gen3") 3
-  -- engines
-  , const_var (nisa "unknown_engine")
-  , const_var (nisa "tensor_engine")
-  , const_var (nisa "vector_engine")
-  , const_var (nisa "scalar_engine")
-  -- TODO: these should probably be defined inside python
-  -- however we can't define `sbuf = sbuf`, even when we
-  -- supply the sbuf as keyword ourself and defining these
-  -- as a plain string seems meaningless to a degree
   , const_var (nl "psum")
   , const_var (nl "sbuf")
   , const_var (nl "hbm")
