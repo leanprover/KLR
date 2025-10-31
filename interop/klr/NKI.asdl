@@ -34,7 +34,7 @@ Shape = (Nat parDim, Nat* freeDims)
 
 Address = (String name, Memory memory, Nat parSize, Nat freeSize, Nat? parOffset, Nat? freeOffset, Bool isShared)
 
-TensorName = (String name, Dtype dtype, Shape shape, Address address, Nat freeElements, Prop parWF, Prop freeWF)
+TensorName = (String name, Dtype dtype, Shape shape, Address address, Nat freeElements, Prop parWF, Prop freeWF, Bool addressRotation)
 
 Slice = (Nat l, Nat u, Int step, Prop wf)
 Index =
@@ -321,6 +321,10 @@ CmpBranch = (String reg1, String reg2, Int imm, BrCmpOp op, String trueLabel, St
 RegisterAluOp = (String dst, String src, Int imm, AluOp op)
 
 CoreBarrier = (TensorRef data, Int* cores, Engine engine)
+
+RandomSeed = (Int seed)
+
+Rand = (TensorRef dst)
 Operator =
  | activate(Activate op)
  | ncActivate(NcActivate op)
@@ -382,6 +386,8 @@ Operator =
  | send(Send op)
  | recv(Recv op)
  | coreBarrier(CoreBarrier op)
+ | randomSeed(RandomSeed op)
+ | rand(Rand op)
 
 Stmt =
  | oper(Operator op, String? name, Pos pos)

@@ -127,6 +127,8 @@ Ptr<RegisterMove> RegisterMove_des(FILE *in);
 Ptr<CmpBranch> CmpBranch_des(FILE *in);
 Ptr<RegisterAluOp> RegisterAluOp_des(FILE *in);
 Ptr<CoreBarrier> CoreBarrier_des(FILE *in);
+Ptr<RandomSeed> RandomSeed_des(FILE *in);
+Ptr<Rand> Rand_des(FILE *in);
 Ptr<Operator> Operator_des(FILE *in);
 Ptr<Stmt> Stmt_des(FILE *in);
 Ptr<Block> Block_des(FILE *in);
