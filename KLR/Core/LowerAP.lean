@@ -181,6 +181,8 @@ def Operator.lowerAccessPatterns (k : Operator) : KLR.Err Operator :=
   | .coreBarrier c => return .coreBarrier { c with
     data := (<- c.data.lowerAccessPatterns)
   }
+  | .randomSeed r => return .randomSeed r
+  | .rand r => return .rand { r with dst := (<- r.dst.lowerAccessPatterns)}
 
 def Stmt.lowerAccessPatterns : Stmt → KLR.Err Stmt
   | .oper op name pos => return .oper (<- op.lowerAccessPatterns) name pos

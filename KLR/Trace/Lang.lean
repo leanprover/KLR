@@ -68,3 +68,19 @@ nki builtin.lang.ds (start : Int) (size : Int) := do
 nki builtin.lang.unique_name (name : String) := do
   let uniqueName := <- genName name.toName
   return .string uniqueName.toString
+
+nki builtin.lang.random_seed
+  (seed : Int)
+  (name : Option String := none) := do
+  Trace.add_stmt $ .oper (.randomSeed {
+    seed := seed
+  }) name
+  return .none
+
+nki builtin.lang.rand
+  (dst : Access)
+  (name : Option String := none) := do
+  Trace.add_stmt $ .oper (.rand {
+    dst := .abstract dst
+  }) name
+  return .none

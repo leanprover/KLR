@@ -943,6 +943,14 @@ struct CoreBarrier final {
   Engine engine;
 };
 
+struct RandomSeed final {
+  Int seed;
+};
+
+struct Rand final {
+  Ptr<TensorRef> dst;
+};
+
 struct Operator {
   enum class Tag {
     activate = 1,
@@ -1005,6 +1013,8 @@ struct Operator {
     send,
     recv,
     coreBarrier,
+    randomSeed,
+    rand,
   };
   Tag tag;
   Operator(Tag tag) : tag(tag) {}
@@ -1309,6 +1319,16 @@ struct OperatorRecvWrapper final : Operator {
 struct OperatorCoreBarrierWrapper final : Operator {
   Ptr<CoreBarrier> op;
   OperatorCoreBarrierWrapper() : Operator(Tag::coreBarrier) {}
+};
+
+struct OperatorRandomSeedWrapper final : Operator {
+  Ptr<RandomSeed> op;
+  OperatorRandomSeedWrapper() : Operator(Tag::randomSeed) {}
+};
+
+struct OperatorRandWrapper final : Operator {
+  Ptr<Rand> op;
+  OperatorRandWrapper() : Operator(Tag::rand) {}
 };
 
 struct Stmt {

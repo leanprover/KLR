@@ -175,7 +175,8 @@ partial def operatorBasicTensors : Operator → List TensorRef
   | .ncMatMulMX m => [m.dst, m.stationary, m.moving, m.stationaryScale, m.movingScale]
   | .dmaCompute d => [d.dst]
   | .allReduce _ | .allGather _ | .reduceScatter _ | .collectivePermute _ | .broadcast _ | .allToAll _ => []
-  | .send _ | .recv _ => []
+  | .send _ | .recv _ | .randomSeed _ => []
+  | .rand r => [r.dst]
   | .coreBarrier c => [c.data]
 
 partial def operatorAdditionalTensors : Operator → List TensorName

@@ -878,6 +878,16 @@ structure CoreBarrier where
 deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 202]
+structure RandomSeed where
+  seed : Int
+deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 203]
+structure Rand where
+  dst : TensorRef
+deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 204]
 inductive Operator where
   | activate (op : Activate)
   | ncActivate (op : NcActivate)
@@ -939,9 +949,11 @@ inductive Operator where
   | send (op : Send)
   | recv (op : Recv)
   | coreBarrier (op : CoreBarrier)
+  | randomSeed (op : RandomSeed)
+  | rand (op : Rand)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 203]
+@[serde tag = 205]
 inductive TGROperator where
   | activate (op : Activate)
   | affineSelect (op : AffineSelect)
