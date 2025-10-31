@@ -49,9 +49,19 @@ abbrev StM := EStateM String
 def impossible {a : Type} [h : Inhabited a] (msg : String := "") :=
   @panic a h s!"Invariant violation: {msg}"
 
-def get! [Inhabited a] (x : Err a) : a := match x with
-| .error msg => impossible msg
-| .ok x => x
+def _root_.Except.get! [Inhabited α] (v : Except ε α) : α :=
+  match v with
+  | .error _ => impossible
+  | .ok x => x
+
+def _root_.Except.getD (v : Except ε α) (default : α) : α :=
+  match v with
+  | .ok v => v
+  | .error _ => default
+
+-- TODO: Deprecate this
+def get! [Inhabited a] (x : Err a) : a :=
+  x.get!
 
 def natDivCeil (num denom : Nat) : Nat := (num + denom - 1) / denom
 
