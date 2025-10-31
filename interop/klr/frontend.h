@@ -40,7 +40,7 @@ struct _mod* parse_string(const char *str, PyObject* filename);
 void free_python_ast(struct _mod *m);
 
 // gather.c
-PyObject* specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *grid, PyObject *schedule, PyObject *flags);
+PyObject* specialize(struct kernel *k, PyObject *args, PyObject *kws, PyObject *arch, PyObject *grid, PyObject *schedule, PyObject *flags);
 const char* serialize_python(struct kernel *k);
 const char* trace(struct kernel *k, const char *dst_file, const char *dst_format);
 

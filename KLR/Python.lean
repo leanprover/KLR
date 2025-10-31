@@ -242,6 +242,7 @@ structure Kernel where
   args : List Expr
   kwargs : List Keyword
   globals : List Keyword
+  arch : Nat
   grid : Nat
   scheduleEdges : List Expr
   flags : List Expr

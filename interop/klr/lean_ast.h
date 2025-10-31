@@ -12,7 +12,7 @@ extern uint8_t Python_Ctx_load;
 extern uint8_t Python_Ctx_store;
 extern uint8_t Python_Ctx_del;
 lean_object* Python_Expr_mk(lean_object*,lean_object*);
-lean_object* Python_Kernel_mk(lean_object*,lean_object*,lean_object*,lean_object*,lean_object*,lean_object*,lean_object*,lean_object*,lean_object*);
+lean_object* Python_Kernel_mk(lean_object*,lean_object*,lean_object*,lean_object*,lean_object*,lean_object*,lean_object*,lean_object*,lean_object*,lean_object*);
 lean_object* Python_Class_mk(lean_object*,lean_object*,lean_object*,lean_object*,lean_object*);
 lean_object* Python_Stmt_expr(lean_object*);
 lean_object* Python_Stmt_assert(lean_object*,lean_object*);
