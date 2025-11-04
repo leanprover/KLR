@@ -271,6 +271,9 @@ instance : FromNKI AluOp where
         | `nki.language.logical_and => return .logical_and
         | `nki.language.logical_or => return .logical_or
         | `nki.language.logical_xor => return .logical_xor
+        | `nki.language.rsqrt => return .rsqrt
+        | `nki.language.abs => return .abs
+        | `nki.language.power => return .pow
         | _ => throw s!"unsupported operator {name}"
     | t => throw s!"expecting operator, got '{Term.kindStr t}'"
 
