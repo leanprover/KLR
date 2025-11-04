@@ -39,6 +39,7 @@ def globalEnv := keywords ++ builtinEnv ++ pythonEnv ++ NKIEnv
 
 def kernelEnv (arch : Nat) : List (Name × Term) :=
   let base := [
+    const_int (`arch) arch,
     const_int (.str (nl "tile_size") "pmax") 128,
     const_int (.str (nl "tile_size") "psum_fmax") 512,
     const_int (.str (nl "tile_size") "gemm_stationary_fmax") 128,
