@@ -193,7 +193,7 @@ nki builtin.isa.activation
  (scale : Sum Immediate Access := .inl $ .float 1.0) -- This also can accept a tensor
  (reduce_op : Option AluOp := none)
  (reduce_res : Option Access := none)
- (reduce_cmd : AccumCmd := .ZeroAccumulate)
+ (reduce_cmd : AccumCmd := .Idle)
  (mask : Option Immediate := none)
  (name : Option String := none) := do
   if mask.isSome then
