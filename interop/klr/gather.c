@@ -326,8 +326,8 @@ static inline lean_object* curPos(struct state *st) {
 
 #define Pos(obj) \
   ((obj) ? \
-    mkPos(obj->lineno, obj->end_lineno, \
-          obj->col_offset, obj->end_col_offset, st->scope.file) : \
+    mkPos(obj->lineno, obj->col_offset, \
+          obj->end_lineno, obj->end_col_offset, st->scope.file) : \
     mkPos(0,0,0,0, st->scope.file))
 
 
