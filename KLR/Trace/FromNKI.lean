@@ -129,72 +129,56 @@ instance : FromNKI TensorLib.Tensor where
   | .tensor t => return t
   | t => throw s!"expecting a 'tensor', got '{Term.kindStr t}'"
 
+-- Enums are a mess because they can come across in different ways from Python.
+-- This function will try all the variations.
+
+private def fromEnum : Term -> Option String
+  | .module name
+  | .builtin name ..
+  | .source { name ..}
+  | .cls name
+  | .method name ..
+  | .var name =>
+     match name with
+     | .str _ s => some s
+     | _ => none
+  | .object _ fs =>
+     match AA.lookup? fs "name" with
+     | some (.string s) => some s
+     | _ => none
+  | .string s =>
+       match s.toName with
+       | .str _ s => some s
+       | _ => some s
+  | _ => none
+
 -- TODO: when new NKI API is settled, rewrite is a nicer way
 instance : FromNKI Dtype where
-  fromNKI?
-    | .object name _
-    | .source {name ..}
-    | .var name =>
-      match name with
-      -- NKI variants (see table in NKI docs)
-      | `nki.language.uint8 => .ok .uint8
-      | `nki.language.int8 => .ok .int8
-      | `nki.language.uint16 => .ok .uint16
-      | `nki.language.int16 => .ok .int16
-      | `nki.language.uint32 => .ok .int32
-      | `nki.language.int32 => .ok .int32
-      | `nki.language.float8e3 => .ok .float8e3
-      | `nki.language.float8e4 => .ok .float8e4
-      | `nki.language.float8e5 => .ok .float8e5
-      | `nki.language.float8_e4m3 => .ok .float8e4
-      | `nki.language.float8_e5m2 => .ok .float8e5
-      | `nki.language.float16 => .ok .float16
-      | `nki.language.bfloat16 => .ok .bfloat16
-      | `nki.language.tfloat32 => .ok .float32r  -- TODO check this
-      | `nki.language.float32 => .ok .float32
-      | `nki.language.bool_ => .ok .uint8
-      | `nki.language.float8_e4m3fn => .ok .float8_e4m3fn
-      | `nki.language.float8_e5m2_x4 => .ok .float8_e5m2_x4
-      | `nki.language.float8_e4m3fn_x4 => .ok .float8_e4m3fn_x4
-      | `nki.language.float4_e2m1fn_x4 => .ok .float4_e2m1fn_x4
-      -- torch variants
-      | `torch.uint8 => .ok .uint8
-      | `torch.int8 => .ok .int8
-      | `torch.int16 => .ok .int16
-      | `torch.int32 => .ok .int32
-      | `torch.float16 => .ok .float16
-      | `torch.float32 => .ok .float32
-      | `torch.bfloat16 => .ok .bfloat16
-      | `torch.bool => .ok .uint8
-      | _ => throw s!"unsupported dtype '{name}'"
-    | .string name =>
-      match (name.split (· == '.')).getLast? with
-      | some last =>
-        match last with
-        -- imported and string variants
-        | "uint8" => .ok .uint8
-        | "int8" => .ok .int8
-        | "uint16" => .ok .uint16
-        | "int16" => .ok .int16
-        | "uint32" => .ok .int32
-        | "int32" => .ok .int32
-        | "float8e3" => .ok .float8e3
-        | "float8e4" => .ok .float8e4
-        | "float8e5" => .ok .float8e5
-        | "float8_e4m3" => .ok .float8e4
-        | "float8_e5m2" => .ok .float8e5
-        | "float16" => .ok .float16
-        | "bfloat16" => .ok .bfloat16
-        | "tfloat32" => .ok .float32r  -- TODO check this
-        | "float32" => .ok .float32
-        | "bool" => .ok .uint8
-        | "float8_e4m3fn" => .ok .float8_e4m3fn
-        | "float8_e5m2_x4" => .ok .float8_e5m2_x4
-        | "float8_e4m3fn_x4" => .ok .float8_e4m3fn_x4
-        | "float4_e2m1fn_x4" => .ok .float4_e2m1fn_x4
-        | _ => throw s!"unsupported dtype '{name}'"
-      | none => throw s!"unsupported dtype '{name}'"
-    | t => throw s!"expecting 'dtype', got '{Term.kindStr t}'"
+  fromNKI? t :=
+    match fromEnum t with
+    | some "uint8" => return .uint8
+    | some "int8" => return .int8
+    | some "uint16" => return .uint16
+    | some "int16" => return .int16
+    | some "uint32" => return .int32
+    | some "int32" => return .int32
+    | some "float8e3" => return .float8e3
+    | some "float8e4" => return .float8e4
+    | some "float8e5" => return .float8e5
+    | some "float8_e4m3" => return .float8e4
+    | some "float8_e5m2" => return .float8e5
+    | some "float16" => return .float16
+    | some "bfloat16" => return .bfloat16
+    | some "tfloat32" => return .float32r
+    | some "float32" => return .float32
+    | some "bool_" => return .uint8
+    | some "bool" => return .uint8
+    | some "float8_e4m3fn" => return .float8_e4m3fn
+    | some "float8_e5m2_x4" => return .float8_e5m2_x4
+    | some "float8_e4m3fn_x4" => return .float8_e4m3fn_x4
+    | some "float4_e2m1fn_x4" => return .float4_e2m1fn_x4
+    | some name => throw s!"unsupported dtype '{name}'"
+    | none => throw s!"expecting 'dtype', got '{Term.kindStr t}'"
 
 instance : FromNKI Shape where
   fromNKI? t := do
@@ -204,33 +188,29 @@ instance : FromNKI Shape where
     | p :: f => return ⟨ p, f ⟩
 
 instance : FromNKI Memory where
-  fromNKI? t :=
-    let err := .error s!"expecting buffer type, got {Term.kindStr t}"
-    match t with
-    | .var name =>
-      match name with
-      -- TODO: do we need to distinguish the different HBM types?
-      | `nki.language.shared_hbm => .ok .hbm
-      | `nki.language.private_hbm => .ok .hbm
-      | `nki.language.hbm => .ok .hbm
-      | `nki.language.sbuf => .ok .sbuf
-      | `nki.language.psum => .ok .psum
-      | _ => err
-    | .pointer p => return p.memory
-    | _ => err
+  fromNKI? t := do
+    if let .pointer p := t then
+      return p.memory
+    match fromEnum t with
+    | some "shared_hbm" => return .hbm
+    | some "private_hbm" => return .hbm
+    | some "hbm" => return .hbm
+    | some "sbuf" => return .sbuf
+    | some "psum" => return .psum
+    | _ => throw s!"expecting buffer type, got {Term.kindStr t}"
 
 instance : FromNKI Engine where
   fromNKI? t :=
-    let err := .error "expecting engine type"
-    match t with
-    | .var name =>
-      match name with
-      | `nki.isa.unknown_engine => .ok .unassigned
-      | `nki.isa.tensor_engine => .ok .pe
-      | `nki.isa.vector_engine => .ok .dve
-      | `nki.isa.scalar_engine => .ok .act
-      | _ => err
-    | _ => err
+    match fromEnum t with
+    | some "unknown_engine" => return .unassigned
+    | some "tensor_engine" => return .pe
+    | some "vector_engine" => return .dve
+    | some "scalar_engine" => return .act
+    | some "unknown" => return .unassigned
+    | some "tensor" => return .pe
+    | some "vector" => return .dve
+    | some "scalar" => return .act
+    | _ => throw s!"expecting engine type, got {Term.kindStr t}"
 
 instance : FromNKI Access where
   fromNKI?
@@ -243,91 +223,69 @@ instance : FromNKI TensorName where
     | t => throw s!"expecting 'tensor', got '{Term.kindStr t}'"
 
 instance : FromNKI AluOp where
-  fromNKI?
-    | .none => return .bypass
-    | .var name
-    | .source {name, ..} =>
-        match name with
-        -- bitwise operations
-        | `nki.language.invert => return .bitwise_not
-        | `nki.language.bitwise_and => return .bitwise_and
-        | `nki.language.bitwise_or => return .bitwise_or
-        | `nki.language.bitwise_xor => return .bitwise_xor
-        | `nki.language.left_shift => return .logical_shift_left
-        | `nki.language.right_shift => return .logical_shift_right
-        -- arithemetic operations
-        | `nki.language.add => return .add
-        | `nki.language.subtract => return .subtract
-        | `nki.language.multiply => return .mult
-        | `nki.language.maximum => return .max
-        | `nki.language.minimum => return .min
-        | `nki.language.equal => return .is_equal
-        | `nki.language.not_equal => return .not_equal
-        | `nki.language.greater_equal => return .is_ge
-        | `nki.language.greater => return .is_gt
-        | `nki.language.less_equal => return .is_le
-        | `nki.language.less => return .is_lt
-        | `nki.language.logical_not => throw "'logical_not' operator not supported"
-        | `nki.language.logical_and => return .logical_and
-        | `nki.language.logical_or => return .logical_or
-        | `nki.language.logical_xor => return .logical_xor
-        | `nki.language.rsqrt => return .rsqrt
-        | `nki.language.abs => return .abs
-        | `nki.language.power => return .pow
-        | _ => throw s!"unsupported operator {name}"
-    | t => throw s!"expecting operator, got '{Term.kindStr t}'"
+  fromNKI? t :=
+    match fromEnum t with
+    -- bitwise operations
+    | some "invert" => return .bitwise_not
+    | some "bitwise_and" => return .bitwise_and
+    | some "bitwise_or" => return .bitwise_or
+    | some "bitwise_xor" => return .bitwise_xor
+    | some "left_shift" => return .logical_shift_left
+    | some "right_shift" => return .logical_shift_right
+    -- arithemetic operations
+    | some "add" => return .add
+    | some "subtract" => return .subtract
+    | some "multiply" => return .mult
+    | some "maximum" => return .max
+    | some "minimum" => return .min
+    | some "equal" => return .is_equal
+    | some "not_equal" => return .not_equal
+    | some "greater_equal" => return .is_ge
+    | some "greater" => return .is_gt
+    | some "less_equal" => return .is_le
+    | some "less" => return .is_lt
+    | some "logical_not" => throw "'logical_not' operator not supported"
+    | some "logical_and" => return .logical_and
+    | some "logical_or" => return .logical_or
+    | some "logical_xor" => return .logical_xor
+    | some "rsqrt" => return .rsqrt
+    | some "abs" => return .abs
+    | some "power" => return .pow
+    | _ => throw s!"expecting operator, got '{Term.kindStr t}'"
 
 instance : FromNKI ActivationFunc where
   fromNKI? t :=
-    let err := .error "expecting activation function (e.g., relu, sigmoid, tanh, gelu)"
-    match t with
-    | .var name
-    | .source {name, ..} =>
-      match name with
-      | `nki.language.copy => return .copy
-      | `nki.language.square => return .square
-      | `nki.language.sigmoid => return .sigmoid
-      | `nki.language.relu => return .relu
-      | `nki.language.gelu => return .gelu
-      | `nki.language.gelu_dx => return .gelu_dx
-      | `nki.language.gelu_apprx_tanh => return .gelu_apprx_tanh
-      | `nki.language.silu => return .silu
-      | `nki.language.silu_dx => return .silu_dx
-      | `nki.language.tanh => return .tanh
-      | `nki.language.softplus => return .softplus
-      | `nki.language.mish => return .mish
-      | `nki.language.erf => return .erf
-      | `nki.language.erf_dx => return .erf_dx
-      | `nki.language.exp => return .exp
-      | `nki.language.log => return .log
-      | `nki.language.sin => return .sin
-      | `nki.language.arctan => return .arctan
-      | `nki.language.sqrt => return .sqrt
-      | `nki.language.rsqrt => return .rsqrt
-      | `nki.language.reciprocal => return .reciprocal
-      | `nki.language.sign => return .sign
-      | `nki.language.abs => return .abs
-      | _ => err
-    | _ => err
-
+    match fromEnum t with
+    | some "copy" => return .copy
+    | some "square" => return .square
+    | some "sigmoid" => return .sigmoid
+    | some "relu" => return .relu
+    | some "gelu" => return .gelu
+    | some "gelu_dx" => return .gelu_dx
+    | some "gelu_apprx_tanh" => return .gelu_apprx_tanh
+    | some "silu" => return .silu
+    | some "silu_dx" => return .silu_dx
+    | some "tanh" => return .tanh
+    | some "softplus" => return .softplus
+    | some "mish" => return .mish
+    | some "erf" => return .erf
+    | some "erf_dx" => return .erf_dx
+    | some "exp" => return .exp
+    | some "log" => return .log
+    | some "sin" => return .sin
+    | some "arctan" => return .arctan
+    | some "sqrt" => return .sqrt
+    | some "rsqrt" => return .rsqrt
+    | some "reciprocal" => return .reciprocal
+    | some "sign" => return .sign
+    | some "abs" => return .abs
+    | _ => throw s!"expecting activation function, got '{Term.kindStr t}'"
 
 instance : FromNKI AccumCmd where
   fromNKI? t :=
-    let err := .error "expecting accumulator command (idle, reset, reduce, reset_reduce)"
-    match t with
-    | .object `nki.isa.reduce_cmd vs =>
-      match AA.lookup? vs "name" with
-      | some (.string "idle") => return .Idle
-      | some (.string "reset") => return .Zero
-      | some (.string "reduce") => return .Accumulate
-      | some (.string "reset_reduce") => return .ZeroAccumulate
-      | _ => err
-    | .var name =>
-      match name with
-      | `nki.isa.reduce_cmd.idle => return .Idle
-      | `nki.isa.reduce_cmd.reset => return .Zero
-      | `nki.isa.reduce_cmd.reduce => return .Accumulate
-      | `nki.isa.reduce_cmd.reset_reduce => return .ZeroAccumulate
-      -- Something should emit LoadAccumulate? Not sure what
-      | _ => err
-    | _ => err
+    match fromEnum t with
+    | some "idle" => return .Idle
+    | some "reset" => return .Zero
+    | some "reduce" => return .Accumulate
+    | some "reset_reduce" => return .ZeroAccumulate
+    | _ => throw "expecting accumulator command (idle, reset, reduce, reset_reduce)"

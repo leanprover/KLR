@@ -534,7 +534,9 @@ private def globals (k : Kernel) : Trace Unit := do
   for g in filterGlobals k.globals do
     let name := g.name.toName
     if not (s.globals.contains name) then
-      extend_global name (<- expr' g.value.expr)
+      try extend_global name (<- expr' g.value.expr)
+      catch _ => pure ()
+
 
 private def processArgs (args : List Arg) : List Value × List Keyword := Id.run do
   let mut inputs : List Value := []
