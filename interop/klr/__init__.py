@@ -17,7 +17,7 @@ def _specialize_kernel(
     args: Optional[tuple] = None,
     kwargs: Optional[dict] = None,
     *,
-    arch: int
+    arch: int,
     grid: Optional[int] = None,
     schedule: Optional[Sequence[tuple[str, Union[str, Sequence[str]]]]] = None,
     address_rotation: bool = False,
