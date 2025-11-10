@@ -56,7 +56,8 @@ def kernelEnv (arch : Nat) : List (Name × Term) :=
 
 def runNkiKernel
      (k : KLR.NKI.Kernel)
-     (pid : Option (Nat × Nat) := none)
+     (genDebug : Bool)
+     (pid : Option (Nat × Nat))
      : PassM (TraceResult Core.Kernel) := do
   let int i := Term.int i
   let env := match pid with
@@ -66,20 +67,21 @@ def runNkiKernel
     | some (p,n) => (nl "_program_id", int p) ::
                     (nl "_num_programs", int n) ::
                     (nl "_program_ndim", int 1) :: kernelEnv k.arch ++ globalEnv
-  tracer env (traceKernel k)
+  tracer genDebug env (traceKernel k)
 
 -- TODO: check that inputs and outputs are the same
 -- TODO: check that shared constants are the same
 -- TODO: check that schedule edges make sense
-def runLncKernels (k : NKI.Kernel) : PassM (List (TraceResult Unit) × Core.LncKernel) := do
+def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
+  : PassM (List (TraceResult Unit) × Core.LncKernel) := do
   let num := k.grid.max 1
-  let res <- runNkiKernel k (0, num)
+  let res <- runNkiKernel k genDebug (0, num)
   let k0 := res.result
 
   let mut result := [{ res with result := () }]
   let mut bodies := [res.result.body]
   for i in [1:num] do
-    let res <- runNkiKernel k (i,num)
+    let res <- runNkiKernel k genDebug (i,num)
     result := { res with result := () } :: result
     bodies := res.result.body :: bodies
 

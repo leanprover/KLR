@@ -3,6 +3,9 @@
 class NKIObject:
     pass
 
+def copy(): pass
+def exp(): pass
+
 def par_dim(x): return x
 
 float16 = "float16"
