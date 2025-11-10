@@ -17,12 +17,13 @@ def _specialize_kernel(
     args: Optional[tuple] = None,
     kwargs: Optional[dict] = None,
     *,
+    arch: int
     grid: Optional[int] = None,
     schedule: Optional[Sequence[tuple[str, Union[str, Sequence[str]]]]] = None,
     address_rotation: bool = False,
 ):
     flags = [("address_rotation", address_rotation)]
-    metadata_json_str = kernel.specialize(args, kwargs, grid, schedule, flags)
+    metadata_json_str = kernel.specialize(args, kwargs, arch, grid, schedule, flags)
     metadata = json.loads(metadata_json_str)
     return metadata
 
