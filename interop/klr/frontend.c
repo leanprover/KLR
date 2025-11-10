@@ -98,11 +98,12 @@ static PyObject* kernel_serialize(struct kernel *self) {
 static PyObject* kernel_trace(struct kernel *self, PyObject *args) {
   const char *dst_file = NULL;
   const char *dst_format = "cbor";
-  if (!PyArg_ParseTuple(args, "s|s", &dst_file, &dst_format)) {
+  const char *dbg_file = NULL;
+  if (!PyArg_ParseTuple(args, "s|ss", &dst_file, &dst_format, &dbg_file)) {
     return NULL;
   }
 
-  const char *json = trace(self, dst_file, dst_format);
+  const char *json = trace(self, dst_file, dst_format, dbg_file);
   if (json)
     return PyUnicode_FromString(json);
   else

@@ -154,6 +154,50 @@ instance : Tensors Term where
   | _ => []
 
 /-
+Debug info for profiler
+
+The DebugItem's for a tree of data relative to the original source code.
+During tracing we maintain a DebugInfo structure which has a stack for
+building the tree incrementally.
+-/
+
+inductive DebugItem where
+  | func (line : Nat) (name file : String) (children : Array DebugItem)
+  | iter (line : Nat) (var val : String) (children : Array DebugItem)
+  | inst (line : Nat) (name : String)
+  deriving Repr, Lean.ToJson
+
+structure DebugInfo where
+  collect : Bool := false
+  stack : List (Array DebugItem) := []
+  leaf : Array DebugItem := #[]
+  deriving Repr
+
+namespace DebugInfo
+
+def add (d : DebugInfo) (item : DebugItem) : DebugInfo :=
+  if not d.collect then d else
+  { d with leaf := d.leaf.push item }
+
+def push (d : DebugInfo) : DebugInfo :=
+  if not d.collect then d else
+  { d with
+    stack := d.leaf :: d.stack
+    leaf := #[]
+  }
+
+def pop (cons : Array DebugItem -> DebugItem) (d : DebugInfo) : DebugInfo :=
+  if not d.collect then d else
+  let (top, rest) := match d.stack with
+    | [] => (#[], [])  -- shouldn't happen, but don't fail, just ignore
+    | top :: rest => (top, rest)
+  if d.leaf.size == 0
+  then { d with stack := rest }
+  else { d with stack := rest, leaf := top.push (cons d.leaf) }
+
+end DebugInfo
+
+/-
 Our state has a number for generating fresh names, the current source location
 (for error reporting), and the global and local environments. The set of fully
 traced statements is held in the `body` field, and there is an array of
@@ -176,15 +220,32 @@ structure State where
   dynamicCtx : Bool := False
   label : Option String := none
   stmts : Array Stmt := #[]
-  iv : Array Name := #[]
-  stack : Array Name := #[]
-  ivs : Std.HashMap String (Array (Name × Int)) := ∅
-  stacks : Std.HashMap String (Array Name) := ∅
+  -- debug info
+  debug : DebugInfo := {}
 
 instance : Inhabited State where
   default := {}
 
 abbrev Trace := Pass State
+
+def dbgAdd (name : String) : Trace Unit := do
+  let st <- getThe PassState
+  modifyThe State fun s =>
+    { s with debug := s.debug.add (.inst st.lineOffset name) }
+
+def dbgPush : Trace Unit :=
+  modify fun s => { s with debug := s.debug.push }
+
+def dbgPopFile (name file : String) : Trace Unit := do
+  --dbgtrace_ s!"POP file {name} {file}"
+  let st <- getThe PassState
+  modifyThe State fun s =>
+    { s with debug := s.debug.pop (DebugItem.func st.lineOffset name file) }
+
+def dbgPopIter (var val : String) : Trace Unit := do
+  let st <- getThe PassState
+  modifyThe State fun s =>
+    { s with debug := s.debug.pop (DebugItem.iter st.lineOffset var val) }
 
 def genName (name : Name := `tmp) : Trace Name := do
   freshName name
@@ -237,21 +298,13 @@ def enter (m : Trace a) : Trace a := do
     modify fun s => { s with locals := locals }
 
 -- Enter a new function scope, removing all local bindings
-def enterFun (name : Name) (m : Trace a) : Trace a := do
+def enterFun (m : Trace a) : Trace a := do
   let s ← get
   let locals := s.locals
-  let iv := s.iv
-  set { s with locals := ∅, iv := #[], stack := s.stack.push name }
+  set { s with locals := ∅ }
   try m
   finally
-    modify fun s => { s with locals, iv, stack := s.stack.pop }
-
-def enterLoop (var : Name) (m : Trace a) : Trace a := do
-  let s ← get
-  set { s with iv := s.iv.push var }
-  try m
-  finally
-    modify fun s => { s with iv := s.iv.pop }
+    modify fun s => { s with locals }
 
 -- append fully traced statement
 def add_stmt (stmt : Pos -> Stmt) : Trace Unit := do
@@ -264,13 +317,8 @@ def add_stmt (stmt : Pos -> Stmt) : Trace Unit := do
     | .oper op (some name) pos =>
        pure (.oper op (some name) pos, name)
   let stmts := s.stmts.push stmt
-  let iv <- s.iv.mapM fun n => do
-    match <- lookup? n with
-    | some (.int i) => pure (n, i)
-    | _ => pure (n, -1)
-  let ivs := s.ivs.insert name iv
-  let stacks := s.stacks.insert name s.stack
-  set { s with stmts, ivs, stacks }
+  set { s with stmts }
+  dbgAdd name
 
 def jmp (target : String) : Trace Unit := do
   add_stmt (.oper (.cmpBranch {
@@ -409,18 +457,17 @@ def tensorName : Option String -> Trace String
 
 structure TraceResult (a : Type) where
   sharedConstants : SharedConstants
-  ivs : Std.HashMap String (Array (Name × Int))
-  stacks : Std.HashMap String (Array Name)
+  debug : Array DebugItem
   result : a
 
 -- Run a `Trace` monad computation, and handle any generated warnings or errors.
-def tracer (g : List (Name × Term)) (m : Trace a) : PassM (TraceResult a) := do
-  let initialState : State := { globals := .ofList g }
+def tracer (genDebug : Bool) (g : List (Name × Term)) (m : Trace a) : PassM (TraceResult a) := do
+  let initialState : State := { globals := .ofList g, debug := { collect := genDebug } }
   resetPassState
   runPassWith initialState do
     let x <- m
     let st <- get
-    return ⟨st.sharedConstants, st.ivs, st.stacks, x⟩
+    return ⟨st.sharedConstants, st.debug.leaf, x⟩
 
 -- Truthiness of Terms following Python
 namespace Term

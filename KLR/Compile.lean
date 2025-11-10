@@ -42,23 +42,22 @@ private def sharedConstant
 
 structure DebugInfo where
   lnc : Nat
-  ivs : Std.HashMap String (Array (Lean.Name × Int))
-  stacks : Std.HashMap String (Array Lean.Name)
+  info : Array Trace.DebugItem
   deriving Lean.ToJson
 
 private def writeDebugInfo
      (filename : String)
      (tr : List (Trace.TraceResult Unit)) : IO Unit := do
   let h <- IO.FS.Handle.mk filename IO.FS.Mode.write
-  let info := (tr.zipIdx 1).map fun (res, n) => DebugInfo.mk n res.ivs res.stacks
+  let info := (tr.zipIdx 1).map fun (res, n) => DebugInfo.mk n res.debug
   let json := Lean.toJson info
   h.putStr (toString json)
   h.flush
 
-private def compile (kernel : Python.Kernel)
+private def compile (kernel : Python.Kernel) (genDebug : Bool := false)
   : Pass.PassM (List (Trace.TraceResult Unit) × LncKernel) := do
   let kernel <- NKI.compile kernel
-  let (shared, kernel) <- Trace.runLncKernels kernel
+  let (shared, kernel) <- Trace.runLncKernels kernel genDebug
   let kernel <- Core.lowerAccessPatterns kernel
   return (shared, kernel)
 
@@ -66,14 +65,14 @@ private def compile (kernel : Python.Kernel)
 def compilePython
     (kernel : Python.Kernel)
     (outfolder : Option String)
-    (debugfile : Option String)
+    (debugFile : Option String)
     : IO (CompileResult LncKernel) := do
   let (kernel, _warnings) := kernel.inferArguments
-  let res := Pass.runPasses (compile kernel)
+  let res := Pass.runPasses (compile kernel debugFile.isSome)
   match res.result with
   | none => return { res with result := none }
   | some (tr, kernel) =>
-    if let some dbg := debugfile then
+    if let some dbg := debugFile then
       writeDebugInfo dbg tr
     let cs <- match outfolder with
     | some p => tr.flatMapM fun res => res.sharedConstants.toList.mapM (sharedConstant p)
@@ -132,14 +131,19 @@ private def outfolder (outfile : String) : String :=
 
 -- reads srcPythonAstFileName, writes dstKlrFileName, returns kernel info as string of json
 @[export nki_trace]
-def frontend_trace (kernel : Python.Kernel) (dstKlrFileName : String) (format : String) : IO String := do
+def frontend_trace
+    (kernel : Python.Kernel)
+    (dstKlrFileName : String)
+    (format : String)
+    (dbgFileName : Option String)
+    : IO String := do
   let fmt := match format with
   | "cbor" => .cbor
   | "json" => .json
   | "sexp" => .sexp
   | _ => .cbor
   -- TODO: maybe the debug info filename should be a parameter?
-  let res <- compilePython kernel (outfolder dstKlrFileName) (dstKlrFileName ++ ".debuginfo.json")
+  let res <- compilePython kernel (outfolder dstKlrFileName) dbgFileName
   if let some kernel := res.result then
     let f := FilePath.mk (dstKlrFileName)
     File.writeKLRFile f fmt kernel
