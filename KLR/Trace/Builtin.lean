@@ -31,6 +31,7 @@ open Lean Elab Command Term Meta
 
 def nki_ : Name := .str .anonymous "nki"
 def nki_isa : Name := .str nki_ "isa"
+def nki_stdlib : Name := .str nki_ "stdlib"
 def nki_lang : Name := .str nki_ "language"
 def nki_typing : Name := .str nki_ "typing"
 
