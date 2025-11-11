@@ -572,8 +572,8 @@ nki builtin.isa.range_select
  (reduce_cmd : AccumCmd := AccumCmd.Idle)
  (reduce_res : Option Access := none)
  (reduce_op : Option AluOp := some .max)
- (range_start : Immediate := .float 0)
- (on_false_value : Immediate := .float 0)
+ (range_start : Immediate := .float 0.0)
+ (on_false_value : Immediate := .float (-1.0 / 0.0))
  (mask : Option Immediate := none)
  (name : Option String := none) := do
     if mask.isSome then throw maskNotSupported
