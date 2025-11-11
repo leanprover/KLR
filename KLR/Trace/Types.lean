@@ -230,8 +230,9 @@ abbrev Trace := Pass State
 
 def dbgAdd (name : String) : Trace Unit := do
   let st <- getThe PassState
+  let line := st.lineOffset + st.pos.line - 1
   modifyThe State fun s =>
-    { s with debug := s.debug.add (.inst st.lineOffset name) }
+    { s with debug := s.debug.add (.inst line name) }
 
 def dbgPush : Trace Unit :=
   modify fun s => { s with debug := s.debug.push }
@@ -244,8 +245,9 @@ def dbgPopFile (name file : String) : Trace Unit := do
 
 def dbgPopIter (var val : String) : Trace Unit := do
   let st <- getThe PassState
+  let line := st.lineOffset + st.pos.line - 1
   modifyThe State fun s =>
-    { s with debug := s.debug.pop (DebugItem.iter st.lineOffset var val) }
+    { s with debug := s.debug.pop (DebugItem.iter line var val) }
 
 def genName (name : Name := `tmp) : Trace Name := do
   freshName name
