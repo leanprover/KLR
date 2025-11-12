@@ -1149,11 +1149,33 @@ static lean_object* args(struct state *st, arguments_ty python) {
 
   lean_object *defaults = exprs(st, python->defaults);
 
-  // TODO: this is a bug
-  // The old version of gather computed the names of keyword defaults,
-  // but this is not what the parser does.
-  //as->kw_defaults = exprs(st, python->kw_defaults);
+  // Construct kw_defaults by zipping kwonlyargs with kw_defaults
+  // The Python AST has kw_defaults as a list where:
+  // - NULL means "no default" (required keyword-only argument)
+  // - Non-NULL expressions include actual defaults (even if the default is None)
+  // Lean expects only the keyword args that actually have defaults as Keywords
   lean_object *kw_defaults = mkNil();
+  if (python->kwonlyargs && python->kw_defaults && 
+      python->kwonlyargs->size == python->kw_defaults->size) {
+    lean_object *arr = lean_mk_empty_array();
+    lean_object *l_pos = curPos(st);
+    
+    for (int i = 0; i < python->kwonlyargs->size; i++) {
+      // Skip NULL entries (required keyword-only args with no default)
+      // Note: actual None defaults are Constant expressions, not NULL
+      expr_ty default_expr = python->kw_defaults->typed_elements[i];
+      if (default_expr != NULL) {
+        arg_ty kwarg = python->kwonlyargs->typed_elements[i];
+        if (kwarg && kwarg->arg) {
+          lean_object *name = py_strdup(st, kwarg->arg);
+          lean_object *l_default = expr(st, default_expr);
+          lean_object *keyword = Python_Keyword_mk(mkSome(name), l_default, l_pos);
+          arr = lean_array_push(arr, keyword);
+        }
+      }
+    }
+    kw_defaults = lean_array_to_list(arr);
+  }
 
   return Python_Args_mk(posonlyargs, args, defaults, vararg,
                         kwonlyargs, kw_defaults, kwarg);
