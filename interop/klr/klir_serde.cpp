@@ -560,7 +560,7 @@ Ptr<TensorName> TensorName_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 114 || c != 0 || l != 7)
+  if (t != 114 || c != 0 || l != 8)
     throw std::runtime_error("Invalid Tag");
   Ptr<TensorName> x = ptr<TensorName>();
   x->name = String_des(in);
@@ -2592,11 +2592,33 @@ Ptr<CoreBarrier> CoreBarrier_des(FILE *in) {
   return x;
 }
 
+Ptr<RandomSeed> RandomSeed_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 202 || c != 0 || l != 1)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<RandomSeed> x = ptr<RandomSeed>();
+  x->seed = Int_des(in);
+  return x;
+}
+
+Ptr<Rand> Rand_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 203 || c != 0 || l != 1)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<Rand> x = ptr<Rand>();
+  x->dst = TensorRef_des(in);
+  return x;
+}
+
 Ptr<Operator> Operator_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 202)
+  if (t != 204)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -3085,6 +3107,22 @@ Ptr<Operator> Operator_des(FILE *in) {
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorCoreBarrierWrapper> x = ptr<OperatorCoreBarrierWrapper>();
     x->op = CoreBarrier_des(in);
+    return x;
+    break;
+  }
+  case 60: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorRandomSeedWrapper> x = ptr<OperatorRandomSeedWrapper>();
+    x->op = RandomSeed_des(in);
+    return x;
+    break;
+  }
+  case 61: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorRandWrapper> x = ptr<OperatorRandWrapper>();
+    x->op = Rand_des(in);
     return x;
     break;
   }
