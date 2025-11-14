@@ -709,6 +709,10 @@ static struct ref reference(struct state *st, struct _expr *e) {
 
   switch(e->kind) {
   case Name_kind:
+    const char *s = PyUnicode_AsUTF8(e->v.Name.id);
+    if (s && have_def(st, s)) {
+      break;
+    }
     ref.obj = lookup(st, e->v.Name.id);
     if (ref.obj) {
       if (PyModule_Check(ref.obj)) {
