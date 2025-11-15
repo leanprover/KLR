@@ -2,8 +2,8 @@ import Lean
 import KLR.TGR.AST
 import KLR.K.Operators
 import KLR.K.K3.AST
+import KLR.Util.Gensym
 import TensorLib.Tensor
-import Util.Gensym
 
 namespace KLR.K.K3
 

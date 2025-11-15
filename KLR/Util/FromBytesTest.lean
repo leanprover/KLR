@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -/
 
-import Util.FromBytes
+import KLR.Util.FromBytes
 
 namespace KLR.Util
 

@@ -14,8 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -/
 
+import KLR.Util.Hex
 import TensorLib.ByteArray -- For BEq
-import Util.Hex
 
 namespace KLR.Util.MD5
 

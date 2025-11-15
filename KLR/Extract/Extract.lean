@@ -31,7 +31,7 @@ private def withFile (file : String) (m : MetaM Unit) : MetaM Unit := do
   let h <- IO.FS.Handle.mk file IO.FS.Mode.write
   IO.withStdout (.ofHandle h) m
 
-private def dir := "../../interop/klr"
+private def dir := "interop/klr"
 
 -- Note: please leave commmented out items as we may need to bring these
 -- back in follow-up commits.

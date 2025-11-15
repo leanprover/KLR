@@ -66,14 +66,14 @@ instance : FromBytes Foo where
 TODO: Generalize to multiple bytes
 TODO: Check the sizes of inputs to `mk` to ensure they don't overflow the bits
 -/
+import KLR.Util.Enum
+import KLR.Util.FromBytes
+import KLR.Util.NumBytes
+import KLR.Util.ToBytes
+import KLR.Util.Sexp
 import Lean
 import Plausible
 import TensorLib.Common
-import Util.Enum
-import Util.FromBytes
-import Util.NumBytes
-import Util.ToBytes
-import Util.Sexp
 
 open KLR.Util(FromBytes FromSexp NumBytes ToBytes ToSexp)
 open Lean(FromJson Json Syntax TSyntax TSyntaxArray ToJson mkIdent fromJson? toJson)
@@ -158,7 +158,7 @@ where
     for item in items do
       match item with
       | `(item| $x:ident : $typ := $v:num) =>
-        fields := fields.push (x.getId, typ.getId, v.getNat)
+        fields := fields.push (x.getId, typ.getId, v.getNat.toUInt8)
         sfields := sfields.push (<- `(structSimpleBinder| $x:ident : $typ))
       | _ => throwError "illegal syntax"
     let cmd <-
@@ -213,9 +213,8 @@ private bstruct Foo where
   x : E := 5
   y : UInt8 := 2
   z : UInt8 := 1
-deriving Repr
 
-#guard ToBytes.toBytes (Foo.mk E.x 3 1) == ByteArray.mk #[ 5 <<< 3 ||| 3 <<< 1 ||| 1 ]
+#guard ToBytes.toBytes (Foo.mk E.x 3 1) == ByteArray.mk #[ (5 <<< 3 ||| 3 <<< 1 ||| 1).toUInt8 ]
 
 private bstruct Foo0 where
   x : UInt8 := 8
@@ -239,7 +238,7 @@ def roundTrip (n m : UInt4) : Bool :=
   let foo := Foo1.mk n m
   KLR.Util.fromBytes Foo1 (ToBytes.toBytes foo) == .ok (foo, ByteArray.empty)
 
-#guard ToBytes.toBytes (Foo1.mk 3 4) == ⟨ #[ (3 <<< 4) ||| 4 ] ⟩
+#guard ToBytes.toBytes (Foo1.mk 3 4) == ⟨ #[ ((3 <<< 4) ||| 4).toUInt8 ] ⟩
 #guard
   let foo := Foo1.mk 10 4
   KLR.Util.fromBytes Foo1 (ToBytes.toBytes foo) == .ok (foo, ByteArray.empty)
@@ -260,7 +259,8 @@ info: Unable to find a counter-example
 warning: declaration uses 'sorry'
 -/
 #guard_msgs in
-  example (n m : UInt4) : ToBytes.toBytes (Foo1.mk m n) == ⟨ #[ m.toNat <<< 4 ||| n.toNat ] ⟩ := by plausible
+  example (n m : UInt4) : ToBytes.toBytes (Foo1.mk m n) ==
+   ⟨ #[ (m.toNat <<< 4 ||| n.toNat).toUInt8 ] ⟩ := by plausible
 
 /--
 info: Unable to find a counter-example

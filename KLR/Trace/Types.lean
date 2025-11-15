@@ -359,7 +359,7 @@ def addImm (src dst : String) (imm : Int) : Trace Unit := do
   add_stmt (.oper (.registerAluOp {
        src
        dst
-       imm
+       imm := imm.toInt32
        op := AluOp.add
     })
     (<- genName `brnz).toString)

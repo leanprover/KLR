@@ -73,7 +73,7 @@ nki builtin.isa.register_alloc (t : Option Int := none) := do
   let reg <- genName `reg
   add_stmt (.oper (.registerMove {
     dst := reg.toString
-    imm := t.getD 0
+    imm := (t.getD 0).toInt32
     })
     (<- genName `move).toString
   )
@@ -83,7 +83,7 @@ nki builtin.isa.register_move (dst : Term) (imm : Int) := do
   let reg <- getReg dst
   add_stmt (.oper (.registerMove {
     dst := reg.toString
-    imm := imm
+    imm := imm.toInt32
     })
     (<- genName `move).toString
   )
@@ -831,7 +831,7 @@ nki builtin.isa.sendrecv
       src := .abstract src,
       sendToRank := send_to_rank,
       recvFromRank := recv_from_rank,
-      pipeId := .int pipe_id,
+      pipeId := .int pipe_id.toInt32,
       useGpsimdDma := use_gpsimd_dma
     }) name
     return .none
@@ -851,7 +851,7 @@ nki builtin.isa.sendrecv_cce
       src := <- src.mapM (fun x => return .abstract x),
       sendToRank := send_to_rank,
       recvFromRanks := recv_from_ranks,
-      pipeId := .int pipe_id,
+      pipeId := .int pipe_id.toInt32,
       op := op
     }) name
     return .none

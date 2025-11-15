@@ -560,7 +560,7 @@ Ptr<TensorName> TensorName_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 114 || c != 0 || l != 7)
+  if (t != 114 || c != 0 || l != 8)
     throw std::runtime_error("Invalid Tag");
   Ptr<TensorName> x = ptr<TensorName>();
   x->name = String_des(in);

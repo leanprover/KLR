@@ -14,10 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -/
 
+import KLR.Util.Hex
+import KLR.Util.Sexp
 import Lean
 import TensorLib.Common
-import Util.Hex
-import Util.Sexp
 
 open KLR.Util.Hex(encode)
 open KLR.Util(FromSexp ToSexp)
@@ -229,7 +229,6 @@ private enum Foo where
   | r := 9
   | m := 10
   | n
-deriving Repr
 
 #guard Enum.toUInt8 Foo.x == 0
 #guard Foo.toUInt8 .x == 0

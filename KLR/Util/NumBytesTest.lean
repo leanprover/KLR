@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -/
 
-import Util.NumBytes
+import KLR.Util.NumBytes
 
 open KLR.Util(NumBytes)
 

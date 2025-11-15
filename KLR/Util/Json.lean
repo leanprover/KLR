@@ -50,7 +50,7 @@ instance : FromJson UInt32 where
 partial def removeNullValues : Json -> Json
 | .arr a => .arr (a.map removeNullValues)
 | .obj o =>
-  let pairs := o.fold (init := []) fun ps k v =>
+  let pairs := o.foldl (init := []) fun ps k v =>
     if v.isNull then ps else (k, removeNullValues v) :: ps
   Json.mkObj pairs
 | j => j
@@ -80,7 +80,7 @@ def jsonRoundTripEq [BEq a] [FromJson a] [ToJson a] (x : a) : Bool :=
 instance HashMapFromJson [FromJson a] : FromJson (HashMap String a) where
   fromJson? j := do
     let node <- j.getObj?
-    node.foldM (fun m k v => do
+    node.foldlM (fun m k v => do
       let v <- fromJson? v
       return m.insert k v
     ) HashMap.emptyWithCapacity
@@ -127,8 +127,8 @@ deriving BEq, FromJson, ToJson
 def swapKeys (j : Json) (old new : String) : Json :=
   match j.getObj? with
   | .error _ => j
-  | .ok obj => match obj.find compare old with
+  | .ok obj => match obj.get? old with
     | .none => j
-    | .some v => (Json.obj (obj.del compare old)).setObjVal! new v
+    | .some v => (Json.obj (obj.erase old)).setObjVal! new v
 
 end KLR.Util.Json

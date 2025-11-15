@@ -64,12 +64,6 @@ KLR_A += $A
 $A:
 	${LAKE} build TensorLib/TensorLib:static
 
-# Util
-A := ${D}/../KLR/.lake/build/lib/libUtil.a
-KLR_A += $A
-$A:
-	${LAKE} build Util:static
-
 # Plausible
 A := ${P}/plausible/.lake/build/lib/libPlausible.a
 KLR_A += $A
@@ -93,7 +87,7 @@ deps: ${KLR_A}
 	@echo deps ${KLR_A}
 
 # Python shared library
-frontend${PY_EXT}: $(O) $(KLR_A) lean_gzip.c
+frontend${PY_EXT}: $(O) $(KLR_A)
 	${CC} $^ -dynamiclib -o $@ ${LDFLAGS}
 
 # Basic test oc CBOR utilities

@@ -14,8 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -/
 
-import Util.Common
-import Util.Sexp
+import KLR.Util.Common
+import KLR.Util.Sexp
 
 open KLR(get!)
 open Lean(FileMap)

@@ -14,11 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -/
 
+import KLR.Util.Common
+import KLR.Util.Float
+import KLR.Util.Hex
+import KLR.Util.Meta
 import TensorLib
-import Util.Common
-import Util.Float
-import Util.Hex
-import Util.Meta
 
 open Lean(Command ConstructorVal CoreM Expr Ident InductiveVal Macro Name Syntax TSyntax Term getConstInfoCtor getConstInfoInduct getEnv getStructureFieldsFlattened isInductive isStructure mkIdent quote)
 open Lean.Core(mkFreshUserName)

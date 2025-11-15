@@ -14,8 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -/
 
+import KLR.Util.Common
 import Lean.Elab
-import Util.Common
 
 open KLR(Err)
 open Lean(MonadError Name Syntax Term)

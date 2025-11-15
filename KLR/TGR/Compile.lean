@@ -13,7 +13,6 @@ import TensorLib.Slice
 import TensorLib.Tensor
 import TensorLib.Bytes
 import TensorLib.ByteArray
-import Util.Gensym
 
 open TensorLib (Dtype Shape Tensor)
 

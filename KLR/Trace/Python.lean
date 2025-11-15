@@ -17,7 +17,7 @@ limitations under the License.
 import KLR.Core
 import KLR.Trace.ISA
 import KLR.Trace.Types
-import Util.Float
+import KLR.Util.Float
 
 /-
 Python related builtins

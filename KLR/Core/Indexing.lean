@@ -173,7 +173,7 @@ def Access.normWithAP (this: FixedPairs) (inTerms : FixedPairs) : FixedPairs :=
       (acc ++ [APPair.mk pair.step 1 0], thisIdx, fixedAxis ++ [i])
     else
       let shiftedThisFixed := if this.fixedAxis.contains thisIdx then
-        let shift := (inTerms.fixedAxis.filter (· < i)).length
+        --let shift := (inTerms.fixedAxis.filter (· < i)).length
         fixedAxis ++ [i]
       else fixedAxis
       (acc ++ [this.pairs[thisIdx]!], thisIdx + 1, shiftedThisFixed)

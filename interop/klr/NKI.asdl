@@ -34,7 +34,7 @@ Shape = (Nat parDim, Nat* freeDims)
 
 Address = (String name, Memory memory, Nat parSize, Nat freeSize, Nat? parOffset, Nat? freeOffset, Bool isShared)
 
-TensorName = (String name, Dtype dtype, Shape shape, Address address, Nat freeElements, Prop parWF, Prop freeWF)
+TensorName = (String name, Dtype dtype, Shape shape, Address address, Nat freeElements, Prop parWF, Prop freeWF, Bool addressRotation)
 
 Slice = (Nat l, Nat u, Int step, Prop wf)
 Index =
