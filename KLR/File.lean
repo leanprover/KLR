@@ -43,7 +43,7 @@ can automatically detect which kind of file we have.
 
 namespace KLR.File
 open Lean (FromJson ToJson)
-open Serde (FromCBOR ToCBOR parseCBOR fromCBOR toCBOR)
+open Serde (FromCBOR ToCBOR parseCBOR fromCBOR toCBOR writeCBOR)
 open Util (FromSexp ToSexp toSexp)
 
 /-
@@ -73,10 +73,11 @@ private def readCBOR (arr : ByteArray) : Err Contents := do
   let (arr, _) <- @parseCBOR Serde.KLRMetaData _ arr
   fromCBOR arr
 
-private def writeCBOR (c : Contents) : ByteArray :=
-  let header := toCBOR { : KLR.Serde.KLRFile }
-  let mdata := toCBOR { : KLR.Serde.KLRMetaData }
-  header ++ mdata ++ toCBOR c
+private def writeCBORFile (file : System.FilePath) (c : Contents) : IO Unit := do
+  let h <- IO.FS.Handle.mk file IO.FS.Mode.write
+  writeCBOR h { : KLR.Serde.KLRFile }
+  writeCBOR h { : KLR.Serde.KLRMetaData }
+  writeCBOR h c
 
 private def arrayToString (arr : ByteArray) : Err String := do
   match String.fromUTF8? arr with
@@ -149,6 +150,6 @@ def writeKLRFile [Coe a Contents] (file : System.FilePath) (format : Format := .
   let contents : Contents := Coe.coe x
   match format with
   | .any
-  | .cbor => IO.FS.writeBinFile file (writeCBOR contents)
+  | .cbor => writeCBORFile file contents
   | .json => IO.FS.writeFile file <| toString <| Lean.toJson contents
   | .sexp => IO.FS.writeFile file <| toString <| toSexp contents

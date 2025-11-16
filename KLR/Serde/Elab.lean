@@ -83,6 +83,7 @@ private def mkToInstances (names : Array Name) : TermElabM (Array Command) := do
   for (name, typeTag, constTags) in names.zip tags do
     -- Generate match arms for each constructor
     let mut arms := #[]
+    let mut armsIO := #[]
     for (c, val) in constTags do
       let ps <- getParams c
       let arm <- `(matchAltExpr| | $(mkIdent c) $ps* => Id.run do
@@ -90,18 +91,25 @@ private def mkToInstances (names : Array Name) : TermElabM (Array Command) := do
                      $[let arr := arr ++ toCBOR $ps]*
                      pure arr)
       arms := arms.push arm
+      let armIO <- `(matchAltExpr| | $(mkIdent c) $ps* => do
+                       let arr := cborTag $(lit typeTag) $(lit val) $(lit ps.size)
+                       h.write arr
+                       $[writeCBOR h $ps]*)
+      armsIO := armsIO.push armIO
 
     -- Generate local instances for all type constructors
     -- They don't have to be named, only in scope
     let ts <- getTypeParams name
     let ls := names.foldrM fun n body => `(
-      let _ : ToCBOR ($(mkIdent n) $ts*) := ⟨$(fnIdent n "toBytes")⟩
+      let _ : ToCBOR ($(mkIdent n) $ts*) :=
+        ⟨$(fnIdent n "toBytes"), $(fnIdent n "writeBytes")⟩
       $body
     )
     -- combine local instances with body
     let body <- ls (<- `(match x with $arms:matchAlt*))
+    let bodyIO <- ls (<- `(match x with $armsIO:matchAlt*))
 
-    -- Generate function for current type constructor
+    -- Generate functions for current type constructor
     let bs <- ts.mapM fun t => `(instBinder| [ToCBOR $t])
     let tname <- `( $(mkIdent name) $ts*)
     let cmd <- `(
@@ -110,10 +118,17 @@ private def mkToInstances (names : Array Name) : TermElabM (Array Command) := do
       $body:term
     )
     cmds := cmds.push cmd
+    let cmd <- `(
+      @[export $(cIdent name "writeBytes")]
+      partial def $(qualIdent name "writeBytes") $bs:instBinder* (h : IO.FS.Handle) (x : $tname) : IO Unit :=
+      $bodyIO:term
+    )
+    cmds := cmds.push cmd
 
     -- Generate public instance declaration for current type constructor
     let inst <- `(
-      instance $bs:instBinder* : ToCBOR $tname := ⟨ $(fnIdent name "toBytes") ⟩
+      instance $bs:instBinder* : ToCBOR $tname :=
+        ⟨ $(fnIdent name "toBytes"), $(fnIdent name "writeBytes") ⟩
     )
     insts := insts.push inst
 

@@ -28,11 +28,14 @@ https://www.rfc-editor.org/rfc/rfc8949.html
 namespace KLR.Serde
 
 open TensorLib(toBEByteArray)
+open IO.FS (Handle)
 
 class ToCBOR (a : Type u) where
   toCBOR : a -> ByteArray
+  writeCBOR : Handle -> a -> IO Unit :=
+    fun h x => h.write (toCBOR x)
 
-export ToCBOR (toCBOR)
+export ToCBOR (toCBOR writeCBOR)
 
 class FromCBOR (a : Type u) where
   parse (arr : ByteArray) : Err (Nat × a)
@@ -518,6 +521,11 @@ instance : ToCBOR String where
     let size := toCBOR s.utf8ByteSize.toUInt64
     let size := adjustTag 0x60 size
     size ++ s.toUTF8
+  writeCBOR h s := do
+    let size := toCBOR s.utf8ByteSize.toUInt64
+    let size := adjustTag 0x60 size
+    h.write size
+    h.write s.toUTF8
 
 instance : FromCBOR String where
   parse arr := do
@@ -570,6 +578,10 @@ instance [ToCBOR a] [ToCBOR b] : ToCBOR (a × b) where
     let arr1 := toCBOR p.fst
     let arr2 := toCBOR p.snd
     withTag 0x82 (arr1 ++ arr2)
+  writeCBOR h p := do
+    h.write (.mk #[0x82])
+    writeCBOR h p.fst
+    writeCBOR h p.snd
 
 instance [FromCBOR a] [FromCBOR b] : FromCBOR (a × b) where
   parse arr := do
@@ -613,6 +625,11 @@ instance [ToCBOR a] : ToCBOR (Array a) where
     let size := toCBOR l.size.toUInt64
     let arrays := l.foldr (fun x arr => toCBOR x ++ arr) (.mk #[])
     adjustTag 0x80 size ++ arrays
+  writeCBOR h l := do
+    let size := toCBOR l.size.toUInt64
+    let size := adjustTag 0x80 size
+    h.write size
+    l.forM (writeCBOR h)
 
 instance [FromCBOR a] : FromCBOR (Array a) where
   parse arr := do
@@ -631,6 +648,11 @@ instance [FromCBOR a] : FromCBOR (Array a) where
 
 instance [ToCBOR a] : ToCBOR (List a) where
   toCBOR l := toCBOR l.toArray
+  writeCBOR h l := do
+    let size := toCBOR l.length.toUInt64
+    let size := adjustTag 0x80 size
+    h.write size
+    l.forM (writeCBOR h)
 
 instance [FromCBOR a] : FromCBOR (List a) where
   parse := parseMap (Array a) Array.toList
@@ -705,6 +727,11 @@ instance [ToCBOR a] : ToCBOR (Option a) where
   toCBOR
     | none   => .mk #[ 0xd9, 0xff, 0, 0x80 ]
     | some a => .mk #[ 0xd9, 0xff, 1, 0x81 ] ++ toCBOR a
+  writeCBOR h
+    | none   => h.write (.mk #[ 0xd9, 0xff, 0, 0x80 ])
+    | some a => do
+      h.write (.mk #[ 0xd9, 0xff, 1, 0x81 ])
+      writeCBOR h a
 
 instance [FromCBOR a] : FromCBOR (Option a) where
   parse arr :=
