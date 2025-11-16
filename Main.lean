@@ -18,18 +18,6 @@ import Cli
 import KLR
 import TensorLib.Npy
 import TensorLib.Tensor
-/-
-import SHerLOC
-import KLR.TGR.Basic
-import SHerLOC.Analysis.Graph
-import KLR.K.K3.CompileK3
-import KLR.K.K2.CompileK2
-import KLR.K.K2.AST
-import KLR.K.K3.DotK3
-import KLR.K.K1.CompileK1
-import KLR.K.K1.AST
-import KLR.K.K1.InterpK1
--/
 
 open Cli
 open KLR
@@ -228,16 +216,6 @@ def compile (p : Parsed) : IO UInt32 := do
   | none => pure ()
   return 0
 
-def typecheck (_p : Parsed) : IO UInt32 := do
-  /-
-  let file := p.positionalArg! "file" |>.as! String
-  let content ← IO.FS.readFile file
-  match NKI.Typed.runTypechecker content file with
-  | .ok    ctx => IO.println ctx; return 0
-  | .error msg => IO.println msg; return 1
-  -/
-  return 1
-
 private def outfolder (outfile : Option Parsed.Flag) : IO (Option String) := do
   match outfile with
   | some p =>
@@ -275,144 +253,6 @@ def listBuiltins (_ : Parsed) : IO UInt32 := do
   let lines := cs.map fun (k, n) => s!"{k.pushn ' ' (max - k.length)} {n}"
   lines.toList.mergeSort.forM IO.println
   return 0
-
-/-
-private def evalKlrTensors
-  (p : Parsed)
-  (npyInputFiles : List String)
-  : IO (List (String × TensorLib.Tensor)) := do
-  let kernel : KLR.NKI.Kernel <- gatherTmp p
-  --let (k, warnings1) := kernel.inferArguments
-  let (warnings, klr, sharedConstants) <- KLR.Trace.runNkiKernel kernel
-  dbg_trace s!"shared-constants: {repr sharedConstants}"
-  dbg_trace s!"klr-inputs: {repr klr.inputs}"
-  --if !warnings1.isEmpty then IO.eprintln warnings1
-  if !warnings.isEmpty then IO.eprintln warnings
-  let inputs := npyInputFiles.map FilePath.mk
-  let npys <- inputs.mapM TensorLib.Npy.parseFile
-  let inputs <- npys.mapM fun npy => TensorLib.Tensor.ofNpy npy
-  dbg_trace s!"npy-inputs: {repr inputs}"
-  --let _ <- KLR.Eval.eval klr inputs
-  IO.println "TODO: UNIMPLEMENTED"
-  return []
-
-def evalKLR (p : Parsed) : IO UInt32 := do
-  let outputDir := (p.flag? "output-dir").map fun x => x.as! String
-  let inputs := (p.variableArgsAs! String).toList
-  let outputs := (p.flag? "output-names").map fun f => (f.as! (Array String)).toList
-  let resultMap <- evalKlrTensors p inputs
-  let n := resultMap.length
-  let outputs :=
-    let outputs := outputs.getD []
-    if n <= outputs.length then outputs else
-    let k := n - outputs.length
-    outputs ++ ((List.range k).map fun i => s!"output-{outputs.length + i}")
-   -- ignore the inferred name from the kernel
-  (resultMap.zip outputs).forM fun ((_, t), name) => do
-    let arr := TensorLib.Tensor.toNpy t
-    let filename := match outputDir with
-    | .none => s!"{name}.npy"
-    | .some d => s!"{d}/{name}.npy"
-    IO.println s!"Writing file {filename}"
-    TensorLib.Npy.Ndarray.save! arr filename
-  return 0
-
-def unwrap {T Q : Type} [Inhabited T] [Inhabited Q] (x : Except String T × Q) : T × Q:= match x with
-  | (.ok a, s)  => (a, s)
-  | (.error e, _) => panic! s!"Error: {e}"
-
-def compileHlo (p : Parsed) : IO UInt32 := do
-  let file := p.positionalArg! "file" |>.as! String
-  let s <- IO.FS.readFile file
-  match StableHLO.Parsing.parse s with
-  | .ok (hlo, _) =>
-    -- compile HLO to TGR
-    let (_, s) := KLR.TGR.Compile.compile hlo |> unwrap
-    let func := s.program.functions.head!
-    if p.hasFlag "intermediates" then
-      writeContent "tgr.txt" p (toString s.program)
-      writeContent "tgr.dot" p s!"{KLR.TGR.Graph.graph func}"
-      writeContent "py" p (KLR.TGR.Py.compile s.program)
-    -- compile TGR to K3
-    IO.println s!"Compiling TGR to K3"
-    let (func, _) := KLR.K.K3.compile func |> unwrap
-    if p.hasFlag "intermediates" then
-      writeContent "k3.txt" p s!"{func}"
-      writeContent "k3.dot" p (KLR.K.K3.graph func |> toString)
-    -- compile K3 to K2
-    IO.println s!"Compiling K3 to K2"
-    let (func, _) := KLR.K.K2.compile func |> unwrap
-    if p.hasFlag "intermediates" then
-      writeContent "k2.txt" p s!"{KLR.K.K2.formatProgramK2 func}"
-    -- compile K2 to K1
-    IO.println s!"Compiling K2 to K1"
-    let (func, _) := KLR.K.K1.compile func |> unwrap
-    writeContent "k1.txt" p s!"{KLR.K.K1.formatProgramK1 func}"
-    if p.hasFlag "evaluate" then
-      IO.println s!"Evaluating K1"
-      match KLR.K.K1.Interp.interp func with
-      | (.ok (), ctx) =>
-        writeContent "k1.result" p s!"{ctx}"
-      | (.error e, ctx) =>
-        IO.eprintln s!"Error interpreting K1: {e}"
-        writeContent "k1.err" p s!"{ctx}"
-    return 0
-  | .error e =>
-    IO.eprintln s!"Error parsing HLO: {e}"
-    return 1
-
-def modelKLR (p : Parsed) : IO UInt32 := do
-  /- Load the Python file and perform simplifications -/
-  let kernel : KLR.Python.Kernel <- gatherTmp p
-  -- IO.println s!"[Kernel] \n{Lean.toJson kernel}"
-  let (kernel, warnings) := kernel.inferArguments
-  warnings.forM IO.eprintln
-  let kernel : KLR.NKI.Kernel <- KLR.NKI.simplify kernel
-  let (kernel, w) <- KLR.NKI.simplifyOperators kernel
-  w.forM IO.println
-  let kernel <- KLR.NKI.annotate kernel
-  let kernel <- KLR.NKI.simplifyPatterns kernel
-  -- IO.println s!"{Lean.toJson kernel}"
-  match (NKI.model kernel : Err NMLModel) with
-  | .error s => throw <| (IO.userError s)
-  | .ok m =>
-  writeContent "lean" p (NKI.pprint_standalone_model m)
-  return 0
-
-def equivKLR (p : Parsed) : IO UInt32 := do
-  let debug := p.hasFlag "debug"
-  let file := p.positionalArg! "moduleFileName" |>.as! String
-  let kernelL := p.positionalArg! "kernelFunctionNameL" |>.as! String
-  let kernelR := p.positionalArg! "kernelFunctionNameR" |>.as! String
-  let dir := (p.flag? "klr-module-dir").map fun x => x.as! String
-  let kernelL : KLR.Python.Kernel ← IO.FS.withTempFile fun _ tmpName => do
-    gatherRun file kernelL tmpName.toString dir debug
-    KLR.File.readKLRFile tmpName .cbor
-  let kernelR : KLR.Python.Kernel ← IO.FS.withTempFile fun _ tmpName => do
-    gatherRun file kernelR tmpName.toString dir debug
-    KLR.File.readKLRFile tmpName .cbor
-  let (kernelL, warnings) := kernelL.inferArguments
-  warnings.forM IO.eprintln
-  let (kernelR, warnings) := kernelR.inferArguments
-  let kernelL : KLR.NKI.Kernel <- KLR.NKI.simplify kernelL
-  let kernelR : KLR.NKI.Kernel <- KLR.NKI.simplify kernelR
-  let (kernelL, w) <- KLR.NKI.simplifyOperators kernelL
-  w.forM IO.println
-  let (kernelR, w) <- KLR.NKI.simplifyOperators kernelR
-  w.forM IO.println
-  let kernelL <- KLR.NKI.annotate kernelL
-  let kernelR <- KLR.NKI.annotate kernelR
-  let kernelL <- KLR.NKI.simplifyPatterns kernelL
-  let kernelR <- KLR.NKI.simplifyPatterns kernelR
-  match (NKI.model kernelL : Err NMLModel) with
-  | .error s => throw <| (IO.userError s)
-  | .ok mL =>
-  match (NKI.model kernelR : Err NMLModel) with
-  | .error s => throw <| (IO.userError s)
-  | .ok mR =>
-  writeContent "lean" p (NKI.pprint_relational_goal mL mR)
-  return 0
--/
 
 -- -- Command configuration
 
@@ -454,14 +294,6 @@ def infoCmd := `[Cli|
     file : String; "KLR format input file"
 ]
 
-def typecheckCmd := `[Cli|
-  "typecheck" VIA typecheck;
-  "Run the type checker on a Python source file"
-
-  ARGS:
-    file : String; "Python file"
-]
-
 def traceCmd := `[Cli|
   "trace" VIA trace;
   "Trace Python to KLR"
@@ -478,77 +310,16 @@ def listCmd := `[Cli|
   "List builtin functions and constants"
 ]
 
-/-
-def evalKLRCmd := `[Cli|
-  "eval-klr" VIA evalKLR;
-  "Evaluate a kernel using a pure-Lean KLR interpreter. Outputs one npy file for each output."
-
-  FLAGS:
-    "klr-module-dir" : String; "Directory of Python klr module. Added to PYTHONPATH."
-    debug : Unit; "Print debugging info"
-    "output-dir" : String; "Where to write npy files. Defaults to cwd."
-    "output-names" : Array String; "Names of output npy files to write to disk. E.g. --outputs a,b will " ++
-                                   "write a.npy and b.npy with the contents of arrays `a` and `b`."
-  ARGS:
-    moduleFileName : String;      "File of the Python module with the kernel function"
-    kernelFunctionName : String;  "Name of the kernel function"
-    ...inputFiles : String;       ".npy files corresponding to the inputs to the kernel, in positional order"
-]
-
-def compileHloCmd := `[Cli|
-  "compile-hlo" VIA compileHlo;
-  "Compile HLO graph to KLR graph"
-
-  FLAGS:
-    o, outfile : String; "Name of output file"
-    i, intermediates : Unit; "Write intermediate files"
-    e, evaluate : Unit; "Evaluate the K1 program on random inputs as a smoke test"
-  ARGS:
-    file : String;      "File of HLO graph in .mlir format"
-]
-
-def modelKLRCmd:= `[Cli|
-  "model" VIA modelKLR;
-  "Emit a Lean model of a KLR kernel which describes its semantics exactly."
-
-  FLAGS:
-    o, outfile : String; "Name of output file"
-
-  ARGS:
-    moduleFileName : String; "File of the Python module with the kernel function"
-    kernelFunctionName : String; "Name of the kernel function"
-]
-
-
-def equivKLRCmd:= `[Cli|
-  "equiv" VIA equivKLR;
-  "Emit a Lean file containing an open theorem that two KLR kernels are equivalent."
-
-  FLAGS:
-    o, outfile : String; "Name of output file"
-
-  ARGS:
-    moduleFileName : String; "File of the Python module with the kernel function"
-    kernelFunctionNameL : String; "Name of the left kernel function"
-    kernelFunctionNameR : String; "Name of the right kernel function"
-]
--/
-
 def klrCmd : Cmd := `[Cli|
   klr NOOP; ["0.0.12"]
   "KLR is an IR for NKI and other tensor-like languages in Lean."
 
   SUBCOMMANDS:
     compileCmd;
-    --evalKLRCmd;
     gatherCmd;
     infoCmd;
     traceCmd;
     listCmd
-    --compileHloCmd;
-    --typecheckCmd;
-    --modelKLRCmd;
-    --equivKLRCmd
 ]
 
 def main (args : List String) : IO UInt32 := do
