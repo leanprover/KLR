@@ -549,7 +549,6 @@ nki builtin.pointer.view
     (name : Option String := none)
     (address_rotation : Option Bool := none) := do
   let name <- tensorName name
-  let self := {self with name := name}
   let address_rotation <- match address_rotation with
   | some v => pure v
   | none => flags.address_rotation
