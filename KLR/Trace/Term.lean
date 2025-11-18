@@ -678,6 +678,5 @@ def builtinEnv : List (Name × Term) := Id.run do
       | .str `builtin.python n => [.str `builtins n, .str .anonymous n]
       | .str `builtin.isa n => [nisa n, name]
       | .str `builtin.typing n => [nt n, name]
-      | .str `builtin.lang n => [nl n, name]
       | _ => [name]
     names.map fun n => (n, fn)
