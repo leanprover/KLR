@@ -115,7 +115,7 @@ instance : FromNKI Immediate where
   fromNKI?
     | .bool true => return .int 1
     | .bool false => return .int 0
-    | .int i => return .int i
+    | .int i => return .int i.toInt32
     | .float f => return .float f.toFloat32
     | t => throw s!"expecting int or 'float', got '{Term.kindStr t}'"
 

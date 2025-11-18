@@ -22,11 +22,16 @@ package Util
 @[default_target]
 lean_lib Util
 
+-- Bug in batteries? It's not getting updated automatically, though
+-- we have no references to it directly.
+require batteries from git
+  "https://github.com/leanprover-community/batteries" @ "v4.23.0"
+
 require plausible from git
-  "https://github.com/leanprover-community/plausible" @ "v4.21.0"
+  "https://github.com/leanprover-community/plausible" @ "v4.23.0"
 
 require TensorLib from git
-  "https://github.com/leanprover/TensorLib.git" @ "v0.0.12"
+  "https://github.com/leanprover/TensorLib.git" @ "v0.0.16"
 
 require SHerLOC from git
   "https://github.com/leanprover/SHerLOC.git" @ "c74ae090d4326cca9ff636184c330a67ca039ef6"

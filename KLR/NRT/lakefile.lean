@@ -41,6 +41,6 @@ lean_exe nrt where
   root := `Main
 
 require Cli from git
-  "https://github.com/leanprover/lean4-cli.git" @ "v4.21.0"
+  "https://github.com/leanprover/lean4-cli.git" @ "v4.23.0"
 
 require FFIUtil from "../Util/FFIUtil"

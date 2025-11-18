@@ -16,7 +16,7 @@ limitations under the License.
 
 import KLR.Compile
 import KLR.Core
-import KLR.Export
+-- import KLR.Export -- Requires being in the root dir of this package, so other packages can't import with this
 import KLR.File
 import KLR.NKI
 --import KLR.Py
