@@ -1140,14 +1140,15 @@ static lean_object* args(struct state *st, arguments_ty python) {
   if (!python)
     return NULL;
 
-  // Note: process expressions last to avoid clearing errors
+  // defaults should be evaluated in the enclosing scope of the function
+  lean_object *defaults = exprs(st, python->defaults);
+
   lean_object *posonlyargs = arg_list(st, python->posonlyargs);
   lean_object *args = arg_list(st, python->args);
   lean_object *vararg = mkOption(arg(st, python->vararg));
   lean_object *kwonlyargs = arg_list(st, python->kwonlyargs);
   lean_object *kwarg = mkOption(arg(st, python->kwarg));
 
-  lean_object *defaults = exprs(st, python->defaults);
 
   // Construct kw_defaults by zipping kwonlyargs with kw_defaults
   // The Python AST has kw_defaults as a list where:
