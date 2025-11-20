@@ -2101,7 +2101,7 @@ Ptr<NcMatMul> NcMatMul_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not find tag");
-  if (t != 183 || c != 0 || l != 9)
+  if (t != 183 || c != 0 || l != 10)
     throw std::runtime_error("Invalid Tag");
   Ptr<NcMatMul> x = ptr<NcMatMul>();
   x->dst = TensorRef_des(in);
@@ -2113,6 +2113,7 @@ Ptr<NcMatMul> NcMatMul_des(FILE *in) {
   x->tilePosition = List_Nat_des(in);
   x->tileSize = List_Nat_des(in);
   x->psumAccumulateFlag = Nat_des(in);
+  x->perfMode = MatmulPerfMode_des(in);
   return x;
 }
 

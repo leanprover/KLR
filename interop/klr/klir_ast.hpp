@@ -714,6 +714,7 @@ struct NcMatMul final {
   List<Nat> tilePosition;
   List<Nat> tileSize;
   Nat psumAccumulateFlag;
+  Ptr<MatmulPerfMode> perfMode;
 };
 
 struct TensorScalarReduce final {

@@ -122,6 +122,7 @@ nki builtin.isa.nc_matmul
  (tile_position : List Nat := [])
  (tile_size : List Nat := [])
  (psumAccumulateFlag : Nat := 3) -- assume the whole tensor
+ (perf_mode : MatmulPerfMode := .None)
  (mask : Option Immediate := none)
  (name : Option String := none) := do
     if mask.isSome then
@@ -135,7 +136,8 @@ nki builtin.isa.nc_matmul
       isTranspose := is_transpose,
       tilePosition := tile_position,
       tileSize := tile_size,
-      psumAccumulateFlag := psumAccumulateFlag
+      psumAccumulateFlag := psumAccumulateFlag,
+      perfMode := perf_mode
       }) name
     return .none
 
@@ -173,7 +175,8 @@ nki builtin.isa.nc_transpose
       isTranspose := true,
       tilePosition := [],
       tileSize := [],
-      psumAccumulateFlag := 3 -- assume whole tensor
+      psumAccumulateFlag := 3, -- assume whole tensor
+      perfMode := .None
     }) name
   | _ =>
     Trace.add_stmt $ .oper (.transpose {
