@@ -291,3 +291,11 @@ instance : FromNKI AccumCmd where
     | some "reduce" => return .Accumulate
     | some "reset_reduce" => return .ZeroAccumulate
     | _ => throw "expecting accumulator command (idle, reset, reduce, reset_reduce)"
+
+instance : FromNKI MatmulPerfMode where
+  fromNKI? t :=
+    match fromEnum t with
+    | some "none" => return .None
+    | some "double_row" => return .DoubleRow
+    | some "double_row_sw_interleave" => return .DoubleRowSwInterleave
+    | _ => throw "expecting matmul performance mode (none, double_row, double_row_sw_interleave)"

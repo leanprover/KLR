@@ -256,7 +256,7 @@ TensorScalar = (TensorRef dst, TensorRef src, Operand imm0, AluOp op0, Operand? 
 
 TensorTensor = (TensorRef dst, TensorRef src0, TensorRef src1, AluOp op, Dtype? dtype, Engine engine)
 
-NcMatMul = (TensorRef dst, TensorRef stationary, TensorRef moving, Bool isStationaryOneZero, Bool isMovingZero, Bool isTranspose, Nat* tilePosition, Nat* tileSize, Nat psumAccumulateFlag)
+NcMatMul = (TensorRef dst, TensorRef stationary, TensorRef moving, Bool isStationaryOneZero, Bool isMovingZero, Bool isTranspose, Nat* tilePosition, Nat* tileSize, Nat psumAccumulateFlag, MatmulPerfMode perfMode)
 
 TensorScalarReduce = (TensorRef dst, TensorRef src, Operand operand0, AluOp op0, Bool reverse0, Dtype? dtype, AluOp? reduceOp, TensorRef reduceRes)
 

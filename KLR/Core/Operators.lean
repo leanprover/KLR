@@ -29,6 +29,14 @@ open Lean (FromJson ToJson)
 open Serde (FromCBOR ToCBOR)
 open Util (FromSexp ToSexp)
 
+@[serde tag = 129]
+inductive MatmulPerfMode where
+  | None
+  | DoubleRow
+  | DoubleRowSwInterleave
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+
 -- Compute Engines
 @[serde tag = 130]
 inductive Engine where
@@ -719,6 +727,7 @@ structure NcMatMul where
   tilePosition : List Nat
   tileSize : List Nat
   psumAccumulateFlag : Nat
+  perfMode : MatmulPerfMode
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 184]
