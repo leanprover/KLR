@@ -828,6 +828,36 @@ Ptr<TensorRef> TensorRef_des(FILE *in) {
   }
 }
 
+MatmulPerfMode MatmulPerfMode_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not read tag");
+  if (t != 129)
+    throw std::runtime_error("Unexpected type tag");
+  switch (c) {
+  case 0: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return MatmulPerfMode::None;
+    break;
+  }
+  case 1: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return MatmulPerfMode::DoubleRow;
+    break;
+  }
+  case 2: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return MatmulPerfMode::DoubleRowSwInterleave;
+    break;
+  }
+  default:
+    throw std::runtime_error("Invalid value tag");
+  }
+}
+
 Engine Engine_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))

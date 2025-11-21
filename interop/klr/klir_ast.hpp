@@ -267,6 +267,12 @@ struct TensorRefRegisterWrapper final : TensorRef {
   TensorRefRegisterWrapper() : TensorRef(Tag::reg) {}
 };
 
+enum class MatmulPerfMode {
+  None = 1,
+  DoubleRow,
+  DoubleRowSwInterleave,
+};
+
 enum class Engine {
   unassigned = 1,
   act,
@@ -714,7 +720,7 @@ struct NcMatMul final {
   List<Nat> tilePosition;
   List<Nat> tileSize;
   Nat psumAccumulateFlag;
-  Ptr<MatmulPerfMode> perfMode;
+  MatmulPerfMode perfMode;
 };
 
 struct TensorScalarReduce final {

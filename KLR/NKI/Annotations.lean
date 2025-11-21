@@ -39,12 +39,16 @@ abbrev Ann := Pass Unit
 
 -- Expressions
 
-private def isValidName : Name -> Ann Unit
+private def isValidName' : Name -> Bool
   | .str `neuronxcc.nki._pre_prod_kernels _
-  | .str `neuronxcc.nki._pre_prod_nkl _ => return ()
-  | .str _ "neuronxcc" => throw "beta-1 API used in kernel: APIs from neuronxcc may not be used in Beta-2 kernels"
-  | .str n _ => isValidName n
-  | _ => return ()
+  | .str `neuronxcc.nki._pre_prod_nkl _ => true
+  | .str _ "neuronxcc" => false
+  | .str n _ => isValidName' n
+  | _ => true
+
+private def isValidName (n : Name) : Ann Unit := do
+  if not (isValidName' n) then
+    throw s!"beta-1 API ({n}) used in kernel: APIs from neuronxcc may not be used in Beta-2 kernels"
 
 private def checkName : Name -> Ann Name
   | .str _ "range" => return `range

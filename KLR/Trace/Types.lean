@@ -480,7 +480,13 @@ private def clsName : Name -> String
   | .str _ n => n
   | n => n.toString
 
-partial def toStr : Term -> Trace String
+-- Note, user may create a cyclic data structure in the heap
+-- So we protect against that by limiting our recursion
+partial def toStr (t : Term) (n : Nat := 20) : Trace String := do
+  if n == 0 then
+    return "..."
+  let toStr t := toStr t (n - 1)
+  match t with
   | .module name => return name.toString
   | .builtin name _ =>
     match name with

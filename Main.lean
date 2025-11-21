@@ -232,6 +232,8 @@ def trace (p : Parsed) : IO UInt32 := do
   --let kernel <- KLR.File.readKLRFile file
   let outDir := <- outfolder (p.flag? "outfile")
   let res <- KLR.Compile.compilePython kernel outDir none
+  for e in res.warnings do IO.println e
+  for e in res.messages do IO.println e
   for e in res.errors do IO.println e
   let kernel <- res.result
   match p.flag? "outfile" with
