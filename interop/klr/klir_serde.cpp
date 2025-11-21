@@ -2670,11 +2670,30 @@ Ptr<ExtendedInst> ExtendedInst_des(FILE *in) {
   return x;
 }
 
+Ptr<TensorScalarCumulative> TensorScalarCumulative_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not find tag");
+  if (t != 208 || c != 0 || l != 9)
+    throw std::runtime_error("Invalid Tag");
+  Ptr<TensorScalarCumulative> x = ptr<TensorScalarCumulative>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  x->op0 = AluOp_des(in);
+  x->op1 = AluOp_des(in);
+  x->imm0 = Operand_des(in);
+  x->imm1 = Option_Operand_des(in);
+  x->reduceCmd = AccumCmd_des(in);
+  x->reverse = TensorScalarReverseOps_des(in);
+  x->dtype = Option_Dtype_des(in);
+  return x;
+}
+
 Ptr<Operator> Operator_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 208)
+  if (t != 209)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -3211,6 +3230,15 @@ Ptr<Operator> Operator_des(FILE *in) {
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorExtendedInstWrapper> x = ptr<OperatorExtendedInstWrapper>();
     x->op = ExtendedInst_des(in);
+    return x;
+    break;
+  }
+  case 66: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorTensorScalarCumulativeWrapper> x =
+        ptr<OperatorTensorScalarCumulativeWrapper>();
+    x->op = TensorScalarCumulative_des(in);
     return x;
     break;
   }

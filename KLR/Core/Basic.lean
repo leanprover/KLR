@@ -180,6 +180,7 @@ partial def operatorBasicTensors : Operator → List TensorRef
   | .rng r | .rand2 r | .randGetState r  => [r.dst]
   | .setRngSeed r | .randSetState r => [r.src]
   | .extendedInst _ => []
+  | .tensorScalarCumulative t => [t.dst, t.src]
 
 partial def operatorAdditionalTensors : Operator → List TensorName
   | .ncActivate d => (tensors d.scale) ++ (tensors d.bias) ++ (tensors d.reduceRes)
@@ -200,6 +201,7 @@ partial def operatorAdditionalTensors : Operator → List TensorName
   | .send s => tensors s.srcs
   | .recv r => tensors r.dsts
   | .rand2 r => tensors r.min ++ tensors r.max
+  | .tensorScalarCumulative t => (tensors t.imm0) ++ (tensors t.imm1)
   | _ => []
 
 instance : Tensors Operator where

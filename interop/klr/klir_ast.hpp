@@ -979,6 +979,18 @@ struct ExtendedInst final {
   List<Nat> data1;
 };
 
+struct TensorScalarCumulative final {
+  Ptr<TensorRef> dst;
+  Ptr<TensorRef> src;
+  AluOp op0;
+  AluOp op1;
+  Ptr<Operand> imm0;
+  Option<Ptr<Operand>> imm1;
+  AccumCmd reduceCmd;
+  TensorScalarReverseOps reverse;
+  Option<Dtype> dtype;
+};
+
 struct Operator {
   enum class Tag {
     activate = 1,
@@ -1047,6 +1059,7 @@ struct Operator {
     setRngSeed,
     randSetState,
     extendedInst,
+    tensorScalarCumulative,
   };
   Tag tag;
   Operator(Tag tag) : tag(tag) {}
@@ -1381,6 +1394,12 @@ struct OperatorRandSetStateWrapper final : Operator {
 struct OperatorExtendedInstWrapper final : Operator {
   Ptr<ExtendedInst> op;
   OperatorExtendedInstWrapper() : Operator(Tag::extendedInst) {}
+};
+
+struct OperatorTensorScalarCumulativeWrapper final : Operator {
+  Ptr<TensorScalarCumulative> op;
+  OperatorTensorScalarCumulativeWrapper()
+      : Operator(Tag::tensorScalarCumulative) {}
 };
 
 struct Stmt {
