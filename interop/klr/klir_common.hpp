@@ -6,6 +6,7 @@ Authors: Paul Govereau, Sean McLaughlin
 #pragma once
 #include <memory>
 #include <list>
+#include <sstream>
 
 namespace klr {
 

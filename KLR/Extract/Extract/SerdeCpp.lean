@@ -92,10 +92,17 @@ private def genDes (ty : LeanType) : MetaM Unit := do
       match <- KLR.Serde.serdeTags name with
       | (typeTag, [(_, valTag)]) =>
         IO.println s!"u8 t, c, l;
-          if (!deserialize_tag(in, &t, &c, &l))
-            throw std::runtime_error(\"Could not find tag\");
-          if (t != {typeTag} || c != {valTag} || l != {fs.length})
-            throw std::runtime_error(\"Invalid Tag\");
+          if (!deserialize_tag(in, &t, &c, &l)) \{
+            std::ostringstream msg;
+            msg << \"Could not find tag, expecting {name}:{typeTag},{valTag}\";
+            throw std::runtime_error(msg.str());
+          }
+          if (t != {typeTag} || c != {valTag} || l != {fs.length}) \{
+            std::ostringstream msg;
+            msg << \"Expecting {name}:({typeTag},{valTag},{fs.length})\";
+            msg << \" got:(\" << (int)t << \",\" << (int)c << \",\" << (int)l << \")\";
+            throw std::runtime_error(msg.str());
+          }
           {Cpp.genType (.const name)} x = ptr<{name}>();"
         genFields "" fs
         IO.println "return x;"

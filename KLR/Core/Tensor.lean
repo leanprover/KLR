@@ -255,7 +255,7 @@ def withShape (name : TensorName) (shape : Shape) : Err TensorName :=
 -- NOTE: The Prop fields count towards the list, but have zero size
 instance : ToCBOR TensorName where
   toCBOR t :=
-    Serde.cborTag 114 0 7
+    Serde.cborTag 114 0 8
     ++ @Serde.toCBOR String _ t.name
     ++ @Serde.toCBOR Dtype _ t.dtype
     ++ @Serde.toCBOR Shape _ t.shape
@@ -270,7 +270,7 @@ instance : FromCBOR TensorName where
       throw s!"expecting TensorSRam (got tag {ty})"
     if val != 0 then
       throw s!"expecting TensorSRam (got val tag {val})"
-    if len != 7 then
+    if len != 8 then
       throw s!"expecting TensorSRam (got len {len})"
     let (arr, sz, name) <- @Serde.parseCBOR' String _ arr 4
     let (arr, sz, dtype) <- @Serde.parseCBOR' Dtype _ arr sz

@@ -309,10 +309,17 @@ Option<List<List<String>>> Option_List_List_String_des(FILE *in) {
 
 Ptr<Pos> Pos_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 100 || c != 0 || l != 5)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting Pos:100,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 100 || c != 0 || l != 5) {
+    std::ostringstream msg;
+    msg << "Expecting Pos:(100,0,5)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<Pos> x = ptr<Pos>();
   x->line = Nat_des(in);
   x->column = Nat_des(in);
@@ -529,10 +536,17 @@ Dtype Dtype_des(FILE *in) {
 
 Ptr<Shape> Shape_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 112 || c != 0 || l != 2)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting Shape:112,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 112 || c != 0 || l != 2) {
+    std::ostringstream msg;
+    msg << "Expecting Shape:(112,0,2)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<Shape> x = ptr<Shape>();
   x->parDim = Nat_des(in);
   x->freeDims = List_Nat_des(in);
@@ -541,10 +555,17 @@ Ptr<Shape> Shape_des(FILE *in) {
 
 Ptr<Address> Address_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 113 || c != 0 || l != 7)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting Address:113,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 113 || c != 0 || l != 7) {
+    std::ostringstream msg;
+    msg << "Expecting Address:(113,0,7)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<Address> x = ptr<Address>();
   x->name = String_des(in);
   x->memory = Memory_des(in);
@@ -558,10 +579,17 @@ Ptr<Address> Address_des(FILE *in) {
 
 Ptr<TensorName> TensorName_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 114 || c != 0 || l != 8)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting TensorName:114,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 114 || c != 0 || l != 8) {
+    std::ostringstream msg;
+    msg << "Expecting TensorName:(114,0,8)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<TensorName> x = ptr<TensorName>();
   x->name = String_des(in);
   x->dtype = Dtype_des(in);
@@ -576,10 +604,17 @@ Ptr<TensorName> TensorName_des(FILE *in) {
 
 Ptr<Slice> Slice_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 115 || c != 0 || l != 4)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting Slice:115,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 115 || c != 0 || l != 4) {
+    std::ostringstream msg;
+    msg << "Expecting Slice:(115,0,4)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<Slice> x = ptr<Slice>();
   x->l = Nat_des(in);
   x->u = Nat_des(in);
@@ -618,10 +653,17 @@ Ptr<Index> Index_des(FILE *in) {
 
 Ptr<AccessBasic> AccessBasic_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 118 || c != 0 || l != 3)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting AccessBasic:118,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 118 || c != 0 || l != 3) {
+    std::ostringstream msg;
+    msg << "Expecting AccessBasic:(118,0,3)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<AccessBasic> x = ptr<AccessBasic>();
   x->tensor = TensorName_des(in);
   x->indexes = List_Index_des(in);
@@ -631,10 +673,17 @@ Ptr<AccessBasic> AccessBasic_des(FILE *in) {
 
 Ptr<APPair> APPair_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 119 || c != 0 || l != 3)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting APPair:119,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 119 || c != 0 || l != 3) {
+    std::ostringstream msg;
+    msg << "Expecting APPair:(119,0,3)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<APPair> x = ptr<APPair>();
   x->step = Int_des(in);
   x->num = Nat_des(in);
@@ -644,10 +693,17 @@ Ptr<APPair> APPair_des(FILE *in) {
 
 Ptr<AccessPattern> AccessPattern_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 120 || c != 0 || l != 6)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting AccessPattern:120,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 120 || c != 0 || l != 6) {
+    std::ostringstream msg;
+    msg << "Expecting AccessPattern:(120,0,6)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<AccessPattern> x = ptr<AccessPattern>();
   x->tensor = TensorName_des(in);
   x->parNum = Nat_des(in);
@@ -688,10 +744,17 @@ Ptr<ScalarOffset> ScalarOffset_des(FILE *in) {
 
 Ptr<BirAccessPattern> BirAccessPattern_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 124 || c != 0 || l != 6)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting BirAccessPattern:124,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 124 || c != 0 || l != 6) {
+    std::ostringstream msg;
+    msg << "Expecting BirAccessPattern:(124,0,6)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<BirAccessPattern> x = ptr<BirAccessPattern>();
   x->tensor = TensorName_des(in);
   x->offset = Nat_des(in);
@@ -748,10 +811,17 @@ Ptr<Access> Access_des(FILE *in) {
 
 Ptr<TensorHbm> TensorHbm_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 126 || c != 0 || l != 4)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting TensorHbm:126,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 126 || c != 0 || l != 4) {
+    std::ostringstream msg;
+    msg << "Expecting TensorHbm:(126,0,4)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<TensorHbm> x = ptr<TensorHbm>();
   x->name = String_des(in);
   x->dtype = Dtype_des(in);
@@ -762,10 +832,17 @@ Ptr<TensorHbm> TensorHbm_des(FILE *in) {
 
 Ptr<TensorSram> TensorSram_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 127 || c != 0 || l != 6)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting TensorSram:127,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 127 || c != 0 || l != 6) {
+    std::ostringstream msg;
+    msg << "Expecting TensorSram:(127,0,6)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<TensorSram> x = ptr<TensorSram>();
   x->name = String_des(in);
   x->dtype = Dtype_des(in);
@@ -977,10 +1054,17 @@ Ptr<Operand> Operand_des(FILE *in) {
 
 Ptr<DataPattern> DataPattern_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 134 || c != 0 || l != 3)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting DataPattern:134,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 134 || c != 0 || l != 3) {
+    std::ostringstream msg;
+    msg << "Expecting DataPattern:(134,0,3)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<DataPattern> x = ptr<DataPattern>();
   x->offset = Int_des(in);
   x->pattern = List_APPair_des(in);
@@ -1717,10 +1801,17 @@ TransposeOps TransposeOps_des(FILE *in) {
 
 Ptr<Dropout> Dropout_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 147 || c != 0 || l != 5)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting Dropout:147,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 147 || c != 0 || l != 5) {
+    std::ostringstream msg;
+    msg << "Expecting Dropout:(147,0,5)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<Dropout> x = ptr<Dropout>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -1732,10 +1823,17 @@ Ptr<Dropout> Dropout_des(FILE *in) {
 
 Ptr<Activate> Activate_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 148 || c != 0 || l != 7)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting Activate:148,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 148 || c != 0 || l != 7) {
+    std::ostringstream msg;
+    msg << "Expecting Activate:(148,0,7)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<Activate> x = ptr<Activate>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -1749,10 +1847,17 @@ Ptr<Activate> Activate_des(FILE *in) {
 
 Ptr<AffineSelect> AffineSelect_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 150 || c != 0 || l != 5)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting AffineSelect:150,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 150 || c != 0 || l != 5) {
+    std::ostringstream msg;
+    msg << "Expecting AffineSelect:(150,0,5)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<AffineSelect> x = ptr<AffineSelect>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -1764,10 +1869,17 @@ Ptr<AffineSelect> AffineSelect_des(FILE *in) {
 
 Ptr<DmaCopy> DmaCopy_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 152 || c != 0 || l != 5)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting DmaCopy:152,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 152 || c != 0 || l != 5) {
+    std::ostringstream msg;
+    msg << "Expecting DmaCopy:(152,0,5)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<DmaCopy> x = ptr<DmaCopy>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -1779,10 +1891,17 @@ Ptr<DmaCopy> DmaCopy_des(FILE *in) {
 
 Ptr<DmaTranspose> DmaTranspose_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 154 || c != 0 || l != 5)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting DmaTranspose:154,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 154 || c != 0 || l != 5) {
+    std::ostringstream msg;
+    msg << "Expecting DmaTranspose:(154,0,5)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<DmaTranspose> x = ptr<DmaTranspose>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -1794,10 +1913,17 @@ Ptr<DmaTranspose> DmaTranspose_des(FILE *in) {
 
 Ptr<Transpose> Transpose_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 155 || c != 0 || l != 4)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting Transpose:155,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 155 || c != 0 || l != 4) {
+    std::ostringstream msg;
+    msg << "Expecting Transpose:(155,0,4)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<Transpose> x = ptr<Transpose>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -1808,10 +1934,17 @@ Ptr<Transpose> Transpose_des(FILE *in) {
 
 Ptr<LoadMaskRegister> LoadMaskRegister_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 156 || c != 0 || l != 1)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting LoadMaskRegister:156,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 156 || c != 0 || l != 1) {
+    std::ostringstream msg;
+    msg << "Expecting LoadMaskRegister:(156,0,1)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<LoadMaskRegister> x = ptr<LoadMaskRegister>();
   x->regNum = Nat_des(in);
   return x;
@@ -1819,10 +1952,17 @@ Ptr<LoadMaskRegister> LoadMaskRegister_des(FILE *in) {
 
 Ptr<Shuffle> Shuffle_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 157 || c != 0 || l != 4)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting Shuffle:157,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 157 || c != 0 || l != 4) {
+    std::ostringstream msg;
+    msg << "Expecting Shuffle:(157,0,4)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<Shuffle> x = ptr<Shuffle>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -1833,10 +1973,17 @@ Ptr<Shuffle> Shuffle_des(FILE *in) {
 
 Ptr<MemSet> MemSet_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 158 || c != 0 || l != 4)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting MemSet:158,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 158 || c != 0 || l != 4) {
+    std::ostringstream msg;
+    msg << "Expecting MemSet:(158,0,4)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<MemSet> x = ptr<MemSet>();
   x->dst = TensorRef_des(in);
   x->value = Immediate_des(in);
@@ -1847,10 +1994,17 @@ Ptr<MemSet> MemSet_des(FILE *in) {
 
 Ptr<Iota> Iota_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 159 || c != 0 || l != 3)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting Iota:159,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 159 || c != 0 || l != 3) {
+    std::ostringstream msg;
+    msg << "Expecting Iota:(159,0,3)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<Iota> x = ptr<Iota>();
   x->dst = TensorRef_des(in);
   x->pattern = DataPattern_des(in);
@@ -1860,10 +2014,17 @@ Ptr<Iota> Iota_des(FILE *in) {
 
 Ptr<LoadStationary> LoadStationary_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 160 || c != 0 || l != 2)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting LoadStationary:160,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 160 || c != 0 || l != 2) {
+    std::ostringstream msg;
+    msg << "Expecting LoadStationary:(160,0,2)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<LoadStationary> x = ptr<LoadStationary>();
   x->src = TensorRef_des(in);
   x->isTranspose = Bool_des(in);
@@ -1872,10 +2033,17 @@ Ptr<LoadStationary> LoadStationary_des(FILE *in) {
 
 Ptr<MatMul> MatMul_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 161 || c != 0 || l != 3)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting MatMul:161,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 161 || c != 0 || l != 3) {
+    std::ostringstream msg;
+    msg << "Expecting MatMul:(161,0,3)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<MatMul> x = ptr<MatMul>();
   x->dst = TensorRef_des(in);
   x->moving = TensorRef_des(in);
@@ -1885,10 +2053,17 @@ Ptr<MatMul> MatMul_des(FILE *in) {
 
 Ptr<LocalGather> LocalGather_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 162 || c != 0 || l != 4)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting LocalGather:162,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 162 || c != 0 || l != 4) {
+    std::ostringstream msg;
+    msg << "Expecting LocalGather:(162,0,4)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<LocalGather> x = ptr<LocalGather>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -1899,10 +2074,17 @@ Ptr<LocalGather> LocalGather_des(FILE *in) {
 
 Ptr<RangeSelect> RangeSelect_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 164 || c != 0 || l != 10)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting RangeSelect:164,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 164 || c != 0 || l != 10) {
+    std::ostringstream msg;
+    msg << "Expecting RangeSelect:(164,0,10)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<RangeSelect> x = ptr<RangeSelect>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -1919,10 +2101,17 @@ Ptr<RangeSelect> RangeSelect_des(FILE *in) {
 
 Ptr<ScalarTensorTensor> ScalarTensorTensor_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 166 || c != 0 || l != 8)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting ScalarTensorTensor:166,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 166 || c != 0 || l != 8) {
+    std::ostringstream msg;
+    msg << "Expecting ScalarTensorTensor:(166,0,8)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<ScalarTensorTensor> x = ptr<ScalarTensorTensor>();
   x->dst = TensorRef_des(in);
   x->src0 = TensorRef_des(in);
@@ -1937,10 +2126,17 @@ Ptr<ScalarTensorTensor> ScalarTensorTensor_des(FILE *in) {
 
 Ptr<CopyPredicated> CopyPredicated_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 168 || c != 0 || l != 5)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting CopyPredicated:168,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 168 || c != 0 || l != 5) {
+    std::ostringstream msg;
+    msg << "Expecting CopyPredicated:(168,0,5)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<CopyPredicated> x = ptr<CopyPredicated>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -1952,10 +2148,17 @@ Ptr<CopyPredicated> CopyPredicated_des(FILE *in) {
 
 Ptr<TensorTensorScan> TensorTensorScan_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 169 || c != 0 || l != 9)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting TensorTensorScan:169,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 169 || c != 0 || l != 9) {
+    std::ostringstream msg;
+    msg << "Expecting TensorTensorScan:(169,0,9)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<TensorTensorScan> x = ptr<TensorTensorScan>();
   x->dst = TensorRef_des(in);
   x->src0 = TensorRef_des(in);
@@ -1971,10 +2174,17 @@ Ptr<TensorTensorScan> TensorTensorScan_des(FILE *in) {
 
 Ptr<MatchValueLoad> MatchValueLoad_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 170 || c != 0 || l != 1)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting MatchValueLoad:170,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 170 || c != 0 || l != 1) {
+    std::ostringstream msg;
+    msg << "Expecting MatchValueLoad:(170,0,1)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<MatchValueLoad> x = ptr<MatchValueLoad>();
   x->src = TensorRef_des(in);
   return x;
@@ -1982,10 +2192,17 @@ Ptr<MatchValueLoad> MatchValueLoad_des(FILE *in) {
 
 Ptr<FindIndex8> FindIndex8_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 171 || c != 0 || l != 4)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting FindIndex8:171,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 171 || c != 0 || l != 4) {
+    std::ostringstream msg;
+    msg << "Expecting FindIndex8:(171,0,4)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<FindIndex8> x = ptr<FindIndex8>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -1996,10 +2213,17 @@ Ptr<FindIndex8> FindIndex8_des(FILE *in) {
 
 Ptr<MatchReplace8> MatchReplace8_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 172 || c != 0 || l != 6)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting MatchReplace8:172,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 172 || c != 0 || l != 6) {
+    std::ostringstream msg;
+    msg << "Expecting MatchReplace8:(172,0,6)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<MatchReplace8> x = ptr<MatchReplace8>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -2012,10 +2236,17 @@ Ptr<MatchReplace8> MatchReplace8_des(FILE *in) {
 
 Ptr<Max8> Max8_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 173 || c != 0 || l != 3)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting Max8:173,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 173 || c != 0 || l != 3) {
+    std::ostringstream msg;
+    msg << "Expecting Max8:(173,0,3)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<Max8> x = ptr<Max8>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -2025,10 +2256,17 @@ Ptr<Max8> Max8_des(FILE *in) {
 
 Ptr<BatchNormAggregate> BatchNormAggregate_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 174 || c != 0 || l != 3)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting BatchNormAggregate:174,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 174 || c != 0 || l != 3) {
+    std::ostringstream msg;
+    msg << "Expecting BatchNormAggregate:(174,0,3)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<BatchNormAggregate> x = ptr<BatchNormAggregate>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -2038,10 +2276,17 @@ Ptr<BatchNormAggregate> BatchNormAggregate_des(FILE *in) {
 
 Ptr<BatchNormStats> BatchNormStats_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 175 || c != 0 || l != 3)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting BatchNormStats:175,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 175 || c != 0 || l != 3) {
+    std::ostringstream msg;
+    msg << "Expecting BatchNormStats:(175,0,3)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<BatchNormStats> x = ptr<BatchNormStats>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -2051,10 +2296,17 @@ Ptr<BatchNormStats> BatchNormStats_des(FILE *in) {
 
 Ptr<Reciprocal> Reciprocal_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 176 || c != 0 || l != 3)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting Reciprocal:176,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 176 || c != 0 || l != 3) {
+    std::ostringstream msg;
+    msg << "Expecting Reciprocal:(176,0,3)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<Reciprocal> x = ptr<Reciprocal>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -2064,10 +2316,17 @@ Ptr<Reciprocal> Reciprocal_des(FILE *in) {
 
 Ptr<Copy> Copy_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 177 || c != 0 || l != 3)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting Copy:177,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 177 || c != 0 || l != 3) {
+    std::ostringstream msg;
+    msg << "Expecting Copy:(177,0,3)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<Copy> x = ptr<Copy>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -2077,10 +2336,17 @@ Ptr<Copy> Copy_des(FILE *in) {
 
 Ptr<TensorReduce> TensorReduce_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 179 || c != 0 || l != 7)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting TensorReduce:179,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 179 || c != 0 || l != 7) {
+    std::ostringstream msg;
+    msg << "Expecting TensorReduce:(179,0,7)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<TensorReduce> x = ptr<TensorReduce>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -2094,10 +2360,17 @@ Ptr<TensorReduce> TensorReduce_des(FILE *in) {
 
 Ptr<TensorScalar> TensorScalar_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 180 || c != 0 || l != 9)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting TensorScalar:180,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 180 || c != 0 || l != 9) {
+    std::ostringstream msg;
+    msg << "Expecting TensorScalar:(180,0,9)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<TensorScalar> x = ptr<TensorScalar>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -2113,10 +2386,17 @@ Ptr<TensorScalar> TensorScalar_des(FILE *in) {
 
 Ptr<TensorTensor> TensorTensor_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 182 || c != 0 || l != 6)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting TensorTensor:182,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 182 || c != 0 || l != 6) {
+    std::ostringstream msg;
+    msg << "Expecting TensorTensor:(182,0,6)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<TensorTensor> x = ptr<TensorTensor>();
   x->dst = TensorRef_des(in);
   x->src0 = TensorRef_des(in);
@@ -2129,10 +2409,17 @@ Ptr<TensorTensor> TensorTensor_des(FILE *in) {
 
 Ptr<NcMatMul> NcMatMul_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 183 || c != 0 || l != 10)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting NcMatMul:183,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 183 || c != 0 || l != 10) {
+    std::ostringstream msg;
+    msg << "Expecting NcMatMul:(183,0,10)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<NcMatMul> x = ptr<NcMatMul>();
   x->dst = TensorRef_des(in);
   x->stationary = TensorRef_des(in);
@@ -2149,10 +2436,17 @@ Ptr<NcMatMul> NcMatMul_des(FILE *in) {
 
 Ptr<TensorScalarReduce> TensorScalarReduce_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 181 || c != 0 || l != 8)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting TensorScalarReduce:181,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 181 || c != 0 || l != 8) {
+    std::ostringstream msg;
+    msg << "Expecting TensorScalarReduce:(181,0,8)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<TensorScalarReduce> x = ptr<TensorScalarReduce>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -2167,10 +2461,17 @@ Ptr<TensorScalarReduce> TensorScalarReduce_des(FILE *in) {
 
 Ptr<TensorPartitionReduce> TensorPartitionReduce_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 184 || c != 0 || l != 4)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting TensorPartitionReduce:184,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 184 || c != 0 || l != 4) {
+    std::ostringstream msg;
+    msg << "Expecting TensorPartitionReduce:(184,0,4)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<TensorPartitionReduce> x = ptr<TensorPartitionReduce>();
   x->dst = TensorRef_des(in);
   x->op = AluOp_des(in);
@@ -2181,10 +2482,17 @@ Ptr<TensorPartitionReduce> TensorPartitionReduce_des(FILE *in) {
 
 Ptr<NcActivate> NcActivate_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 149 || c != 0 || l != 9)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting NcActivate:149,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 149 || c != 0 || l != 9) {
+    std::ostringstream msg;
+    msg << "Expecting NcActivate:(149,0,9)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<NcActivate> x = ptr<NcActivate>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -2200,10 +2508,17 @@ Ptr<NcActivate> NcActivate_des(FILE *in) {
 
 Ptr<NcAffineSelect> NcAffineSelect_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 151 || c != 0 || l != 6)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting NcAffineSelect:151,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 151 || c != 0 || l != 6) {
+    std::ostringstream msg;
+    msg << "Expecting NcAffineSelect:(151,0,6)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<NcAffineSelect> x = ptr<NcAffineSelect>();
   x->dst = TensorRef_des(in);
   x->pred = DataPattern_des(in);
@@ -2216,10 +2531,17 @@ Ptr<NcAffineSelect> NcAffineSelect_des(FILE *in) {
 
 Ptr<NcDmaCopy> NcDmaCopy_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 153 || c != 0 || l != 7)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting NcDmaCopy:153,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 153 || c != 0 || l != 7) {
+    std::ostringstream msg;
+    msg << "Expecting NcDmaCopy:(153,0,7)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<NcDmaCopy> x = ptr<NcDmaCopy>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -2233,10 +2555,17 @@ Ptr<NcDmaCopy> NcDmaCopy_des(FILE *in) {
 
 Ptr<NcLocalGather> NcLocalGather_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 163 || c != 0 || l != 5)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting NcLocalGather:163,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 163 || c != 0 || l != 5) {
+    std::ostringstream msg;
+    msg << "Expecting NcLocalGather:(163,0,5)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<NcLocalGather> x = ptr<NcLocalGather>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -2248,10 +2577,17 @@ Ptr<NcLocalGather> NcLocalGather_des(FILE *in) {
 
 Ptr<NcRangeSelect> NcRangeSelect_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 165 || c != 0 || l != 12)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting NcRangeSelect:165,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 165 || c != 0 || l != 12) {
+    std::ostringstream msg;
+    msg << "Expecting NcRangeSelect:(165,0,12)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<NcRangeSelect> x = ptr<NcRangeSelect>();
   x->dst = TensorRef_des(in);
   x->reduceCommand = AccumCmd_des(in);
@@ -2270,10 +2606,17 @@ Ptr<NcRangeSelect> NcRangeSelect_des(FILE *in) {
 
 Ptr<NcScalarTensorTensor> NcScalarTensorTensor_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 167 || c != 0 || l != 8)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting NcScalarTensorTensor:167,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 167 || c != 0 || l != 8) {
+    std::ostringstream msg;
+    msg << "Expecting NcScalarTensorTensor:(167,0,8)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<NcScalarTensorTensor> x = ptr<NcScalarTensorTensor>();
   x->dst = TensorRef_des(in);
   x->data = TensorRef_des(in);
@@ -2288,10 +2631,17 @@ Ptr<NcScalarTensorTensor> NcScalarTensorTensor_des(FILE *in) {
 
 Ptr<NcCopy> NcCopy_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 178 || c != 0 || l != 4)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting NcCopy:178,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 178 || c != 0 || l != 4) {
+    std::ostringstream msg;
+    msg << "Expecting NcCopy:(178,0,4)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<NcCopy> x = ptr<NcCopy>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -2302,10 +2652,17 @@ Ptr<NcCopy> NcCopy_des(FILE *in) {
 
 Ptr<SelectReduce> SelectReduce_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 185 || c != 0 || l != 9)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting SelectReduce:185,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 185 || c != 0 || l != 9) {
+    std::ostringstream msg;
+    msg << "Expecting SelectReduce:(185,0,9)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<SelectReduce> x = ptr<SelectReduce>();
   x->dst = TensorRef_des(in);
   x->predicate = TensorRef_des(in);
@@ -2321,10 +2678,17 @@ Ptr<SelectReduce> SelectReduce_des(FILE *in) {
 
 Ptr<SequenceBounds> SequenceBounds_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 186 || c != 0 || l != 3)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting SequenceBounds:186,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 186 || c != 0 || l != 3) {
+    std::ostringstream msg;
+    msg << "Expecting SequenceBounds:(186,0,3)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<SequenceBounds> x = ptr<SequenceBounds>();
   x->dst = TensorRef_des(in);
   x->segmentIds = TensorRef_des(in);
@@ -2334,10 +2698,17 @@ Ptr<SequenceBounds> SequenceBounds_des(FILE *in) {
 
 Ptr<SendRecv> SendRecv_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 187 || c != 0 || l != 6)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting SendRecv:187,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 187 || c != 0 || l != 6) {
+    std::ostringstream msg;
+    msg << "Expecting SendRecv:(187,0,6)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<SendRecv> x = ptr<SendRecv>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -2350,10 +2721,17 @@ Ptr<SendRecv> SendRecv_des(FILE *in) {
 
 Ptr<SendRecvCCE> SendRecvCCE_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 188 || c != 0 || l != 6)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting SendRecvCCE:188,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 188 || c != 0 || l != 6) {
+    std::ostringstream msg;
+    msg << "Expecting SendRecvCCE:(188,0,6)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<SendRecvCCE> x = ptr<SendRecvCCE>();
   x->dst = TensorRef_des(in);
   x->src = List_TensorRef_des(in);
@@ -2366,10 +2744,17 @@ Ptr<SendRecvCCE> SendRecvCCE_des(FILE *in) {
 
 Ptr<QuantizeMX> QuantizeMX_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 195 || c != 0 || l != 3)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting QuantizeMX:195,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 195 || c != 0 || l != 3) {
+    std::ostringstream msg;
+    msg << "Expecting QuantizeMX:(195,0,3)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<QuantizeMX> x = ptr<QuantizeMX>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
@@ -2379,10 +2764,17 @@ Ptr<QuantizeMX> QuantizeMX_des(FILE *in) {
 
 Ptr<MatMulMX> MatMulMX_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 196 || c != 0 || l != 8)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting MatMulMX:196,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 196 || c != 0 || l != 8) {
+    std::ostringstream msg;
+    msg << "Expecting MatMulMX:(196,0,8)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<MatMulMX> x = ptr<MatMulMX>();
   x->dst = TensorRef_des(in);
   x->stationary = TensorRef_des(in);
@@ -2397,10 +2789,17 @@ Ptr<MatMulMX> MatMulMX_des(FILE *in) {
 
 Ptr<DmaCompute> DmaCompute_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 197 || c != 0 || l != 4)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting DmaCompute:197,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 197 || c != 0 || l != 4) {
+    std::ostringstream msg;
+    msg << "Expecting DmaCompute:(197,0,4)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<DmaCompute> x = ptr<DmaCompute>();
   x->dst = TensorRef_des(in);
   x->srcs = List_TensorRef_des(in);
@@ -2411,10 +2810,17 @@ Ptr<DmaCompute> DmaCompute_des(FILE *in) {
 
 Ptr<CollectiveOp> CollectiveOp_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 198 || c != 0 || l != 10)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting CollectiveOp:198,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 198 || c != 0 || l != 10) {
+    std::ostringstream msg;
+    msg << "Expecting CollectiveOp:(198,0,10)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<CollectiveOp> x = ptr<CollectiveOp>();
   x->dsts = List_TensorRef_des(in);
   x->srcs = List_TensorRef_des(in);
@@ -2431,10 +2837,17 @@ Ptr<CollectiveOp> CollectiveOp_des(FILE *in) {
 
 Ptr<Send> Send_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 199 || c != 0 || l != 3)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting Send:199,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 199 || c != 0 || l != 3) {
+    std::ostringstream msg;
+    msg << "Expecting Send:(199,0,3)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<Send> x = ptr<Send>();
   x->op = AluOp_des(in);
   x->srcs = List_TensorRef_des(in);
@@ -2444,10 +2857,17 @@ Ptr<Send> Send_des(FILE *in) {
 
 Ptr<Recv> Recv_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 200 || c != 0 || l != 4)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting Recv:200,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 200 || c != 0 || l != 4) {
+    std::ostringstream msg;
+    msg << "Expecting Recv:(200,0,4)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<Recv> x = ptr<Recv>();
   x->op = AluOp_des(in);
   x->dsts = List_TensorRef_des(in);
@@ -2548,10 +2968,17 @@ BrCmpOp BrCmpOp_des(FILE *in) {
 
 Ptr<TensorLoad> TensorLoad_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 190 || c != 0 || l != 2)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting TensorLoad:190,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 190 || c != 0 || l != 2) {
+    std::ostringstream msg;
+    msg << "Expecting TensorLoad:(190,0,2)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<TensorLoad> x = ptr<TensorLoad>();
   x->dst = String_des(in);
   x->src = TensorRef_des(in);
@@ -2560,10 +2987,17 @@ Ptr<TensorLoad> TensorLoad_des(FILE *in) {
 
 Ptr<TensorStore> TensorStore_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 191 || c != 0 || l != 2)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting TensorStore:191,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 191 || c != 0 || l != 2) {
+    std::ostringstream msg;
+    msg << "Expecting TensorStore:(191,0,2)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<TensorStore> x = ptr<TensorStore>();
   x->dst = TensorRef_des(in);
   x->src = String_des(in);
@@ -2572,10 +3006,17 @@ Ptr<TensorStore> TensorStore_des(FILE *in) {
 
 Ptr<RegisterMove> RegisterMove_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 192 || c != 0 || l != 2)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting RegisterMove:192,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 192 || c != 0 || l != 2) {
+    std::ostringstream msg;
+    msg << "Expecting RegisterMove:(192,0,2)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<RegisterMove> x = ptr<RegisterMove>();
   x->dst = String_des(in);
   x->imm = Int_des(in);
@@ -2584,10 +3025,17 @@ Ptr<RegisterMove> RegisterMove_des(FILE *in) {
 
 Ptr<CmpBranch> CmpBranch_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 193 || c != 0 || l != 6)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting CmpBranch:193,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 193 || c != 0 || l != 6) {
+    std::ostringstream msg;
+    msg << "Expecting CmpBranch:(193,0,6)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<CmpBranch> x = ptr<CmpBranch>();
   x->reg1 = String_des(in);
   x->reg2 = String_des(in);
@@ -2600,10 +3048,17 @@ Ptr<CmpBranch> CmpBranch_des(FILE *in) {
 
 Ptr<RegisterAluOp> RegisterAluOp_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 194 || c != 0 || l != 4)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting RegisterAluOp:194,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 194 || c != 0 || l != 4) {
+    std::ostringstream msg;
+    msg << "Expecting RegisterAluOp:(194,0,4)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<RegisterAluOp> x = ptr<RegisterAluOp>();
   x->dst = String_des(in);
   x->src = String_des(in);
@@ -2614,10 +3069,17 @@ Ptr<RegisterAluOp> RegisterAluOp_des(FILE *in) {
 
 Ptr<CoreBarrier> CoreBarrier_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 201 || c != 0 || l != 3)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting CoreBarrier:201,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 201 || c != 0 || l != 3) {
+    std::ostringstream msg;
+    msg << "Expecting CoreBarrier:(201,0,3)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<CoreBarrier> x = ptr<CoreBarrier>();
   x->data = TensorRef_des(in);
   x->cores = List_Int_des(in);
@@ -2627,10 +3089,17 @@ Ptr<CoreBarrier> CoreBarrier_des(FILE *in) {
 
 Ptr<Rng> Rng_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 202 || c != 0 || l != 2)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting Rng:202,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 202 || c != 0 || l != 2) {
+    std::ostringstream msg;
+    msg << "Expecting Rng:(202,0,2)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<Rng> x = ptr<Rng>();
   x->dst = TensorRef_des(in);
   x->engine = Engine_des(in);
@@ -2639,10 +3108,17 @@ Ptr<Rng> Rng_des(FILE *in) {
 
 Ptr<Rand2> Rand2_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 203 || c != 0 || l != 3)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting Rand2:203,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 203 || c != 0 || l != 3) {
+    std::ostringstream msg;
+    msg << "Expecting Rand2:(203,0,3)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<Rand2> x = ptr<Rand2>();
   x->dst = TensorRef_des(in);
   x->min = Operand_des(in);
@@ -2652,10 +3128,17 @@ Ptr<Rand2> Rand2_des(FILE *in) {
 
 Ptr<RandGetState> RandGetState_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 204 || c != 0 || l != 2)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting RandGetState:204,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 204 || c != 0 || l != 2) {
+    std::ostringstream msg;
+    msg << "Expecting RandGetState:(204,0,2)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<RandGetState> x = ptr<RandGetState>();
   x->dst = TensorRef_des(in);
   x->engine = Engine_des(in);
@@ -2664,10 +3147,17 @@ Ptr<RandGetState> RandGetState_des(FILE *in) {
 
 Ptr<SetRngSeed> SetRngSeed_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 205 || c != 0 || l != 1)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting SetRngSeed:205,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 205 || c != 0 || l != 1) {
+    std::ostringstream msg;
+    msg << "Expecting SetRngSeed:(205,0,1)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<SetRngSeed> x = ptr<SetRngSeed>();
   x->src = TensorRef_des(in);
   return x;
@@ -2675,10 +3165,17 @@ Ptr<SetRngSeed> SetRngSeed_des(FILE *in) {
 
 Ptr<RandSetState> RandSetState_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 206 || c != 0 || l != 2)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting RandSetState:206,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 206 || c != 0 || l != 2) {
+    std::ostringstream msg;
+    msg << "Expecting RandSetState:(206,0,2)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<RandSetState> x = ptr<RandSetState>();
   x->src = TensorRef_des(in);
   x->engine = Engine_des(in);
@@ -2687,10 +3184,17 @@ Ptr<RandSetState> RandSetState_des(FILE *in) {
 
 Ptr<ExtendedInst> ExtendedInst_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 207 || c != 0 || l != 6)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting ExtendedInst:207,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 207 || c != 0 || l != 6) {
+    std::ostringstream msg;
+    msg << "Expecting ExtendedInst:(207,0,6)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<ExtendedInst> x = ptr<ExtendedInst>();
   x->opcode = Nat_des(in);
   x->hasRead = Bool_des(in);
@@ -3274,10 +3778,17 @@ Ptr<Stmt> Stmt_des(FILE *in) {
 
 Ptr<Block> Block_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 104 || c != 0 || l != 2)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting Block:104,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 104 || c != 0 || l != 2) {
+    std::ostringstream msg;
+    msg << "Expecting Block:(104,0,2)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<Block> x = ptr<Block>();
   x->label = String_des(in);
   x->body = List_Stmt_des(in);
@@ -3286,10 +3797,17 @@ Ptr<Block> Block_des(FILE *in) {
 
 Ptr<Kernel> Kernel_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 105 || c != 0 || l != 4)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting Kernel:105,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 105 || c != 0 || l != 4) {
+    std::ostringstream msg;
+    msg << "Expecting Kernel:(105,0,4)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<Kernel> x = ptr<Kernel>();
   x->name = String_des(in);
   x->inputs = List_TensorName_des(in);
@@ -3300,10 +3818,17 @@ Ptr<Kernel> Kernel_des(FILE *in) {
 
 Ptr<SharedConstantFile> SharedConstantFile_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 106 || c != 0 || l != 2)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting SharedConstantFile:106,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 106 || c != 0 || l != 2) {
+    std::ostringstream msg;
+    msg << "Expecting SharedConstantFile:(106,0,2)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<SharedConstantFile> x = ptr<SharedConstantFile>();
   x->name = String_des(in);
   x->fileName = String_des(in);
@@ -3312,10 +3837,17 @@ Ptr<SharedConstantFile> SharedConstantFile_des(FILE *in) {
 
 Ptr<Edges> Edges_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 107 || c != 0 || l != 2)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting Edges:107,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 107 || c != 0 || l != 2) {
+    std::ostringstream msg;
+    msg << "Expecting Edges:(107,0,2)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<Edges> x = ptr<Edges>();
   x->fromEdge = String_des(in);
   x->toEdges = List_String_des(in);
@@ -3324,10 +3856,17 @@ Ptr<Edges> Edges_des(FILE *in) {
 
 Ptr<LncKernel> LncKernel_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 108 || c != 0 || l != 6)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting LncKernel:108,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 108 || c != 0 || l != 6) {
+    std::ostringstream msg;
+    msg << "Expecting LncKernel:(108,0,6)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<LncKernel> x = ptr<LncKernel>();
   x->name = String_des(in);
   x->inputs = List_TensorName_des(in);
@@ -3558,10 +4097,17 @@ List<Ptr<Edges>> List_Edges_des(FILE *in) {
 
 Ptr<KLRFile> KLRFile_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 217 || c != 247 || l != 3)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting KLRFile:217,247";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 217 || c != 247 || l != 3) {
+    std::ostringstream msg;
+    msg << "Expecting KLRFile:(217,247,3)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<KLRFile> x = ptr<KLRFile>();
   x->major = Nat_des(in);
   x->minor = Nat_des(in);
@@ -3571,10 +4117,17 @@ Ptr<KLRFile> KLRFile_des(FILE *in) {
 
 Ptr<KLRMetaData> KLRMetaData_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 235 || c != 0 || l != 1)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting KLRMetaData:235,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 235 || c != 0 || l != 1) {
+    std::ostringstream msg;
+    msg << "Expecting KLRMetaData:(235,0,1)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<KLRMetaData> x = ptr<KLRMetaData>();
   x->format = String_des(in);
   return x;
