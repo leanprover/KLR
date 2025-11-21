@@ -426,6 +426,36 @@ nki builtin.isa.tensor_scalar_reduce
     }) name
     return .none
 
+nki builtin.isa.tensor_scalar_cumulative
+  (dst: Access)
+  (src: Access)
+  (op0: AluOp)
+  (op1: AluOp)
+  (imm0: Sum Immediate Access)
+  (imm1: Option (Sum Immediate Access) := none)
+  (reduce_cmd: AccumCmd := AccumCmd.ZeroAccumulate)
+  (mask: Option Immediate := none)
+  (name : Option String := none) := do
+    if mask.isSome then
+      throw maskNotSupported
+    Trace.add_stmt $ .oper (.tensorScalarCumulative {
+      dst := .abstract dst
+      src := .abstract src
+      op0 := op0
+      op1 := op1
+      imm0 := match imm0 with
+        | .inl i => .imm i
+        | .inr t => .tile $ .abstract t
+      imm1 := match imm1 with
+        | some (.inl i) => some $ .imm i
+        | some (.inr t) => some $ .tile $ .abstract t
+        | none => .none
+      reduceCmd := reduce_cmd
+      reverse := TensorScalarReverseOps.none
+      dtype := dst.tensor.dtype
+    }) name
+    return .none
+
 nki builtin.isa.tensor_copy
  (dst: Access)
  (src : Access)

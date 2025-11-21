@@ -366,6 +366,7 @@ def klrAST: MetaM (List LeanType) := do
     `KLR.Core.SetRngSeed,
     `KLR.Core.RandSetState,
     `KLR.Core.ExtendedInst,
+    `KLR.Core.TensorScalarCumulative,
     `KLR.Core.Operator,
     -- Core.Basic
     `KLR.Core.Stmt,

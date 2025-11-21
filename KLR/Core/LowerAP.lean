@@ -191,6 +191,12 @@ def Operator.lowerAccessPatterns (k : Operator) : KLR.Err Operator :=
   | .setRngSeed r => return .setRngSeed { r with src := (<- r.src.lowerAccessPatterns)}
   | .randSetState r => return .randSetState { r with src := (<- r.src.lowerAccessPatterns)}
   | .extendedInst i => return .extendedInst i
+  | .tensorScalarCumulative op => return .tensorScalarCumulative { op with
+      dst := <- op.dst.lowerAccessPatterns
+      src := <- op.src.lowerAccessPatterns
+      imm0 := <- Operand.lowerAccessPatterns op.imm0
+      imm1 := <- op.imm1.mapM Operand.lowerAccessPatterns
+    }
 
 def Stmt.lowerAccessPatterns : Stmt → KLR.Err Stmt
   | .oper op name pos => return .oper (<- op.lowerAccessPatterns) name pos

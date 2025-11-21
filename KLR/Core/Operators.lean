@@ -931,6 +931,19 @@ structure ExtendedInst where
 deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 208]
+structure TensorScalarCumulative where
+  dst : TensorRef
+  src : TensorRef
+  op0 : AluOp
+  op1: AluOp
+  imm0: Operand
+  imm1: Option Operand
+  reduceCmd: AccumCmd
+  reverse : TensorScalarReverseOps
+  dtype : Option Dtype
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 209]
 inductive Operator where
   | activate (op : Activate)
   | ncActivate (op : NcActivate)
@@ -998,9 +1011,10 @@ inductive Operator where
   | setRngSeed (op : SetRngSeed)
   | randSetState (op : RandSetState)
   | extendedInst (op : ExtendedInst)
+  | tensorScalarCumulative (op: TensorScalarCumulative)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 209]
+@[serde tag = 210]
 inductive TGROperator where
   | activate (op : Activate)
   | affineSelect (op : AffineSelect)

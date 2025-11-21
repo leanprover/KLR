@@ -337,6 +337,8 @@ SetRngSeed = (TensorRef src)
 RandSetState = (TensorRef src, Engine engine)
 
 ExtendedInst = (Nat opcode, Bool hasRead, Bool hasWrite, Nat ports, Nat* data0, Nat* data1)
+
+TensorScalarCumulative = (TensorRef dst, TensorRef src, AluOp op0, AluOp op1, Operand imm0, Operand? imm1, AccumCmd reduceCmd, TensorScalarReverseOps reverse, Dtype? dtype)
 Operator =
  | activate(Activate op)
  | ncActivate(NcActivate op)
@@ -404,6 +406,7 @@ Operator =
  | setRngSeed(SetRngSeed op)
  | randSetState(RandSetState op)
  | extendedInst(ExtendedInst op)
+ | tensorScalarCumulative(TensorScalarCumulative op)
 
 Stmt =
  | oper(Operator op, String? name, Pos pos)
