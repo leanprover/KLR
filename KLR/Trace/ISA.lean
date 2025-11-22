@@ -1180,3 +1180,18 @@ nki builtin.isa.extended_inst
     data1
   }) name
   return .none
+
+nki builtin.isa.gather_flattened
+  (dst: Access)
+  (data: Access)
+  (indices: Access)
+  (mask: Option Immediate := none)
+  (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.gatherFlattened {
+      dst := .abstract dst
+      data := .abstract data
+      indices := .abstract indices
+      dtype := dst.tensor.dtype
+    }) name
+    return .none
