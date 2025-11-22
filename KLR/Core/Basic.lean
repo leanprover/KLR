@@ -181,6 +181,7 @@ partial def operatorBasicTensors : Operator → List TensorRef
   | .setRngSeed r | .randSetState r => [r.src]
   | .extendedInst _ => []
   | .tensorScalarCumulative t => [t.dst, t.src]
+  | .ncNGather g => [g.dst, g.data, g.indices]
 
 partial def operatorAdditionalTensors : Operator → List TensorName
   | .ncActivate d => (tensors d.scale) ++ (tensors d.bias) ++ (tensors d.reduceRes)
@@ -202,6 +203,7 @@ partial def operatorAdditionalTensors : Operator → List TensorName
   | .recv r => tensors r.dsts
   | .rand2 r => tensors r.min ++ tensors r.max
   | .tensorScalarCumulative t => (tensors t.imm0) ++ (tensors t.imm1)
+  | .ncNGather _ => []
   | _ => []
 
 instance : Tensors Operator where

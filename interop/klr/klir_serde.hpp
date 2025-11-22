@@ -135,6 +135,7 @@ Ptr<SetRngSeed> SetRngSeed_des(FILE *in);
 Ptr<RandSetState> RandSetState_des(FILE *in);
 Ptr<ExtendedInst> ExtendedInst_des(FILE *in);
 Ptr<TensorScalarCumulative> TensorScalarCumulative_des(FILE *in);
+Ptr<NcNGather> NcNGather_des(FILE *in);
 Ptr<Operator> Operator_des(FILE *in);
 Ptr<Stmt> Stmt_des(FILE *in);
 Ptr<Block> Block_des(FILE *in);
