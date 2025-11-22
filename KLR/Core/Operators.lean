@@ -944,6 +944,14 @@ structure TensorScalarCumulative where
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 @[serde tag = 209]
+structure GatherFlattened where
+  dst : TensorRef
+  data : TensorRef
+  indices : TensorRef
+  dtype : Option Dtype
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 210]
 inductive Operator where
   | activate (op : Activate)
   | ncActivate (op : NcActivate)
@@ -1012,9 +1020,10 @@ inductive Operator where
   | randSetState (op : RandSetState)
   | extendedInst (op : ExtendedInst)
   | tensorScalarCumulative (op: TensorScalarCumulative)
+  | gatherFlattened (op: GatherFlattened)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 210]
+@[serde tag = 211]
 inductive TGROperator where
   | activate (op : Activate)
   | affineSelect (op : AffineSelect)
