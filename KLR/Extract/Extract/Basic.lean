@@ -287,6 +287,7 @@ def klrAST: MetaM (List LeanType) := do
     `KLR.Core.TensorSram,
     `KLR.Core.TensorRef,
     -- Core.Operators (Parameters)
+    `KLR.Core.MatmulPerfMode,
     `KLR.Core.Engine,
     `KLR.Core.ActivationImm,
     `KLR.Core.Operand,

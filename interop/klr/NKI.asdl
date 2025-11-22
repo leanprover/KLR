@@ -70,6 +70,10 @@ TensorRef =
  | hbm(TensorHbm view)
  | register(Reg reg)
 
+MatmulPerfMode =
+  | None
+  | DoubleRow
+  | DoubleRowSwInterleave
 Engine =
   | unassigned
   | act

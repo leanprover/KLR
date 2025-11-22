@@ -56,6 +56,7 @@ Ptr<Access> Access_des(FILE *in);
 Ptr<TensorHbm> TensorHbm_des(FILE *in);
 Ptr<TensorSram> TensorSram_des(FILE *in);
 Ptr<TensorRef> TensorRef_des(FILE *in);
+MatmulPerfMode MatmulPerfMode_des(FILE *in);
 Engine Engine_des(FILE *in);
 Ptr<ActivationImm> ActivationImm_des(FILE *in);
 Ptr<Operand> Operand_des(FILE *in);
