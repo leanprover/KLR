@@ -160,7 +160,7 @@ instance : FromNKI Dtype where
     | some "int8" => return .int8
     | some "uint16" => return .uint16
     | some "int16" => return .int16
-    | some "uint32" => return .int32
+    | some "uint32" => return .uint32
     | some "int32" => return .int32
     | some "float8e3" => return .float8e3
     | some "float8e4" => return .float8e4
