@@ -6,6 +6,8 @@ Authors: Paul Govereau, Sean McLaughlin
 #include "lean_ast.h"
 #include "frontend.h"
 #include "ast_python.h"
+#include <stdlib.h> // for getenv
+#include <string.h> // for strcmp
 
 /*
 -- Gather
@@ -40,9 +42,9 @@ struct state {
   // definitions to be processed (in region)
   struct worklist {
     struct worklist *next;
-    const char *name;  // this is in the Lean heap
+    const char *name;     // this is in the Lean heap
     char *suggested_name; // this is owned by the structure
-    lean_object *str;  // this is the string "name"
+    lean_object *str;     // this is the string "name"
     PyObject *obj;
   } *work;
 
@@ -60,7 +62,7 @@ struct state {
   struct message {
     struct message *next;
     bool isError;
-    const char *file;    // this is in the region
+    const char *file; // this is in the region
     u32 line, col;
     const char *message; // this is in the region
   } *messages, *msg_tail;
@@ -80,14 +82,16 @@ struct state {
     // Local variables
     struct local {
       struct local *next;
-      const char *name;   // this is in the Lean heap
+      const char *name; // this is in the Lean heap
     } *locals;
   } scope;
 };
 
 static void add_msg(struct state *st, bool isError, const char *fmt, ...) {
-  if (isError && st->errors >= 100) return;
-  if (!isError && st->warnings >= 10000) return;
+  if (isError && st->errors >= 100)
+    return;
+  if (!isError && st->warnings >= 10000)
+    return;
 
   va_list args;
   va_start(args, fmt);
@@ -128,7 +132,7 @@ static void add_msg(struct state *st, bool isError, const char *fmt, ...) {
 }
 
 #define warn (st, ...) add_msg(st, false, __VA_ARGS__)
-#define error(st, ...) add_msg(st, true,  __VA_ARGS__)
+#define error(st, ...) add_msg(st, true, __VA_ARGS__)
 
 // Check for python exceptions. If cound emit warnings and clear.
 static void checkPyErr(struct state *st) {
@@ -147,7 +151,7 @@ static void checkPyErr(struct state *st) {
 
   const char *s = PyUnicode_AsUTF8(str);
   Py_XDECREF(str);
-  PyErr_Clear();  // str() or AsUTF8 could have raised an exception: ignore
+  PyErr_Clear(); // str() or AsUTF8 could have raised an exception: ignore
 
   if (s)
     add_msg(st, false, s);
@@ -171,7 +175,7 @@ static bool have_def(const struct state *st, const char *name) {
 
 // Copy a Python string to the Lean heap.
 // returns an empty string on error
-static lean_object* py_strdup(struct state *st, PyObject *obj) {
+static lean_object *py_strdup(struct state *st, PyObject *obj) {
   if (!obj) {
     error(st, "failed to convert string object");
     return lean_mk_string("");
@@ -189,7 +193,35 @@ static lean_object* py_strdup(struct state *st, PyObject *obj) {
   return lean_mk_string_from_bytes(s, sz);
 }
 
-static lean_object* path_append(struct state *st, lean_object *base, PyObject *obj) {
+static lean_object *convert_dtype_string(struct state *st, PyObject *obj) {
+  if (!obj) {
+    error(st, "failed to convert dtype string object");
+    return lean_mk_string("");
+  }
+
+  PyErr_Clear();
+  Py_ssize_t sz = -1;
+  const char *s = PyUnicode_AsUTF8AndSize(obj, &sz);
+  if (!s || sz < 0 || PyErr_Occurred()) {
+    PyErr_Clear();
+    error(st, "failed to convert dtype string object");
+    return lean_mk_string("");
+  }
+
+  // if UNSAFE_FP8FNCAST is set to 1 and convert torch.float8_e4m3fn to
+  // float8_e4m3.
+  const char *unsafe_fp8 = getenv("UNSAFE_FP8FNCAST");
+  if (unsafe_fp8 && strcmp(unsafe_fp8, "1") == 0) {
+    if (strcmp(s, "torch.float8_e4m3fn") == 0) {
+      return lean_mk_string("float8_e4m3");
+    }
+  }
+
+  return lean_mk_string_from_bytes(s, sz);
+}
+
+static lean_object *path_append(struct state *st, lean_object *base,
+                                PyObject *obj) {
   lean_object *dot = lean_mk_string(".");
   lean_object *lid = py_strdup(st, obj);
   lean_object *tmp = lean_string_append(base, dot);
@@ -200,14 +232,15 @@ static lean_object* path_append(struct state *st, lean_object *base, PyObject *o
 }
 
 // Construct a path name from two Python strings
-static inline lean_object* py_path_name(struct state *st, PyObject *m, PyObject *x) {
+static inline lean_object *py_path_name(struct state *st, PyObject *m,
+                                        PyObject *x) {
   lean_object *base = py_strdup(st, m);
   lean_object *res = path_append(st, base, x);
   return res;
 }
 
 // Construct full name of python function or class
-static lean_object* py_def_name(struct state *st, PyObject *f) {
+static lean_object *py_def_name(struct state *st, PyObject *f) {
   PyObject *module = PyObject_GetAttrString(f, "__module__");
   PyObject *name = PyObject_GetAttrString(f, "__name__");
 
@@ -219,7 +252,8 @@ static lean_object* py_def_name(struct state *st, PyObject *f) {
 }
 
 // Construct full name of python method
-static lean_object* py_method_name(struct state *st, lean_object *clsname, PyObject *f) {
+static lean_object *py_method_name(struct state *st, lean_object *clsname,
+                                   PyObject *f) {
   if (!f) {
     error(st, "could not get name of function");
     return lean_mk_string("");
@@ -242,7 +276,8 @@ static lean_object* py_method_name(struct state *st, lean_object *clsname, PyObj
 // from foo import bar
 // will add a symbol for `foo.bar` and `<my_module>.bar`
 static void add_work(struct state *st, char *suggested_name, PyObject *obj) {
-  if (!obj) return;
+  if (!obj)
+    return;
 
   lean_object *str = py_def_name(st, obj);
   const char *name = lean_string_cstr(str);
@@ -287,105 +322,103 @@ static void add_work(struct state *st, char *suggested_name, PyObject *obj) {
 
 // -- functions for building basic types
 
-static inline lean_object* mkNone() {
-  return lean_box(0);
-}
+static inline lean_object *mkNone() { return lean_box(0); }
 
-static lean_object* mkSome(lean_object *obj) {
-  lean_object* some = lean_alloc_ctor(1, 1, 0);
+static lean_object *mkSome(lean_object *obj) {
+  lean_object *some = lean_alloc_ctor(1, 1, 0);
   lean_ctor_set(some, 0, obj);
   return some;
 }
 
-static inline lean_object* mkOption(lean_object *obj) {
+static inline lean_object *mkOption(lean_object *obj) {
   return obj ? mkSome(obj) : mkNone();
 }
 
-static inline lean_object* mkNil() {
-  return lean_box(0);
+static inline lean_object *mkNil() { return lean_box(0); }
+
+static inline lean_object *mkPos(unsigned line, unsigned column,
+                                 unsigned lineEnd, unsigned columnEnd,
+                                 lean_object *filename) {
+  return Core_Pos_mk(lean_unsigned_to_nat(line), lean_unsigned_to_nat(column),
+                     mkOption(lean_unsigned_to_nat(lineEnd)),
+                     mkOption(lean_unsigned_to_nat(columnEnd)),
+                     mkOption(filename));
 }
 
-static inline lean_object*
-mkPos(unsigned line, unsigned column,
-      unsigned lineEnd, unsigned columnEnd,
-      lean_object *filename)
-{
-  return Core_Pos_mk(
-    lean_unsigned_to_nat(line),
-    lean_unsigned_to_nat(column),
-    mkOption(lean_unsigned_to_nat(lineEnd)),
-    mkOption(lean_unsigned_to_nat(columnEnd)),
-    mkOption(filename));
+static inline lean_object *curPos(struct state *st) {
+  return mkPos(st->scope.pos.line, st->scope.pos.col, st->scope.pos.line,
+               st->scope.pos.col, st->scope.file);
 }
 
-static inline lean_object* curPos(struct state *st) {
-  return mkPos(st->scope.pos.line, st->scope.pos.col,
-               st->scope.pos.line, st->scope.pos.col,
-               st->scope.file);
-}
+#define Pos(obj)                                                               \
+  ((obj) ? mkPos(obj->lineno, obj->col_offset, obj->end_lineno,                \
+                 obj->end_col_offset, st->scope.file)                          \
+         : mkPos(0, 0, 0, 0, st->scope.file))
 
-#define Pos(obj) \
-  ((obj) ? \
-    mkPos(obj->lineno, obj->col_offset, \
-          obj->end_lineno, obj->end_col_offset, st->scope.file) : \
-    mkPos(0,0,0,0, st->scope.file))
-
-
-static lean_object* value(struct state *st, PyObject *obj);
-static lean_object* const_exprs(struct state *st, PyObject *obj);
-static lean_object* nat_list(struct state *st, PyObject *obj);
+static lean_object *value(struct state *st, PyObject *obj);
+static lean_object *const_exprs(struct state *st, PyObject *obj);
+static lean_object *nat_list(struct state *st, PyObject *obj);
 
 // Check if object is a tensor type
 static bool is_tensor(PyObject *obj) {
-  if (!obj) return false;
+  if (!obj)
+    return false;
 
   PyTypeObject *t = Py_TYPE(obj);
-  if (!t) return false;
+  if (!t)
+    return false;
 
-  return strcmp(t->tp_name, "tensor") == 0 ||         // nki
-         strcmp(t->tp_name, "numpy.ndarray") == 0 ||  // numpy
-         strcmp(t->tp_name, "Tensor") == 0 ||         // PyTorch
-         strcmp(t->tp_name, "ShapedArray") == 0;      // JAX
+  return strcmp(t->tp_name, "tensor") == 0 ||        // nki
+         strcmp(t->tp_name, "numpy.ndarray") == 0 || // numpy
+         strcmp(t->tp_name, "Tensor") == 0 ||        // PyTorch
+         strcmp(t->tp_name, "ShapedArray") == 0;     // JAX
 }
 
 // Handle tensor objects (return Const)
-static lean_object* tensor_const(struct state *st, PyObject *obj) {
+static lean_object *tensor_const(struct state *st, PyObject *obj) {
   lean_object *sh = NULL;
   lean_object *dty = NULL;
 
-  if (!obj) goto error;
+  if (!obj)
+    goto error;
 
   PyObject *shape = PyObject_GetAttrString(obj, "shape");
-  if (!shape) goto error;
+  if (!shape)
+    goto error;
   sh = nat_list(st, shape);
   Py_DECREF(shape);
 
   PyObject *dtype = PyObject_GetAttrString(obj, "dtype");
-  if (!dtype) goto error;
+  if (!dtype)
+    goto error;
 
   PyObject *dstr = PyObject_Str(dtype);
   Py_DECREF(dtype);
-  if (!dstr) goto error;
+  if (!dstr)
+    goto error;
 
-  dty = py_strdup(st, dstr);
+  dty = convert_dtype_string(st, dstr);
   Py_DECREF(dstr);
 
   return Python_Const_tensor(sh, dty);
 
 error:
-  if (sh) lean_dec(sh);
-  if (dty) lean_dec(dty);
+  if (sh)
+    lean_dec(sh);
+  if (dty)
+    lean_dec(dty);
   error(st, "could not convert tensor value");
   return Python_Const_none;
 }
 
 // This function never raises exceptions
 // Returns a new reference
-static PyObject* get_numpy_generic_dtype() {
+static PyObject *get_numpy_generic_dtype() {
   // Try to get already imported numpy module
   PyObject *numpy_name = PyUnicode_FromString("numpy");
   PyErr_Clear();
-  if (!numpy_name) return NULL;
+  if (!numpy_name)
+    return NULL;
 
   PyObject *numpy = PyImport_GetModule(numpy_name);
   Py_DECREF(numpy_name);
@@ -407,10 +440,12 @@ static PyObject* get_numpy_generic_dtype() {
 // Check if object is numpy dtype, if it is, then return the object
 // This function never raises exceptions
 static bool is_numpy_dtype(PyObject *obj) {
-  if (!obj) return false;
+  if (!obj)
+    return false;
 
   PyObject *generic_dtype = get_numpy_generic_dtype();
-  if (!generic_dtype) return false;
+  if (!generic_dtype)
+    return false;
 
   // Check if obj is instance of numpy.generic or subclass
   int result = PyObject_IsSubclass(obj, generic_dtype);
@@ -424,16 +459,18 @@ static bool is_numpy_dtype(PyObject *obj) {
 //
 // This function never raises exceptions
 // Returns a new reference
-static PyObject* numpy_dtype_instance(PyObject *obj) {
-  if (!obj) return NULL;
+static PyObject *numpy_dtype_instance(PyObject *obj) {
+  if (!obj)
+    return NULL;
 
   // NOTE: order matters here. If attemting to get type attr from
   // object before attempting to import numpy the object comes out
   // blank
   PyObject *generic_dtype = get_numpy_generic_dtype();
-  if (!generic_dtype) return NULL;
+  if (!generic_dtype)
+    return NULL;
 
-  PyObject* obj_type = PyObject_GetAttrString(obj, "type");
+  PyObject *obj_type = PyObject_GetAttrString(obj, "type");
   if (!obj_type) {
     PyErr_Clear();
     Py_DECREF(generic_dtype);
@@ -452,29 +489,40 @@ static PyObject* numpy_dtype_instance(PyObject *obj) {
   return NULL;
 }
 
-static const char* suggest_nki_dtype(PyObject *obj) {
-  if (!obj) return NULL;
+static const char *suggest_nki_dtype(PyObject *obj) {
+  if (!obj)
+    return NULL;
 
-  const char* t = ((PyTypeObject*)obj)->tp_name;
-  if (!t) return NULL;
+  const char *t = ((PyTypeObject *)obj)->tp_name;
+  if (!t)
+    return NULL;
 
-  if (strstr(t, "numpy.uint8")) return "nki.language.uint8";
-  if (strstr(t, "numpy.int8")) return "nki.language.int8";
-  if (strstr(t, "numpy.uint16")) return "nki.language.uint16";
-  if (strstr(t, "numpy.int16")) return "nki.language.int16";
-  if (strstr(t, "numpy.uint32")) return "nki.language.uint32";
-  if (strstr(t, "numpy.int32")) return "nki.language.int32";
-  if (strstr(t, "numpy.float16")) return "nki.language.float16";
-  if (strstr(t, "numpy.float32")) return "nki.language.float32";
-  if (strstr(t, "numpy.bool")) return "nki.language.bool";
+  if (strstr(t, "numpy.uint8"))
+    return "nki.language.uint8";
+  if (strstr(t, "numpy.int8"))
+    return "nki.language.int8";
+  if (strstr(t, "numpy.uint16"))
+    return "nki.language.uint16";
+  if (strstr(t, "numpy.int16"))
+    return "nki.language.int16";
+  if (strstr(t, "numpy.uint32"))
+    return "nki.language.uint32";
+  if (strstr(t, "numpy.int32"))
+    return "nki.language.int32";
+  if (strstr(t, "numpy.float16"))
+    return "nki.language.float16";
+  if (strstr(t, "numpy.float32"))
+    return "nki.language.float32";
+  if (strstr(t, "numpy.bool"))
+    return "nki.language.bool";
 
   return NULL;
 }
 
-static lean_object* const_dict(struct state *st, PyObject *obj);
+static lean_object *const_dict(struct state *st, PyObject *obj);
 
 // returns Expr
-static lean_object* const_expr(struct state *st, PyObject *obj) {
+static lean_object *const_expr(struct state *st, PyObject *obj) {
   lean_object *pos = curPos(st);
   lean_object *e = NULL;
   PyObject *numpy_dt = NULL;
@@ -485,12 +533,10 @@ static lean_object* const_expr(struct state *st, PyObject *obj) {
   if (PyTuple_Check(obj)) {
     lean_object *l = const_exprs(st, obj);
     e = Python_Expr_mk(Python_Expr_tuple(l, Python_Ctx_load), pos);
-  }
-  else if (PyList_Check(obj)) {
+  } else if (PyList_Check(obj)) {
     lean_object *l = const_exprs(st, obj);
     e = Python_Expr_mk(Python_Expr_list(l, Python_Ctx_load), pos);
-  }
-  else if (PyDict_Check(obj)) {
+  } else if (PyDict_Check(obj)) {
     PyObject *keys = PyDict_Keys(obj);
     PyObject *vals = PyDict_Values(obj);
 
@@ -501,35 +547,32 @@ static lean_object* const_expr(struct state *st, PyObject *obj) {
     Py_XDECREF(vals);
 
     e = Python_Expr_mk(Python_Expr_dict(l_keys, l_vals), pos);
-  }
-  else if (PyModule_Check(obj)) {
+  } else if (PyModule_Check(obj)) {
     PyObject *name = PyModule_GetNameObject(obj);
-    e = Python_Expr_mk(Python_Expr_name(py_strdup(st, name), Python_Ctx_load), pos);
-  }
-  else if (is_tensor(obj)) {
+    e = Python_Expr_mk(Python_Expr_name(py_strdup(st, name), Python_Ctx_load),
+                       pos);
+  } else if (is_tensor(obj)) {
     lean_object *c = tensor_const(st, obj);
     e = Python_Expr_mk(Python_Expr_const(c), pos);
-  }
-  else if (is_numpy_dtype(obj)) {
-    const char* nki_dtype = suggest_nki_dtype(obj);
+  } else if (is_numpy_dtype(obj)) {
+    const char *nki_dtype = suggest_nki_dtype(obj);
     if (nki_dtype) {
-      error(st, "numpy dtypes are not supported as arguments. Use %s instead", nki_dtype);
+      error(st, "numpy dtypes are not supported as arguments. Use %s instead",
+            nki_dtype);
     } else {
       error(st, "numpy dtypes are not supported as arguments");
     }
-  }
-  else if ((numpy_dt = numpy_dtype_instance(obj)) && numpy_dt) {
-    const char* nki_dtype = suggest_nki_dtype(numpy_dt);
+  } else if ((numpy_dt = numpy_dtype_instance(obj)) && numpy_dt) {
+    const char *nki_dtype = suggest_nki_dtype(numpy_dt);
     if (nki_dtype) {
-      error(st, "numpy dtypes are not supported as arguments. Use %s instead", nki_dtype);
+      error(st, "numpy dtypes are not supported as arguments. Use %s instead",
+            nki_dtype);
       Py_DECREF(numpy_dt);
     } else {
       error(st, "numpy dtypes are not supported as arguments");
     }
-  }
-  else if (PyObject_HasAttrString(obj, "__class__") &&
-           PyObject_HasAttrString(obj, "__dict__"))
-  {
+  } else if (PyObject_HasAttrString(obj, "__class__") &&
+             PyObject_HasAttrString(obj, "__dict__")) {
     // general object types
     PyObject *cls = PyObject_GetAttrString(obj, "__class__");
     PyObject *dict = PyObject_GetAttrString(obj, "__dict__");
@@ -540,8 +583,7 @@ static lean_object* const_expr(struct state *st, PyObject *obj) {
 
     add_work(st, NULL, cls);
     e = Python_Expr_mk(Python_Expr_object(cls_name, l_dict), pos);
-  }
-  else {
+  } else {
     e = Python_Expr_mk(Python_Expr_const(value(st, obj)), pos);
   }
 
@@ -551,7 +593,7 @@ static lean_object* const_expr(struct state *st, PyObject *obj) {
 }
 
 // Returns List Keyword
-static lean_object* const_dict(struct state *st, PyObject *obj) {
+static lean_object *const_dict(struct state *st, PyObject *obj) {
   if (!obj) {
     error(st, "could not convert dictionary");
     return mkNil();
@@ -571,14 +613,14 @@ static lean_object* const_dict(struct state *st, PyObject *obj) {
 }
 
 // returns List a
-static lean_object* const_list(
-       struct state *st, PyObject *obj,
-       lean_object* (*f)(struct state*, PyObject*))
-{
-  if (!obj) return mkNil();
+static lean_object *const_list(struct state *st, PyObject *obj,
+                               lean_object *(*f)(struct state *, PyObject *)) {
+  if (!obj)
+    return mkNil();
 
   Py_ssize_t sz = PyObject_Length(obj);
-  if (sz <= 0) return mkNil();
+  if (sz <= 0)
+    return mkNil();
 
   lean_object *arr = lean_alloc_array(0, sz);
 
@@ -605,15 +647,14 @@ static lean_object* const_list(
   return lean_array_to_list(arr);
 }
 
-
 // Note: in case of errors we will return an empty list (NULL)
 // returns List Const
-static lean_object* const_exprs(struct state *st, PyObject *obj) {
+static lean_object *const_exprs(struct state *st, PyObject *obj) {
   return const_list(st, obj, const_expr);
 }
 
 // returns Nat
-static lean_object* const_nat(struct state *st, PyObject *obj) {
+static lean_object *const_nat(struct state *st, PyObject *obj) {
   unsigned res = 0;
   if (!PyLong_Check(obj)) {
     error(st, "expecting a positive integer");
@@ -629,7 +670,7 @@ static lean_object* const_nat(struct state *st, PyObject *obj) {
 }
 
 // returns List Nat
-static lean_object* nat_list(struct state *st, PyObject *obj) {
+static lean_object *nat_list(struct state *st, PyObject *obj) {
   return const_list(st, obj, const_nat);
 }
 
@@ -668,12 +709,13 @@ static void add_global(struct state *st, lean_object *name, PyObject *obj) {
 
 // Lookup item `id` in dictionary `name` which should be an attribute of `obj`.
 // e.g. f.name['id']
-static PyObject* lookup_(PyObject *obj, const char *name, PyObject *id) {
+static PyObject *lookup_(PyObject *obj, const char *name, PyObject *id) {
   if (!obj || !name || !id)
     return NULL;
 
   PyObject *dict = PyObject_GetAttrString(obj, name);
-  if (!dict) return NULL;
+  if (!dict)
+    return NULL;
 
   PyObject *value = PyDict_GetItem(dict, id);
   Py_DECREF(dict);
@@ -684,7 +726,7 @@ static PyObject* lookup_(PyObject *obj, const char *name, PyObject *id) {
 }
 
 // Lookup `id` in current environment
-static PyObject* lookup(struct state *st, PyObject *id) {
+static PyObject *lookup(struct state *st, PyObject *id) {
   if (!st->scope.f || !id)
     return NULL;
   PyObject *obj = lookup_(st->scope.f, "__globals__", id);
@@ -699,21 +741,22 @@ static PyObject* lookup(struct state *st, PyObject *id) {
 // globals, or, if it is a function, add the function to our work list.
 
 struct ref {
-  lean_object *name;  // String
+  lean_object *name; // String
   PyObject *obj;
 };
 
 static struct ref reference(struct state *st, struct _expr *e) {
-  struct ref ref = { NULL, NULL };
-  if (!e) return ref;
+  struct ref ref = {NULL, NULL};
+  if (!e)
+    return ref;
 
-  switch(e->kind) {
+  switch (e->kind) {
   case Name_kind: {
-      const char *s = PyUnicode_AsUTF8(e->v.Name.id);
-      if (s && have_def(st, s)) {
-        break;
-      }
+    const char *s = PyUnicode_AsUTF8(e->v.Name.id);
+    if (s && have_def(st, s)) {
+      break;
     }
+  }
     ref.obj = lookup(st, e->v.Name.id);
     if (ref.obj) {
       if (PyModule_Check(ref.obj)) {
@@ -749,7 +792,7 @@ static struct ref reference(struct state *st, struct _expr *e) {
 
   if (ref.name && ref.obj) {
     if (PyFunction_Check(ref.obj) || PyType_Check(ref.obj)) {
-      char* orig_name = strdup(lean_string_cstr(ref.name));
+      char *orig_name = strdup(lean_string_cstr(ref.name));
       lean_dec(ref.name);
       ref.name = py_def_name(st, ref.obj);
       if (!st->ignore_refs) {
@@ -771,16 +814,14 @@ static struct ref reference(struct state *st, struct _expr *e) {
 // from how the Lean code works.
 
 // returns Const
-static lean_object* value(struct state *st, PyObject *obj) {
+static lean_object *value(struct state *st, PyObject *obj) {
   lean_object *c = Python_Const_none;
 
   if (!st || !obj || Py_IsNone(obj)) {
     // can use default value of c
-  }
-  else if (PyBool_Check(obj)) {
+  } else if (PyBool_Check(obj)) {
     c = Python_Const_bool(Py_IsTrue(obj) != 0);
-  }
-  else if (PyLong_Check(obj)) {
+  } else if (PyLong_Check(obj)) {
     int overflow = 0;
     PyErr_Clear();
     long value = PyLong_AsLongAndOverflow(obj, &overflow);
@@ -796,8 +837,7 @@ static lean_object* value(struct state *st, PyObject *obj) {
     } else {
       c = Python_Const_int(lean_int_to_int((int)value));
     }
-  }
-  else if (PyFloat_Check(obj)) {
+  } else if (PyFloat_Check(obj)) {
     PyErr_Clear();
     double d = PyFloat_AsDouble(obj);
     if (PyErr_Occurred()) {
@@ -806,11 +846,9 @@ static lean_object* value(struct state *st, PyObject *obj) {
     } else {
       c = Python_Const_float(d);
     }
-  }
-  else if (PyUnicode_Check(obj)) {
+  } else if (PyUnicode_Check(obj)) {
     c = Python_Const_string(py_strdup(st, obj));
-  }
-  else if (Py_IS_TYPE(obj, &PyEllipsis_Type)) {
+  } else if (Py_IS_TYPE(obj, &PyEllipsis_Type)) {
     c = Python_Const_ellipsis;
   }
   return c;
@@ -821,67 +859,104 @@ static lean_object* value(struct state *st, PyObject *obj) {
 
 static u8 context(expr_context_ty ctx) {
   switch (ctx) {
-  case Load:  return Python_Ctx_load;
-  case Store: return Python_Ctx_store;
-  case Del:   return Python_Ctx_del;
-  default:    return Python_Ctx_load;  // impossible (safe default)
+  case Load:
+    return Python_Ctx_load;
+  case Store:
+    return Python_Ctx_store;
+  case Del:
+    return Python_Ctx_del;
+  default:
+    return Python_Ctx_load; // impossible (safe default)
   }
 }
 
 static u8 boolop(boolop_ty op) {
   switch (op) {
-  case And: return Python_BoolOp_land;
-  case Or:  return Python_BoolOp_lor;
-  default:  return 0; // impossible
+  case And:
+    return Python_BoolOp_land;
+  case Or:
+    return Python_BoolOp_lor;
+  default:
+    return 0; // impossible
   }
 }
 
 static u8 unaryop(unaryop_ty op) {
   switch (op) {
-  case Invert: return Python_UnaryOp_invert;
-  case Not:    return Python_UnaryOp_not;
-  case UAdd:   return Python_UnaryOp_uadd;
-  case USub:   return Python_UnaryOp_usub;
-  default:     return 0; // impossible
+  case Invert:
+    return Python_UnaryOp_invert;
+  case Not:
+    return Python_UnaryOp_not;
+  case UAdd:
+    return Python_UnaryOp_uadd;
+  case USub:
+    return Python_UnaryOp_usub;
+  default:
+    return 0; // impossible
   }
 }
 
 static u8 binop(operator_ty op) {
   switch (op) {
-  case Add:      return Python_BinOp_add;
-  case Sub:      return Python_BinOp_sub;
-  case Mult:     return Python_BinOp_mul;
-  case MatMult:  return Python_BinOp_matmul;
-  case Div:      return Python_BinOp_div;
-  case Mod:      return Python_BinOp_mod;
-  case Pow:      return Python_BinOp_pow;
-  case LShift:   return Python_BinOp_lshift;
-  case RShift:   return Python_BinOp_rshift;
-  case BitOr:    return Python_BinOp_or;
-  case BitXor:   return Python_BinOp_xor;
-  case BitAnd:   return Python_BinOp_and;
-  case FloorDiv: return Python_BinOp_floor;
-  default:       return 0;  // impossible
+  case Add:
+    return Python_BinOp_add;
+  case Sub:
+    return Python_BinOp_sub;
+  case Mult:
+    return Python_BinOp_mul;
+  case MatMult:
+    return Python_BinOp_matmul;
+  case Div:
+    return Python_BinOp_div;
+  case Mod:
+    return Python_BinOp_mod;
+  case Pow:
+    return Python_BinOp_pow;
+  case LShift:
+    return Python_BinOp_lshift;
+  case RShift:
+    return Python_BinOp_rshift;
+  case BitOr:
+    return Python_BinOp_or;
+  case BitXor:
+    return Python_BinOp_xor;
+  case BitAnd:
+    return Python_BinOp_and;
+  case FloorDiv:
+    return Python_BinOp_floor;
+  default:
+    return 0; // impossible
   }
 }
 
 static u8 cmpop(cmpop_ty op) {
   switch (op) {
-  case Eq:    return Python_CmpOp_eq;
-  case NotEq: return Python_CmpOp_ne;
-  case Lt:    return Python_CmpOp_lt;
-  case LtE:   return Python_CmpOp_le;
-  case Gt:    return Python_CmpOp_gt;
-  case GtE:   return Python_CmpOp_ge;
-  case Is:    return Python_CmpOp_is;
-  case IsNot: return Python_CmpOp_isNot;
-  case In:    return Python_CmpOp_isIn;
-  case NotIn: return Python_CmpOp_notIn;
-  default:    return 0; // impossible
+  case Eq:
+    return Python_CmpOp_eq;
+  case NotEq:
+    return Python_CmpOp_ne;
+  case Lt:
+    return Python_CmpOp_lt;
+  case LtE:
+    return Python_CmpOp_le;
+  case Gt:
+    return Python_CmpOp_gt;
+  case GtE:
+    return Python_CmpOp_ge;
+  case Is:
+    return Python_CmpOp_is;
+  case IsNot:
+    return Python_CmpOp_isNot;
+  case In:
+    return Python_CmpOp_isIn;
+  case NotIn:
+    return Python_CmpOp_notIn;
+  default:
+    return 0; // impossible
   }
 }
 
-static lean_object* cmpops(struct state *st, asdl_int_seq *ops) {
+static lean_object *cmpops(struct state *st, asdl_int_seq *ops) {
   if (!ops)
     return mkNil();
 
@@ -893,10 +968,10 @@ static lean_object* cmpops(struct state *st, asdl_int_seq *ops) {
   return lean_array_to_list(arr);
 }
 
-static lean_object* exprs(struct state *st, asdl_expr_seq *python);
-static lean_object* keywords(struct state *st, asdl_keyword_seq *python);
+static lean_object *exprs(struct state *st, asdl_expr_seq *python);
+static lean_object *keywords(struct state *st, asdl_keyword_seq *python);
 
-static lean_object* expr(struct state *st, struct _expr *python) {
+static lean_object *expr(struct state *st, struct _expr *python) {
   struct pos old_pos = st->scope.pos;
   lean_object *e = NULL;
 
@@ -906,154 +981,158 @@ static lean_object* expr(struct state *st, struct _expr *python) {
   st->scope.pos.line = python->lineno;
   st->scope.pos.col = python->col_offset;
 
-  //static int indent = 0;
-  //indent++;
-  //for (int i = 0; i < indent; i++) printf(" ");
-  //printf("EXPR %d %p (%d, %d)\n", python->kind, python, python->lineno, python->col_offset);
+  // static int indent = 0;
+  // indent++;
+  // for (int i = 0; i < indent; i++) printf(" ");
+  // printf("EXPR %d %p (%d, %d)\n", python->kind, python, python->lineno,
+  // python->col_offset);
   switch (python->kind) {
-    case Constant_kind: {
-      e = Python_Expr_const(value(st, python->v.Constant.value));
-      break;
+  case Constant_kind: {
+    e = Python_Expr_const(value(st, python->v.Constant.value));
+    break;
+  }
+  // Names and attributes may be references which we need to track
+  // We rely on the ctx value for a small optimization: we only need
+  // to consider Loads
+  case Name_kind: {
+    lean_object *name = NULL;
+    if (python->v.Name.ctx == Load) {
+      struct ref r = reference(st, python);
+      if (r.obj)
+        name = r.name;
     }
-    // Names and attributes may be references which we need to track
-    // We rely on the ctx value for a small optimization: we only need
-    // to consider Loads
-    case Name_kind: {
-      lean_object *name = NULL;
-      if (python->v.Name.ctx == Load) {
-        struct ref r = reference(st, python);
-        if (r.obj)
-          name = r.name;
-      }
-      if (!name)
-        name = py_strdup(st, python->v.Name.id);
+    if (!name)
+      name = py_strdup(st, python->v.Name.id);
 
-      if (python->v.Name.ctx == Store) {
-        add_local(st, name);
-      }
-
-      e = Python_Expr_name(name, context(python->v.Name.ctx));
-      break;
+    if (python->v.Name.ctx == Store) {
+      add_local(st, name);
     }
 
-    case Attribute_kind: {
-      e = Python_Expr_attr(expr(st, python->v.Attribute.value),
-                           py_strdup(st, python->v.Attribute.attr),
-                           context(python->v.Attribute.ctx));
+    e = Python_Expr_name(name, context(python->v.Name.ctx));
+    break;
+  }
 
-      if (python->v.Attribute.ctx == Load)
-        reference(st, python);
+  case Attribute_kind: {
+    e = Python_Expr_attr(expr(st, python->v.Attribute.value),
+                         py_strdup(st, python->v.Attribute.attr),
+                         context(python->v.Attribute.ctx));
+
+    if (python->v.Attribute.ctx == Load)
+      reference(st, python);
+    break;
+  }
+
+  // Containers: Tuple and List and Dict
+  case Tuple_kind: {
+    e = Python_Expr_tuple(exprs(st, python->v.Tuple.elts),
+                          context(python->v.Tuple.ctx));
+    break;
+  }
+  case List_kind: {
+    e = Python_Expr_list(exprs(st, python->v.List.elts),
+                         context(python->v.List.ctx));
+    break;
+  }
+  case Dict_kind: {
+    e = Python_Expr_dict(exprs(st, python->v.Dict.keys),
+                         exprs(st, python->v.Dict.values));
+    break;
+  }
+
+  // Index expressions
+  case Subscript_kind: {
+    e = Python_Expr_subscript(expr(st, python->v.Subscript.value),
+                              expr(st, python->v.Subscript.slice),
+                              context(python->v.Subscript.ctx));
+    break;
+  }
+  case Slice_kind: {
+    lean_object *lower =
+        python->v.Slice.lower ? expr(st, python->v.Slice.lower) : NULL;
+    lean_object *upper =
+        python->v.Slice.upper ? expr(st, python->v.Slice.upper) : NULL;
+    lean_object *step =
+        python->v.Slice.step ? expr(st, python->v.Slice.step) : NULL;
+    e = Python_Expr_slice(mkOption(lower), mkOption(upper), mkOption(step));
+    break;
+  }
+
+  // Operators
+  case BoolOp_kind: {
+    e = Python_Expr_boolOp(boolop(python->v.BoolOp.op),
+                           exprs(st, python->v.BoolOp.values));
+    break;
+  }
+  case BinOp_kind: {
+    e = Python_Expr_binOp(binop(python->v.BinOp.op),
+                          expr(st, python->v.BinOp.left),
+                          expr(st, python->v.BinOp.right));
+    break;
+  }
+  case UnaryOp_kind: {
+    e = Python_Expr_unaryOp(unaryop(python->v.UnaryOp.op),
+                            expr(st, python->v.UnaryOp.operand));
+    break;
+  }
+  case Compare_kind: {
+    e = Python_Expr_compare(expr(st, python->v.Compare.left),
+                            cmpops(st, python->v.Compare.ops),
+                            exprs(st, python->v.Compare.comparators));
+    break;
+  }
+
+  // Condition expression
+  case IfExp_kind: {
+    e = Python_Expr_ifExp(expr(st, python->v.IfExp.test),
+                          expr(st, python->v.IfExp.body),
+                          expr(st, python->v.IfExp.orelse));
+    break;
+  }
+
+  // Function calls
+  case Call_kind: {
+    e = Python_Expr_call(expr(st, python->v.Call.func),
+                         exprs(st, python->v.Call.args),
+                         keywords(st, python->v.Call.keywords));
+    break;
+  }
+
+  // Tuple expansion *t
+  case Starred_kind: {
+    e = Python_Expr_starred(expr(st, python->v.Starred.value),
+                            context(python->v.Starred.ctx));
+    break;
+  }
+
+  // f-strings
+  case FormattedValue_kind: {
+    if (python->v.FormattedValue.format_spec) {
+      error(st, "NKI does no support format specifiers");
       break;
     }
 
-    // Containers: Tuple and List and Dict
-    case Tuple_kind: {
-      e = Python_Expr_tuple(exprs(st, python->v.Tuple.elts),
-                            context(python->v.Tuple.ctx));
-      break;
-    }
-    case List_kind: {
-      e = Python_Expr_list(exprs(st, python->v.List.elts),
-                           context(python->v.List.ctx));
-      break;
-    }
-    case Dict_kind: {
-      e = Python_Expr_dict(exprs(st, python->v.Dict.keys),
-                           exprs(st, python->v.Dict.values));
-      break;
-    }
-
-    // Index expressions
-    case Subscript_kind: {
-      e = Python_Expr_subscript(expr(st, python->v.Subscript.value),
-                                expr(st, python->v.Subscript.slice),
-                                context(python->v.Subscript.ctx));
-      break;
-    }
-    case Slice_kind: {
-      lean_object *lower = python->v.Slice.lower ? expr(st, python->v.Slice.lower) : NULL;
-      lean_object *upper = python->v.Slice.upper ? expr(st, python->v.Slice.upper) : NULL;
-      lean_object *step = python->v.Slice.step ? expr(st, python->v.Slice.step) : NULL;
-      e = Python_Expr_slice(mkOption(lower),
-                            mkOption(upper),
-                            mkOption(step));
-      break;
-    }
-
-    // Operators
-    case BoolOp_kind: {
-      e = Python_Expr_boolOp(boolop(python->v.BoolOp.op),
-                             exprs(st, python->v.BoolOp.values));
-      break;
-    }
-    case BinOp_kind: {
-      e = Python_Expr_binOp(binop(python->v.BinOp.op),
-                            expr(st, python->v.BinOp.left),
-                            expr(st, python->v.BinOp.right));
-      break;
-    }
-    case UnaryOp_kind: {
-      e = Python_Expr_unaryOp(unaryop(python->v.UnaryOp.op),
-                              expr(st, python->v.UnaryOp.operand));
-      break;
-    }
-    case Compare_kind: {
-      e = Python_Expr_compare(expr(st, python->v.Compare.left),
-                              cmpops(st, python->v.Compare.ops),
-                              exprs(st, python->v.Compare.comparators));
-      break;
-    }
-
-    // Condition expression
-    case IfExp_kind: {
-      e = Python_Expr_ifExp(expr(st, python->v.IfExp.test),
-                            expr(st, python->v.IfExp.body),
-                            expr(st, python->v.IfExp.orelse));
-      break;
-    }
-
-    // Function calls
-    case Call_kind: {
-      e = Python_Expr_call(expr(st, python->v.Call.func),
-                           exprs(st, python->v.Call.args),
-                           keywords(st, python->v.Call.keywords));
-      break;
-    }
-
-    // Tuple expansion *t
-    case Starred_kind: {
-      e = Python_Expr_starred(expr(st, python->v.Starred.value),
-                              context(python->v.Starred.ctx));
-      break;
-    }
-
-    // f-strings
-    case FormattedValue_kind: {
-      if (python->v.FormattedValue.format_spec) {
-        error(st, "NKI does no support format specifiers");
-        break;
-      }
-
-      int conv = python->v.FormattedValue.conversion;
-      lean_object *l_conv =
+    int conv = python->v.FormattedValue.conversion;
+    lean_object *l_conv =
         conv <= 0 ? mkNone() : mkOption(lean_unsigned_to_nat(conv));
 
-      lean_object *value_expr = python->v.FormattedValue.value ? expr(st, python->v.FormattedValue.value) : NULL;
-      if (!value_expr) {
-        error(st, "FormattedValue missing value");
-        break;
-      }
-      e = Python_Expr_format(value_expr, l_conv);
+    lean_object *value_expr = python->v.FormattedValue.value
+                                  ? expr(st, python->v.FormattedValue.value)
+                                  : NULL;
+    if (!value_expr) {
+      error(st, "FormattedValue missing value");
       break;
     }
-    case JoinedStr_kind: {
-      e = Python_Expr_joined(exprs(st, python->v.JoinedStr.values));
-      break;
-    }
+    e = Python_Expr_format(value_expr, l_conv);
+    break;
+  }
+  case JoinedStr_kind: {
+    e = Python_Expr_joined(exprs(st, python->v.JoinedStr.values));
+    break;
+  }
 
-    default:
-      error(st, "unsupported expression");
-      break;
+  default:
+    error(st, "unsupported expression");
+    break;
   }
 
 done:
@@ -1061,9 +1140,9 @@ done:
   if (!e)
     e = Python_Expr_const(Python_Const_none);
 
-  //for (int i = 0; i < indent; i++) printf(" ");
-  //printf("expr %d %p\n", python->kind, python);
-  //indent--;
+  // for (int i = 0; i < indent; i++) printf(" ");
+  // printf("expr %d %p\n", python->kind, python);
+  // indent--;
   st->scope.pos = old_pos;
   return Python_Expr_mk(e, Pos(python));
 }
@@ -1084,18 +1163,16 @@ static lean_object *exprs(struct state *st, asdl_expr_seq *python) {
 // -----------------------------------------------------------------------------
 // -- Keywords
 
-static lean_object* keyword(struct state *st, keyword_ty python) {
+static lean_object *keyword(struct state *st, keyword_ty python) {
   // NULL means **kwarg
   lean_object *id = NULL;
   if (python->arg)
     id = py_strdup(st, python->arg);
 
-  return Python_Keyword_mk(mkOption(id),
-                           expr(st, python->value),
-                           Pos(python));
+  return Python_Keyword_mk(mkOption(id), expr(st, python->value), Pos(python));
 }
 
-static lean_object* keywords(struct state *st, asdl_keyword_seq *python) {
+static lean_object *keywords(struct state *st, asdl_keyword_seq *python) {
   if (!python)
     return mkNil();
 
@@ -1110,7 +1187,7 @@ static lean_object* keywords(struct state *st, asdl_keyword_seq *python) {
 // -----------------------------------------------------------------------------
 // -- Arguments
 
-static lean_object* arg(struct state *st, arg_ty python) {
+static lean_object *arg(struct state *st, arg_ty python) {
   // NULL just means missing
   if (!python)
     return NULL;
@@ -1120,7 +1197,7 @@ static lean_object* arg(struct state *st, arg_ty python) {
   return name;
 }
 
-static lean_object* arg_list(struct state *st, asdl_arg_seq *python) {
+static lean_object *arg_list(struct state *st, asdl_arg_seq *python) {
   if (!python)
     return mkNil();
 
@@ -1136,7 +1213,7 @@ static lean_object* arg_list(struct state *st, asdl_arg_seq *python) {
   return lean_array_to_list(arr);
 }
 
-static lean_object* args(struct state *st, arguments_ty python) {
+static lean_object *args(struct state *st, arguments_ty python) {
   if (!python)
     return NULL;
 
@@ -1149,18 +1226,18 @@ static lean_object* args(struct state *st, arguments_ty python) {
   lean_object *kwonlyargs = arg_list(st, python->kwonlyargs);
   lean_object *kwarg = mkOption(arg(st, python->kwarg));
 
-
   // Construct kw_defaults by zipping kwonlyargs with kw_defaults
   // The Python AST has kw_defaults as a list where:
   // - NULL means "no default" (required keyword-only argument)
-  // - Non-NULL expressions include actual defaults (even if the default is None)
-  // Lean expects only the keyword args that actually have defaults as Keywords
+  // - Non-NULL expressions include actual defaults (even if the default is
+  // None) Lean expects only the keyword args that actually have defaults as
+  // Keywords
   lean_object *kw_defaults = mkNil();
-  if (python->kwonlyargs && python->kw_defaults && 
+  if (python->kwonlyargs && python->kw_defaults &&
       python->kwonlyargs->size == python->kw_defaults->size) {
     lean_object *arr = lean_mk_empty_array();
     lean_object *l_pos = curPos(st);
-    
+
     for (int i = 0; i < python->kwonlyargs->size; i++) {
       // Skip NULL entries (required keyword-only args with no default)
       // Note: actual None defaults are Constant expressions, not NULL
@@ -1170,7 +1247,8 @@ static lean_object* args(struct state *st, arguments_ty python) {
         if (kwarg && kwarg->arg) {
           lean_object *name = py_strdup(st, kwarg->arg);
           lean_object *l_default = expr(st, default_expr);
-          lean_object *keyword = Python_Keyword_mk(mkSome(name), l_default, l_pos);
+          lean_object *keyword =
+              Python_Keyword_mk(mkSome(name), l_default, l_pos);
           arr = lean_array_push(arr, keyword);
         }
       }
@@ -1178,16 +1256,16 @@ static lean_object* args(struct state *st, arguments_ty python) {
     kw_defaults = lean_array_to_list(arr);
   }
 
-  return Python_Args_mk(posonlyargs, args, defaults, vararg,
-                        kwonlyargs, kw_defaults, kwarg);
+  return Python_Args_mk(posonlyargs, args, defaults, vararg, kwonlyargs,
+                        kw_defaults, kwarg);
 }
 
 // -----------------------------------------------------------------------------
 // -- Statements
 
-static lean_object* stmts(struct state *st, asdl_stmt_seq *python);
+static lean_object *stmts(struct state *st, asdl_stmt_seq *python);
 
-static lean_object* stmt(struct state *st, struct _stmt *python) {
+static lean_object *stmt(struct state *st, struct _stmt *python) {
   struct pos old_pos = st->scope.pos;
   lean_object *s = Python_Stmt_pass;
 
@@ -1197,148 +1275,159 @@ static lean_object* stmt(struct state *st, struct _stmt *python) {
   st->scope.pos.line = python->lineno;
   st->scope.pos.col = python->col_offset;
 
-  //printf("STMT %d %p\n", python->kind, python);
+  // printf("STMT %d %p\n", python->kind, python);
   switch (python->kind) {
-    case Pass_kind:
-      s = Python_Stmt_pass;
-      break;
+  case Pass_kind:
+    s = Python_Stmt_pass;
+    break;
 
-    // Simple expressions
-    case Expr_kind: {
-      s = Python_Stmt_expr(expr(st, python->v.Return.value));
-      break;
-    }
-    case Assert_kind: {
-      lean_object *msg = python->v.Assert.msg ? mkSome(expr(st, python->v.Assert.msg)) : mkNone();
-      s = Python_Stmt_assert(expr(st, python->v.Assert.test), msg);
-      break;
-    }
-    case Return_kind: {
-      s = Python_Stmt_ret(expr(st, python->v.Return.value));
-      break;
-    }
+  // Simple expressions
+  case Expr_kind: {
+    s = Python_Stmt_expr(expr(st, python->v.Return.value));
+    break;
+  }
+  case Assert_kind: {
+    lean_object *msg = python->v.Assert.msg
+                           ? mkSome(expr(st, python->v.Assert.msg))
+                           : mkNone();
+    s = Python_Stmt_assert(expr(st, python->v.Assert.test), msg);
+    break;
+  }
+  case Return_kind: {
+    s = Python_Stmt_ret(expr(st, python->v.Return.value));
+    break;
+  }
 
-    // Assignments
-    case Assign_kind: {
-      s = Python_Stmt_assign(exprs(st, python->v.Assign.targets),
-                             expr(st, python->v.Assign.value));
-      break;
-    }
-    case AugAssign_kind: {
-      s = Python_Stmt_augAssign(expr(st, python->v.AugAssign.target),
-                                binop(python->v.AugAssign.op),
-                                expr(st, python->v.AugAssign.value));
-      break;
-    }
-    case AnnAssign_kind: {
-      lean_object *value = mkNone();
-      if (python->v.AnnAssign.value)
-        value = mkSome(expr(st, python->v.AnnAssign.value));
+  // Assignments
+  case Assign_kind: {
+    s = Python_Stmt_assign(exprs(st, python->v.Assign.targets),
+                           expr(st, python->v.Assign.value));
+    break;
+  }
+  case AugAssign_kind: {
+    s = Python_Stmt_augAssign(expr(st, python->v.AugAssign.target),
+                              binop(python->v.AugAssign.op),
+                              expr(st, python->v.AugAssign.value));
+    break;
+  }
+  case AnnAssign_kind: {
+    lean_object *value = mkNone();
+    if (python->v.AnnAssign.value)
+      value = mkSome(expr(st, python->v.AnnAssign.value));
 
-      s = Python_Stmt_annAssign(expr(st, python->v.AnnAssign.target),
-                                expr(st, python->v.AnnAssign.annotation),
-                                value);
-      break;
-    }
+    s = Python_Stmt_annAssign(expr(st, python->v.AnnAssign.target),
+                              expr(st, python->v.AnnAssign.annotation), value);
+    break;
+  }
 
-    // If statements
-    case If_kind: {
-      s = Python_Stmt_ifStm(expr(st, python->v.If.test),
-                            stmts(st, python->v.If.body),
-                            stmts(st, python->v.If.orelse));
-      break;
-    }
+  // If statements
+  case If_kind: {
+    s = Python_Stmt_ifStm(expr(st, python->v.If.test),
+                          stmts(st, python->v.If.body),
+                          stmts(st, python->v.If.orelse));
+    break;
+  }
 
-    // For loops
-    case For_kind: {
-      s = Python_Stmt_forLoop(expr(st, python->v.For.target),
-                              expr(st, python->v.For.iter),
-                              stmts(st, python->v.For.body),
-                              stmts(st, python->v.For.orelse));
-      break;
-    }
-    case Break_kind: {
-      s = Python_Stmt_breakLoop;
-      break;
-    }
-    case Continue_kind: {
-      s = Python_Stmt_continueLoop;
-      break;
-    }
+  // For loops
+  case For_kind: {
+    s = Python_Stmt_forLoop(
+        expr(st, python->v.For.target), expr(st, python->v.For.iter),
+        stmts(st, python->v.For.body), stmts(st, python->v.For.orelse));
+    break;
+  }
+  case Break_kind: {
+    s = Python_Stmt_breakLoop;
+    break;
+  }
+  case Continue_kind: {
+    s = Python_Stmt_continueLoop;
+    break;
+  }
 
-    case While_kind: {
-      s = Python_Stmt_whileLoop(expr(st, python->v.While.test),
-                                stmts(st, python->v.While.body),
-                                stmts(st, python->v.While.orelse));
-      break;
-    }
+  case While_kind: {
+    s = Python_Stmt_whileLoop(expr(st, python->v.While.test),
+                              stmts(st, python->v.While.body),
+                              stmts(st, python->v.While.orelse));
+    break;
+  }
 
-    // TODO: do we need with?
-    case With_kind:
-      error(st, "NKI does not support 'with' statements at this time.");
-      break;
+  // TODO: do we need with?
+  case With_kind:
+    error(st, "NKI does not support 'with' statements at this time.");
+    break;
 
-    case FunctionDef_kind:
-      error(st, "NKI does not support inner function definitions. Move function definition outside this function.");
-      break;
+  case FunctionDef_kind:
+    error(st, "NKI does not support inner function definitions. Move function "
+              "definition outside this function.");
+    break;
 
-    case ClassDef_kind:
-      error(st, "NKI does not support 'class' definitions within a function. Move class definition outside this function.");
-      break;
+  case ClassDef_kind:
+    error(st, "NKI does not support 'class' definitions within a function. "
+              "Move class definition outside this function.");
+    break;
 
-    case Delete_kind:
-      error(st, "NKI does not support 'del' statements at this time.");
-      break;
+  case Delete_kind:
+    error(st, "NKI does not support 'del' statements at this time.");
+    break;
 
-    case TypeAlias_kind:
-      error(st, "NKI does not support 'type' statements at this time.");
-      break;
+  case TypeAlias_kind:
+    error(st, "NKI does not support 'type' statements at this time.");
+    break;
 
-    case AsyncFunctionDef_kind:
-    case AsyncFor_kind:
-    case AsyncWith_kind:
-      error(st, "NKI does not support 'async'. Use only synchronous functions within kernels.");
-      break;
+  case AsyncFunctionDef_kind:
+  case AsyncFor_kind:
+  case AsyncWith_kind:
+    error(st, "NKI does not support 'async'. Use only synchronous functions "
+              "within kernels.");
+    break;
 
-    case Match_kind:
-      error(st, "NKI does not support 'match' statements at this time. Use 'if/elif' or dict lookups instead.");
-      break;
+  case Match_kind:
+    error(st, "NKI does not support 'match' statements at this time. Use "
+              "'if/elif' or dict lookups instead.");
+    break;
 
-    case Raise_kind:
-      error(st, "NKI does not support 'raise' statements. Use 'if/else' control flow within kernels, or 'assert' for fatal errors.");
-      break;
+  case Raise_kind:
+    error(st, "NKI does not support 'raise' statements. Use 'if/else' control "
+              "flow within kernels, or 'assert' for fatal errors.");
+    break;
 
-    case Try_kind:
-    case TryStar_kind:
-      error(st, "NKI does not support 'try' statements. Use 'if/else' control flow within kernels.");
-      break;
+  case Try_kind:
+  case TryStar_kind:
+    error(st, "NKI does not support 'try' statements. Use 'if/else' control "
+              "flow within kernels.");
+    break;
 
-    case Import_kind:
-    case ImportFrom_kind:
-      error(st, "NKI does not support 'import' statements within a function. Move 'import' outside this function.");
-      break;
+  case Import_kind:
+  case ImportFrom_kind:
+    error(st, "NKI does not support 'import' statements within a function. "
+              "Move 'import' outside this function.");
+    break;
 
-    case Global_kind:
-      error(st, "NKI does not support 'global' statements. Kernels cannot assign to global variables. Pass a dict between functions to share state.");
-      break;
+  case Global_kind:
+    error(st,
+          "NKI does not support 'global' statements. Kernels cannot assign to "
+          "global variables. Pass a dict between functions to share state.");
+    break;
 
-    case Nonlocal_kind:
-      error(st, "NKI does not support 'nonlocal' statements. Kernels cannot assign to variables in nonlocal scope. Pass a dict between functions to share state.");
-      break;
+  case Nonlocal_kind:
+    error(st, "NKI does not support 'nonlocal' statements. Kernels cannot "
+              "assign to variables in nonlocal scope. Pass a dict between "
+              "functions to share state.");
+    break;
 
-    default:
-      error(st, "This statement is not supported in NKI.");
-      break;
+  default:
+    error(st, "This statement is not supported in NKI.");
+    break;
   }
 
 done:
   checkPyErr(st);
-  //printf("stmt %d %p\n", python->kind, python);
+  // printf("stmt %d %p\n", python->kind, python);
   st->scope.pos = old_pos;
   return Python_Stmt_mk(s, Pos(python));
 }
 
-static lean_object* stmts(struct state *st, asdl_stmt_seq *python) {
+static lean_object *stmts(struct state *st, asdl_stmt_seq *python) {
   if (!python)
     return mkNil();
 
@@ -1353,7 +1442,7 @@ static lean_object* stmts(struct state *st, asdl_stmt_seq *python) {
 // -----------------------------------------------------------------------------
 // -- Interface to the parser
 
-static PyObject* get_util(const char *name) {
+static PyObject *get_util(const char *name) {
   PyObject *f = NULL;
   PyObject *fe = PyUnicode_FromString(MODULE_ROOT ".frontend");
   if (fe) {
@@ -1367,7 +1456,7 @@ static PyObject* get_util(const char *name) {
   return f;
 }
 
-static struct _mod* parse_def(struct state *st, PyObject *obj) {
+static struct _mod *parse_def(struct state *st, PyObject *obj) {
   // Initialization needed for done label
   struct _mod *m = NULL;
   PyObject *source = NULL;
@@ -1384,11 +1473,10 @@ static struct _mod* parse_def(struct state *st, PyObject *obj) {
   // Note: Tuple_GetItem does not increment reference count
   PyObject *file = PyTuple_GetItem(source, 0);
   PyObject *line = PyTuple_GetItem(source, 1);
-  PyObject *src  = PyTuple_GetItem(source, 2);
+  PyObject *src = PyTuple_GetItem(source, 2);
 
-  if (!file || !PyUnicode_Check(file) ||
-      !line || !PyLong_Check(line) ||
-      !src  || !PyUnicode_Check(src))
+  if (!file || !PyUnicode_Check(file) || !line || !PyLong_Check(line) || !src ||
+      !PyUnicode_Check(src))
     goto done;
 
   const char *file_str = PyUnicode_AsUTF8(file);
@@ -1421,7 +1509,8 @@ done:
   return m;
 }
 
-static lean_object* function_(struct state *st, lean_object *name, struct _stmt *s) {
+static lean_object *function_(struct state *st, lean_object *name,
+                              struct _stmt *s) {
   // dont follow decorators
   st->ignore_refs = true;
   lean_object *decs = exprs(st, s->v.FunctionDef.decorator_list);
@@ -1450,7 +1539,7 @@ static void function(struct state *st, lean_object *name, struct _stmt *s) {
 }
 
 // Returns Keyword
-static lean_object* field(struct state *st, struct _expr *e) {
+static lean_object *field(struct state *st, struct _expr *e) {
   if (e->kind != Name_kind) {
     error(st, "invalid left-hand side in assignment");
     return NULL;
@@ -1472,18 +1561,13 @@ static lean_object* field(struct state *st, struct _expr *e) {
   return Python_Keyword_mk(name, val, pos);
 }
 
-
 static void class(struct state *st, lean_object *name, struct _stmt *s) {
-  if (s->v.ClassDef.keywords &&
-      s->v.ClassDef.keywords->size > 0)
-  {
+  if (s->v.ClassDef.keywords && s->v.ClassDef.keywords->size > 0) {
     error(st, "class keywords are not supported in NKI");
     return;
   }
 
-  if (s->v.ClassDef.type_params &&
-      s->v.ClassDef.type_params->size > 0)
-  {
+  if (s->v.ClassDef.type_params && s->v.ClassDef.type_params->size > 0) {
     error(st, "class type parameters are not supported in NKI");
     return;
   }
@@ -1501,9 +1585,7 @@ static void class(struct state *st, lean_object *name, struct _stmt *s) {
         base_name = PyUnicode_AsUTF8(base->v.Attribute.attr);
       }
       if (base_name) {
-        if (!strstr(base_name, "NKIObject") &&
-            !strstr(base_name, "Enum"))
-        {
+        if (!strstr(base_name, "NKIObject") && !strstr(base_name, "Enum")) {
           valid_base = false;
           break;
         }
@@ -1550,9 +1632,7 @@ static void class(struct state *st, lean_object *name, struct _stmt *s) {
       return;
 
     case Assign_kind: {
-      if (s->v.Assign.targets == NULL ||
-          s->v.Assign.targets->size != 1)
-      {
+      if (s->v.Assign.targets == NULL || s->v.Assign.targets->size != 1) {
         error(st, "invalid assignment in NKI class");
         return;
       }
@@ -1583,12 +1663,9 @@ static void class(struct state *st, lean_object *name, struct _stmt *s) {
     }
   }
 
-  lean_object *cls = Python_Class_mk(
-    name,
-    bases,
-    decs,
-    lean_array_to_list(fields),
-    lean_array_to_list(methods));
+  lean_object *cls =
+      Python_Class_mk(name, bases, decs, lean_array_to_list(fields),
+                      lean_array_to_list(methods));
 
   struct definition *def = region_alloc(st->region, sizeof(*def));
   def->str = name;
@@ -1600,14 +1677,11 @@ static void class(struct state *st, lean_object *name, struct _stmt *s) {
   st->defs = def;
 }
 
-static void definition(struct state *st, PyObject *obj, char* suggested_name) {
+static void definition(struct state *st, PyObject *obj, char *suggested_name) {
   struct scope old_scope = st->scope;
   struct _mod *m = parse_def(st, obj);
-  if (!m ||
-      m->kind != Interactive_kind ||
-      !m->v.Interactive.body ||
-      m->v.Interactive.body->size != 1)
-  {
+  if (!m || m->kind != Interactive_kind || !m->v.Interactive.body ||
+      m->v.Interactive.body->size != 1) {
     // failure to parse is not an error
     PyErr_Clear();
     goto cleanup;
@@ -1625,7 +1699,8 @@ static void definition(struct state *st, PyObject *obj, char* suggested_name) {
   case FunctionDef_kind:
     if (st->scope.f) {
       function(st, name, stmt);
-      if (suggested_name && strcmp(lean_string_cstr(name), suggested_name) != 0) {
+      if (suggested_name &&
+          strcmp(lean_string_cstr(name), suggested_name) != 0) {
         function(st, lean_mk_string(suggested_name), stmt);
       }
     }
@@ -1634,7 +1709,8 @@ static void definition(struct state *st, PyObject *obj, char* suggested_name) {
   case ClassDef_kind:
     if (st->scope.cls) {
       class(st, name, stmt);
-      if (suggested_name && strcmp(lean_string_cstr(name), suggested_name) != 0) {
+      if (suggested_name &&
+          strcmp(lean_string_cstr(name), suggested_name) != 0) {
         class(st, lean_mk_string(suggested_name), stmt);
       }
     }
@@ -1645,7 +1721,8 @@ static void definition(struct state *st, PyObject *obj, char* suggested_name) {
   }
 
 cleanup:
-  if (m) free_python_ast(m);
+  if (m)
+    free_python_ast(m);
   st->scope = old_scope;
   if (suggested_name) {
     free(suggested_name);
@@ -1655,9 +1732,9 @@ cleanup:
 // ----------------------------------------------------------------------------
 // -- Entry points
 
-
 static void append(PyObject **l, const char *r) {
-  if (!l || !*l) return;
+  if (!l || !*l)
+    return;
   if (!r) {
     *l = NULL;
     return;
@@ -1670,10 +1747,10 @@ static void append(PyObject **l, const char *r) {
   PyUnicode_AppendAndDel(l, str);
 }
 
-PyObject* specialize(
-  struct kernel *k, PyObject *args, PyObject *kws, PyObject *arch, PyObject *grid, PyObject *schedule, PyObject *flags
-) {
-  struct state st = { 0 };
+PyObject *specialize(struct kernel *k, PyObject *args, PyObject *kws,
+                     PyObject *arch, PyObject *grid, PyObject *schedule,
+                     PyObject *flags) {
+  struct state st = {0};
   st.region = k->region;
 
   // add main function to work list, and process arguments
@@ -1684,7 +1761,8 @@ PyObject* specialize(
 
   while (true) {
     struct worklist *work = st.work;
-    if (!work) break;
+    if (!work)
+      break;
     st.work = work->next;
     definition(&st, work->obj, work->suggested_name);
   }
@@ -1709,7 +1787,8 @@ PyObject* specialize(
   lean_object *l_grid = lean_unsigned_to_nat((u32)grid_val);
 
   st.ignore_refs = true;
-  lean_object *l_sched = schedule == Py_None ? mkNil() : const_exprs(&st, schedule);
+  lean_object *l_sched =
+      schedule == Py_None ? mkNil() : const_exprs(&st, schedule);
   checkPyErr(&st);
   st.ignore_refs = false;
   st.work = NULL;
@@ -1726,23 +1805,22 @@ PyObject* specialize(
   lean_object *gs = lean_mk_empty_array();
   for (struct definition *d = st.defs; d; d = d->next) {
     switch (d->type) {
-    case FUN: fs = lean_array_push(fs, d->obj); break;
-    case CLS: cs = lean_array_push(cs, d->obj); break;
-    case GLOBAL: gs = lean_array_push(gs, d->obj); break;
+    case FUN:
+      fs = lean_array_push(fs, d->obj);
+      break;
+    case CLS:
+      cs = lean_array_push(cs, d->obj);
+      break;
+    case GLOBAL:
+      gs = lean_array_push(gs, d->obj);
+      break;
     }
   }
 
   lean_object *l_k = Python_Kernel_mk(
-    py_def_name(&st, k->f),
-    lean_array_to_list(fs),
-    lean_array_to_list(cs),
-    l_args,
-    l_kwargs,
-    lean_array_to_list(gs),
-    l_arch,
-    l_grid,
-    l_sched,
-    l_flags);
+      py_def_name(&st, k->f), lean_array_to_list(fs), lean_array_to_list(cs),
+      l_args, l_kwargs, lean_array_to_list(gs), l_arch, l_grid, l_sched,
+      l_flags);
 
   // save the constructed kernel
   if (k->lean_kernel) {
@@ -1765,10 +1843,13 @@ PyObject* specialize(
     if (m->isError)
       continue;
 
-    if (first) first = false;
-    else append(&json, ",");
+    if (first)
+      first = false;
+    else
+      append(&json, ",");
 
-    if (asprintf(&buf, "\"%s:%d:%d %s\"", m->file, m->line, m->col, m->message) != -1) {
+    if (asprintf(&buf, "\"%s:%d:%d %s\"", m->file, m->line, m->col,
+                 m->message) != -1) {
       append(&json, buf);
       free(buf);
     }
@@ -1780,10 +1861,13 @@ PyObject* specialize(
     if (!m->isError)
       continue;
 
-    if (first) first = false;
-    else append(&json, ",");
+    if (first)
+      first = false;
+    else
+      append(&json, ",");
 
-    if (asprintf(&buf, "\"%s:%d:%d %s\"", m->file, m->line, m->col, m->message) != -1) {
+    if (asprintf(&buf, "\"%s:%d:%d %s\"", m->file, m->line, m->col,
+                 m->message) != -1) {
       append(&json, buf);
       free(buf);
     }
@@ -1792,9 +1876,9 @@ PyObject* specialize(
   return json;
 }
 
-lean_object* nki_to_json(lean_object*);
+lean_object *nki_to_json(lean_object *);
 
-const char* serialize_python(struct kernel *k) {
+const char *serialize_python(struct kernel *k) {
   if (!k->lean_kernel) {
     specialize(k, Py_None, Py_None, Py_None, Py_None, Py_None, Py_None);
   }
@@ -1808,12 +1892,14 @@ const char* serialize_python(struct kernel *k) {
   return lean_string_cstr(json);
 }
 
-lean_object* nki_trace(lean_object*, lean_object*, lean_object*, lean_object*, lean_object*);
+lean_object *nki_trace(lean_object *, lean_object *, lean_object *,
+                       lean_object *, lean_object *);
 
 // from util/io implemented in Init/System/IOError.lean
-lean_object* lean_io_error_to_string(lean_object*);
+lean_object *lean_io_error_to_string(lean_object *);
 
-const char* trace(struct kernel *k, const char *dst_file, const char* dst_format, const char *dbg_file) {
+const char *trace(struct kernel *k, const char *dst_file,
+                  const char *dst_format, const char *dbg_file) {
   if (!k->lean_kernel) {
     PyErr_SetString(PyExc_RuntimeError, "No valid kernel to serialize");
     return NULL;
@@ -1824,7 +1910,8 @@ const char* trace(struct kernel *k, const char *dst_file, const char* dst_format
   lean_object *dbg = dbg_file ? lean_mk_string(dbg_file) : NULL;
   lean_object *world = lean_io_mk_world();
   lean_inc(k->lean_kernel->kernel);
-  lean_object *res = nki_trace(k->lean_kernel->kernel, file, format, mkOption(dbg), world);
+  lean_object *res =
+      nki_trace(k->lean_kernel->kernel, file, format, mkOption(dbg), world);
 
   if (lean_io_result_is_ok(res)) {
     lean_object *str = lean_io_result_take_value(res);
