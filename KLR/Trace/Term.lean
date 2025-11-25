@@ -511,9 +511,7 @@ def Term.attr (t : Term) (id : String) : Trace Term :=
       | _ => throw s!"{id} is not an attribute {id} of slice"
   | _ => throw s!"unsupported attribute {id}"
 where
-  dtype dty :=
-    let name := nl (dstr dty)
-    .var name
+  dtype dty := .string (dstr dty)
   tuple (l : List (Option Nat)) : Term :=
     Term.tuple $ l.map fun
       | Option.none => Term.none
@@ -522,7 +520,7 @@ where
     let s := reprStr dty
     match s.toName with
     | .str _ s => s
-    | _ => panic! "internal error (dtype name)"
+    | _ => "unknown"
 
 nki builtin.pointer.ptr
     (self : Address)
