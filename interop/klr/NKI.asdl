@@ -52,7 +52,7 @@ ScalarOffset =
  | acc(Access a)
 
 
-BirAccessPattern = (TensorName tensor, Nat offset, APPair* pattern, ScalarOffset? scalarOffset, Access? vectorOffset, Int indirectDim)
+BirAccessPattern = (TensorName tensor, Nat offset, APPair* pattern, ScalarOffset? scalarOffset, Access? vectorOffset, Int indirectDim, Dtype? dtypeOverride)
 Access =
  | simple(TensorName tensor)
  | basic(AccessBasic access)
