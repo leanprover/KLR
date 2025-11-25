@@ -749,9 +749,9 @@ Ptr<BirAccessPattern> BirAccessPattern_des(FILE *in) {
     msg << "Could not find tag, expecting BirAccessPattern:124,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 124 || c != 0 || l != 6) {
+  if (t != 124 || c != 0 || l != 7) {
     std::ostringstream msg;
-    msg << "Expecting BirAccessPattern:(124,0,6)";
+    msg << "Expecting BirAccessPattern:(124,0,7)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -762,6 +762,7 @@ Ptr<BirAccessPattern> BirAccessPattern_des(FILE *in) {
   x->scalarOffset = Option_ScalarOffset_des(in);
   x->vectorOffset = Option_Access_des(in);
   x->indirectDim = Int_des(in);
+  x->dtypeOverride = Option_Dtype_des(in);
   return x;
 }
 
@@ -3207,10 +3208,17 @@ Ptr<ExtendedInst> ExtendedInst_des(FILE *in) {
 
 Ptr<TensorScalarCumulative> TensorScalarCumulative_des(FILE *in) {
   u8 t, c, l;
-  if (!deserialize_tag(in, &t, &c, &l))
-    throw std::runtime_error("Could not find tag");
-  if (t != 208 || c != 0 || l != 9)
-    throw std::runtime_error("Invalid Tag");
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting TensorScalarCumulative:208,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 208 || c != 0 || l != 9) {
+    std::ostringstream msg;
+    msg << "Expecting TensorScalarCumulative:(208,0,9)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
   Ptr<TensorScalarCumulative> x = ptr<TensorScalarCumulative>();
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);

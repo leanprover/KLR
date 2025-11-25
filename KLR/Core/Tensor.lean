@@ -569,6 +569,7 @@ structure BirAccessPattern where
   scalarOffset : Option ScalarOffset
   vectorOffset : Option Access
   indirectDim : Int
+  dtypeOverride : Option Dtype := none
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 

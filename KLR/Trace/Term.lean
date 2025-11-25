@@ -594,7 +594,8 @@ nki builtin.access.ap
     (offset : Nat := 0)
     (scalar_offset : Option (Sum Access Term) := none)
     (vector_offset : Option Access := none)
-    (indirect_dim : Int := 0) := do
+    (indirect_dim : Int := 0)
+    (dtype : Option Dtype := none) := do
   match self with
   | .simple t =>
       let pattern := pattern.map fun (s,c) => Core.APPair.mk s c 0
@@ -610,6 +611,7 @@ nki builtin.access.ap
         scalarOffset
         vectorOffset := vector_offset
         indirectDim := indirect_dim
+        dtypeOverride := dtype
       }
       return .access (.birPattern ap)
   -- TODO: need to figoure out how to combine cannonical form AP with user specified AP

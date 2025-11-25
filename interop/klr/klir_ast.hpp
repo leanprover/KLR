@@ -181,6 +181,7 @@ struct BirAccessPattern final {
   Option<Ptr<ScalarOffset>> scalarOffset;
   Option<Ptr<Access>> vectorOffset;
   Int indirectDim;
+  Option<Dtype> dtypeOverride;
 };
 
 struct Access {
