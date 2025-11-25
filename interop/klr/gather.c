@@ -1043,6 +1043,41 @@ static lean_object* expr(struct state *st, struct _expr *python) {
         error(st, "FormattedValue missing value");
         break;
       }
+
+      // Special handling for .__name__ attribute access in f-strings
+      // If the formatted value is something like api_name.__name__, we want to use just the short name
+      struct _expr *val = python->v.FormattedValue.value;
+      if (val && val->kind == Attribute_kind) {
+        PyObject *attr = val->v.Attribute.attr;
+        const char *attr_str = attr ? PyUnicode_AsUTF8(attr) : NULL;
+
+        // Check if accessing .__name__ attribute
+        if (attr_str && strcmp(attr_str, "__name__") == 0) {
+          // Get the base object (the thing before .__name__)
+          struct ref r = reference(st, val->v.Attribute.value);
+          if (r.obj && r.name) {
+            // Extract just the last component of the name
+            lean_object *name_str = lean_string_cstr(r.name) ?
+              lean_mk_string(lean_string_cstr(r.name)) : r.name;
+
+            // Get just the last part after the last dot
+            const char *full_name = lean_string_cstr(name_str);
+            const char *last_dot = strrchr(full_name, '.');
+            const char *short_name = last_dot ? last_dot + 1 : full_name;
+
+            lean_object *short_name_str = lean_mk_string(short_name);
+            lean_object *const_expr = Python_Expr_mk(
+              Python_Expr_const(Python_Const_string(short_name_str)),
+              Pos(val)
+            );
+
+            e = Python_Expr_format(const_expr, l_conv);
+            if (name_str != r.name) lean_dec(name_str);
+            break;
+          }
+        }
+      }
+
       e = Python_Expr_format(value_expr, l_conv);
       break;
     }
