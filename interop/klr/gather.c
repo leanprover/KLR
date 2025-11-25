@@ -6,6 +6,8 @@ Authors: Paul Govereau, Sean McLaughlin
 #include "lean_ast.h"
 #include "frontend.h"
 #include "ast_python.h"
+#include <stdlib.h>  // for getenv
+#include <string.h>  // for strcmp
 
 /*
 -- Gather
@@ -189,6 +191,32 @@ static lean_object* py_strdup(struct state *st, PyObject *obj) {
   return lean_mk_string_from_bytes(s, sz);
 }
 
+static lean_object* convert_dtype_string(struct state *st, PyObject *obj) {
+  if (!obj) {
+    error(st, "failed to convert dtype string object");
+    return lean_mk_string("");
+  }
+
+  PyErr_Clear();
+  Py_ssize_t sz = -1;
+  const char *s = PyUnicode_AsUTF8AndSize(obj, &sz);
+  if (!s || sz < 0 || PyErr_Occurred()) {
+    PyErr_Clear();
+    error(st, "failed to convert dtype string object");
+    return lean_mk_string("");
+  }
+
+  // Check if UNSAFE_FP8FNCAST is set to 1 and convert float8_e4m3fn to float8_e4m3
+  const char *unsafe_fp8 = getenv("UNSAFE_FP8FNCAST");
+  if (unsafe_fp8 && strcmp(unsafe_fp8, "1") == 0) {
+    if (strcmp(s, "float8_e4m3fn") == 0) {
+      return lean_mk_string("float8_e4m3");
+    }
+  }
+
+  return lean_mk_string_from_bytes(s, sz);
+}
+
 static lean_object* path_append(struct state *st, lean_object *base, PyObject *obj) {
   lean_object *dot = lean_mk_string(".");
   lean_object *lid = py_strdup(st, obj);
@@ -367,7 +395,7 @@ static lean_object* tensor_const(struct state *st, PyObject *obj) {
   Py_DECREF(dtype);
   if (!dstr) goto error;
 
-  dty = py_strdup(st, dstr);
+  dty = convert_dtype_string(st, dstr);
   Py_DECREF(dstr);
 
   return Python_Const_tensor(sh, dty);
