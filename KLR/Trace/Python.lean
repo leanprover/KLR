@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -/
 
+import Batteries.Data.String
 import KLR.Core
 import KLR.Trace.ISA
 import KLR.Trace.Types
@@ -24,6 +25,7 @@ Python related builtins
 -/
 
 namespace KLR.Trace
+open Substring (containsSubstr)
 open Core
 
 /-
@@ -52,6 +54,22 @@ nki builtin.op.not (t : Term) := do
 nki builtin.op.invert (t : Term) := do
   let i : Int <- fromNKI? t
   return .int i.toInt32.complement.toInt
+
+private def isin (t : Term) (l : Term) : Trace Bool := do
+  let l <- match l with
+    | .ref name _ => lookup name
+    | _ => pure l
+  match t, l with
+  | _, .tuple l => return l.contains t
+  | _, .list a => return a.contains t
+  | .string t, .string s => return containsSubstr s t
+  | _ , _ => throw "in operator not support on types {kindStr t} and {kindStr l}"
+
+nki builtin.op.in (t : Term) (l : Term) := do
+  return .bool (<- isin t l)
+
+nki builtin.op.notin (t : Term) (l : Term) := do
+  return .bool (<- isin t l).not
 
 /-
 The builtin.python namespace is mapped to the top-level namespace.

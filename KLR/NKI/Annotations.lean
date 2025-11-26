@@ -41,6 +41,7 @@ abbrev Ann := Pass Unit
 
 private def isValidName' : Name -> Bool
   | .str `neuronxcc.nki._pre_prod_kernels _
+  | .str `neuronxcc.nki._private_nkl _
   | .str `neuronxcc.nki._pre_prod_nkl _ => true
   | .str _ "neuronxcc" => false
   | .str n _ => isValidName' n
