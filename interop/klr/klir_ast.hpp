@@ -999,6 +999,13 @@ struct TensorScalarCumulative final {
   Option<Dtype> dtype;
 };
 
+struct NcNGather final {
+  Ptr<TensorRef> dst;
+  Ptr<TensorRef> data;
+  Ptr<TensorRef> indices;
+  Option<Dtype> dtype;
+};
+
 struct Operator {
   enum class Tag {
     activate = 1,
@@ -1068,6 +1075,7 @@ struct Operator {
     randSetState,
     extendedInst,
     tensorScalarCumulative,
+    ncNGather,
   };
   Tag tag;
   Operator(Tag tag) : tag(tag) {}
@@ -1408,6 +1416,11 @@ struct OperatorTensorScalarCumulativeWrapper final : Operator {
   Ptr<TensorScalarCumulative> op;
   OperatorTensorScalarCumulativeWrapper()
       : Operator(Tag::tensorScalarCumulative) {}
+};
+
+struct OperatorNcNGatherWrapper final : Operator {
+  Ptr<NcNGather> op;
+  OperatorNcNGatherWrapper() : Operator(Tag::ncNGather) {}
 };
 
 struct Stmt {

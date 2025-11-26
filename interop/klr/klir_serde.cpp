@@ -3232,11 +3232,32 @@ Ptr<TensorScalarCumulative> TensorScalarCumulative_des(FILE *in) {
   return x;
 }
 
+Ptr<NcNGather> NcNGather_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting NcNGather:209,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 209 || c != 0 || l != 4) {
+    std::ostringstream msg;
+    msg << "Expecting NcNGather:(209,0,4)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
+  Ptr<NcNGather> x = ptr<NcNGather>();
+  x->dst = TensorRef_des(in);
+  x->data = TensorRef_des(in);
+  x->indices = TensorRef_des(in);
+  x->dtype = Option_Dtype_des(in);
+  return x;
+}
+
 Ptr<Operator> Operator_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 209)
+  if (t != 210)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -3782,6 +3803,14 @@ Ptr<Operator> Operator_des(FILE *in) {
     Ptr<OperatorTensorScalarCumulativeWrapper> x =
         ptr<OperatorTensorScalarCumulativeWrapper>();
     x->op = TensorScalarCumulative_des(in);
+    return x;
+    break;
+  }
+  case 67: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorNcNGatherWrapper> x = ptr<OperatorNcNGatherWrapper>();
+    x->op = NcNGather_des(in);
     return x;
     break;
   }

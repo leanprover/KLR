@@ -197,6 +197,11 @@ def Operator.lowerAccessPatterns (k : Operator) : KLR.Err Operator :=
       imm0 := <- Operand.lowerAccessPatterns op.imm0
       imm1 := <- op.imm1.mapM Operand.lowerAccessPatterns
     }
+  | .ncNGather op => return .ncNGather { op with
+      dst := <- op.dst.lowerAccessPatterns
+      data := <- op.data.lowerAccessPatterns
+      indices := <- op.indices.lowerAccessPatterns
+    }
 
 def Stmt.lowerAccessPatterns : Stmt → KLR.Err Stmt
   | .oper op name pos => return .oper (<- op.lowerAccessPatterns) name pos

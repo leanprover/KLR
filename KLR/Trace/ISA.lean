@@ -1180,3 +1180,19 @@ nki builtin.isa.extended_inst
     data1
   }) name
   return .none
+
+nki builtin.isa.nc_n_gather
+  (dst: Access)
+  (data: Access)
+  (indices: Access)
+  (mask: Option Immediate := none)
+  (dtype: Option Dtype := none)
+  (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.ncNGather {
+      dst := .abstract dst
+      data := .abstract data
+      indices := .abstract indices
+      dtype := dtype.or dst.tensor.dtype
+    }) name
+    return .none
