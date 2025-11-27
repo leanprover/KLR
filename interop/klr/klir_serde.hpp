@@ -136,6 +136,8 @@ Ptr<RandSetState> RandSetState_des(FILE *in);
 Ptr<ExtendedInst> ExtendedInst_des(FILE *in);
 Ptr<TensorScalarCumulative> TensorScalarCumulative_des(FILE *in);
 Ptr<NcNGather> NcNGather_des(FILE *in);
+PrintOutputBuffer PrintOutputBuffer_des(FILE *in);
+Ptr<DevicePrint> DevicePrint_des(FILE *in);
 Ptr<Operator> Operator_des(FILE *in);
 Ptr<Stmt> Stmt_des(FILE *in);
 Ptr<Block> Block_des(FILE *in);

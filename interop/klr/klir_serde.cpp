@@ -3253,11 +3253,55 @@ Ptr<NcNGather> NcNGather_des(FILE *in) {
   return x;
 }
 
-Ptr<Operator> Operator_des(FILE *in) {
+PrintOutputBuffer PrintOutputBuffer_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
   if (t != 210)
+    throw std::runtime_error("Unexpected type tag");
+  switch (c) {
+  case 0: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return PrintOutputBuffer::stdout;
+    break;
+  }
+  case 1: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return PrintOutputBuffer::stderr;
+    break;
+  }
+  default:
+    throw std::runtime_error("Invalid value tag");
+  }
+}
+
+Ptr<DevicePrint> DevicePrint_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting DevicePrint:211,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 211 || c != 0 || l != 3) {
+    std::ostringstream msg;
+    msg << "Expecting DevicePrint:(211,0,3)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
+  Ptr<DevicePrint> x = ptr<DevicePrint>();
+  x->src = TensorRef_des(in);
+  x->printPrefix = String_des(in);
+  x->buffer = PrintOutputBuffer_des(in);
+  return x;
+}
+
+Ptr<Operator> Operator_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not read tag");
+  if (t != 212)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -3811,6 +3855,14 @@ Ptr<Operator> Operator_des(FILE *in) {
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorNcNGatherWrapper> x = ptr<OperatorNcNGatherWrapper>();
     x->op = NcNGather_des(in);
+    return x;
+    break;
+  }
+  case 68: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorDevicePrintWrapper> x = ptr<OperatorDevicePrintWrapper>();
+    x->op = DevicePrint_des(in);
     return x;
     break;
   }

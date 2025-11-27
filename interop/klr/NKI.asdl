@@ -341,6 +341,11 @@ ExtendedInst = (Nat opcode, Bool hasRead, Bool hasWrite, Nat ports, Nat* data0, 
 TensorScalarCumulative = (TensorRef dst, TensorRef src, AluOp op0, AluOp op1, Operand imm0, Operand? imm1, AccumCmd reduceCmd, TensorScalarReverseOps reverse, Dtype? dtype)
 
 NcNGather = (TensorRef dst, TensorRef data, TensorRef indices, Dtype? dtype)
+PrintOutputBuffer =
+  | stdout
+  | stderr
+
+DevicePrint = (TensorRef src, String printPrefix, PrintOutputBuffer buffer)
 Operator =
  | activate(Activate op)
  | ncActivate(NcActivate op)
@@ -410,6 +415,7 @@ Operator =
  | extendedInst(ExtendedInst op)
  | tensorScalarCumulative(TensorScalarCumulative op)
  | ncNGather(NcNGather op)
+ | devicePrint(DevicePrint op)
 
 Stmt =
  | oper(Operator op, String? name, Pos pos)
