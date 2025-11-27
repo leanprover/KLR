@@ -299,3 +299,10 @@ instance : FromNKI MatmulPerfMode where
     | some "double_row" => return .DoubleRow
     | some "double_row_sw_interleave" => return .DoubleRowSwInterleave
     | _ => throw "expecting matmul performance mode (none, double_row, double_row_sw_interleave)"
+
+instance : FromNKI PrintOutputBuffer where
+  fromNKI? t := do
+    match fromEnum t with
+    | some "stdout" => return .stdout
+    | some "stderr" => return .stderr
+    | _ => throw s!"expecting output buffer type, got {Term.kindStr t}"
