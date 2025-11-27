@@ -999,6 +999,17 @@ struct TensorScalarCumulative final {
   Option<Dtype> dtype;
 };
 
+enum class PrintOutputBuffer {
+  stdout = 1,
+  stderr,
+};
+
+struct DevicePrint final {
+  Ptr<TensorRef> src;
+  String printPrefix;
+  PrintOutputBuffer buffer;
+};
+
 struct Operator {
   enum class Tag {
     activate = 1,
@@ -1068,6 +1079,7 @@ struct Operator {
     randSetState,
     extendedInst,
     tensorScalarCumulative,
+    devicePrint,
   };
   Tag tag;
   Operator(Tag tag) : tag(tag) {}
@@ -1408,6 +1420,11 @@ struct OperatorTensorScalarCumulativeWrapper final : Operator {
   Ptr<TensorScalarCumulative> op;
   OperatorTensorScalarCumulativeWrapper()
       : Operator(Tag::tensorScalarCumulative) {}
+};
+
+struct OperatorDevicePrintWrapper final : Operator {
+  Ptr<DevicePrint> op;
+  OperatorDevicePrintWrapper() : Operator(Tag::devicePrint) {}
 };
 
 struct Stmt {
