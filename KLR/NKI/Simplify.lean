@@ -202,6 +202,14 @@ private def expr' (e' : Python.Expr') : Simplify Expr' :=
   | .boolOp op l => return (<- booleanOp op (<- exprs l)).expr
   | .binOp op l r => return .binOp (<- binOp op) (<- expr l) (<- expr r)
   | .unaryOp op e => return (<- unaryOp op) (<- expr e)
+  | .compare a [.is] [⟨.const .none, pos⟩] =>
+      return .binOp .eq (<- expr a) ⟨ .value .none, pos ⟩
+  | .compare a [.isNot] [⟨.const .none, pos⟩] =>
+      return .binOp .ne (<- expr a) ⟨ .value .none, pos ⟩
+  | .compare a [.isIn] [b] =>
+      return .call ⟨ .var `builtin.op.in, a.pos ⟩ [<- expr a, <- expr b] []
+  | .compare a [.notIn] [b] =>
+      return .call ⟨ .var `builtin.op.notin, a.pos ⟩ [<- expr a, <- expr b] []
   | .compare a ops l => do
       let a <- expr a
       let ops <- ops.mapM cmpOp
@@ -396,10 +404,10 @@ private def params (args : Python.Args) : Simplify (List Param) := do
     throw "varargs are not supported in NKI"
   if args.kwarg.isSome then
     warn "variable keyword arguments are not supported in NKI"
-  if args.posonlyargs.length > 0 then
-    warn "position-only arguments are not supported in NKI"
-  if args.kwonlyargs.length > 0 then
-    warn "keyword-only arguments are not supported in NKI"
+  --if args.posonlyargs.length > 0 then
+  --  warn "position-only arguments are not supported in NKI"
+  --if args.kwonlyargs.length > 0 then
+  --  warn "keyword-only arguments are not supported in NKI"
   let defaults := args.all_defaults
   let mut params := []
   for name in args.names do
