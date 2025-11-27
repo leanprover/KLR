@@ -182,6 +182,7 @@ partial def operatorBasicTensors : Operator → List TensorRef
   | .extendedInst _ => []
   | .tensorScalarCumulative t => [t.dst, t.src]
   | .ncNGather g => [g.dst, g.data, g.indices]
+  | .devicePrint t => [t.src]
 
 partial def operatorAdditionalTensors : Operator → List TensorName
   | .ncActivate d => (tensors d.scale) ++ (tensors d.bias) ++ (tensors d.reduceRes)

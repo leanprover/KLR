@@ -1006,6 +1006,17 @@ struct NcNGather final {
   Option<Dtype> dtype;
 };
 
+enum class PrintOutputBuffer {
+  stdout = 1,
+  stderr,
+};
+
+struct DevicePrint final {
+  Ptr<TensorRef> src;
+  String printPrefix;
+  PrintOutputBuffer buffer;
+};
+
 struct Operator {
   enum class Tag {
     activate = 1,
@@ -1076,6 +1087,7 @@ struct Operator {
     extendedInst,
     tensorScalarCumulative,
     ncNGather,
+    devicePrint,
   };
   Tag tag;
   Operator(Tag tag) : tag(tag) {}
@@ -1421,6 +1433,11 @@ struct OperatorTensorScalarCumulativeWrapper final : Operator {
 struct OperatorNcNGatherWrapper final : Operator {
   Ptr<NcNGather> op;
   OperatorNcNGatherWrapper() : Operator(Tag::ncNGather) {}
+};
+
+struct OperatorDevicePrintWrapper final : Operator {
+  Ptr<DevicePrint> op;
+  OperatorDevicePrintWrapper() : Operator(Tag::devicePrint) {}
 };
 
 struct Stmt {

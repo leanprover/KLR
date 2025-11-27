@@ -68,3 +68,19 @@ nki builtin.lang.ds (start : Int) (size : Int) := do
 nki builtin.lang.unique_name (name : String) := do
   let uniqueName := <- genName name.toName
   return .string uniqueName.toString
+
+nki builtin.lang.device_print
+  (printPrefix : String)
+  (tensor : Access)
+  (outputBuffer : Option PrintOutputBuffer := none)
+  (mask: Option Immediate := none) := do
+    if mask.isSome then throw "mask parameter is not supported"
+    let buffer <- match outputBuffer with
+      | some v => pure v
+      | none => pure .stdout
+    Trace.add_stmt $ .oper (.devicePrint {
+      src := .abstract tensor
+      printPrefix
+      buffer
+    }) printPrefix
+    return .none

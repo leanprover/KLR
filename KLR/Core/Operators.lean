@@ -951,7 +951,27 @@ structure NcNGather where
   dtype : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
+-- Device Print support
 @[serde tag = 210]
+inductive PrintOutputBuffer where
+  | stdout | stderr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+namespace PrintOutputBuffer
+def toName (m : PrintOutputBuffer) :=
+  match m with
+  | .stdout => `stdout
+  | .stderr => `stderr
+end PrintOutputBuffer
+
+@[serde tag = 211]
+structure DevicePrint where
+  src : TensorRef
+  printPrefix : String
+  buffer : PrintOutputBuffer
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 212]
 inductive Operator where
   | activate (op : Activate)
   | ncActivate (op : NcActivate)
@@ -1021,9 +1041,10 @@ inductive Operator where
   | extendedInst (op : ExtendedInst)
   | tensorScalarCumulative (op: TensorScalarCumulative)
   | ncNGather (op: NcNGather)
+  | devicePrint (op: DevicePrint)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 211]
+@[serde tag = 213]
 inductive TGROperator where
   | activate (op : Activate)
   | affineSelect (op : AffineSelect)

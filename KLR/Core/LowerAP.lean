@@ -202,6 +202,9 @@ def Operator.lowerAccessPatterns (k : Operator) : KLR.Err Operator :=
       data := <- op.data.lowerAccessPatterns
       indices := <- op.indices.lowerAccessPatterns
     }
+  | .devicePrint op => return .devicePrint { op with
+      src := <- op.src.lowerAccessPatterns
+    }
 
 def Stmt.lowerAccessPatterns : Stmt → KLR.Err Stmt
   | .oper op name pos => return .oper (<- op.lowerAccessPatterns) name pos
