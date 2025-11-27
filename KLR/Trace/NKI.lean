@@ -316,7 +316,7 @@ partial def mutate (x e : Expr) : Trace Unit :=
           let i : Nat <- fromNKI? i
           let e <- expr e
           if h : i < a.size then
-            extend name (.list (a.set i e h))
+            extend_global name (.list (a.set i e h))
             return ()
           else throw "index out of range"
         else throw "internal error: expecting list literal"
@@ -326,7 +326,7 @@ partial def mutate (x e : Expr) : Trace Unit :=
           let i : String <- fromNKI? i
           let e <- expr e
           let a := AA.insert a i e
-          extend name (.dict (AA.insert a i e))
+          extend_global name (.dict (AA.insert a i e))
           return ()
         else throw "internal error: expecting dictionary literal"
     | r@(.ref _ (.object cls)) =>
