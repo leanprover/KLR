@@ -179,3 +179,19 @@ private structure Default6 where
 deriving BEq, FromSexp, Repr
 
 #guard @fromSexp? Default6 _ (sexp%()) == .ok (Default6.mk)
+
+structure pseudo_core_barrier where
+  id : UInt32
+  semaphore : UInt32
+deriving FromSexp
+
+-- Was broken in earlier version. It generated
+--    assocWithDefault✝ _ sexp✝ "arg" (id { })
+-- but id was not the identity function, but the projection
+private structure IdArg where
+deriving FromSexp
+
+private structure Id where
+  id : Nat
+  arg : IdArg := {}
+deriving FromSexp
