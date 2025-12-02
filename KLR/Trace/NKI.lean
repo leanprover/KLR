@@ -254,7 +254,7 @@ partial def callFn (f : Fun) (args : List (String × Term)) : Trace Term := do
     let res <- match <- stmts f.body with
                | .ret t => pure t
                | _ => pure .none
-    dbgPopFile f.name.toString f.file
+    dbgPopFile f.name.toString f.file f.line
     return res
 
 -- Bind arguments to a Python function based on its signature.
@@ -354,7 +354,7 @@ partial def mutate (x e : Expr) : Trace Unit :=
 
 partial def iterator (i : Iterator) : Trace (List Term) := do
   match i with
-  | .expr e => fromNKI? (<- expr e)
+  | .expr e => fetchIter (<- expr e)
   | .range _ l u s =>
       let l : Int <- fromNKI? (<- expr l)
       let u : Int <- fromNKI? (<- expr u)
@@ -456,6 +456,7 @@ partial def stmt' (s' : Stmt') : Trace Result := do
       return .next
   | .forLoop x iter body =>
       let ts : List Term <- iterator iter
+      let pos <- getPos
       for t in ts do
         extend x t
         dbgPush
@@ -463,7 +464,7 @@ partial def stmt' (s' : Stmt') : Trace Result := do
         if res == .cont then continue
         if res == .brk then break
         if let .ret t := res then return .ret t
-        dbgPopIter x.toString (<- t.toStr)
+        dbgPopIter x.toString (<- t.toStr) pos.line
       return .next
   | .breakLoop => return .brk
   | .continueLoop => return .cont
