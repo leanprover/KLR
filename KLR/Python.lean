@@ -205,6 +205,9 @@ structure Fun where
   body: List Stmt
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
+def Fun.withName (f : Fun) (newName : String) : Fun :=
+  { f with name := newName }
+
 @[serde tag = 14]
 structure Class where
   name : String
@@ -213,6 +216,9 @@ structure Class where
   fields : List Keyword
   methods : List Fun
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+def Class.withName (c : Class) (newName : String) : Class :=
+  { c with name := newName }
 
 /-
 A kernel is collection of:
