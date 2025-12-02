@@ -156,6 +156,8 @@ ActivationFunc =
   | sqrt
   | square
   | tanh
+  | gelu_apprx_sigmoid
+  | gelu_apprx_sigmoid_dx
 AffineSelectCmp =
   | GreaterThan
   | GreaterThanEq

@@ -281,6 +281,8 @@ instance : FromNKI ActivationFunc where
     | some "reciprocal" => return .reciprocal
     | some "sign" => return .sign
     | some "abs" => return .abs
+    | some "gelu_apprx_sigmoid" => return .gelu_apprx_sigmoid
+    | some "gelu_apprx_sigmoid_dx" => return .gelu_apprx_sigmoid_dx
     | _ => throw s!"expecting activation function, got '{Term.kindStr t}'"
 
 instance : FromNKI AccumCmd where
