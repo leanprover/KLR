@@ -1687,7 +1687,7 @@ PyObject* specialize(
 
       // we must have a module or a moudle must be nki
       const char *module_name = PyUnicode_AsUTF8(key);
-      if (!module_name || strncmp(module_name, "nki.", 4) != 0)
+      if (!module_name || strncmp(module_name, "nki.language", 12) != 0)
         continue;
 
       PyObject *module_dict = PyModule_GetDict(value);
