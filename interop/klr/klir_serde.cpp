@@ -1470,6 +1470,18 @@ ActivationFunc ActivationFunc_des(FILE *in) {
     return ActivationFunc::tanh;
     break;
   }
+  case 23: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return ActivationFunc::gelu_apprx_sigmoid;
+    break;
+  }
+  case 24: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return ActivationFunc::gelu_apprx_sigmoid_dx;
+    break;
+  }
   default:
     throw std::runtime_error("Invalid value tag");
   }

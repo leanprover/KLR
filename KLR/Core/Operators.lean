@@ -187,6 +187,8 @@ inductive ActivationFunc where
   | sqrt
   | square
   | tanh
+  | gelu_apprx_sigmoid
+  | gelu_apprx_sigmoid_dx
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- The comparator for an affine select -/

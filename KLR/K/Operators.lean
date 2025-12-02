@@ -94,6 +94,8 @@ inductive ActivationFunc where
   | sqrt
   | square
   | tanh
+  | gelu_apprx_sigmoid
+  | gelu_apprx_sigmoid_dx
   deriving BEq, Repr, Inhabited, Repr, Nonempty
 
 /- The comparator for an affine select -/
