@@ -491,7 +491,13 @@ def Term.attr (t : Term) (id : String) : Trace Term :=
       |  _ => throw s!"unsupported attribute {id} (type is pointer)"
   | .access a =>
       match id with
-      | "dtype" => return (dtype a.tensor.dtype)
+      | "dtype" =>
+        match a with
+        | .birPattern b =>
+          match b.dtypeOverride with
+          | some dt => return <- dtype dt
+          | _ => return <- dtype b.tensor.dtype
+        | _ => return <- dtype a.tensor.dtype
       | "shape" => return (tuple $ a.shapePure.toList.map some)
       | "address" => return .pointer a.tensor.address
       | "offset" => offset a
@@ -511,11 +517,22 @@ def Term.attr (t : Term) (id : String) : Trace Term :=
       | _ => throw s!"{id} is not an attribute {id} of slice"
   | _ => throw s!"unsupported attribute {id}"
 where
-  dtype dty := .string (dstr dty)
+  dtype dty := do
+    match dname dty with
+    | some name => do
+        match <- lookup? name with
+        | some t => return t
+        | _ => return .string (dstr dty)
+    | _ => return .string (dstr dty)
   tuple (l : List (Option Nat)) : Term :=
     Term.tuple $ l.map fun
       | Option.none => Term.none
       | some x => .int x
+  dname dty :=
+    let s := reprStr dty
+    match s.toName with
+    | .str _ s => some $ `nki.language ++ s.toName
+    | _ => Option.none
   dstr dty :=
     let s := reprStr dty
     match s.toName with

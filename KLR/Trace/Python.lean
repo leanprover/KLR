@@ -239,7 +239,7 @@ nki builtin.python.divmod (x : Int) (y : Int) := do
 Python List object
 -/
 
-private def fetchIter (t : Term) : Trace (List Term) := do
+def fetchIter (t : Term) : Trace (List Term) := do
   let t <- match t with
     | .ref name _ => lookup name
     | _ => pure t

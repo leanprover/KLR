@@ -1704,6 +1704,42 @@ PyObject* specialize(
   struct state st = { 0 };
   st.region = k->region;
 
+  // Add all symbols defined in nki.* modules to worklist
+  PyObject *nki_modules = PyImport_GetModuleDict();
+  if (nki_modules) {
+    PyObject *key, *value;
+    Py_ssize_t pos = 0;
+    while (PyDict_Next(nki_modules, &pos, &key, &value)) {
+      if (!PyUnicode_Check(key))
+        continue;
+
+      // we must have a module or a moudle must be nki
+      const char *module_name = PyUnicode_AsUTF8(key);
+      if (!module_name || strncmp(module_name, "nki.", 4) != 0)
+        continue;
+
+      PyObject *module_dict = PyModule_GetDict(value);
+      if (!module_dict)
+        continue;
+
+      PyObject *sym_key, *sym_value;
+      Py_ssize_t sym_pos = 0;
+      while (PyDict_Next(module_dict, &sym_pos, &sym_key, &sym_value)) {
+        if (!(PyFunction_Check(sym_value) || PyType_Check(sym_value)))
+          continue;
+
+        const char *sym_name = PyUnicode_AsUTF8(sym_key);
+        if (!sym_name || strcmp(sym_name, "NKIObject") == 0)
+          continue;
+
+        char *full_name = NULL;
+        if (asprintf(&full_name, "%s.%s", module_name, sym_name) != -1) {
+          add_work(&st, full_name, sym_value);
+        }
+      }
+    }
+  }
+
   // add main function to work list, and process arguments
   // potentially adding more dependencies to the work list
   add_work(&st, NULL, k->f);
