@@ -237,15 +237,11 @@ def dbgAdd (name : String) : Trace Unit := do
 def dbgPush : Trace Unit :=
   modify fun s => { s with debug := s.debug.push }
 
-def dbgPopFile (name file : String) : Trace Unit := do
-  --dbgtrace_ s!"POP file {name} {file}"
-  let st <- getThe PassState
+def dbgPopFile (name file : String) (line : Nat) : Trace Unit := do
   modifyThe State fun s =>
-    { s with debug := s.debug.pop (DebugItem.func st.lineOffset name file) }
+    { s with debug := s.debug.pop (DebugItem.func line name file) }
 
-def dbgPopIter (var val : String) : Trace Unit := do
-  let st <- getThe PassState
-  let line := st.lineOffset + st.pos.line - 1
+def dbgPopIter (var val : String) (line : Nat) : Trace Unit := do
   modifyThe State fun s =>
     { s with debug := s.debug.pop (DebugItem.iter line var val) }
 
