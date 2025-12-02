@@ -402,6 +402,8 @@ enum class ActivationFunc {
   sqrt,
   square,
   tanh,
+  gelu_apprx_sigmoid,
+  gelu_apprx_sigmoid_dx,
 };
 
 enum class AffineSelectCmp {
