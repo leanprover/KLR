@@ -373,6 +373,7 @@ structure DmaTranspose where
   axes : TransposeOps
   dtype : Option Dtype
   dgeMode : Nat
+  oobMode : DmaBounds
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- Transpose Instruction
