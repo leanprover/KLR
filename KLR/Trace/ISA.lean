@@ -728,8 +728,10 @@ nki builtin.isa.dma_transpose
   (axes : Option (List Int) := none)
   (mask : Option Immediate := none)
   (dge_mode : Nat := 0)
+  (oob_mode : Nat := 0)
   (name : Option String := none) := do
   if mask.isSome then throw maskNotSupported
+  if oob_mode > 1 then throw "unsupported oob mode"
   if src.shapePure.toList.length != 4 then
     throw "source tensor must have 4 dimmensions"
   if dst.shapePure.toList.length != 4 then
@@ -740,6 +742,10 @@ nki builtin.isa.dma_transpose
     axes := <- getTransposeOps axes,
     dtype := dst.tensor.dtype
     dgeMode := dge_mode
+    oobMode := match oob_mode with
+        | 0 => .error
+        | 1 => .skip
+        | _ => .skip,
   }) name
   return .none
 
