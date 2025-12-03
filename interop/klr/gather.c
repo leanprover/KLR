@@ -153,55 +153,20 @@ static void checkPyErr(struct state *st) {
     add_msg(st, false, s);
 }
 
-static struct local* find_local(const struct state *st, const char *name) {
+static bool have_def(const struct state *st, const char *name) {
   if (!name)
-    return NULL;
+    return false;
 
   for (struct local *l = st->scope.locals; l; l = l->next) {
     if (strcmp(l->name, name) == 0)
-      return l;
+      return true;
   }
-  return NULL;
-}
-
-static struct definition* find_def(const struct state *st, const char *name) {
-  if (!name)
-    return NULL;
 
   for (struct definition *d = st->defs; d; d = d->next) {
     if (strcmp(d->name, name) == 0)
-      return d;
+      return true;
   }
-  return NULL;
-}
-
-static void alias_def(struct state *st, const char *name, struct definition *def) {
-  struct definition *alias = region_alloc(st->region, sizeof(*alias));
-  alias->str = lean_mk_string(name);
-  alias->name = name;
-  alias->type = def->type;
-  
-  if (def->type == FUN && def->obj != NULL) {
-    lean_object *f = def->obj;
-    // here be hacks... Stolen from lean def of FunMk
-    alias->obj = Python_Fun_mk(
-      lean_mk_string(name),
-      lean_ctor_get(f, 1), lean_ctor_get(f, 2), lean_ctor_get(f, 3),
-      lean_ctor_get(f, 4), lean_ctor_get(f, 5), lean_ctor_get(f, 6));
-  } else if (def->type == CLS && def->obj != NULL) {
-    lean_object *f = def->obj;
-    // here be hacks... Stolen from lean def of ClassMk
-    alias->obj = Python_Class_mk(
-      lean_mk_string(name),
-      lean_ctor_get(f, 1), lean_ctor_get(f, 2), lean_ctor_get(f, 3),
-      lean_ctor_get(f, 4));
-  } else {
-    lean_inc(def->obj);
-    alias->obj = def->obj;
-  }
-  
-  alias->next = st->defs;
-  st->defs = alias;
+  return false;
 }
 
 // Copy a Python string to the Lean heap.
@@ -296,14 +261,7 @@ static void add_work(struct state *st, char *suggested_name, PyObject *obj) {
     return;
   }
 
-  struct definition *d = find_def(st, name);
-  if (d != NULL) {
-    if (suggested_name != NULL) {
-      alias_def(st, suggested_name, d);
-    }
-    return;
-  }
-  if (find_local(st, name) != NULL) {
+  if (have_def(st, name)) {
     lean_dec(str);
     return;
   }
@@ -691,9 +649,8 @@ static void add_local(struct state *st, lean_object *name) {
 // See: KLR/Trace/Python.lean for more details.
 
 static void add_global(struct state *st, lean_object *name, PyObject *obj) {
-  if (!name || !obj || find_local(st, lean_string_cstr(name)) != NULL || find_def(st, lean_string_cstr(name)) != NULL) {
+  if (!name || !obj || have_def(st, lean_string_cstr(name)))
     return;
-  }
 
   struct definition *def = region_alloc(st->region, sizeof(*def));
   lean_object *pos = curPos(st);
@@ -753,14 +710,8 @@ static struct ref reference(struct state *st, struct _expr *e) {
   switch(e->kind) {
   case Name_kind: {
       const char *s = PyUnicode_AsUTF8(e->v.Name.id);
-      if (s) {
-        if (find_local(st, s) != NULL) {
-          break;
-        }
-        struct definition *d = find_def(st, s);
-        if (d != NULL && d->obj != NULL) {
-          break;
-        }
+      if (s && have_def(st, s)) {
+        break;
       }
     }
     ref.obj = lookup(st, e->v.Name.id);
@@ -1485,7 +1436,7 @@ static lean_object* function_(struct state *st, lean_object *name, struct _stmt 
                        st->scope.src, decs, as, body);
 }
 
-static struct definition* function(struct state *st, lean_object *name, struct _stmt *s) {
+static void function(struct state *st, lean_object *name, struct _stmt *s) {
   lean_object *f = function_(st, name, s);
 
   struct definition *def = region_alloc(st->region, sizeof(*def));
@@ -1496,7 +1447,6 @@ static struct definition* function(struct state *st, lean_object *name, struct _
 
   def->next = st->defs;
   st->defs = def;
-  return def;
 }
 
 // Returns Keyword
@@ -1523,19 +1473,19 @@ static lean_object* field(struct state *st, struct _expr *e) {
 }
 
 
-static struct definition* class(struct state *st, lean_object *name, struct _stmt *s) {
+static void class(struct state *st, lean_object *name, struct _stmt *s) {
   if (s->v.ClassDef.keywords &&
       s->v.ClassDef.keywords->size > 0)
   {
     error(st, "class keywords are not supported in NKI");
-    return NULL;
+    return;
   }
 
   if (s->v.ClassDef.type_params &&
       s->v.ClassDef.type_params->size > 0)
   {
     error(st, "class type parameters are not supported in NKI");
-    return NULL;
+    return;
   }
 
   // Check that class inherits from allowed base classes
@@ -1561,13 +1511,13 @@ static struct definition* class(struct state *st, lean_object *name, struct _stm
     }
     if (!valid_base) {
       error(st, "NKI classes must inherit from either Enum or NKIObject");
-      return NULL;
+      return;
     }
   } else {
     // Not inheriting from any base is also a failure since there are
     // a good number of classes that are plain but are not valid in NKI
     error(st, "NKI classes must inherit from either Enum or NKIObject");
-    return NULL;
+    return;
   }
 
   // don't follow base classes or decorators
@@ -1597,14 +1547,14 @@ static struct definition* class(struct state *st, lean_object *name, struct _stm
       if (s->v.Expr.value->kind == Constant_kind)
         break;
       error(st, "Expression statements not supported in NKI classes");
-      return NULL;
+      return;
 
     case Assign_kind: {
       if (s->v.Assign.targets == NULL ||
           s->v.Assign.targets->size != 1)
       {
         error(st, "invalid assignment in NKI class");
-        return NULL;
+        return;
       }
       lean_object *f = field(st, s->v.Assign.targets->typed_elements[0]);
       fields = lean_array_push(fields, f);
@@ -1629,7 +1579,7 @@ static struct definition* class(struct state *st, lean_object *name, struct _stm
     }
     default:
       error(st, "Statement not supported in NKI classes");
-      return NULL;
+      return;
     }
   }
 
@@ -1648,7 +1598,6 @@ static struct definition* class(struct state *st, lean_object *name, struct _stm
 
   def->next = st->defs;
   st->defs = def;
-  return def;
 }
 
 static void definition(struct state *st, PyObject *obj, char* suggested_name) {
@@ -1675,18 +1624,18 @@ static void definition(struct state *st, PyObject *obj, char* suggested_name) {
   switch (stmt->kind) {
   case FunctionDef_kind:
     if (st->scope.f) {
-      struct definition* def = function(st, name, stmt);
-      if (suggested_name != NULL && def != NULL) {
-        alias_def(st, suggested_name, def);
+      function(st, name, stmt);
+      if (suggested_name && strcmp(lean_string_cstr(name), suggested_name) != 0) {
+        function(st, lean_mk_string(suggested_name), stmt);
       }
     }
     break;
 
   case ClassDef_kind:
     if (st->scope.cls) {
-      struct definition* def = class(st, name, stmt);
-      if (suggested_name != NULL && def != NULL) {
-        alias_def(st, suggested_name, def);
+      class(st, name, stmt);
+      if (suggested_name && strcmp(lean_string_cstr(name), suggested_name) != 0) {
+        class(st, lean_mk_string(suggested_name), stmt);
       }
     }
     break;
@@ -1726,42 +1675,6 @@ PyObject* specialize(
 ) {
   struct state st = { 0 };
   st.region = k->region;
-
-  // Add all symbols defined in nki.* modules to worklist
-  PyObject *nki_modules = PyImport_GetModuleDict();
-  if (nki_modules) {
-    PyObject *key, *value;
-    Py_ssize_t pos = 0;
-    while (PyDict_Next(nki_modules, &pos, &key, &value)) {
-      if (!PyUnicode_Check(key))
-        continue;
-
-      // we must have a module or a moudle must be nki
-      const char *module_name = PyUnicode_AsUTF8(key);
-      if (!module_name || strncmp(module_name, "nki.language", 12) != 0)
-        continue;
-
-      PyObject *module_dict = PyModule_GetDict(value);
-      if (!module_dict)
-        continue;
-
-      PyObject *sym_key, *sym_value;
-      Py_ssize_t sym_pos = 0;
-      while (PyDict_Next(module_dict, &sym_pos, &sym_key, &sym_value)) {
-        if (!(PyFunction_Check(sym_value) || PyType_Check(sym_value)))
-          continue;
-
-        const char *sym_name = PyUnicode_AsUTF8(sym_key);
-        if (!sym_name || strcmp(sym_name, "NKIObject") == 0)
-          continue;
-
-        char *full_name = NULL;
-        if (asprintf(&full_name, "%s.%s", module_name, sym_name) != -1) {
-          add_work(&st, full_name, sym_value);
-        }
-      }
-    }
-  }
 
   // add main function to work list, and process arguments
   // potentially adding more dependencies to the work list
