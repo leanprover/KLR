@@ -21,10 +21,19 @@ import KLR.Core.Indexing
 
 namespace KLR.Core
 
+structure LowerAPState where
+  unsafeCast := false
+
+instance : Inhabited LowerAPState where
+  default := {}
+
+/-- LowerAP monad for access pattern lowering -/
+abbrev LowerAP := StateT LowerAPState KLR.Err
+
 /-- Function to convert an Access to an AccessPattern.
 Note: This lowering does not work in all cases, for example, if the Access in an AccessBasic whose
 Par dimension takes steps that are not equal to 1. Returns a None in this case. -/
-def Access.lowerAccessPattern (a : Access) : KLR.Err BirAccessPattern := do
+def Access.lowerAccessPattern (a : Access) : LowerAP BirAccessPattern := do
   -- Don't violate invariants of proved code
   if let .birPattern b := a then
     return b
@@ -37,18 +46,21 @@ def Access.lowerAccessPattern (a : Access) : KLR.Err BirAccessPattern := do
     if ap.parOffset ∉ [0, 32, 64, 96] then
       throw s!"Invalid partition start offset {ap.freeOffset} for non-HBM memory. Valid offsets are: 0, 32, 64, 96"
   let birAp := BirAccessPattern.fromAccessPattern ap
+  let state ← get
+  if state.unsafeCast && birAp.tensor.dtype == Core.Dtype.float8_e4m3fn then
+    return { birAp with tensor := { birAp.tensor with dtype := Core.Dtype.float8_e4m3, freeWF := sorry } }
   return birAp
 
-def TensorRef.lowerAccessPatterns : TensorRef → KLR.Err TensorRef
+def TensorRef.lowerAccessPatterns : TensorRef → LowerAP TensorRef
 | .abstract a => do return .abstract <| .birPattern (← a.lowerAccessPattern)
 | x => do return x
 
-def Operand.lowerAccessPatterns : Operand -> KLR.Err Operand
+def Operand.lowerAccessPatterns : Operand -> LowerAP Operand
   | .tile t => do return .tile (<- t.lowerAccessPatterns)
-  | x => .ok x
+  | x => return x
 
 -- TODO: Is there a way to make this less horrible with metaprogramming? All argumetns are of different types.
-def Operator.lowerAccessPatterns (k : Operator) : KLR.Err Operator :=
+def Operator.lowerAccessPatterns (k : Operator) : LowerAP Operator :=
   match k with
   | .activate           op => do return .activate           { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns) }
   | .ncActivate         op => do return .ncActivate         { op with src := (← op.src.lowerAccessPatterns), dst := (← op.dst.lowerAccessPatterns), scale := (← op.scale.lowerAccessPatterns), bias := (<- op.bias.mapM TensorRef.lowerAccessPatterns), reduceRes := (<- op.reduceRes.mapM TensorRef.lowerAccessPatterns) }
@@ -206,18 +218,18 @@ def Operator.lowerAccessPatterns (k : Operator) : KLR.Err Operator :=
       src := <- op.src.lowerAccessPatterns
     }
 
-def Stmt.lowerAccessPatterns : Stmt → KLR.Err Stmt
+def Stmt.lowerAccessPatterns : Stmt → LowerAP Stmt
   | .oper op name pos => return .oper (<- op.lowerAccessPatterns) name pos
 
-def Block.lowerAccessPatterns (b : Block) : KLR.Err Block := do
+def Block.lowerAccessPatterns (b : Block) : LowerAP Block := do
   let body <- b.body.mapM Stmt.lowerAccessPatterns
   return { b with body := body }
 
-def Kernel.lowerAccessPatterns (k : Kernel) : KLR.Err Kernel := do
+def Kernel.lowerAccessPatterns (k : Kernel) : LowerAP Kernel := do
   let body' ← k.body.mapM Block.lowerAccessPatterns
   return { k with body := body'}
 
-def lowerAccessPatterns (k : LncKernel) : KLR.Err LncKernel := do
+def lowerAccessPatterns (k : LncKernel) : LowerAP LncKernel := do
   let mut bodies := []
   for body in k.bodies do
     let body' ← body.mapM Block.lowerAccessPatterns

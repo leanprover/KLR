@@ -114,6 +114,11 @@ def value : Value -> Trace Term
   | .tensor s dty (some name) => do
       let shape <- Core.Shape.fromList s
       let dtype <- fromNKI? (.string dty)
+      let unsafeCast := (<- flags.unsafe_cast_fp8fncast)
+      let dtype := if unsafeCast && dtype == Core.Dtype.float8_e4m3fn then
+        Core.Dtype.float8_e4m3
+      else
+        dtype
       let addr : Core.Address := {
         name := name
         memory := .hbm

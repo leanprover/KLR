@@ -285,6 +285,11 @@ def address_rotation : Trace $ Bool := do
   | some $ .bool b => return b
   | _ => return false
 
+def unsafe_cast_fp8fncast : Trace $ Bool := do
+  match <- lookup_flag? "UNSAFE_FP8FNCAST" with
+  | some $ .bool b => return b
+  | _ => return false
+
 end flags
 
 -- Enter a new local scope, replacing the local environment on exit.
