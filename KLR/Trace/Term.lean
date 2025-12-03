@@ -430,11 +430,15 @@ Once the Python APIs are updated we can stop doing this.
 -/
 
 private def offset (a : Access) : Trace Term := do
-  let bap <- a.lowerAccessPattern
+  let unsafeCast <- flags.unsafe_cast_fp8fncast
+  let state : Core.LowerAPState := { unsafeCast }
+  let bap <- (a.lowerAccessPattern).run' state
   return .int bap.offset
 
 private def pattern (a : Access) : Trace Term := do
-  let bap <- a.lowerAccessPattern
+  let unsafeCast <- flags.unsafe_cast_fp8fncast
+  let state : Core.LowerAPState := { unsafeCast }
+  let bap <- (a.lowerAccessPattern).run' state
   let pairs := bap.pattern.map fun p =>
     Term.tuple [.int p.step, .int p.num]
   return .tuple pairs

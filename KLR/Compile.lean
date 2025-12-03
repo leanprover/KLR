@@ -57,8 +57,11 @@ private def writeDebugInfo
 private def compile (kernel : Python.Kernel) (genDebug : Bool := false)
   : Pass.PassM (List (Trace.TraceResult Unit) × LncKernel) := do
   let kernel <- NKI.compile kernel
+  let unsafeCast := match kernel.flags.find? (·.1 == "UNSAFE_FP8FNCAST") |>.map (·.2) with
+    | some $ .bool b => b
+    | _ => false
   let (shared, kernel) <- Trace.runLncKernels kernel genDebug
-  let kernel <- Core.lowerAccessPatterns kernel
+  let (kernel, _) <- Core.lowerAccessPatterns kernel { unsafeCast := unsafeCast }
   return (shared, kernel)
 
 -- TODO: preserve warnings and errors
