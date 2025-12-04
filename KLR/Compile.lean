@@ -62,6 +62,16 @@ private def compile (kernel : Python.Kernel) (genDebug : Bool := false)
     | _ => false
   let (shared, kernel) <- Trace.runLncKernels kernel genDebug
   let (kernel, _) <- Core.lowerAccessPatterns kernel { unsafeCast := unsafeCast }
+  let convertTensor (t : Core.TensorName) : Option Core.TensorName :=
+    if t.dtype == .float8_e4m3fn then
+      Core.TensorName.make t.name .float8_e4m3 t.shape t.address t.addressRotation |>.toOption
+    else some t
+  let kernel := if unsafeCast then
+    { kernel with
+      inputs := kernel.inputs.filterMap convertTensor,
+      outputs := kernel.outputs.filterMap convertTensor
+    }
+  else kernel
   return (shared, kernel)
 
 -- TODO: preserve warnings and errors
