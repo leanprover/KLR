@@ -213,8 +213,6 @@ structure State where
   locals : Env := ∅
   body : Array Block := #[]
   flags : Array (String × NKI.Value) := #[]
-  -- PHashSet is better for huge sets (which this is)
-  --tensorNames : Std.HashSet String := ∅
   tensorNames : Lean.PersistentHashSet String := ∅
   sharedConstants : SharedConstants := #[]
   dynamicCtx : Bool := False
@@ -312,15 +310,14 @@ def enterFun (m : Trace a) : Trace a := do
 -- append fully traced statement
 def add_stmt (stmt : Pos -> Stmt) : Trace Unit := do
   let pos <- getPos
-  let s <- get
   let (stmt, name) <- match stmt pos with
     | .oper op none pos =>
        let name := (<- genName `inst).toString
-       pure (.oper op name pos, name)
+       pure (Core.Stmt.oper op name pos, name)
     | .oper op (some name) pos =>
-       pure (.oper op (some name) pos, name)
-  let stmts := s.stmts.push stmt
-  set { s with stmts }
+       pure (Core.Stmt.oper op (some name) pos, name)
+  modifyThe State fun s =>
+    { s with stmts := s.stmts.push stmt }
   dbgAdd name
 
 def jmp (target : String) : Trace Unit := do

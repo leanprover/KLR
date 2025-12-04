@@ -15,6 +15,7 @@ limitations under the License.
 -/
 
 import KLR.Util.Base64
+import KLR.Util.BigArray
 import KLR.Util.BitVec
 import KLR.Util.Bstruct
 import KLR.Util.Common

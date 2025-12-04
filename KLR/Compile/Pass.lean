@@ -150,7 +150,7 @@ def getWarnings (ps : PassState) : List String :=
 
 end PassState
 
-abbrev PassM := EStateM PosError PassState
+abbrev PassM := StateRefT PassState (EIO PosError)
 
 namespace PassM
 
@@ -165,25 +165,38 @@ def getPos : PassM Pos := do
   return { pos with line := pos.line + s.lineOffset - 1 }
 
 def withPos (pos : Pos) (m : PassM a) : PassM a :=
-  fun s =>
+  fun ref => do
+    let s <- ref.get
     let pos' := s.pos
-    match m { s with pos := pos } with
-    | .ok x s => .ok x {s.locate pos with pos := pos'}
-    | .error e s => .error (e.locate pos) {s.locate pos with pos := pos'}
+    let s' := {s with pos}
+    ref.set s'
+    match m ref () with
+    | .ok x () =>
+      ref.modify fun s => {s.locate pos with pos := pos'}
+      .ok x
+    | .error e () =>
+      ref.modify fun s => {s.locate pos with pos := pos'}
+      .error (e.locate pos)
 
 def withFile (file : String) (lineOffset : Nat) (source : String) (m : PassM a) : PassM a :=
-  fun s =>
+  fun ref => do
+    let s <- ref.get
     let pos' := s.pos
     let pos := { s.pos with filename := some file }
-    match m { s with pos, lineOffset := lineOffset } with
-    | .ok x s => .ok x {s.addFile file lineOffset with pos := pos'}
-    | .error msg s =>
+    let s' := { s with pos, lineOffset := lineOffset }
+    ref.set s'
+    match m ref () with
+    | .ok x () =>
+      ref.modify fun s => {s.addFile file lineOffset with pos := pos'}
+      .ok x
+    | .error msg () =>
         let msg := match msg with
           | .raw msg => genError msg file lineOffset source pos
           | .located pos msg => genError msg file lineOffset source pos
           | .absolute f pos msg => genError msg f lineOffset source pos
           | .formatted msg => msg ++ genError "called from" file lineOffset source pos
-       .error (.formatted msg) {s.addFile file lineOffset with pos := pos'}
+        ref.modify fun s => {s.addFile file lineOffset with pos := pos'}
+        .error (.formatted msg)
 where
   genError (msg : String) (f: String) (offset : Nat) (source : String) (pos : Pos) : String :=
     let lines := source.splitOn "\n"
@@ -239,10 +252,10 @@ def getPos [Monad m] [MonadControlT PassM m] : m Pos :=
   liftWith fun _ => PassM.getPos
 
 -- Passes will commonly want to add more state
-abbrev Pass st := StateT st PassM
+abbrev Pass (st : Type) := StateRefT st PassM
 
 def runPassWith (s : st) (m : Pass st a) : PassM a :=
-  do let (x,_) <- m s; return x
+  do m (<- ST.mkRef s)
 
 def runPass [Inhabited st] (m : Pass st a) : PassM a :=
   runPassWith default m
@@ -259,19 +272,35 @@ structure CompileResult (a : Type) where
   result : Option a
   deriving BEq, Repr
 
-def runPasses (m : PassM a) : CompileResult a :=
-  match m {} with
-  | .ok x st =>
+def runPasses' (m : PassM a) : EIO String (CompileResult a) := do
+  let ref <- ST.mkRef { : PassState }
+  match m ref () with
+  | .ok x () =>
+    let st <- ref.get
     let st := st.addFile "" 0
-    { messages := st.getMessages
+    return {
+      messages := st.getMessages
       warnings := st.getWarnings
       errors   := []
       result   := some x
-    }
-  | .error x st =>
+      }
+  | .error x () =>
+    let st <- ref.get
     let st := st.addFile "" 0
-    { messages := st.getMessages
+    return {
+      messages := st.getMessages
       warnings := st.getWarnings
       errors   := [toString x]
       result   := none
-    }
+      }
+
+-- Note the error case shouldn't happen: handled in runPasses'
+def runPasses (m : PassM a) : CompileResult a :=
+  match runPasses' m () with
+  | .ok x () => x
+  | .error x () => {
+      messages := []
+      warnings := []
+      errors   := [toString x]
+      result   := none
+      }
