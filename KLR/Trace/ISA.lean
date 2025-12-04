@@ -745,7 +745,7 @@ nki builtin.isa.dma_transpose
     oobMode := match oob_mode with
         | 0 => .error
         | 1 => .skip
-        | _ => .skip,
+        | _ => .error,
   }) name
   return .none
 

@@ -1909,9 +1909,9 @@ Ptr<DmaTranspose> DmaTranspose_des(FILE *in) {
     msg << "Could not find tag, expecting DmaTranspose:154,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 154 || c != 0 || l != 5) {
+  if (t != 154 || c != 0 || l != 6) {
     std::ostringstream msg;
-    msg << "Expecting DmaTranspose:(154,0,5)";
+    msg << "Expecting DmaTranspose:(154,0,6)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -1921,6 +1921,7 @@ Ptr<DmaTranspose> DmaTranspose_des(FILE *in) {
   x->axes = TransposeOps_des(in);
   x->dtype = Option_Dtype_des(in);
   x->dgeMode = Nat_des(in);
+  x->oobMode = DmaBounds_des(in);
   return x;
 }
 

@@ -537,6 +537,7 @@ struct DmaTranspose final {
   TransposeOps axes;
   Option<Dtype> dtype;
   Nat dgeMode;
+  Ptr<DmaBounds> oobMode;
 };
 
 struct Transpose final {
