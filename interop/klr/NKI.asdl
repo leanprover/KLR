@@ -214,7 +214,7 @@ AffineSelect = (TensorRef dst, TensorRef src, AffineSelectCmp fillMode, Reg fill
 
 DmaCopy = (TensorRef dst, TensorRef src, DgeComputeOp compute_op, DmaBounds dstBoundsCheck, DmaBounds srcBoundsCheck)
 
-DmaTranspose = (TensorRef dst, TensorRef src, TransposeOps axes, Dtype? dtype, Nat dgeMode)
+DmaTranspose = (TensorRef dst, TensorRef src, TransposeOps axes, Dtype? dtype, Nat dgeMode, DmaBounds oobMode)
 
 Transpose = (TensorRef dst, TensorRef src, Dtype? dtype, Engine engine)
 
