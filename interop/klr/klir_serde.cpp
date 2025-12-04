@@ -508,22 +508,28 @@ Dtype Dtype_des(FILE *in) {
   case 15: {
     if (l != 0)
       throw std::runtime_error("Wrong number of elements");
-    return Dtype::float8_e4m3fn;
+    return Dtype::float8_e4m3;
     break;
   }
   case 16: {
     if (l != 0)
       throw std::runtime_error("Wrong number of elements");
-    return Dtype::float8_e5m2_x4;
+    return Dtype::float8_e4m3fn;
     break;
   }
   case 17: {
     if (l != 0)
       throw std::runtime_error("Wrong number of elements");
-    return Dtype::float8_e4m3fn_x4;
+    return Dtype::float8_e5m2_x4;
     break;
   }
   case 18: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return Dtype::float8_e4m3fn_x4;
+    break;
+  }
+  case 19: {
     if (l != 0)
       throw std::runtime_error("Wrong number of elements");
     return Dtype::float4_e2m1fn_x4;
