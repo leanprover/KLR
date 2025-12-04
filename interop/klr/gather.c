@@ -308,6 +308,17 @@ static void add_work(struct state *st, char *suggested_name, PyObject *obj) {
     return;
   }
 
+  // Check if this is a jit-decorated function
+  if (PyFunction_Check(obj)) {
+    // Method 1: Check for __wrapped__ attribute (if decorator sets it)
+    PyObject *kernel_func = PyObject_GetAttrString(obj, "__kernel_func");
+    if (kernel_func && !PyErr_Occurred()) {
+      obj = kernel_func;
+    } else {
+      PyErr_Clear();
+    }
+  }
+
   // Scan/Add to worklist
   for (struct worklist **work = &st->work;; work = &(*work)->next) {
     if (!*work) {
