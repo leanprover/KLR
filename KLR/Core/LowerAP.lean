@@ -48,7 +48,12 @@ def Access.lowerAccessPattern (a : Access) : LowerAP BirAccessPattern := do
   let birAp := BirAccessPattern.fromAccessPattern ap
   let state ← get
   if state.unsafeCast && birAp.tensor.dtype == Core.Dtype.float8_e4m3fn then
-    return { birAp with tensor := { birAp.tensor with dtype := Core.Dtype.float8_e4m3, freeWF := sorry } }
+    if freeWF: birAp.tensor.shape.freeElements * Core.Dtype.float8_e4m3.size <=
+               birAp.tensor.address.freeSize then
+      return { birAp with tensor :=
+        { birAp.tensor with dtype := Core.Dtype.float8_e4m3, freeWF } }
+    else
+      throw "float8_e4m3 is too large to cast from {birAp.tensor.dtype}"
   return birAp
 
 def TensorRef.lowerAccessPatterns : TensorRef → LowerAP TensorRef

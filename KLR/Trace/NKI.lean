@@ -453,7 +453,7 @@ partial def stmt' (s' : Stmt') : Trace Result := do
       let _ <- beginBlock bodyLbl
       dynamic body
       -- AluAdd reg += s
-      addImm l u s
+      addImm l l s -- addImm src dst step
       brlt l u bodyLbl endLbl
       endBlock
       -- end:
@@ -481,6 +481,7 @@ partial def stmt' (s' : Stmt') : Trace Result := do
         -- entry:
         let s <- scalar test
         brnz s bodyLbl endLbl
+        endBlock
 
         let _ <- beginBlock bodyLbl
         dynamic body

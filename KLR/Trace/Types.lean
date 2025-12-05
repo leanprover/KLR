@@ -364,19 +364,19 @@ def addImm (src dst : String) (imm : Int) : Trace Unit := do
 
 
 def endBlock (next : Option String := none) : Trace Unit := do
-  let st <- get
   if let some target := next then
     jmp target
-  let body := match st.label with
-    | none =>
-        st.body
-    | some lbl =>
-        st.body.push ⟨ lbl, st.stmts.toList ⟩
-  set { st with
+
+  modify fun st =>
+    let body := match st.label with
+      | none => st.body
+      | some lbl => st.body.push ⟨ lbl, st.stmts.toList ⟩
+
+    { st with
         body := body
         label := next
         stmts := #[]
-      }
+    }
 
 def beginBlock (label : Option String := none) : Trace String := do
   let l := label.getD ((<- genName `label).toString)
