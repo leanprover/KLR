@@ -117,7 +117,7 @@ nki builtin.isa.nc_matmul
  (moving : Access)
  -- kwargs
  (is_stationary_onezero : Bool := false)
- (is_moving_zero : Bool := false)
+ (is_moving_onezero : Bool := false)
  (is_transpose : Bool := false)
  (tile_position : List Nat := [])
  (tile_size : List Nat := [])
@@ -132,7 +132,7 @@ nki builtin.isa.nc_matmul
       stationary := .abstract stationary,
       moving := .abstract moving,
       isStationaryOneZero := is_stationary_onezero,
-      isMovingZero := is_moving_zero,
+      isMovingZero := is_moving_onezero,
       isTranspose := is_transpose,
       tilePosition := tile_position,
       tileSize := tile_size,
