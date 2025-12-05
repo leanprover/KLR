@@ -29,8 +29,8 @@ open Compile.Pass (PassM runPass)
 
 def compile (py : Python.Kernel) : PassM NKI.Kernel := do
   let k <- runPass (simplify py)
+  let k <- runPass (genClasses k)
   let k <- runPass (simplifyOperators k)
   let k <- runPass (annotate k)
   let k <- runPass (simplifyPatterns k)
-  let k <- runPass (genClasses k)
   return k
