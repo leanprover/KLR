@@ -7,6 +7,8 @@ Authors: Paul Govereau, Sean McLaughlin
 #include "frontend.h"
 #include "ast_python.h"
 
+static bool trace_defs = true;
+
 /*
 -- Gather
 -- fetch all of the data we need from the Python environment
@@ -175,35 +177,6 @@ static struct definition* find_def(const struct state *st, const char *name) {
   return NULL;
 }
 
-static void alias_def(struct state *st, const char *name, struct definition *def) {
-  struct definition *alias = region_alloc(st->region, sizeof(*alias));
-  alias->str = lean_mk_string(name);
-  alias->name = name;
-  alias->type = def->type;
-  
-  if (def->type == FUN && def->obj != NULL) {
-    lean_object *f = def->obj;
-    // here be hacks... Stolen from lean def of FunMk
-    alias->obj = Python_Fun_mk(
-      lean_mk_string(name),
-      lean_ctor_get(f, 1), lean_ctor_get(f, 2), lean_ctor_get(f, 3),
-      lean_ctor_get(f, 4), lean_ctor_get(f, 5), lean_ctor_get(f, 6));
-  } else if (def->type == CLS && def->obj != NULL) {
-    lean_object *f = def->obj;
-    // here be hacks... Stolen from lean def of ClassMk
-    alias->obj = Python_Class_mk(
-      lean_mk_string(name),
-      lean_ctor_get(f, 1), lean_ctor_get(f, 2), lean_ctor_get(f, 3),
-      lean_ctor_get(f, 4));
-  } else {
-    lean_inc(def->obj);
-    alias->obj = def->obj;
-  }
-  
-  alias->next = st->defs;
-  st->defs = alias;
-}
-
 // Copy a Python string to the Lean heap.
 // returns an empty string on error
 static lean_object* py_strdup(struct state *st, PyObject *obj) {
@@ -244,7 +217,8 @@ static inline lean_object* py_path_name(struct state *st, PyObject *m, PyObject 
 // Construct full name of python function or class
 static lean_object* py_def_name(struct state *st, PyObject *f) {
   PyObject *module = PyObject_GetAttrString(f, "__module__");
-  PyObject *name = PyObject_GetAttrString(f, "__name__");
+  PyObject *qualname = PyObject_GetAttrString(f, "__qualname__");
+  PyObject *name = qualname ? qualname : PyObject_GetAttrString(f, "__name__");
 
   lean_object *f_name = py_path_name(st, module, name);
 
@@ -266,76 +240,6 @@ static lean_object* py_method_name(struct state *st, lean_object *clsname, PyObj
 
   Py_XDECREF(name);
   return m_name;
-}
-
-// Add a new item to the work-list (if necessary)
-// Note: we are ignoring possible errors from Python as this function
-// is allowed to fail.
-// Note: name is a suggestion to resolve the symbol to along to what
-// the object itself will resolve to.
-// I.e:
-// from foo import bar
-// will add a symbol for `foo.bar` and `<my_module>.bar`
-static void add_work(struct state *st, char *suggested_name, PyObject *obj) {
-  if (!obj) return;
-
-  lean_object *str = py_def_name(st, obj);
-  const char *name = lean_string_cstr(str);
-  if (name[0] == 0)
-    return;
-
-  // skip numpy (for performance)
-  if (strncmp("numpy.", name, 6) == 0) {
-    lean_dec(str);
-    return;
-  }
-
-  // skip enum (for correctness)
-  if (strncmp("enum.", name, 5) == 0) {
-    lean_dec(str);
-    return;
-  }
-
-  struct definition *d = find_def(st, name);
-  if (d != NULL) {
-    if (suggested_name != NULL) {
-      alias_def(st, suggested_name, d);
-    }
-    return;
-  }
-  if (find_local(st, name) != NULL) {
-    lean_dec(str);
-    return;
-  }
-
-  // Check if this is a jit-decorated function
-  if (PyFunction_Check(obj)) {
-    // Method 1: Check for __wrapped__ attribute (if decorator sets it)
-    PyObject *kernel_func = PyObject_GetAttrString(obj, "__kernel_func");
-    if (kernel_func && !PyErr_Occurred()) {
-      obj = kernel_func;
-    } else {
-      PyErr_Clear();
-    }
-  }
-
-  // Scan/Add to worklist
-  for (struct worklist **work = &st->work;; work = &(*work)->next) {
-    if (!*work) {
-      struct worklist *node = region_alloc(st->region, sizeof(*node));
-      node->next = NULL;
-      node->name = name;
-      node->suggested_name = suggested_name;
-      node->str = str;
-      node->obj = obj;
-      *work = node;
-      break;
-    }
-    if (strcmp((*work)->name, name) == 0) {
-      lean_dec(str);
-      break;
-    }
-  }
 }
 
 // -- functions for building basic types
@@ -382,6 +286,99 @@ static inline lean_object* curPos(struct state *st) {
     mkPos(obj->lineno, obj->col_offset, \
           obj->end_lineno, obj->end_col_offset, st->scope.file) : \
     mkPos(0,0,0,0, st->scope.file))
+
+// Create a global alias that references another name
+// Used for import aliases: e.g., "dma_copy = nki.isa.neuron_isa.dma_copy"
+static void add_global_alias(struct state *st, const char *alias_name, lean_object *target_name) {
+  if (!alias_name || !target_name || find_local(st, alias_name) != NULL || find_def(st, alias_name) != NULL)
+    return;
+
+  struct definition *def = region_alloc(st->region, sizeof(*def));
+  lean_object *pos = curPos(st);
+  
+  lean_object *ref_expr = Python_Expr_mk(Python_Expr_name(target_name, Python_Ctx_load), pos);
+  
+  def->str = lean_mk_string(alias_name);
+  def->name = alias_name;
+  def->type = GLOBAL;
+  def->obj = Python_Keyword_mk(mkSome(def->str), ref_expr, pos);
+  
+  def->next = st->defs;
+  st->defs = def;
+
+  if (trace_defs) { printf("  alias: %s -> %s \n", alias_name, lean_string_cstr(target_name)); }
+}
+
+// Add a new item to the work-list (if necessary)
+// Note: we are ignoring possible errors from Python as this function
+// is allowed to fail.
+// Note: name is a suggestion to resolve the symbol to along to what
+// the object itself will resolve to.
+// I.e:
+// from foo import bar
+// will add a symbol for `foo.bar` and `<my_module>.bar`
+static void add_work(struct state *st, char *suggested_name, PyObject *obj) {
+  if (!obj) return;
+
+  lean_object *str = py_def_name(st, obj);
+  const char *name = lean_string_cstr(str);
+  if (name[0] == 0)
+    return;
+
+  // skip numpy (for performance)
+  if (strncmp("numpy.", name, 6) == 0) {
+    lean_dec(str);
+    return;
+  }
+
+  // skip enum (for correctness)
+  if (strncmp("enum.", name, 5) == 0) {
+    lean_dec(str);
+    return;
+  }
+
+  struct definition *d = find_def(st, name);
+  if (d != NULL) {
+    if (suggested_name != NULL) {
+      add_global_alias(st, suggested_name, str);
+    }
+    lean_dec(str);
+    return;
+  }
+  if (find_local(st, name) != NULL) {
+    lean_dec(str);
+    return;
+  }
+
+  // Check if this is a jit-decorated function
+  if (PyFunction_Check(obj)) {
+    // Method 1: Check for __wrapped__ attribute (if decorator sets it)
+    PyObject *kernel_func = PyObject_GetAttrString(obj, "__kernel_func");
+    if (kernel_func && !PyErr_Occurred()) {
+      obj = kernel_func;
+    } else {
+      PyErr_Clear();
+    }
+  }
+
+  // Scan/Add to worklist
+  for (struct worklist **work = &st->work;; work = &(*work)->next) {
+    if (!*work) {
+      struct worklist *node = region_alloc(st->region, sizeof(*node));
+      node->next = NULL;
+      node->name = name;
+      node->suggested_name = suggested_name;
+      node->str = str;
+      node->obj = obj;
+      *work = node;
+      break;
+    }
+    if (strcmp((*work)->name, name) == 0) {
+      lean_dec(str);
+      break;
+    }
+  }
+}
 
 
 static lean_object* value(struct state *st, PyObject *obj);
@@ -716,26 +713,6 @@ static void add_global(struct state *st, lean_object *name, PyObject *obj) {
   lean_object *c = const_expr(st, obj);
   def->obj = Python_Keyword_mk(mkSome(def->str), c, pos);
 
-  def->next = st->defs;
-  st->defs = def;
-}
-
-// Create a global alias that references another name
-// Used for import aliases: e.g., "dma_copy = nki.isa.neuron_isa.dma_copy"
-static void add_global_alias(struct state *st, const char *alias_name, lean_object *target_name) {
-  if (!alias_name || !target_name || have_def(st, alias_name))
-    return;
-
-  struct definition *def = region_alloc(st->region, sizeof(*def));
-  lean_object *pos = curPos(st);
-  
-  lean_object *ref_expr = Python_Expr_mk(Python_Expr_name(target_name, Python_Ctx_load), pos);
-  
-  def->str = lean_mk_string(alias_name);
-  def->name = alias_name;
-  def->type = GLOBAL;
-  def->obj = Python_Keyword_mk(mkSome(def->str), ref_expr, pos);
-  
   def->next = st->defs;
   st->defs = def;
 }
@@ -1703,6 +1680,8 @@ static void definition(struct state *st, PyObject *obj, char* suggested_name) {
   // add name to locals to prevent recursion
   add_local(st, name);
 
+  if (trace_defs) { printf("def %s\n", lean_string_cstr(name)); }
+
   switch (stmt->kind) {
   case FunctionDef_kind:
     if (st->scope.f) {
@@ -1728,6 +1707,30 @@ static void definition(struct state *st, PyObject *obj, char* suggested_name) {
     break;
   }
 
+  if (obj) {
+    PyObject *dir = PyObject_Dir(obj);
+    if (dir && PyList_Check(dir)) {
+      for (Py_ssize_t i = 0; i < PyList_Size(dir); i++) {
+        PyObject *attr_name = PyList_GetItem(dir, i);
+        if (PyUnicode_Check(attr_name)) {
+          PyObject *attr = PyObject_GetAttr(obj, attr_name);
+          if (attr) {
+            if (PyFunction_Check(attr) || PyType_Check(attr)) {
+              const char *attr_name_str = PyUnicode_AsUTF8(attr_name);
+              if (attr_name_str) {
+                char *full_name = NULL;
+                if (asprintf(&full_name, "%s.%s", suggested_name ? suggested_name : lean_string_cstr(name), attr_name_str) != -1) {
+                  add_work(st, full_name, attr);
+                }
+              }
+            }
+            Py_DECREF(attr);
+          }
+        }
+      }
+      Py_DECREF(dir);
+    }
+  }
 cleanup:
   if (m) free_python_ast(m);
   st->scope = old_scope;
