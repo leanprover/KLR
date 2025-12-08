@@ -113,7 +113,7 @@ static void add_msg(struct state *st, bool isError, const char *fmt, ...) {
   } else {
     m->file = region_strdup(st->region, "<unknown>");
   }
-  m->line = st->scope.line_offset + st->scope.pos.line;
+  m->line = st->scope.line_offset + st->scope.pos.line - 1;
   m->col = st->scope.pos.col;
   m->message = region_strdup(st->region, buf);
   free(buf);
