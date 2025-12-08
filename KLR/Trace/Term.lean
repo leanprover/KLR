@@ -502,7 +502,11 @@ def Term.attr (t : Term) (id : String) : Trace Term :=
           | some dt => return <- dtype dt
           | _ => return <- dtype b.tensor.dtype
         | _ => return <- dtype a.tensor.dtype
-      | "shape" => return (tuple $ a.shapePure.toList.map some)
+      | "shape" => do
+        match a.toAP with
+        | .ok ap => return (tuple $ ap.shape.toList.map some)
+        -- fallback for being unable to convert ap to access pattern. Should not fire
+        | .error _ => return (tuple $ a.shapePure.toList.map some)
       | "address" => return .pointer a.tensor.address
       | "offset" => offset a
       | "pattern" => pattern a
