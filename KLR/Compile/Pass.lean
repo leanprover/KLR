@@ -142,11 +142,11 @@ def addFile (file : String) (lineOffset : Nat) (ps : PassState) : PassState :=
     warnings := ps.warnings.map (.addFile file lineOffset)
   }
 
-def getMessages (ps : PassState) : List String :=
-  ps.messages.toList
+def getMessages (ps : PassState) : Array String :=
+  ps.messages
 
-def getWarnings (ps : PassState) : List String :=
-  (ps.warnings.map toString).toList
+def getWarnings (ps : PassState) : Array String :=
+  ps.warnings.map toString
 
 end PassState
 
@@ -266,9 +266,9 @@ warnings trapped in the `newWarn` array. One is added here just to be safe.
 -/
 
 structure CompileResult (a : Type) where
-  messages : List String
-  warnings : List String
-  errors : List String
+  messages : Array String
+  warnings : Array String
+  errors : Array String
   result : Option a
   deriving BEq, Repr
 
@@ -281,7 +281,7 @@ def runPasses' (m : PassM a) : EIO String (CompileResult a) := do
     return {
       messages := st.getMessages
       warnings := st.getWarnings
-      errors   := []
+      errors   := #[]
       result   := some x
       }
   | .error x () =>
@@ -290,7 +290,7 @@ def runPasses' (m : PassM a) : EIO String (CompileResult a) := do
     return {
       messages := st.getMessages
       warnings := st.getWarnings
-      errors   := [toString x]
+      errors   := #[toString x]
       result   := none
       }
 
@@ -299,8 +299,8 @@ def runPasses (m : PassM a) : CompileResult a :=
   match runPasses' m () with
   | .ok x () => x
   | .error x () => {
-      messages := []
-      warnings := []
-      errors   := [toString x]
+      messages := #[]
+      warnings := #[]
+      errors   := #[toString x]
       result   := none
       }

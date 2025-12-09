@@ -101,30 +101,32 @@ structure TensorInfo where
 
 structure KernelInfo where
   name : String
-  messages : List String
-  warnings : List String
-  errors : List String
+  messages : Array String
+  warnings : Array String
+  errors : Array String
   inputs : List TensorInfo
   outputs : List TensorInfo
   sharedConstants : List Core.SharedConstantFile
   deriving ToJson
 
 private def resultToInfo (res : CompileResult LncKernel) : KernelInfo :=
+  let takeWithOverflowMsg (msgs : Array String) (what: String) : Array String :=
+    if msgs.size > 50000 then msgs.take 50000 ++ #[s!"Too many {what}..."] else msgs
   match res.result with
   | none => {
       name := ""
-      messages := res.messages
-      warnings := res.warnings
-      errors := res.errors
+      messages := takeWithOverflowMsg res.messages "messages"
+      warnings := takeWithOverflowMsg res.warnings "warnings"
+      errors := takeWithOverflowMsg res.errors "errors"
       inputs := []
       outputs := []
       sharedConstants := []
     }
   | some kernel => {
       name := kernel.name,
-      messages := res.messages
-      warnings := res.warnings
-      errors := res.errors
+      messages := takeWithOverflowMsg res.messages "messages"
+      warnings := takeWithOverflowMsg res.warnings "warnings"
+      errors := takeWithOverflowMsg res.errors "errors"
       inputs := kernel.inputs.map fun inp => {
         name := inp.name,
         dtype := reprStr inp.dtype,
