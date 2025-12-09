@@ -429,10 +429,6 @@ def addId : Trace Unit := do
   }
   extend_global idName (.access (.simple tensorName))
 
--- emit a message
---def message (msg : String) : Trace Unit := Pass.message
-  --modify fun s => { s with messages := s.messages.push msg }
-
 -- check and register a tensor name
 def checkTensorName (name : String) : Trace Unit := do
   let st <- get
