@@ -192,8 +192,8 @@ instance : FromNKI Memory where
     if let .pointer p := t then
       return p.memory
     match fromEnum t with
-    | some "shared_hbm" => return .hbm
-    | some "private_hbm" => return .hbm
+    | some "shared_hbm" => return .shared_hbm
+    | some "private_hbm" => return .private_hbm
     | some "hbm" => return .hbm
     | some "sbuf" => return .sbuf
     | some "psum" => return .psum

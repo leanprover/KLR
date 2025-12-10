@@ -117,6 +117,7 @@ structure KernelInfo where
   inputs : List TensorInfo
   outputs : List TensorInfo
   sharedConstants : List Core.SharedConstantFile
+  sharedBuffers : List TensorInfo
   deriving ToJson
 
 private def resultToInfo (res : CompileResult LncKernel) (msgsFile errorsFile warningsFile: String) : KernelInfo :=
@@ -129,6 +130,7 @@ private def resultToInfo (res : CompileResult LncKernel) (msgsFile errorsFile wa
       inputs := []
       outputs := []
       sharedConstants := []
+      sharedBuffers := []
     }
   | some kernel => {
       name := kernel.name,
@@ -146,6 +148,11 @@ private def resultToInfo (res : CompileResult LncKernel) (msgsFile errorsFile wa
         shape := out.shape.toList
       },
       sharedConstants := kernel.sharedConstants
+      sharedBuffers := kernel.sharedBuffers.map fun buf => {
+        name := buf.name,
+        dtype := reprStr buf.dtype,
+        shape := buf.shape.toList
+      }
     }
 
 private def outfolder (outfile : String) : String :=

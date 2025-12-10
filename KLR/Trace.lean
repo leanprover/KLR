@@ -77,6 +77,19 @@ def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
   let num := k.grid.max 1
   let res <- runNkiKernel k genDebug (0, num)
   let k0 := res.result
+  let mut sharedBuffers : List Core.TensorName := res.sharedBuffers
+
+  let dedupSharedBuf (tensors : List Core.TensorName) : PassM (List Core.TensorName) := do
+    let grps := tensors.groupByKey (·.name)
+    let results <- grps.toList.mapM fun (_, grp) => do
+      if grp.length == 1 then pure none
+      else match grp with
+        | [] => throw "Empty tensor group"
+        | first :: rest =>
+          if rest.all (fun x => x.shape == first.shape && x.dtype == first.dtype)
+          then pure (some first)
+          else throw s!"Tensor {first.name} has mismatched shape or dtype across program instances"
+    return results.filterMap id
 
   let mut result := [{ res with result := () }]
   let mut bodies := [res.result.body]
@@ -84,6 +97,7 @@ def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
     let res <- runNkiKernel k genDebug (i,num)
     result := { res with result := () } :: result
     bodies := res.result.body :: bodies
+    sharedBuffers := sharedBuffers ++ res.sharedBuffers
 
   let kernel : Core.LncKernel := {
     name := k0.name
@@ -92,5 +106,6 @@ def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
     bodies := bodies.reverse
     sharedConstants := []
     edges := k.edges
+    sharedBuffers := <- dedupSharedBuf sharedBuffers
   }
   return (result.reverse, kernel)
