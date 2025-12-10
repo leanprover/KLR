@@ -85,6 +85,7 @@ structure LncKernel where
   outputs : List TensorName
   bodies : List (List Block)
   sharedConstants : List SharedConstantFile
+  sharedBuffers : List TensorName
   edges : List Edges
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 

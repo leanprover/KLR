@@ -226,9 +226,6 @@ def freshName (name : Name := `tmp) : PassM Name :=
     let n := s.freshVarNum + 1
     (.num name n, { s with freshVarNum := n })
 
-def resetPassState : PassM Unit :=
-  modify fun st =>
-    {st with freshVarNum := 0}
 
 -- Emit a warning / linter message
 def warn (msg : String) : PassM Unit :=
