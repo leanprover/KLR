@@ -521,6 +521,8 @@ def Term.attr (t : Term) (id : String) : Trace Term :=
       | "ap" => return .builtin `builtin.access.ap t
       | "buffer" => return .var (`nki.language ++ a.tensor.address.memory.toName)
       | "view" => return .builtin `builtin.pointer.view (some $ .pointer a.tensor.address)
+      | "name" => return .string a.tensor.name
+      | "address_name" => return .string a.tensor.address.name
       | _ => throw s!"unsupported attribute {id} (type is tensor access)"
   | .slice a b c =>
       let opt : Option Int -> Term
@@ -587,6 +589,8 @@ nki builtin.pointer.view
   if parWF: shape.parDim <= self.parSize then
     if freeWF: shape.freeElements * dtype.size <= self.freeSize then
       let tensor := ⟨ name, dtype, shape, self, shape.freeElements, parWF, freeWF, address_rotation ⟩
+      if self.memory == .shared_hbm || self.memory == .hbm then
+        Trace.addSharedBuffer tensor
       return .access (.simple tensor)
     else throw "shape is too large for memory region"
   else throw "partition size is too large for memory region"

@@ -406,6 +406,12 @@ Memory Memory_des(FILE *in) {
   case 4: {
     if (l != 0)
       throw std::runtime_error("Wrong number of elements");
+    return Memory::shared_hbm;
+    break;
+  }
+  case 5: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
     return Memory::private_hbm;
     break;
   }
@@ -4000,9 +4006,9 @@ Ptr<LncKernel> LncKernel_des(FILE *in) {
     msg << "Could not find tag, expecting LncKernel:108,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 108 || c != 0 || l != 6) {
+  if (t != 108 || c != 0 || l != 7) {
     std::ostringstream msg;
-    msg << "Expecting LncKernel:(108,0,6)";
+    msg << "Expecting LncKernel:(108,0,7)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -4012,6 +4018,7 @@ Ptr<LncKernel> LncKernel_des(FILE *in) {
   x->outputs = List_TensorName_des(in);
   x->bodies = List_List_Block_des(in);
   x->sharedConstants = List_SharedConstantFile_des(in);
+  x->sharedBuffers = List_TensorName_des(in);
   x->edges = List_Edges_des(in);
   return x;
 }
