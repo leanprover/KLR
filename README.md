@@ -29,6 +29,21 @@ using `pip`:
 
 For more information see the [Getting Started Guide](docs/getting_started.md)
 
+## Development commands
+
+```
+# Build the project
+lake build
+
+# Re-generate files under interop/KLR
+lake build Extract
+
+# Run KLR executable
+lake exe klr
+```
+
+**Note**: if you are building using Amazon Linux 2, you will probably want to use the [build container](build_container/README.md).
+
 # Interop with Python
 
 The KLR compiler starts with Python code (e.g. NKI kernels), and converts this
