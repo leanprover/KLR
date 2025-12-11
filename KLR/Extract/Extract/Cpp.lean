@@ -172,4 +172,174 @@ def generateKlrAST : MetaM Unit := do
   genTypes (<- fileAST)
   IO.println "}" -- TODO close namespace!
 
+
+--------------------- Section of Print Implementation -----------------------------
+
+mutual
+  -- Generate variable names with depth suffix for nested loops
+  partial def genDepthVar (baseName : String) (depth : Nat) : String :=
+    if depth = 0 then baseName else s!"{baseName}{depth}"
+
+  partial def genListPrint(t: SimpleType) (variableName: String) (depth: Nat) : IO Unit := do
+    IO.println s! "\{" -- open for loop scope to prevent i from being redeclared
+    let indexVar := genDepthVar "i" depth
+    let loopItemVar := genDepthVar "printListLoopItem" depth
+    IO.println s!"size_t {indexVar} = 0;"
+    IO.println s! "for ({genType t} {loopItemVar} : {variableName}) \{"
+    genTypePrintImpl t loopItemVar depth
+    IO.println s!" {indexVar}++;"
+    IO.println s! " if ({indexVar} < {variableName}.size()) result += \", \";"
+    IO.println s! "}"
+    IO.println s! "}"
+
+  partial def genOptionalPrint (t: SimpleType) (variableName: String) (depth: Nat) : IO Unit := do
+    IO.println s!"if ({variableName}.has_value()) \{"
+    genTypePrintImpl t s!"{variableName}.value()" depth
+    IO.println s!"} else \{"
+    IO.println s! "result += \"None\"; "
+    IO.println s!"}"
+
+  partial def genTypePrintImpl (t: SimpleType) (variableName: String) (depth: Nat) : IO Unit := do
+    match t with
+    | .bool => IO.println s!"result += std::to_string({variableName}); "
+    | .nat => IO.println s!"result += std::to_string({variableName}); "
+    | .int => IO.println s!"result += std::to_string({variableName}); "
+    | .float => IO.println s!"result += std::to_string({variableName}); "
+    | .string => IO.println s!"result += {variableName}; "
+    | .prop => pure ()
+    | .const `Lean.Name => IO.println s!"result += {variableName}; "
+    | .const `KLR.Core.Reg => IO.println s!"result += std::to_string({variableName}); "
+    | .const name => IO.println s!"result += to_string(*({variableName}.get())); "
+    | .enum name => IO.println s!"result += to_string({variableName}); //mapped from enum"
+    | .option t => genOptionalPrint t variableName depth
+    | .list t => genListPrint t variableName (depth + 1)
+    | .pair .. => panic! "Unprintable type"
+end
+
+def genTypePrint (t : SimpleType) (instanceName: String) (fieldName: Name) : IO Unit := do
+  IO.println s!"result += \"{fieldName}=\";"
+  genTypePrintImpl t s!"{instanceName}.{fieldName}" 0
+
+private def genStructPrint (name : Name) (fields : List Field) : IO Unit := do
+  IO.println s!"std::string to_string({name}& {name}Instance) \{"
+  IO.println s!"std::string result; "
+  IO.println s!"result += \"{name}(\";"
+  match fields with
+  | [] => pure ()
+  | f :: rest => do
+    genTypePrint f.type s!"{name}Instance" f.name
+    for f in rest do
+      IO.println s!"result += \", \";"
+      genTypePrint f.type s!"{name}Instance" f.name
+  IO.println s!"result += \")\";"
+  IO.println "return result;"
+  IO.println "};"
+
+private def genEnumPrint (name : Name) (variants : List LeanType) : IO Unit := do
+  IO.println s!"std::string to_string ({name}& {name}Instance) \{"
+  match variants with
+  | [] => IO.println s!"throw std::runtime_error(\"LOGIC FAULT: Nothing to print in enum {name}\");"
+  | rest => do
+    IO.println s!"switch ({name}Instance) \{"
+    for v in rest do
+      IO.println s!"case {name}::{enumName v.name}: "
+      IO.println s!"return \"{enumName v.name}\"; "
+      IO.println s!"break;"
+    IO.println s!"default:"
+    IO.println s!"  return \"UNABLE TO PRINT\"; "
+    IO.println "}" -- end of switch
+    IO.println "};" -- end of function
+
+private def genUnionPrint (name : Name) (variants : List LeanType) : MetaM Unit := do
+  -- Generate subclasses first
+  for t in variants do
+    let .prod n fs := t | throwError "unexpected union nesting"
+    genStructPrint (Name.str name (subclassName n)) fs
+
+  -- Generate base class for type matching
+  IO.println s!"std::string to_string ({name}& {name}Instance) \{"
+
+  IO.println s!"switch ({name}Instance.tag) \{"
+
+  for t in variants do
+    let .prod n fs := t | throwError "unexpected union nesting"
+    IO.println s!" case ({name}::Tag::{enumName t.name}): \{"
+    IO.println s!"   {subclassName n}& derivedRef = static_cast<{subclassName n}&>({name}Instance);"
+    IO.println s!"   return to_string(derivedRef); }"
+  IO.println s!"default:"
+  IO.println s!"  return \"UNABLE TO PRINT\"; "
+
+  IO.println "}" -- end switch stmt
+  IO.println "};" -- end base function
+
+
+
+def genCppTypePrint (ty : LeanType) : MetaM Unit := do
+  IO.println ""
+  match ty with
+  | .simple _ => pure ()
+  | .prod name fields => genStructPrint name fields
+  -- | .prod name fields => pure () -- give up for now
+  | .sum name variants =>
+    if ty.isEnum
+    then genEnumPrint name variants
+    else genUnionPrint name variants
+
+private def genPrintTypes (tys : List LeanType) : MetaM Unit :=
+  for ty in tys do
+    genCppTypePrint ty
+
+
+def generateKlrPrettyPrint: MetaM Unit := do
+  IO.println (headerC ["klir_ast.hpp", "klir_pretty_print.hpp"])
+  IO.println "// Pretty Print functions for KLR.Core Abstract Syntax"
+  genPrintTypes (<- commonAST)
+  genPrintTypes (<- klrAST)
+  genPrintTypes (<- fileAST)
+
+  IO.println "}" -- close namespace!
+
+
+
+--------------------- Section of Print Fucntion Header -----------------------------
+
+private def genStructPrintHeader (name : Name) (fields : List Field) : IO Unit := do
+  IO.println s!"std::string to_string({name}& {name}Instance);"
+
+private def genEnumPrintHeader (name : Name) (variants : List LeanType) : IO Unit := do
+  IO.println s!"std::string to_string ({name}& {name}Instance);"
+
+private def genUnionPrintHeader (name : Name) (variants : List LeanType) : MetaM Unit := do
+  -- Generate subclasses first
+  for t in variants do
+    let .prod n fs := t | throwError "unexpected union nesting"
+    genStructPrintHeader (Name.str name (subclassName n)) fs
+
+  -- Generate base class for type matching
+  IO.println s!"std::string to_string ({name}& {name}Instance);"
+
+def genCppTypePrintHeader (ty : LeanType) : MetaM Unit := do
+  IO.println ""
+  match ty with
+  | .simple _ => pure ()
+  | .prod name fields => genStructPrintHeader name fields
+  -- | .prod name fields => pure () -- give up for now
+  | .sum name variants =>
+    if ty.isEnum
+    then genEnumPrintHeader name variants
+    else genUnionPrintHeader name variants
+
+private def genPrintTypesHeader (tys : List LeanType) : MetaM Unit :=
+  for ty in tys do
+    genCppTypePrintHeader ty
+
+def generateKlrPrettyPrintHeader: MetaM Unit := do
+  IO.println (headerH ["klir_ast.hpp"])
+  IO.println "// Pretty Print functions for KLR.Core Abstract Syntax"
+  genPrintTypesHeader (<- commonAST)
+  genPrintTypesHeader (<- klrAST)
+  genPrintTypesHeader (<- fileAST)
+
+  IO.println "}" -- close namespace!
+
 --run_meta generateKlrAST
