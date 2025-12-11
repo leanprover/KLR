@@ -56,6 +56,8 @@ run_meta do
   --withFile s!"{dir}/topy_nki.c" ToPython.generateNkiC
   -- C++
   withFile s!"{dir}/klir_ast.hpp" Cpp.generateKlrAST
+  withFile s!"{dir}/klir_pretty_print.hpp" Cpp.generateKlrPrettyPrintHeader
+  withFile s!"{dir}/klir_pretty_print.cpp" Cpp.generateKlrPrettyPrint
   withFile s!"{dir}/klir_serde.hpp" SerdeCpp.generateKlrH
   withFile s!"{dir}/klir_serde.cpp" SerdeCpp.generateKlrC
   withFile s!"{dir}/NKI.asdl" ASDL.generateNkiAST
