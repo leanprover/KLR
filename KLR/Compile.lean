@@ -54,6 +54,16 @@ private def writeDebugInfo
   h.putStr (toString json)
   h.flush
 
+private def writeMessagesFile
+  (filename: String)
+  (suffix: String)
+  (messages: Array String) : IO String := do
+  let dst := filename ++ "_" ++ suffix
+  let h <- IO.FS.Handle.mk dst IO.FS.Mode.write
+  _ <- messages.mapM h.putStrLn
+  h.flush
+  return dst
+
 private def compile (kernel : Python.Kernel) (genDebug : Bool := false)
   : Pass.PassM (List (Trace.TraceResult Unit) × LncKernel) := do
   let kernel <- NKI.compile kernel
@@ -101,32 +111,30 @@ structure TensorInfo where
 
 structure KernelInfo where
   name : String
-  messages : Array String
-  warnings : Array String
-  errors : Array String
+  messages : String
+  warnings : String
+  errors : String
   inputs : List TensorInfo
   outputs : List TensorInfo
   sharedConstants : List Core.SharedConstantFile
   deriving ToJson
 
-private def resultToInfo (res : CompileResult LncKernel) : KernelInfo :=
-  let takeWithOverflowMsg (msgs : Array String) (what: String) : Array String :=
-    if msgs.size > 50000 then msgs.take 50000 ++ #[s!"Too many {what}..."] else msgs
+private def resultToInfo (res : CompileResult LncKernel) (msgsFile errorsFile warningsFile: String) : KernelInfo :=
   match res.result with
   | none => {
       name := ""
-      messages := takeWithOverflowMsg res.messages "messages"
-      warnings := takeWithOverflowMsg res.warnings "warnings"
-      errors := takeWithOverflowMsg res.errors "errors"
+      messages := msgsFile
+      warnings := warningsFile
+      errors := errorsFile
       inputs := []
       outputs := []
       sharedConstants := []
     }
   | some kernel => {
       name := kernel.name,
-      messages := takeWithOverflowMsg res.messages "messages"
-      warnings := takeWithOverflowMsg res.warnings "warnings"
-      errors := takeWithOverflowMsg res.errors "errors"
+      messages := msgsFile
+      warnings := warningsFile
+      errors := errorsFile
       inputs := kernel.inputs.map fun inp => {
         name := inp.name,
         dtype := reprStr inp.dtype,
@@ -158,11 +166,15 @@ def frontend_trace
   | "sexp" => .sexp
   | _ => .cbor
   -- TODO: maybe the debug info filename should be a parameter?
-  let res <- compilePython kernel (outfolder dstKlrFileName) dbgFileName
+  let outfolder := outfolder dstKlrFileName
+  let res <- compilePython kernel outfolder dbgFileName
   if let some kernel := res.result then
     let f := FilePath.mk (dstKlrFileName)
     File.writeKLRFile f fmt kernel
-  return toString (Lean.toJson $ resultToInfo res)
+  let msgsFile <- writeMessagesFile (outfolder ++ "/" ++ kernel.entry) "messages" res.messages
+  let errsFile <- writeMessagesFile (outfolder ++ "/" ++ kernel.entry) "errors" res.errors
+  let warnsFile <- writeMessagesFile (outfolder ++ "/" ++ kernel.entry) "warnings" res.warnings
+  return toString (Lean.toJson $ resultToInfo res msgsFile errsFile warnsFile)
 
 @[export nki_to_json]
 def nki_to_json (kernel : Python.Kernel) : String :=
