@@ -1487,9 +1487,6 @@ std::string to_string(MatMul &MatMulInstance) {
   result += ", ";
   result += "moving=";
   result += to_string(*(MatMulInstance.moving.get()));
-  result += ", ";
-  result += "psumAccumulateFlag=";
-  result += to_string(MatMulInstance.psumAccumulateFlag); // mapped from enum
   result += ")";
   return result;
 };
@@ -1953,9 +1950,6 @@ std::string to_string(NcMatMul &NcMatMulInstance) {
         result += ", ";
     }
   }
-  result += ", ";
-  result += "psumAccumulateFlag=";
-  result += std::to_string(NcMatMulInstance.psumAccumulateFlag);
   result += ", ";
   result += "perfMode=";
   result += to_string(NcMatMulInstance.perfMode); // mapped from enum
@@ -2430,9 +2424,6 @@ std::string to_string(MatMulMX &MatMulMXInstance) {
   result += ", ";
   result += "movingScale=";
   result += to_string(*(MatMulMXInstance.movingScale.get()));
-  result += ", ";
-  result += "psumAccumulateFlag=";
-  result += std::to_string(MatMulMXInstance.psumAccumulateFlag);
   result += ", ";
   result += "tilePosition=";
   if (MatMulMXInstance.tilePosition.has_value()) {
