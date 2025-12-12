@@ -448,7 +448,6 @@ Performs a matmul against the currently loaded tensor using the PE -/
 structure MatMul where
   dst                : TensorRef
   moving             : TensorRef
-  psumAccumulateFlag : MatmulGroupElement
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /- LocalGather instruction
@@ -729,7 +728,6 @@ structure NcMatMul where
   isTranspose : Bool
   tilePosition : List Nat
   tileSize : List Nat
-  psumAccumulateFlag : Nat
   perfMode : MatmulPerfMode
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
@@ -842,7 +840,6 @@ structure MatMulMX where
     moving : TensorRef
     stationaryScale : TensorRef
     movingScale : TensorRef
-    psumAccumulateFlag: Nat
     tilePosition : Option (List Nat)
     tileSize : Option (List Nat)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp

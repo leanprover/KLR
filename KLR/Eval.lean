@@ -420,7 +420,7 @@ private def evalOper (op : Core.Operator) : WithEnv Unit := match op with
      sorry
   | .ncLocalGather { dst, src, index, numElemPerIdx, numValidIndicies } => do
      sorry
-  | .matMul { dst, moving, psumAccumulateFlag } => do
+  | .matMul { dst, moving } => do
      sorry
   | .ncMatMul { dst, stationary, moving, isStationaryOneZero, isMovingZero, isTranspose, tilePosition, tileSize } => do
      sorry

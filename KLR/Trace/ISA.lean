@@ -121,7 +121,6 @@ nki builtin.isa.nc_matmul
  (is_transpose : Bool := false)
  (tile_position : List Nat := [])
  (tile_size : List Nat := [])
- (psumAccumulateFlag : Nat := 3) -- assume the whole tensor
  (perf_mode : MatmulPerfMode := .None)
  (mask : Option Immediate := none)
  (name : Option String := none) := do
@@ -136,7 +135,6 @@ nki builtin.isa.nc_matmul
       isTranspose := is_transpose,
       tilePosition := tile_position,
       tileSize := tile_size,
-      psumAccumulateFlag := psumAccumulateFlag,
       perfMode := perf_mode
       }) name
     return .none
@@ -175,7 +173,6 @@ nki builtin.isa.nc_transpose
       isTranspose := true,
       tilePosition := [],
       tileSize := [],
-      psumAccumulateFlag := 3, -- assume whole tensor
       perfMode := .None
     }) name
   | _ =>
@@ -919,7 +916,6 @@ nki builtin.isa.nc_matmul_mx
   (moving_scale: Access)
   (tile_position : Option (List Nat) := none)
   (tile_size : Option (List Nat) := none)
-  (psumAccumulateFlag : Nat := 3) -- assume whole tensor
   (name : Option String := none) := do
     Trace.add_stmt $ .oper (.ncMatMulMX {
         dst := .abstract dst
@@ -927,7 +923,6 @@ nki builtin.isa.nc_matmul_mx
         moving := .abstract moving
         stationaryScale := .abstract stationary_scale
         movingScale := .abstract moving_scale
-        psumAccumulateFlag := psumAccumulateFlag,
         tilePosition := tile_position,
         tileSize :=  tile_size,
       }) name

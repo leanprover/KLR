@@ -279,7 +279,6 @@ Performs a matmul against the currently loaded tensor using the PE -/
 structure MatMul (Tensor : Type) (Scalar : Type) where
   dst                : Tensor
   moving             : Tensor
-  psumAccumulateFlag : MatmulGroupElement
   deriving BEq, Repr
 
 /- LocalGather instruction
@@ -546,8 +545,8 @@ instance {Tensor Scalar : Type} [ToString Tensor] [ToString Scalar] : ToString (
         s!"= loadStationary({src}, {isTranspose})"
     | .localGather ⟨dst, src, _, freePoolBuffer⟩ =>
         s!"{dst} = localGather({src}, ..., {freePoolBuffer})"
-    | .matMul ⟨dst, moving, psumAccumulateFlag⟩ =>
-        s!"{dst} = matMul({moving}, {repr psumAccumulateFlag})"
+    | .matMul ⟨dst, moving⟩ =>
+        s!"{dst} = matMul({moving})"
     | .matchReplace8 ⟨dst, src, replaceValue⟩ =>
         s!"{dst} = matchReplace8({src}, {replaceValue})"
     | .matchValueLoad ⟨src⟩ =>

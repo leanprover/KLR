@@ -2058,16 +2058,15 @@ Ptr<MatMul> MatMul_des(FILE *in) {
     msg << "Could not find tag, expecting MatMul:161,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 161 || c != 0 || l != 3) {
+  if (t != 161 || c != 0 || l != 2) {
     std::ostringstream msg;
-    msg << "Expecting MatMul:(161,0,3)";
+    msg << "Expecting MatMul:(161,0,2)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
   Ptr<MatMul> x = ptr<MatMul>();
   x->dst = TensorRef_des(in);
   x->moving = TensorRef_des(in);
-  x->psumAccumulateFlag = MatmulGroupElement_des(in);
   return x;
 }
 
@@ -2434,9 +2433,9 @@ Ptr<NcMatMul> NcMatMul_des(FILE *in) {
     msg << "Could not find tag, expecting NcMatMul:183,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 183 || c != 0 || l != 10) {
+  if (t != 183 || c != 0 || l != 9) {
     std::ostringstream msg;
-    msg << "Expecting NcMatMul:(183,0,10)";
+    msg << "Expecting NcMatMul:(183,0,9)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -2449,7 +2448,6 @@ Ptr<NcMatMul> NcMatMul_des(FILE *in) {
   x->isTranspose = Bool_des(in);
   x->tilePosition = List_Nat_des(in);
   x->tileSize = List_Nat_des(in);
-  x->psumAccumulateFlag = Nat_des(in);
   x->perfMode = MatmulPerfMode_des(in);
   return x;
 }
@@ -2789,9 +2787,9 @@ Ptr<MatMulMX> MatMulMX_des(FILE *in) {
     msg << "Could not find tag, expecting MatMulMX:196,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 196 || c != 0 || l != 8) {
+  if (t != 196 || c != 0 || l != 7) {
     std::ostringstream msg;
-    msg << "Expecting MatMulMX:(196,0,8)";
+    msg << "Expecting MatMulMX:(196,0,7)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -2801,7 +2799,6 @@ Ptr<MatMulMX> MatMulMX_des(FILE *in) {
   x->moving = TensorRef_des(in);
   x->stationaryScale = TensorRef_des(in);
   x->movingScale = TensorRef_des(in);
-  x->psumAccumulateFlag = Nat_des(in);
   x->tilePosition = Option_List_Nat_des(in);
   x->tileSize = Option_List_Nat_des(in);
   return x;

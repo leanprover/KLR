@@ -580,7 +580,6 @@ struct LoadStationary final {
 struct MatMul final {
   Ptr<TensorRef> dst;
   Ptr<TensorRef> moving;
-  MatmulGroupElement psumAccumulateFlag;
 };
 
 struct LocalGather final {
@@ -724,7 +723,6 @@ struct NcMatMul final {
   Bool isTranspose;
   List<Nat> tilePosition;
   List<Nat> tileSize;
-  Nat psumAccumulateFlag;
   MatmulPerfMode perfMode;
 };
 
@@ -866,7 +864,6 @@ struct MatMulMX final {
   Ptr<TensorRef> moving;
   Ptr<TensorRef> stationaryScale;
   Ptr<TensorRef> movingScale;
-  Nat psumAccumulateFlag;
   Option<List<Nat>> tilePosition;
   Option<List<Nat>> tileSize;
 };
