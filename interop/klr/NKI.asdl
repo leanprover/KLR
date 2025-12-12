@@ -229,7 +229,7 @@ Iota = (TensorRef dst, DataPattern pattern, Dtype? dtype)
 
 LoadStationary = (TensorRef src, Bool isTranspose)
 
-MatMul = (TensorRef dst, TensorRef moving, MatmulGroupElement psumAccumulateFlag)
+MatMul = (TensorRef dst, TensorRef moving)
 
 LocalGather = (TensorRef dst, TensorRef src, IndexMissBehavior indexMissBehavior, Bool freePoolBuffer)
 
@@ -263,7 +263,7 @@ TensorScalar = (TensorRef dst, TensorRef src, Operand imm0, AluOp op0, Operand? 
 
 TensorTensor = (TensorRef dst, TensorRef src0, TensorRef src1, AluOp op, Dtype? dtype, Engine engine)
 
-NcMatMul = (TensorRef dst, TensorRef stationary, TensorRef moving, Bool isStationaryOneZero, Bool isMovingZero, Bool isTranspose, Nat* tilePosition, Nat* tileSize, Nat psumAccumulateFlag, MatmulPerfMode perfMode)
+NcMatMul = (TensorRef dst, TensorRef stationary, TensorRef moving, Bool isStationaryOneZero, Bool isMovingZero, Bool isTranspose, Nat* tilePosition, Nat* tileSize, MatmulPerfMode perfMode)
 
 TensorScalarReduce = (TensorRef dst, TensorRef src, Operand operand0, AluOp op0, Bool reverse0, Dtype? dtype, AluOp? reduceOp, TensorRef reduceRes)
 
@@ -293,7 +293,7 @@ SendRecvCCE = (TensorRef dst, TensorRef* src, Immediate sendToRank, Immediate* r
 
 QuantizeMX = (TensorRef dst, TensorRef src, TensorRef dstScale)
 
-MatMulMX = (TensorRef dst, TensorRef stationary, TensorRef moving, TensorRef stationaryScale, TensorRef movingScale, Nat psumAccumulateFlag, Nat*? tilePosition, Nat*? tileSize)
+MatMulMX = (TensorRef dst, TensorRef stationary, TensorRef moving, TensorRef stationaryScale, TensorRef movingScale, Nat*? tilePosition, Nat*? tileSize)
 
 DmaCompute = (TensorRef dst, TensorRef* srcs, Immediate* scales, AluOp reduceOp)
 
