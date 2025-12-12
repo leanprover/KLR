@@ -112,6 +112,6 @@ def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
     bodies := bodies.reverse
     sharedConstants := []
     edges := k.edges
-    sharedBuffers := <- dedupSharedBuf sharedBuffers
+    sharedBuffers := <- if num > 1 then dedupSharedBuf sharedBuffers else pure (sharedBuffers.map (·.1))
   }
   return (result.reverse, kernel)
