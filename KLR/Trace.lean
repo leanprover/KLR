@@ -77,18 +77,24 @@ def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
   let num := k.grid.max 1
   let res <- runNkiKernel k genDebug (0, num)
   let k0 := res.result
-  let mut sharedBuffers : List Core.TensorName := res.sharedBuffers
+  let mut sharedBuffers : List (Core.TensorName × Pos) := res.sharedBuffers
 
-  let dedupSharedBuf (tensors : List Core.TensorName) : PassM (List Core.TensorName) := do
-    let grps := tensors.groupByKey (·.name)
-    let results <- grps.toList.mapM fun (_, grp) => do
-      if grp.length == 1 then pure none
+  let dedupSharedBuf (tensors : List (Core.TensorName × Pos)) : PassM (List Core.TensorName) := do
+    let grps := tensors.groupByKey (·.1.name)
+    let results <- grps.toList.mapM fun (name, grp) => do
+      if grp.length == 1 then
+        match grp with
+        | [single] =>
+          withPos single.2 do
+            warn s!"Tensor with name {name} is declared as shared but only appears in 1 lnc kernel. Consider explicit naming or marking buffer private_hbm"
+          pure none
+        | _ => throw "Unexpected group size"
       else match grp with
         | [] => throw "Empty tensor group"
         | first :: rest =>
-          if rest.all (fun x => x.shape == first.shape && x.dtype == first.dtype)
-          then pure (some first)
-          else throw s!"Tensor {first.name} has mismatched shape or dtype across program instances"
+          if rest.all (fun x => x.1.shape == first.1.shape && x.1.dtype == first.1.dtype)
+          then pure (some first.1)
+          else throw s!"Tensor {first.1.name} has mismatched shape or dtype across program instances"
     return results.filterMap id
 
   let mut result := [{ res with result := () }]

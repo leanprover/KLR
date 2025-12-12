@@ -579,7 +579,7 @@ nki builtin.pointer.view
   if parWF: shape.parDim <= self.parSize then
     if freeWF: shape.freeElements * dtype.size <= self.freeSize then
       let tensor := ⟨ name, dtype, shape, self, shape.freeElements, parWF, freeWF, address_rotation ⟩
-      if self.memory == .shared_hbm then
+      if self.memory == .shared_hbm || self.memory == .hbm then
         Trace.addSharedBuffer tensor
       return .access (.simple tensor)
     else throw "shape is too large for memory region"

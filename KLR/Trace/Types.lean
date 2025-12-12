@@ -216,7 +216,7 @@ structure State where
   flags : Array (String × NKI.Value) := #[]
   tensorNames : Lean.PersistentHashSet String := ∅
   sharedConstants : SharedConstants := #[]
-  sharedBuffers : Array TensorName := #[]
+  sharedBuffers : Array (TensorName × Pos) := #[]
   dynamicCtx : Bool := False
   label : Option String := none
   stmts : Array Stmt := #[]
@@ -457,11 +457,12 @@ def tensorName : Option String -> Trace String
 
 def addSharedBuffer (name : TensorName) : Trace Unit := do
   let st <- get
-  set { st with sharedBuffers := st.sharedBuffers.push name }
+  let pos <- getPos
+  set { st with sharedBuffers := st.sharedBuffers.push ⟨ name, pos ⟩ }
 
 structure TraceResult (a : Type) where
   sharedConstants : SharedConstants
-  sharedBuffers : List TensorName
+  sharedBuffers : List (TensorName × Pos)
   debug : Array DebugItem
   result : a
 

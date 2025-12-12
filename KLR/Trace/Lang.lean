@@ -43,7 +43,7 @@ nki builtin.lang.ndarray
     | none => flags.address_rotation
     let address := { name, memory, parSize, freeSize, parOffset, freeOffset : Address }
     let tensor <- TensorName.make name dtype shape address address_rotation
-    if buffer == some .shared_hbm then
+    if buffer == some .shared_hbm || buffer == some .hbm then
       Trace.addSharedBuffer tensor
     return .access (.simple tensor)
 
