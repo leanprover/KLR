@@ -80,7 +80,8 @@ def locate (pos : Pos) (pe : PosError) : PosError :=
 
 def addFile (file : String) (lineOffset : Nat) : PosError -> PosError
   | .raw msg => .absolute file { line := lineOffset } msg
-  | .located pos msg => .absolute file { pos with line := pos.line + lineOffset } msg
+  | .located pos msg =>
+    .absolute file { pos with line := lineOffset + pos.line - 1 } msg
   | err => err  -- do not change already located message
 
 -- Note: This format should be understandable by upstream tools and callers
@@ -164,38 +165,40 @@ def getPos : PassM Pos := do
   let pos := s.pos
   return { pos with line := pos.line + s.lineOffset - 1 }
 
+-- Note: we do not restore the position on error so withFile
+-- can get the location of the error. This is needed if the
+-- PosError has not been located.
 def withPos (pos : Pos) (m : PassM a) : PassM a :=
   fun ref => do
     let s <- ref.get
     let pos' := s.pos
-    let s' := {s with pos}
-    ref.set s'
+    let restore :=
+      ref.modify fun s => {s.locate pos with pos := pos'}
+    ref.set { s with pos }
     match m ref () with
-    | .ok x () =>
-      ref.modify fun s => {s.locate pos with pos := pos'}
-      .ok x
-    | .error e () =>
-      ref.modify fun s => {s.locate pos with pos := pos'}
-      .error (e.locate pos)
+    | .ok x () => restore; .ok x
+    | .error e () => /-restore;-/ .error (e.locate pos)
 
-def withFile (file : String) (lineOffset : Nat) (source : String) (m : PassM a) : PassM a :=
+def withFile (file : String) (line : Nat) (source : String) (m : PassM a) : PassM a :=
   fun ref => do
     let s <- ref.get
-    let pos' := s.pos
-    let pos := { s.pos with filename := some file }
-    let s' := { s with pos, lineOffset := lineOffset }
+    let pos := s.pos
+    let lineOffset := s.lineOffset
+    let restore :=
+      ref.modify fun s => { s.addFile file line with pos, lineOffset }
+    let pos' := { pos with filename := some file }
+    let s' := { s with pos := pos', lineOffset := line }
     ref.set s'
     match m ref () with
-    | .ok x () =>
-      ref.modify fun s => {s.addFile file lineOffset with pos := pos'}
-      .ok x
+    | .ok x () => restore; .ok x
     | .error msg () =>
+        let pos := (<- ref.get).pos
+        restore
         let msg := match msg with
-          | .raw msg => genError msg file lineOffset source pos
-          | .located pos msg => genError msg file lineOffset source pos
-          | .absolute f pos msg => genError msg f lineOffset source pos
-          | .formatted msg => msg ++ genError "called from" file lineOffset source pos
-        ref.modify fun s => {s.addFile file lineOffset with pos := pos'}
+          | .raw msg
+          | .located pos msg
+          | .absolute file pos msg => genError msg file line source pos
+          | .formatted msg => msg ++ genError "called from" file line source pos
         .error (.formatted msg)
 where
   genError (msg : String) (f: String) (offset : Nat) (source : String) (pos : Pos) : String :=
