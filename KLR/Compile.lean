@@ -71,6 +71,7 @@ private def compile (kernel : Python.Kernel) (genDebug : Bool := false)
     | some $ .bool b => b
     | _ => false
   let (shared, kernel) <- Trace.runLncKernels kernel genDebug
+  let kernel <- Core.canonicalizeOutputs kernel
   let (kernel, _) <- Core.lowerAccessPatterns kernel { unsafeCast := unsafeCast }
   let convertTensor (t : Core.TensorName) : Option Core.TensorName :=
     if t.dtype == .float8_e4m3fn then
