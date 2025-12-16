@@ -73,7 +73,7 @@ def runNkiKernel
 -- TODO: check that shared constants are the same
 -- TODO: check that schedule edges make sense
 def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
-  : PassM (List (TraceResult Unit) × Core.LncKernel) := do
+  : PassM (List (TraceResult Unit) × Core.LncKernel × List (List Core.TensorName)) := do
   let num := k.grid.max 1
   let res <- runNkiKernel k genDebug (0, num)
   let k0 := res.result
@@ -106,7 +106,7 @@ def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
   -- we will rename in the future. The canonicalization of output later will use
   -- shared buffers to determine if user already named their output and thus
   -- we should keep the name
-  let mut outputs : List Core.TensorName := k0.outputs
+  let mut outputLists : List (List Core.TensorName) := [k0.outputs]
 
   let mut result := [{ res with result := () }]
   let mut bodies := [res.result.body]
@@ -115,19 +115,18 @@ def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
     result := { res with result := () } :: result
     bodies := res.result.body :: bodies
     sharedBuffers := sharedBuffers ++ res.sharedBuffers
-    outputs := outputs ++ res.result.outputs
+    outputLists := outputLists ++ [res.result.outputs]
 
-  let outputCounts := outputs.foldl (fun acc x =>
-    let name := x.name
-    match acc.find? (fun p => p.1 == name) with
-    | some (_, count) => acc.filter (fun p => p.1 != name) ++ [(name, count + 1)]
-    | none => (name, 1) :: acc
-  ) []
+  -- Transpose: [[a1,a2], [a3,a4]] -> [[a1,a3], [a2,a4]]
+  let outputsByPosition := outputLists.transpose
 
+  -- Filter shared buffers: keep if all kernels at same position have the same output name
+  let sharedOutputNames := outputsByPosition.filterMap fun outs =>
+    match outs.map (·.name) with
+    | n :: rest => if rest.all (· == n) then some n else none
+    | [] => none
   let filteredSharedBuffers := sharedBuffers.filter fun (t, _) =>
-    match outputCounts.find? (fun p => p.1 == t.name) with
-    | some (_, count) => count > 1
-    | none => true
+    sharedOutputNames.contains t.name
 
   let kernel : Core.LncKernel := {
     name := k0.name
@@ -138,4 +137,4 @@ def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
     edges := k.edges
     sharedBuffers := <- if num > 1 then dedupSharedBuf filteredSharedBuffers else pure (filteredSharedBuffers.map (·.1))
   }
-  return (result.reverse, kernel)
+  return (result.reverse, kernel, outputsByPosition)

@@ -40,6 +40,8 @@ def _trace_kernel(
     """
     metadata_json_str = kernel.trace(dst_filepath)
     metadata = json.loads(metadata_json_str)
-    if metadata["errors"]:
-        raise Exception("Error(s) during tracing:\n" + "\n".join(metadata["errors"]))
+    with open(metadata["errors"]) as fd:
+        errors = fd.read()
+    if errors:
+        raise Exception("Error(s) during tracing:\n" + errors)
     return metadata
