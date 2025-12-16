@@ -70,8 +70,8 @@ private def compile (kernel : Python.Kernel) (genDebug : Bool := false)
   let unsafeCast := match kernel.flags.find? (·.1 == "UNSAFE_FP8FNCAST") |>.map (·.2) with
     | some $ .bool b => b
     | _ => false
-  let (shared, kernel) <- Trace.runLncKernels kernel genDebug
-  let kernel <- Core.canonicalizeOutputs kernel
+  let (shared, kernel, outputs) <- Trace.runLncKernels kernel genDebug
+  let kernel <- Core.canonicalizeOutputs kernel outputs
   let (kernel, _) <- Core.lowerAccessPatterns kernel { unsafeCast := unsafeCast }
   let convertTensor (t : Core.TensorName) : Option Core.TensorName :=
     if t.dtype == .float8_e4m3fn then

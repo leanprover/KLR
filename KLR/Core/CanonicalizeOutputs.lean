@@ -20,8 +20,19 @@ namespace KLR.Core
 
 abbrev NameMap := List (String × String)
 
-def mkNameMap (outputs : List TensorName) : NameMap :=
-  outputs.mapIdx fun idx tn => (tn.name, s!"output_{idx}")
+def findCommonName (names : List String) (idx : Nat) : String :=
+  match names.filter (!·.isEmpty) with
+  | [] => s!"output_{idx}"
+  | [n] => n
+  | n :: ns =>
+    let common := ns.foldl (fun a b => (a.toSubstring.commonPrefix b.toSubstring).toString) n
+    if common.isEmpty then s!"output_{idx}" else common
+
+def mkNameMap (outputs : List (List TensorName)) : NameMap :=
+  (outputs.mapIdx fun idx tns =>
+    let names := tns.map (·.name)
+    let common := findCommonName names idx
+    names.map (·, common)).flatten
 
 def renameStr (m : NameMap) (s : String) : String :=
   m.find? (·.1 == s) |>.map (·.2) |>.getD s
@@ -63,14 +74,15 @@ def renameStmt (m : NameMap) : Stmt → Err Stmt
 def renameBlock (m : NameMap) (b : Block) : Err Block := do
   return { b with body := ← b.body.mapM (renameStmt m) }
 
-def canonicalizeOutputs (k : LncKernel) : Err LncKernel := do
+def canonicalizeOutputs (k : LncKernel) (outputNames : List (List Core.TensorName)) : Err LncKernel := do
   let sharedNames := k.sharedBuffers.map (·.name)
-  let m := mkNameMap k.outputs
-  let outputs ← k.outputs.mapIdxM fun idx tn =>
+  let m := mkNameMap outputNames
+  let outputs ← k.outputs.mapM fun tn =>
     if sharedNames.contains tn.name then
       pure tn
     else
-      TensorName.make s!"output_{idx}" tn.dtype tn.shape
-        (some { tn.address with name := s!"output_{idx}" }) tn.addressRotation
+      let newName := renameStr m tn.name
+      TensorName.make newName tn.dtype tn.shape
+        (some { tn.address with name := newName }) tn.addressRotation
   let bodies ← k.bodies.mapM (·.mapM (renameBlock m))
   return { k with outputs, bodies }
