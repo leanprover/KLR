@@ -241,7 +241,7 @@ lists as indexes e.g. t[1,(2,3),4] is disallowed
 -/
 
 -- Convert a shape and list of Terms to an list of Indexes (if possible)
-def toIndex (shape : List Nat) (ts : List Term) : Err (List Index) := do
+def toIndex' (shape : List Nat) (ts : List Term) : Err (List Index) := do
   let slice (d : Nat) := (Slice.make 0 d 1).map .slice
   match shape, ts with
   | [], []
@@ -250,11 +250,11 @@ def toIndex (shape : List Nat) (ts : List Term) : Err (List Index) := do
   | ds, [] => ds.mapM slice
   | d :: ds, t :: ts =>
     match t with
-    | .none => return (<- slice d) :: (<- toIndex ds ts)
+    | .none => return (<- slice d) :: (<- toIndex' ds ts)
     | .ellipsis =>
         if ds.length + 1 == ts.length
-        then toIndex (d::ds) ts
-        else return (<- slice d) :: (<- toIndex ds (t::ts))
+        then toIndex' (d::ds) ts
+        else return (<- slice d) :: (<- toIndex' ds (t::ts))
     | .slice x y z => do
         let d := Int.ofNat d
         let x := x.getD 0
@@ -264,13 +264,20 @@ def toIndex (shape : List Nat) (ts : List Term) : Err (List Index) := do
         let y := if y < 0 then d + y else y
         if x < 0 || x >= d || y < 0 || y > d || z <= 0 then
           throw "index out of range of tensor dimension"
-        return .slice (<- Slice.make x.toNat y.toNat z) :: (<- toIndex ds ts)
+        return .slice (<- Slice.make x.toNat y.toNat z) :: (<- toIndex' ds ts)
     | .tuple _ | .list  _ => throw "nested tuple/list indexes not supported"
     | t => do
         let i : Int <- fromNKI? t
         if i < 0 || i >= d then
           throw "index out of range of tensor dimension"
-        return .coord i.toNat :: (<- toIndex ds ts)
+        return .coord i.toNat :: (<- toIndex' ds ts)
+
+def toIndex (shape : List Nat) (ts : List Term) : Err (List Index) := do
+  let ts := match ts with
+    | [.tuple l] => l
+    | [.list a] => a.toList
+    | _ => ts
+  toIndex' shape ts
 
 -- Note, a list index can be negative, which means index from end of list.
 -- Python also allows l[True] and l[False]
