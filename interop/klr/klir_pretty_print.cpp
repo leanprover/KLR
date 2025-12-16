@@ -121,6 +121,12 @@ std::string to_string(Memory &MemoryInstance) {
   case Memory::reg:
     return "reg";
     break;
+  case Memory::shared_hbm:
+    return "shared_hbm";
+    break;
+  case Memory::private_hbm:
+    return "private_hbm";
+    break;
   default:
     return "UNABLE TO PRINT";
   }
@@ -4156,6 +4162,17 @@ std::string to_string(LncKernel &LncKernelInstance) {
       result += to_string(*(printListLoopItem1.get()));
       i1++;
       if (i1 < LncKernelInstance.sharedConstants.size())
+        result += ", ";
+    }
+  }
+  result += ", ";
+  result += "sharedBuffers=";
+  {
+    size_t i1 = 0;
+    for (Ptr<TensorName> printListLoopItem1 : LncKernelInstance.sharedBuffers) {
+      result += to_string(*(printListLoopItem1.get()));
+      i1++;
+      if (i1 < LncKernelInstance.sharedBuffers.size())
         result += ", ";
     }
   }
