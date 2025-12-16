@@ -64,9 +64,13 @@ def renameBlock (m : NameMap) (b : Block) : Err Block := do
   return { b with body := ← b.body.mapM (renameStmt m) }
 
 def canonicalizeOutputs (k : LncKernel) : Err LncKernel := do
+  let sharedNames := k.sharedBuffers.map (·.name)
   let m := mkNameMap k.outputs
   let outputs ← k.outputs.mapIdxM fun idx tn =>
-    TensorName.make s!"output_{idx}" tn.dtype tn.shape
-      (some { tn.address with name := s!"output_{idx}" }) tn.addressRotation
+    if sharedNames.contains tn.name then
+      pure tn
+    else
+      TensorName.make s!"output_{idx}" tn.dtype tn.shape
+        (some { tn.address with name := s!"output_{idx}" }) tn.addressRotation
   let bodies ← k.bodies.mapM (·.mapM (renameBlock m))
   return { k with outputs, bodies }
