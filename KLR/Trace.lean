@@ -97,6 +97,17 @@ def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
           else throw s!"Tensor {first.1.name} has mismatched shape or dtype across program instances"
     return results.filterMap id
 
+  -- NOTE: a hack to not change too much of a structure in a time pinch
+  -- The code is meant to distinguish between already named outputs and the
+  -- ones that will need to be canonic after.
+  -- Outputs list will contain list of all outputs from all lnc kernels
+  -- Then we count occurance of each of the outputs. If It only appears once,
+  -- remove it from the list of shared buffers as it is a return value that
+  -- we will rename in the future. The canonicalization of output later will use
+  -- shared buffers to determine if user already named their output and thus
+  -- we should keep the name
+  let mut outputs : List Core.TensorName := k0.outputs
+
   let mut result := [{ res with result := () }]
   let mut bodies := [res.result.body]
   for i in [1:num] do
@@ -104,6 +115,19 @@ def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
     result := { res with result := () } :: result
     bodies := res.result.body :: bodies
     sharedBuffers := sharedBuffers ++ res.sharedBuffers
+    outputs := outputs ++ res.result.outputs
+
+  let outputCounts := outputs.foldl (fun acc x =>
+    let name := x.name
+    match acc.find? (fun p => p.1 == name) with
+    | some (_, count) => acc.filter (fun p => p.1 != name) ++ [(name, count + 1)]
+    | none => (name, 1) :: acc
+  ) []
+
+  let filteredSharedBuffers := sharedBuffers.filter fun (t, _) =>
+    match outputCounts.find? (fun p => p.1 == t.name) with
+    | some (_, count) => count > 1
+    | none => true
 
   let kernel : Core.LncKernel := {
     name := k0.name
@@ -112,6 +136,6 @@ def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
     bodies := bodies.reverse
     sharedConstants := []
     edges := k.edges
-    sharedBuffers := <- if num > 1 then dedupSharedBuf sharedBuffers else pure (sharedBuffers.map (·.1))
+    sharedBuffers := <- if num > 1 then dedupSharedBuf filteredSharedBuffers else pure (filteredSharedBuffers.map (·.1))
   }
   return (result.reverse, kernel)
