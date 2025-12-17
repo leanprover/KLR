@@ -403,6 +403,12 @@ Memory Memory_des(FILE *in) {
     return Memory::reg;
     break;
   }
+  case 4: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    return Memory::private_hbm;
+    break;
+  }
   default:
     throw std::runtime_error("Invalid value tag");
   }

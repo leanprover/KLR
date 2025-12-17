@@ -29,7 +29,7 @@ open Util (FromSexp ToSexp)
 -- Memory types on hardware
 @[serde tag = 110]
 inductive Memory where
-  | hbm | sbuf | psum | reg
+  | hbm | sbuf | psum | reg | private_hbm
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 namespace Memory
@@ -39,6 +39,7 @@ def toName (m : Memory) :=
   | .sbuf => `sbuf
   | .psum => `psum
   | .reg => `reg
+  | .private_hbm => `private_hbm
 end Memory
 
 -- register number

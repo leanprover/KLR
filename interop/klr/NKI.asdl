@@ -9,6 +9,7 @@ Memory =
   | sbuf
   | psum
   | reg
+  | private_hbm
 Dtype =
   | bfloat16
   | float8e3

@@ -121,6 +121,9 @@ std::string to_string(Memory &MemoryInstance) {
   case Memory::reg:
     return "reg";
     break;
+  case Memory::private_hbm:
+    return "private_hbm";
+    break;
   default:
     return "UNABLE TO PRINT";
   }
