@@ -73,40 +73,10 @@ def runNkiKernel
 -- TODO: check that shared constants are the same
 -- TODO: check that schedule edges make sense
 def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
-  : PassM (List (TraceResult Unit) × Core.LncKernel × List (List Core.TensorName)) := do
+  : PassM (List (TraceResult Unit) × Core.LncKernel) := do
   let num := k.grid.max 1
   let res <- runNkiKernel k genDebug (0, num)
   let k0 := res.result
-  let mut sharedBuffers : List (Core.TensorName × Pos) := res.sharedBuffers
-
-  let dedupSharedBuf (tensors : List (Core.TensorName × Pos)) : PassM (List Core.TensorName) := do
-    let grps := tensors.groupByKey (·.1.name)
-    let results <- grps.toList.mapM fun (name, grp) => do
-      if grp.length == 1 then
-        match grp with
-        | [single] =>
-          withPos single.2 do
-            warn s!"Tensor with name {name} is declared as shared but only appears in 1 lnc kernel. Consider explicit naming or marking buffer private_hbm"
-          pure none
-        | _ => throw "Unexpected group size"
-      else match grp with
-        | [] => throw "Empty tensor group"
-        | first :: rest =>
-          if rest.all (fun x => x.1.shape == first.1.shape && x.1.dtype == first.1.dtype)
-          then pure (some first.1)
-          else throw s!"Tensor {first.1.name} has mismatched shape or dtype across program instances"
-    return results.filterMap id
-
-  -- NOTE: a hack to not change too much of a structure in a time pinch
-  -- The code is meant to distinguish between already named outputs and the
-  -- ones that will need to be canonic after.
-  -- Outputs list will contain list of all outputs from all lnc kernels
-  -- Then we count occurance of each of the outputs. If It only appears once,
-  -- remove it from the list of shared buffers as it is a return value that
-  -- we will rename in the future. The canonicalization of output later will use
-  -- shared buffers to determine if user already named their output and thus
-  -- we should keep the name
-  let mut outputLists : List (List Core.TensorName) := [k0.outputs]
 
   let mut result := [{ res with result := () }]
   let mut bodies := [res.result.body]
@@ -114,19 +84,6 @@ def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
     let res <- runNkiKernel k genDebug (i,num)
     result := { res with result := () } :: result
     bodies := res.result.body :: bodies
-    sharedBuffers := sharedBuffers ++ res.sharedBuffers
-    outputLists := outputLists ++ [res.result.outputs]
-
-  -- Transpose: [[a1,a2], [a3,a4]] -> [[a1,a3], [a2,a4]]
-  let outputsByPosition := outputLists.transpose
-
-  -- Filter shared buffers: keep if all kernels at same position have the same output name
-  let sharedOutputNames := outputsByPosition.filterMap fun outs =>
-    match outs.map (·.name) with
-    | n :: rest => if rest.all (· == n) then some n else none
-    | [] => none
-  let filteredSharedBuffers := sharedBuffers.filter fun (t, _) =>
-    sharedOutputNames.contains t.name
 
   let kernel : Core.LncKernel := {
     name := k0.name
@@ -135,6 +92,5 @@ def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
     bodies := bodies.reverse
     sharedConstants := []
     edges := k.edges
-    sharedBuffers := <- if num > 1 then dedupSharedBuf filteredSharedBuffers else pure (filteredSharedBuffers.map (·.1))
   }
-  return (result.reverse, kernel, outputsByPosition)
+  return (result.reverse, kernel)

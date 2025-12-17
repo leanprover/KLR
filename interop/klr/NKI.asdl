@@ -9,8 +9,6 @@ Memory =
   | sbuf
   | psum
   | reg
-  | shared_hbm
-  | private_hbm
 Dtype =
   | bfloat16
   | float8e3
@@ -434,4 +432,4 @@ SharedConstantFile = (String name, String fileName)
 
 Edges = (String fromEdge, String* toEdges)
 
-LncKernel = (String name, TensorName* inputs, TensorName* outputs, Block** bodies, SharedConstantFile* sharedConstants, TensorName* sharedBuffers, Edges* edges)
+LncKernel = (String name, TensorName* inputs, TensorName* outputs, Block** bodies, SharedConstantFile* sharedConstants, Edges* edges)

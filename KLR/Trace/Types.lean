@@ -16,7 +16,6 @@ limitations under the License.
 
 import KLR.Util
 import KLR.Core
-import KLR.Core.Tensor
 import KLR.NKI.Basic
 import KLR.Compile.Pass
 import Lean
@@ -70,7 +69,7 @@ namespace KLR.Trace
 open KLR.Core
 open KLR.Compile.Pass
 export Core (Name)
-export KLR.Compile.Pass (withPos withFile getPos warn message)
+export KLR.Compile.Pass (withPos withFile getPos warn message resetPassState)
 export NKI (Pos BinOp)
 
 /-
@@ -216,7 +215,6 @@ structure State where
   flags : Array (String × NKI.Value) := #[]
   tensorNames : Lean.PersistentHashSet String := ∅
   sharedConstants : SharedConstants := #[]
-  sharedBuffers : Array (TensorName × Pos) := #[]
   dynamicCtx : Bool := False
   label : Option String := none
   stmts : Array Stmt := #[]
@@ -455,24 +453,19 @@ def tensorName : Option String -> Trace String
   | none => genTensorName
   | some n => do checkTensorName n; return n
 
-def addSharedBuffer (name : TensorName) : Trace Unit := do
-  let st <- get
-  let pos <- getPos
-  set { st with sharedBuffers := st.sharedBuffers.push ⟨ name, pos ⟩ }
-
 structure TraceResult (a : Type) where
   sharedConstants : SharedConstants
-  sharedBuffers : List (TensorName × Pos)
   debug : Array DebugItem
   result : a
 
 -- Run a `Trace` monad computation, and handle any generated warnings or errors.
 def tracer (genDebug : Bool) (g : List (Name × Term)) (m : Trace a) : PassM (TraceResult a) := do
   let initialState : State := { globals := .ofList g, debug := { collect := genDebug } }
+  resetPassState
   runPassWith initialState do
     let x <- m
     let st <- get
-    return ⟨st.sharedConstants, st.sharedBuffers.toList, st.debug.leaf, x⟩
+    return ⟨st.sharedConstants, st.debug.leaf, x⟩
 
 -- Truthiness of Terms following Python
 namespace Term

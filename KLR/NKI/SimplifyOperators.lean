@@ -48,10 +48,11 @@ private def rewriteOp (rhs: Expr) (dst: Expr) (accum : Bool) : SimplifyOp (Optio
   | _ => return none
 
 private def rewriteNdarray (stmt : Stmt') : Stmt' :=
+  -- hacky for now. Fixme to actually lookup names from environment
+  -- this most likely belongs somewhere else
   match stmt with
   | .letM (.var x) ty ⟨.call ⟨.var fname, p0 ⟩ args kws, p1 ⟩ =>
-    let suffixes := ["nki.language.ndarray", "hbm.view", "sbuf.view", "psum.view"]
-    if suffixes.any (fname.toString.endsWith ·) then
+    if fname.toString.endsWith "ndarray" || fname.toString.endsWith "view" then
       if kws.any fun x => x.name == "name" then
        stmt
       else
