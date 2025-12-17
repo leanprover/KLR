@@ -70,8 +70,7 @@ private def compile (kernel : Python.Kernel) (genDebug : Bool := false)
   let unsafeCast := match kernel.flags.find? (·.1 == "UNSAFE_FP8FNCAST") |>.map (·.2) with
     | some $ .bool b => b
     | _ => false
-  let (shared, kernel, outputs) <- Trace.runLncKernels kernel genDebug
-  let kernel <- Core.canonicalizeOutputs kernel outputs
+  let (shared, kernel) <- Trace.runLncKernels kernel genDebug
   let (kernel, _) <- Core.lowerAccessPatterns kernel { unsafeCast := unsafeCast }
   let convertTensor (t : Core.TensorName) : Option Core.TensorName :=
     if t.dtype == .float8_e4m3fn then
@@ -118,7 +117,6 @@ structure KernelInfo where
   inputs : List TensorInfo
   outputs : List TensorInfo
   sharedConstants : List Core.SharedConstantFile
-  sharedBuffers : List TensorInfo
   deriving ToJson
 
 private def resultToInfo (res : CompileResult LncKernel) (msgsFile errorsFile warningsFile: String) : KernelInfo :=
@@ -131,7 +129,6 @@ private def resultToInfo (res : CompileResult LncKernel) (msgsFile errorsFile wa
       inputs := []
       outputs := []
       sharedConstants := []
-      sharedBuffers := []
     }
   | some kernel => {
       name := kernel.name,
@@ -149,11 +146,6 @@ private def resultToInfo (res : CompileResult LncKernel) (msgsFile errorsFile wa
         shape := out.shape.toList
       },
       sharedConstants := kernel.sharedConstants
-      sharedBuffers := kernel.sharedBuffers.map fun buf => {
-        name := buf.name,
-        dtype := reprStr buf.dtype,
-        shape := buf.shape.toList
-      }
     }
 
 private def outfolder (outfile : String) : String :=

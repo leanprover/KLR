@@ -57,25 +57,6 @@ inductive Operand where
   | tile (t : TensorRef)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-/-! ## MapTensorRefs typeclass for generic tensor traversal -/
-
-class MapTensorRefs (α : Type) where
-  mapM {m : Type → Type} [Monad m] : (TensorRef → m TensorRef) → (Operand → m Operand) → α → m α
-
-export MapTensorRefs (mapM)
-
-instance : MapTensorRefs Operand where
-  mapM _ fo op := fo op
-
-instance : MapTensorRefs TensorRef where
-  mapM ft _ t := ft t
-
-instance [MapTensorRefs α] : MapTensorRefs (Option α) where
-  mapM ft fo opt := opt.mapM (MapTensorRefs.mapM ft fo)
-
-instance [MapTensorRefs α] : MapTensorRefs (List α) where
-  mapM ft fo l := l.mapM (MapTensorRefs.mapM ft fo)
-
 /-
 Used for Iota and AffineSelect, represents something similar to an
 TensorSram but that is only used to generate data, not to index. Much like
@@ -300,10 +281,6 @@ structure Dropout where
   threshold     : Operand
   dtype         : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs Dropout where
-  mapM ft fo op := do pure { op with dst := ← ft op.dst, src := ← ft op.src, threshold := ← fo op.threshold }
-
 /- Activate instruction
 
 Performs the operation
@@ -320,9 +297,6 @@ structure Activate where
   imm             : Immediate
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs Activate where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src }
-
 @[serde tag = 149]
 structure NcActivate where
   dst             : TensorRef
@@ -335,9 +309,6 @@ structure NcActivate where
   reduceRes       : Option TensorRef
   dtype           : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs NcActivate where
-  mapM ft fo op := do pure { op with dst := ← ft op.dst, src := ← ft op.src, scale := ← fo op.scale, bias := ← op.bias.mapM ft, reduceRes := ← op.reduceRes.mapM ft }
 
 /- AffineSelect instruction
 
@@ -354,9 +325,6 @@ structure AffineSelect where
   maskPattern : DataPattern
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs AffineSelect where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src }
-
 @[serde tag = 151]
 structure NcAffineSelect where
   dst          : TensorRef
@@ -366,9 +334,6 @@ structure NcAffineSelect where
   dtype        : Option Dtype
   cmpOp        : AluOp
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs NcAffineSelect where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, onTrueTile := ← ft op.onTrueTile }
 
 /- DmaCopy instruction
 
@@ -387,9 +352,6 @@ structure DmaCopy where
   srcBoundsCheck : DmaBounds
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs DmaCopy where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src }
-
 @[serde tag = 153]
 structure NcDmaCopy where
   dst                : TensorRef
@@ -400,9 +362,6 @@ structure NcDmaCopy where
   uniqueIndices      : Bool
   engine             : Engine
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs NcDmaCopy where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src }
 
 /- DmaTranspose instruction
 Use the DMA to reverse the dimensions of a tensor.
@@ -416,9 +375,6 @@ structure DmaTranspose where
   dgeMode : Nat
   oobMode : DmaBounds
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs DmaTranspose where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src }
 
 /- Transpose Instruction
 
@@ -434,9 +390,6 @@ structure Transpose where
   engine : Engine
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs Transpose where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src }
-
 /- LoadMaskRegister instruction
 
 Sets a register to be the MaskRegister in the DVE
@@ -445,9 +398,6 @@ Sets a register to be the MaskRegister in the DVE
 structure LoadMaskRegister where
   regNum : Reg
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs LoadMaskRegister where
-  mapM _ _ op := pure op
 
 /-
 Use the DVE to shuffle the data in src into dst based on MaskRegister
@@ -459,9 +409,6 @@ structure Shuffle where
   shuffleMask : List Immediate
   dtype : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs Shuffle where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src }
 
 /- MemSet instruction
 
@@ -475,9 +422,6 @@ structure MemSet where
   engine : Engine
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs MemSet where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst }
-
 /- Iota Instruction
 Generates values using `pattern` and writes them to `dst` -/
 @[serde tag = 159]
@@ -486,9 +430,6 @@ structure Iota where
   pattern : DataPattern
   dtype : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs Iota where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst }
 
 /- LoadStationary Instruction
 
@@ -500,9 +441,6 @@ structure LoadStationary where
   isTranspose : Bool
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs LoadStationary where
-  mapM ft _ op := do pure { op with src := ← ft op.src }
-
 /- MatMul instruction
 
 Performs a matmul against the currently loaded tensor using the PE -/
@@ -511,9 +449,6 @@ structure MatMul where
   dst                : TensorRef
   moving             : TensorRef
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs MatMul where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, moving := ← ft op.moving }
 
 /- LocalGather instruction
 -/
@@ -527,9 +462,6 @@ structure LocalGather where
   freePoolBuffer    : Bool
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs LocalGather where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src }
-
 @[serde tag = 163]
 structure NcLocalGather where
   dst               : TensorRef
@@ -539,8 +471,6 @@ structure NcLocalGather where
   numValidIndicies  : Option Immediate
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs NcLocalGather where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src, index := ← ft op.index }
 
 /- RangeSelect instruction
 -/
@@ -558,9 +488,6 @@ structure RangeSelect where
   bound1         : Immediate
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs RangeSelect where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src }
-
 @[serde tag = 165]
 structure NcRangeSelect where
   dst            : TensorRef
@@ -576,9 +503,6 @@ structure NcRangeSelect where
   onFalseValue   : Immediate
   dtype          : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs NcRangeSelect where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, reduceRes := ← op.reduceRes.mapM ft, bound0 := ← ft op.bound0, bound1 := ← ft op.bound1, onTrueTile := ← ft op.onTrueTile }
 
 /- ScalarTensorTensor instruction
 
@@ -603,9 +527,6 @@ structure ScalarTensorTensor where
   accumulatorCmd  : AccumCmd
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs ScalarTensorTensor where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src0 := ← ft op.src0, src1 := ← ft op.src1 }
-
 @[serde tag = 167]
 structure NcScalarTensorTensor where
   dst             : TensorRef
@@ -618,9 +539,6 @@ structure NcScalarTensorTensor where
   dtype           : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs NcScalarTensorTensor where
-  mapM ft fo op := do pure { op with dst := ← ft op.dst, data := ← ft op.data, src0 := ← fo op.src0, src1 := ← fo op.src1 }
-
 /- CopyPredicated instruction
 
 Copies each element from src to dst for which predicate is not 0 -/
@@ -632,9 +550,6 @@ structure CopyPredicated where
   dtype       : Option Dtype
   reversePred : Bool
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs CopyPredicated where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src, predicate := ← ft op.predicate }
 
 /- TensorTensorScan instruction
 
@@ -658,9 +573,6 @@ structure TensorTensorScan where
   dtype           : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs TensorTensorScan where
-  mapM ft fo op := do pure { op with dst := ← ft op.dst, src0 := ← ft op.src0, src1 := ← ft op.src1, imm0 := ← fo op.imm0 }
-
 /- MatchValueLoad instruction
 
 Loads values into the DVE's MatchValue registers -/
@@ -669,8 +581,6 @@ structure MatchValueLoad where
   src : TensorRef
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs MatchValueLoad where
-  mapM ft _ op := do pure { op with src := ← ft op.src }
 
 /- FindIndex8 instruction
 
@@ -683,9 +593,6 @@ structure FindIndex8 where
   vals : TensorRef
   dtype : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs FindIndex8 where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src, vals := ← ft op.vals }
 
 /- MatchReplace8 instruction
 
@@ -700,9 +607,6 @@ structure MatchReplace8 where
   dtype        : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs MatchReplace8 where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src, vals := ← ft op.vals, dstIdx := ← op.dstIdx.mapM ft }
-
 /- Max8 instruction
 
 Finds the 8 largest values in src and writes them to dst -/
@@ -713,9 +617,6 @@ structure Max8 where
   dtype : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs Max8 where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src }
-
 /- BatchNormAggregate instruction
 -/
 @[serde tag = 174]
@@ -724,9 +625,6 @@ structure BatchNormAggregate where
   src : TensorRef
   dtype : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs BatchNormAggregate where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src }
 
 /- BatchNormStats instruction
 -/
@@ -737,9 +635,6 @@ structure BatchNormStats where
   dtype : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs BatchNormStats where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src }
-
 /- Reciprocal instruction
 -/
 @[serde tag = 176]
@@ -748,9 +643,6 @@ structure Reciprocal where
   src  : TensorRef
   dtype : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs Reciprocal where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src }
 
 /- Copy instruction
 Copy src to dst -/
@@ -762,9 +654,6 @@ structure Copy where
   opDim : Option TensorSubDim
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs Copy where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src }
-
 @[serde tag = 178]
 structure NcCopy where
   dst    : TensorRef
@@ -772,9 +661,6 @@ structure NcCopy where
   dtype  : Option Dtype
   engine : Engine
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs NcCopy where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src }
 
 /- TensorReduce instruction
 
@@ -790,9 +676,6 @@ structure TensorReduce where
   dtype        : Option Dtype
   keepdims     : Bool
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs TensorReduce where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src }
 
 /- TensorScalar instruction
 
@@ -811,9 +694,6 @@ structure TensorScalar where
   dtype : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs TensorScalar where
-  mapM ft fo op := do pure { op with dst := ← ft op.dst, src := ← ft op.src, imm0 := ← fo op.imm0, imm1 := ← op.imm1.mapM fo }
-
 @[serde tag = 181]
 structure TensorScalarReduce where
   dst : TensorRef
@@ -826,9 +706,6 @@ structure TensorScalarReduce where
   reduceRes : TensorRef
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs TensorScalarReduce where
-  mapM ft fo op := do pure { op with dst := ← ft op.dst, src := ← ft op.src, operand0 := ← fo op.operand0, reduceRes := ← ft op.reduceRes }
-
 /- TensorTensor instruction
 -/
 @[serde tag = 182]
@@ -840,9 +717,6 @@ structure TensorTensor where
   dtype : Option Dtype
   engine : Engine
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs TensorTensor where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src0 := ← ft op.src0, src1 := ← ft op.src1 }
 
 @[serde tag = 183]
 structure NcMatMul where
@@ -857,9 +731,6 @@ structure NcMatMul where
   perfMode : MatmulPerfMode
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs NcMatMul where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, stationary := ← ft op.stationary, moving := ← ft op.moving }
-
 @[serde tag = 184]
 structure TensorPartitionReduce where
   dst : TensorRef
@@ -867,9 +738,6 @@ structure TensorPartitionReduce where
   data : TensorRef
   dtype : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs TensorPartitionReduce where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, data := ← ft op.data }
 
 @[serde tag = 185]
 structure SelectReduce where
@@ -884,18 +752,12 @@ structure SelectReduce where
   dtype : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs SelectReduce where
-  mapM ft fo op := do pure { op with dst := ← ft op.dst, predicate := ← ft op.predicate, onTrue := ← ft op.onTrue, onFalse := ← fo op.onFalse, reduceRes := ← op.reduceRes.mapM ft }
-
 @[serde tag = 186]
 structure SequenceBounds where
   dst : TensorRef
   segmentIds : TensorRef
   dtype : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs SequenceBounds where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, segmentIds := ← ft op.segmentIds }
 
 @[serde tag = 187]
 structure SendRecv where
@@ -907,9 +769,6 @@ structure SendRecv where
   useGpsimdDma : Bool
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs SendRecv where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src }
-
 @[serde tag = 188]
 structure SendRecvCCE where
   dst : TensorRef
@@ -919,9 +778,6 @@ structure SendRecvCCE where
   pipeId : Immediate
   op : AluOp
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs SendRecvCCE where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← op.src.mapM ft }
 
 /-
 Dynamic control flow operators
@@ -940,26 +796,17 @@ structure TensorLoad where
   src : TensorRef -- 1x1 tensor access
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs TensorLoad where
-  mapM ft _ op := do pure { op with src := ← ft op.src }
-
 @[serde tag = 191]
 structure TensorStore where
   dst : TensorRef -- 1x1 tensor access
   src : String    -- register name
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs TensorStore where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst }
-
 @[serde tag = 192]
 structure RegisterMove where
   dst : String
   imm : Int32
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs RegisterMove where
-  mapM _ _ op := pure op
 
 @[serde tag = 193]
 structure CmpBranch where
@@ -971,9 +818,6 @@ structure CmpBranch where
   falseLabel : String
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs CmpBranch where
-  mapM _ _ op := pure op
-
 @[serde tag = 194]
 structure RegisterAluOp where
   dst : String
@@ -982,18 +826,12 @@ structure RegisterAluOp where
   op : AluOp
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs RegisterAluOp where
-  mapM _ _ op := pure op
-
 @[serde tag = 195]
 structure QuantizeMX where
     dst :       TensorRef  -- NOTE: do we need special tensor types for MX ones. ISA does
     src :       TensorRef
     dstScale :  TensorRef
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs QuantizeMX where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src, dstScale := ← ft op.dstScale }
 
 @[serde tag = 196]
 structure MatMulMX where
@@ -1006,9 +844,6 @@ structure MatMulMX where
     tileSize : Option (List Nat)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs MatMulMX where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, stationary := ← ft op.stationary, moving := ← ft op.moving, stationaryScale := ← ft op.stationaryScale, movingScale := ← ft op.movingScale }
-
 @[serde tag = 197]
 structure DmaCompute where
     dst : TensorRef
@@ -1016,9 +851,6 @@ structure DmaCompute where
     scales : List Immediate
     reduceOp : AluOp
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs DmaCompute where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, srcs := ← op.srcs.mapM ft }
 
 @[serde tag = 198]
 structure CollectiveOp where
@@ -1034,18 +866,12 @@ structure CollectiveOp where
   concatDim : Option Int
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs CollectiveOp where
-  mapM ft _ op := do pure { op with dsts := ← op.dsts.mapM ft, srcs := ← op.srcs.mapM ft }
-
 @[serde tag = 199]
 structure Send where
   op : AluOp
   srcs : List TensorRef
   peerId : Int
 deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs Send where
-  mapM ft _ op := do pure { op with srcs := ← op.srcs.mapM ft }
 
 @[serde tag = 200]
 structure Recv where
@@ -1055,9 +881,6 @@ structure Recv where
   peerId : Int
 deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs Recv where
-  mapM ft _ op := do pure { op with dsts := ← op.dsts.mapM ft }
-
 @[serde tag = 201]
 structure CoreBarrier where
   data : TensorRef
@@ -1065,17 +888,11 @@ structure CoreBarrier where
   engine : Engine
 deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs CoreBarrier where
-  mapM ft _ op := do pure { op with data := ← ft op.data }
-
 @[serde tag = 202]
 structure Rng where
   dst : TensorRef
   engine : Engine
 deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs Rng where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst }
 
 @[serde tag = 203]
 structure Rand2 where
@@ -1084,17 +901,11 @@ structure Rand2 where
   max : Operand
 deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs Rand2 where
-  mapM ft fo op := do pure { op with dst := ← ft op.dst, min := ← fo op.min, max := ← fo op.max }
-
 @[serde tag = 204]
 structure RandGetState where
   dst : TensorRef
   engine : Engine
 deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs RandGetState where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst }
 
 -- trn1 and trn2
 @[serde tag = 205]
@@ -1102,18 +913,12 @@ structure SetRngSeed where
   src : TensorRef
 deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs SetRngSeed where
-  mapM ft _ op := do pure { op with src := ← ft op.src }
-
 -- trn2+
 @[serde tag = 206]
 structure RandSetState where
   src : TensorRef
   engine : Engine
 deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs RandSetState where
-  mapM ft _ op := do pure { op with src := ← ft op.src }
 
 @[serde tag = 207]
 structure ExtendedInst where
@@ -1124,9 +929,6 @@ structure ExtendedInst where
   data0 : List Nat
   data1 : List Nat
 deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs ExtendedInst where
-  mapM _ _ op := pure op
 
 @[serde tag = 208]
 structure TensorScalarCumulative where
@@ -1141,9 +943,6 @@ structure TensorScalarCumulative where
   dtype : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs TensorScalarCumulative where
-  mapM ft fo op := do pure { op with dst := ← ft op.dst, src := ← ft op.src, imm0 := ← fo op.imm0, imm1 := ← op.imm1.mapM fo }
-
 @[serde tag = 209]
 structure NcNGather where
   dst : TensorRef
@@ -1151,9 +950,6 @@ structure NcNGather where
   indices : TensorRef
   dtype : Option Dtype
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs NcNGather where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, data := ← ft op.data, indices := ← ft op.indices }
 
 -- Device Print support
 @[serde tag = 210]
@@ -1174,9 +970,6 @@ structure DevicePrint where
   printPrefix : String
   buffer : PrintOutputBuffer
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs DevicePrint where
-  mapM ft _ op := do pure { op with src := ← ft op.src }
 
 @[serde tag = 212]
 inductive Operator where
@@ -1282,75 +1075,3 @@ inductive TGROperator where
   | tensorTensorScan (op : TensorTensorScan)
   | transpose (op : Transpose)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
-
-instance : MapTensorRefs Operator where
-  mapM ft fo
-  | .activate op => return .activate (← MapTensorRefs.mapM ft fo op)
-  | .ncActivate op => return .ncActivate (← MapTensorRefs.mapM ft fo op)
-  | .activationReduce op => return .activationReduce (← MapTensorRefs.mapM ft fo op)
-  | .affineSelect op => return .affineSelect (← MapTensorRefs.mapM ft fo op)
-  | .ncAffineSelect op => return .ncAffineSelect (← MapTensorRefs.mapM ft fo op)
-  | .batchNormAggregate op => return .batchNormAggregate (← MapTensorRefs.mapM ft fo op)
-  | .batchNormStats op => return .batchNormStats (← MapTensorRefs.mapM ft fo op)
-  | .copy op => return .copy (← MapTensorRefs.mapM ft fo op)
-  | .ncCopy op => return .ncCopy (← MapTensorRefs.mapM ft fo op)
-  | .copyPredicated op => return .copyPredicated (← MapTensorRefs.mapM ft fo op)
-  | .dmaCopy op => return .dmaCopy (← MapTensorRefs.mapM ft fo op)
-  | .ncDmaCopy op => return .ncDmaCopy (← MapTensorRefs.mapM ft fo op)
-  | .dmaTranspose op => return .dmaTranspose (← MapTensorRefs.mapM ft fo op)
-  | .dropout op => return .dropout (← MapTensorRefs.mapM ft fo op)
-  | .findIndex8 op => return .findIndex8 (← MapTensorRefs.mapM ft fo op)
-  | .iota op => return .iota (← MapTensorRefs.mapM ft fo op)
-  | .loadMaskRegister op => return .loadMaskRegister (← MapTensorRefs.mapM ft fo op)
-  | .loadStationary op => return .loadStationary (← MapTensorRefs.mapM ft fo op)
-  | .localGather op => return .localGather (← MapTensorRefs.mapM ft fo op)
-  | .ncLocalGather op => return .ncLocalGather (← MapTensorRefs.mapM ft fo op)
-  | .matMul op => return .matMul (← MapTensorRefs.mapM ft fo op)
-  | .ncMatMul op => return .ncMatMul (← MapTensorRefs.mapM ft fo op)
-  | .matchReplace8 op => return .matchReplace8 (← MapTensorRefs.mapM ft fo op)
-  | .matchValueLoad op => return .matchValueLoad (← MapTensorRefs.mapM ft fo op)
-  | .max8 op => return .max8 (← MapTensorRefs.mapM ft fo op)
-  | .memSet op => return .memSet (← MapTensorRefs.mapM ft fo op)
-  | .rangeSelect op => return .rangeSelect (← MapTensorRefs.mapM ft fo op)
-  | .ncRangeSelect op => return .ncRangeSelect (← MapTensorRefs.mapM ft fo op)
-  | .reciprocal op => return .reciprocal (← MapTensorRefs.mapM ft fo op)
-  | .scalarTensorTensor op => return .scalarTensorTensor (← MapTensorRefs.mapM ft fo op)
-  | .ncScalarTensorTensor op => return .ncScalarTensorTensor (← MapTensorRefs.mapM ft fo op)
-  | .shuffle op => return .shuffle (← MapTensorRefs.mapM ft fo op)
-  | .tensorReduce op => return .tensorReduce (← MapTensorRefs.mapM ft fo op)
-  | .tensorScalar op => return .tensorScalar (← MapTensorRefs.mapM ft fo op)
-  | .tensorTensor op => return .tensorTensor (← MapTensorRefs.mapM ft fo op)
-  | .tensorTensorScan op => return .tensorTensorScan (← MapTensorRefs.mapM ft fo op)
-  | .tensorPartitionReduce op => return .tensorPartitionReduce (← MapTensorRefs.mapM ft fo op)
-  | .tensorScalarReduce op => return .tensorScalarReduce (← MapTensorRefs.mapM ft fo op)
-  | .transpose op => return .transpose (← MapTensorRefs.mapM ft fo op)
-  | .selectReduce op => return .selectReduce (← MapTensorRefs.mapM ft fo op)
-  | .sequenceBounds op => return .sequenceBounds (← MapTensorRefs.mapM ft fo op)
-  | .sendRecv op => return .sendRecv (← MapTensorRefs.mapM ft fo op)
-  | .sendRecvCCE op => return .sendRecvCCE (← MapTensorRefs.mapM ft fo op)
-  | .tensorLoad op => return .tensorLoad (← MapTensorRefs.mapM ft fo op)
-  | .tensorStore op => return .tensorStore (← MapTensorRefs.mapM ft fo op)
-  | .registerMove op => return .registerMove (← MapTensorRefs.mapM ft fo op)
-  | .cmpBranch op => return .cmpBranch (← MapTensorRefs.mapM ft fo op)
-  | .registerAluOp op => return .registerAluOp (← MapTensorRefs.mapM ft fo op)
-  | .quantizeMX op => return .quantizeMX (← MapTensorRefs.mapM ft fo op)
-  | .ncMatMulMX op => return .ncMatMulMX (← MapTensorRefs.mapM ft fo op)
-  | .dmaCompute op => return .dmaCompute (← MapTensorRefs.mapM ft fo op)
-  | .allReduce op => return .allReduce (← MapTensorRefs.mapM ft fo op)
-  | .allGather op => return .allGather (← MapTensorRefs.mapM ft fo op)
-  | .reduceScatter op => return .reduceScatter (← MapTensorRefs.mapM ft fo op)
-  | .collectivePermute op => return .collectivePermute (← MapTensorRefs.mapM ft fo op)
-  | .broadcast op => return .broadcast (← MapTensorRefs.mapM ft fo op)
-  | .allToAll op => return .allToAll (← MapTensorRefs.mapM ft fo op)
-  | .send op => return .send (← MapTensorRefs.mapM ft fo op)
-  | .recv op => return .recv (← MapTensorRefs.mapM ft fo op)
-  | .coreBarrier op => return .coreBarrier (← MapTensorRefs.mapM ft fo op)
-  | .rng op => return .rng (← MapTensorRefs.mapM ft fo op)
-  | .rand2 op => return .rand2 (← MapTensorRefs.mapM ft fo op)
-  | .randGetState op => return .randGetState (← MapTensorRefs.mapM ft fo op)
-  | .setRngSeed op => return .setRngSeed (← MapTensorRefs.mapM ft fo op)
-  | .randSetState op => return .randSetState (← MapTensorRefs.mapM ft fo op)
-  | .extendedInst op => return .extendedInst (← MapTensorRefs.mapM ft fo op)
-  | .tensorScalarCumulative op => return .tensorScalarCumulative (← MapTensorRefs.mapM ft fo op)
-  | .ncNGather op => return .ncNGather (← MapTensorRefs.mapM ft fo op)
-  | .devicePrint op => return .devicePrint (← MapTensorRefs.mapM ft fo op)

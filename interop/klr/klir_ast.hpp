@@ -58,8 +58,6 @@ enum class Memory {
   sbuf,
   psum,
   reg,
-  shared_hbm,
-  private_hbm,
 };
 
 enum class Dtype {
@@ -1486,7 +1484,6 @@ struct LncKernel final {
   List<Ptr<TensorName>> outputs;
   List<List<Ptr<Block>>> bodies;
   List<Ptr<SharedConstantFile>> sharedConstants;
-  List<Ptr<TensorName>> sharedBuffers;
   List<Ptr<Edges>> edges;
 };
 
