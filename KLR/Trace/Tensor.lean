@@ -98,10 +98,18 @@ nki builtin.lang.identity
   return .tensor { dtype := tlDtype, shape := tlShape, data := data }
 
 nki builtin.lang.shared_constant
-  (t : TensorLib.Tensor) := do
+  (t : Sum TensorLib.Tensor String) := do
+  let t' <- match t with
+  | .inl tensor => pure tensor
+  | .inr s => do
+    let ndarray <- monadLift (IO.toEIO
+     (fun _ => Compile.Pass.PosError.raw "Failed to parse npy file")
+     (TensorLib.Npy.parseFile s))
+    let tensor <- TensorLib.Tensor.ofNpy ndarray
+    pure tensor
   let name <- genName
-  let dtype <- Dtype.fromTensorLibDtype t.dtype
-  let shape := Shape.mk t.shape.val.head! t.shape.val.tail!
+  let dtype <- Dtype.fromTensorLibDtype t'.dtype
+  let shape := Shape.mk t'.shape.val.head! t'.shape.val.tail!
   let (parSize, freeSize) := Address.defaultSize shape dtype
   let addr : Address := {
     name := name.toString,
@@ -113,6 +121,6 @@ nki builtin.lang.shared_constant
   let tensorName <- TensorName.make name.toString dtype shape addr (<- flags.address_rotation)
 
   modify fun s => { s with
-    sharedConstants := s.sharedConstants.push (name.toString, t)
+    sharedConstants := s.sharedConstants.push (name.toString, t')
   }
   return .access (.simple tensorName)
