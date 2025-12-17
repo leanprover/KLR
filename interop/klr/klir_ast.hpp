@@ -58,6 +58,7 @@ enum class Memory {
   sbuf,
   psum,
   reg,
+  private_hbm,
 };
 
 enum class Dtype {
