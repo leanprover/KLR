@@ -520,6 +520,7 @@ def Term.attr (t : Term) (id : String) : Trace Term :=
       | "reshape" => return .builtin `builtin.access.reshape t
       | "ap" => return .builtin `builtin.access.ap t
       | "buffer" => return .var (`nki.language ++ a.tensor.address.memory.toName)
+      | "view" => return .builtin `builtin.pointer.view (some $ .pointer a.tensor.address)
       | _ => throw s!"unsupported attribute {id} (type is tensor access)"
   | .slice a b c =>
       let opt : Option Int -> Term
