@@ -193,7 +193,7 @@ instance : FromNKI Memory where
       return p.memory
     match fromEnum t with
     | some "shared_hbm" => return .hbm
-    | some "private_hbm" => return .hbm
+    | some "private_hbm" => return .private_hbm
     | some "hbm" => return .hbm
     | some "sbuf" => return .sbuf
     | some "psum" => return .psum
