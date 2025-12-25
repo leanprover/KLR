@@ -17,5 +17,6 @@ limitations under the License.
 import KLR.Core.Basic
 -- TODO fix pretty printer
 --import KLR.Core.Pretty
+import KLR.Core.CanonicalizeOutputs
 import KLR.Core.Indexing
 import KLR.Core.LowerAP
