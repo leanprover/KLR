@@ -44,14 +44,18 @@ def mkNameMap (outputs : List (List TensorName)) : CanonicalizeOutputs (NameMap 
   let result ← outputs.mapIdxM fun idx tns => do
     let names := tns.map (·.name)
     let addrNames := tns.map (·.address.name)
-    let commonStr := findCommonName names idx
-    let common ← KLR.Compile.Pass.freshName commonStr.toName
+    -- If all names are the same, keep the original name (no renaming needed)
+    let common ← if names.eraseDups.length == 1 then
+        pure names.head!
+      else do
+        let commonStr := findCommonName names idx
+        pure (← KLR.Compile.Pass.freshName commonStr.toName).toString
     let addrCommon ← if addrNames.eraseDups.length == 1 then
         pure addrNames.head!
       else do
         let addrCommonStr := findCommonName addrNames idx
         pure (← KLR.Compile.Pass.freshName addrCommonStr.toName).toString
-    let nameEntries := names.map (·, common.toString)
+    let nameEntries := names.map (·, common)
     let addrEntries := addrNames.map (·, addrCommon)
     return (nameEntries, addrEntries)
   return (List.flatten (result.map (·.1)), List.flatten (result.map (·.2)))
