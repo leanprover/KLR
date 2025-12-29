@@ -1,0 +1,19 @@
+#!/bin/bash
+# build_container_exec: run a command inside build container
+
+cd "$(dirname "$0")/.." || exit 1
+
+if ! docker image inspect klr-build &>/dev/null; then
+    echo "Error: klr-build image not found."
+    read -p "Build it now? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        docker build -t klr-build build_container/ || exit 1
+    else
+        exit 1
+    fi
+fi
+
+# Mount project directory at /workspace so generated sources end up in the right place.
+# Override ELAN_HOME and mount it as a volume so we cache Lean toolchains in between invocations.
+docker run -it --rm -v "$(pwd):/workspace" -v /tmp/klr-elan:/elan -e ELAN_HOME=/elan -w /workspace klr-build "$@"

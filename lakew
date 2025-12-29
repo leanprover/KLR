@@ -1,0 +1,8 @@
+#!/bin/bash
+# lakew: lake wrapper
+# runs lake inside build container
+# see build_container/README.md for additional details
+
+cd "$(dirname "$0")" || exit 1
+
+./build_container/build_container_exec lake "$@"
