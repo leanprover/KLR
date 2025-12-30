@@ -220,6 +220,8 @@ structure State where
   dynamicCtx : Bool := False
   label : Option String := none
   stmts : Array Stmt := #[]
+  labelCounter : Nat := 0
+  labels : Array String := #[]
   -- debug info
   debug : DebugInfo := {}
 
@@ -247,6 +249,13 @@ def dbgPopIter (var val : String) (line : Nat) : Trace Unit := do
 
 def genName (name : Name := `tmp) : Trace Name := do
   freshName name
+
+def labelName (name : Name := `tmp) : Trace String :=
+  modifyGet fun s =>
+    let n := s.labelCounter + 1
+    let name : Name := .num name n
+    let lbl := name.toString
+    (lbl, { s with labelCounter := n, labels := s.labels.push lbl })
 
 -- add a new binding to the global environment
 def extend_global (x : Name) (v : Term) : Trace Unit :=
@@ -331,7 +340,7 @@ def jmp (target : String) : Trace Unit := do
        trueLabel := target
        falseLabel := ""
     })
-    (<- genName `jmp).toString)
+    (<- labelName `jmp))
 
 def brnz (reg1 trueLabel falseLabel : String) : Trace Unit := do
   add_stmt (.oper (.cmpBranch {
@@ -342,7 +351,7 @@ def brnz (reg1 trueLabel falseLabel : String) : Trace Unit := do
        trueLabel
        falseLabel
     })
-    (<- genName `brnz).toString)
+    (<- labelName `brnz))
 
 def brlt (reg1 reg2 trueLabel falseLabel : String) : Trace Unit := do
   add_stmt (.oper (.cmpBranch {
@@ -353,7 +362,7 @@ def brlt (reg1 reg2 trueLabel falseLabel : String) : Trace Unit := do
        trueLabel
        falseLabel
     })
-    (<- genName `brlt).toString)
+    (<- labelName `brlt))
 
 def addImm (src dst : String) (imm : Int) : Trace Unit := do
   add_stmt (.oper (.registerAluOp {
@@ -362,7 +371,7 @@ def addImm (src dst : String) (imm : Int) : Trace Unit := do
        imm := imm.toInt32
        op := AluOp.add
     })
-    (<- genName `brnz).toString)
+    (<- labelName `brnz))
 
 
 def endBlock (next : Option String := none) : Trace Unit := do
@@ -381,7 +390,7 @@ def endBlock (next : Option String := none) : Trace Unit := do
     }
 
 def beginBlock (label : Option String := none) : Trace String := do
-  let l := label.getD ((<- genName `label).toString)
+  let l := label.getD ((<- labelName `label))
   endBlock l
   return l
 
@@ -423,7 +432,7 @@ def addId : Trace Unit := do
     uniqueIndices := false
     engine := .unassigned
   }) none pos
-  let lbl := (<- genName `init).toString
+  let lbl := (<- labelName `init)
   let idTensor :=  identity 128
   modify fun s => { s with
     body := #[Block.mk lbl [initStmt]] ++ s.body,
@@ -464,16 +473,16 @@ structure TraceResult (a : Type) where
   sharedConstants : SharedConstants
   sharedBuffers : List (TensorName × Pos)
   debug : Array DebugItem
+  lables : Array String
   result : a
 
 -- Run a `Trace` monad computation, and handle any generated warnings or errors.
 def tracer (genDebug : Bool) (g : List (Name × Term)) (m : Trace a) : PassM (TraceResult a) := do
-  -- resetPassState
   let initialState : State := { globals := .ofList g, debug := { collect := genDebug } }
   runPassWith initialState do
     let x <- m
     let st <- get
-    return ⟨st.sharedConstants, st.sharedBuffers.toList, st.debug.leaf, x⟩
+    return ⟨st.sharedConstants, st.sharedBuffers.toList, st.debug.leaf, st.labels, x⟩
 
 -- Truthiness of Terms following Python
 namespace Term
