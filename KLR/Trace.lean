@@ -78,6 +78,7 @@ def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
   let res <- runNkiKernel k genDebug (0, num)
   let k0 := res.result
   let mut sharedBuffers : List (Core.TensorName × Pos) := res.sharedBuffers
+  let lnc0Labels := res.labels
 
   let dedupSharedBuf (tensors : List (Core.TensorName × Pos)) : PassM (List Core.TensorName) := do
     let grps := tensors.groupByKey (·.1.name)
@@ -112,6 +113,10 @@ def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
   let mut bodies := [res.result.body]
   for i in [1:num] do
     let res <- runNkiKernel k genDebug (i,num)
+    if res.labels != lnc0Labels then
+      let missing := lnc0Labels.filter (!res.labels.contains ·)
+      let extra := res.labels.filter (!lnc0Labels.contains ·)
+      throw s!"CFG mismatch between LNC kernel 0 and {i}: missing labels {missing.toList}, extra labels {extra.toList}"
     result := { res with result := () } :: result
     bodies := res.result.body :: bodies
     sharedBuffers := sharedBuffers ++ res.sharedBuffers

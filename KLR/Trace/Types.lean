@@ -473,7 +473,7 @@ structure TraceResult (a : Type) where
   sharedConstants : SharedConstants
   sharedBuffers : List (TensorName × Pos)
   debug : Array DebugItem
-  lables : Array String
+  labels : Array String
   result : a
 
 -- Run a `Trace` monad computation, and handle any generated warnings or errors.
