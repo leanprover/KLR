@@ -876,20 +876,18 @@ nki builtin.isa.sendrecv
     }) name
     return .none
 
-nki builtin.isa.sendrecv_cce
-  (src: List Access)
-  (dst: Access)
-  (send_to_rank: Immediate)
+nki builtin.isa.sendrecv_compute
+  (srcs: List Access)
+  (dsts: List Access)
+  (send_to_ranks: List Immediate)
   (recv_from_ranks: List Immediate)
   (pipe_id: Int)
   (op : AluOp)
-  (mask : Option Immediate := none)
   (name : Option String := none) := do
-    if mask.isSome then throw maskNotSupported
-    Trace.add_stmt $ .oper (.sendRecvCCE {
-      dst := .abstract dst,
-      src := <- src.mapM (fun x => return .abstract x),
-      sendToRank := send_to_rank,
+    Trace.add_stmt $ .oper (.sendRecvCompute {
+      dsts := dsts.map .abstract,
+      srcs := srcs.map .abstract,
+      sendToRanks := send_to_ranks,
       recvFromRanks := recv_from_ranks,
       pipeId := .int pipe_id.toInt32,
       op := op
@@ -942,45 +940,37 @@ nki builtin.isa.dma_compute
     }) name
     return .none
 
+private def replicaGroupFromSum (rg : Sum String (List (List Int))) : ReplicaGroup :=
+  match rg with
+  | .inl name => .named name
+  | .inr groups => .literal groups
+
 nki builtin.isa.all_reduce
   (op : AluOp)
   (srcs : List Access)
   (dsts : List Access)
-  (replica_groups: List (List Int))
+  (replica_group: Sum String (List (List Int)))
   (name : Option String := none) := do
-    Trace.add_stmt $ .oper ( .allReduce {
+    Trace.add_stmt $ .oper (.allReduce {
       dsts := dsts.map .abstract
       srcs := srcs.map .abstract
       op := some op
-      replicaGroups := some replica_groups
-      reduceScatterDim := none
-      allGatherDim := none
-      sourceTargetPairs := none
-      broacastSizes := none
-      splitDim := none
-      concatDim := none
+      replicaGroup := replicaGroupFromSum replica_group
     }) name
     return .none
 
 
 nki builtin.isa.all_gather
-  (op : AluOp)
   (srcs : List Access)
   (dsts : List Access)
-  (replica_groups : List (List Int))
-  (all_gather_dim : Int)
+  (replica_group : Sum String (List (List Int)))
+  (concat_dim : Int)
   (name : Option String := none) := do
     Trace.add_stmt $ .oper (.allGather {
       dsts := dsts.map .abstract
       srcs := srcs.map .abstract
-      op := some op
-      replicaGroups := some replica_groups
-      allGatherDim := some all_gather_dim
-      reduceScatterDim := none
-      sourceTargetPairs := none
-      broacastSizes := none
-      splitDim := none
-      concatDim := none
+      replicaGroup := replicaGroupFromSum replica_group
+      concatDim := some concat_dim
     }) name
     return .none
 
@@ -989,85 +979,106 @@ nki builtin.isa.reduce_scatter
   (op : AluOp)
   (srcs : List Access)
   (dsts : List Access)
-  (replica_groups : List (List Int))
-  (reduce_scatter_dim : Int)
+  (replica_group : Sum String (List (List Int)))
+  (concat_dim : Int)
   (name : Option String := none) := do
     Trace.add_stmt $ .oper (.reduceScatter {
       dsts := dsts.map .abstract
       srcs := srcs.map .abstract
       op := some op
-      replicaGroups := some replica_groups
-      reduceScatterDim := some reduce_scatter_dim
-      allGatherDim := none
-      sourceTargetPairs := none
-      broacastSizes := none
-      splitDim := none
-      concatDim := none
+      replicaGroup := replicaGroupFromSum replica_group
+      concatDim := some concat_dim
+    }) name
+    return .none
+
+
+nki builtin.isa.all_to_all
+  (srcs : List Access)
+  (dsts : List Access)
+  (replica_group : Sum String (List (List Int)))
+  (concat_dim : Int)
+  (name : Option String := none) := do
+    Trace.add_stmt $ .oper (.allToAll {
+      dsts := dsts.map .abstract
+      srcs := srcs.map .abstract
+      replicaGroup := replicaGroupFromSum replica_group
+      concatDim := some concat_dim
     }) name
     return .none
 
 
 nki builtin.isa.collective_permute
-  (srcs : List Access)
-  (dsts : List Access)
+  (src : Access)
+  (dst : Access)
   (source_target_pairs: List (List Int))
   (name : Option String := none) := do
     Trace.add_stmt $ .oper (.collectivePermute {
-      dsts := dsts.map .abstract
-      srcs := srcs.map .abstract
-      op := none
-      replicaGroups := none
+      dsts := [.abstract dst]
+      srcs := [.abstract src]
       sourceTargetPairs := some source_target_pairs
-      reduceScatterDim := none
-      allGatherDim := none
-      broacastSizes := none
-      splitDim := none
-      concatDim := none
     }) name
     return .none
 
-nki builtin.isa.broadcast
-  (op : AluOp)
-  (srcs : List Access)
-  (dsts : List Access)
-  (replica_groups : List (List Int))
-  (broadcast_sizes : List Int)
+
+nki builtin.isa.collective_permute_implicit
+  (src : Access)
+  (dst : Access)
+  (replica_group : Sum String (List (List Int)))
+  (channel_id : Int)
+  (num_channels : Int := 1)
   (name : Option String := none) := do
-    Trace.add_stmt $ .oper (.broadcast {
-      dsts := dsts.map .abstract
-      srcs := srcs.map .abstract
-      op := some op
-      replicaGroups := some replica_groups
-      reduceScatterDim := none
-      allGatherDim := none
-      sourceTargetPairs := none
-      broacastSizes := some broadcast_sizes
-      splitDim := none
-      concatDim := none
+    Trace.add_stmt $ .oper (.collectivePermuteImplicit {
+      dsts := [.abstract dst]
+      srcs := [.abstract src]
+      replicaGroup := replicaGroupFromSum replica_group
+      channel_id := some channel_id
+      num_channels := some num_channels
     }) name
     return .none
 
-nki builtin.isa.all_to_all
+
+nki builtin.isa.collective_permute_implicit_reduce
   (op : AluOp)
-  (srcs : List Access)
-  (dsts : List Access)
-  (replica_groups : List (List Int))
-  (split_dimension : Int)
-  (concat_dimension : Int)
+  (src0 : Access)
+  (src1 : Access)
+  (dst : Access)
+  (replica_group : Sum String (List (List Int)))
+  (channel_id : Int)
+  (num_channels : Int := 1)
   (name : Option String := none) := do
-    Trace.add_stmt $ .oper (.allToAll {
-      dsts := dsts.map .abstract
-      srcs := srcs.map .abstract
+    Trace.add_stmt $ .oper (.collectivePermuteImplicitReduce {
+      dsts := [.abstract dst]
+      srcs := [.abstract src0, .abstract src1]
       op := some op
-      replicaGroups := some replica_groups
-      reduceScatterDim := none
-      allGatherDim := none
-      sourceTargetPairs := none
-      broacastSizes := none
-      splitDim := some split_dimension
-      concatDim := some concat_dimension
+      replicaGroup := replicaGroupFromSum replica_group
+      channel_id := some channel_id
+      num_channels := some num_channels
     }) name
     return .none
+
+nki builtin.isa.rank_id
+  (name : Option String := none) := do
+    let reg ← genName `rank_id
+    Trace.add_stmt $ .oper (.rankId {
+      dst := reg.toString
+    }) name
+    return .scalar reg
+
+nki builtin.isa.collective_permute_implicit_current_processing_rank_id
+  (iteration_id : Int)
+  (channel_id : Int)
+  (num_channels : Int)
+  (replica_group : List (List Int))
+  (name : Option String := none) := do
+    let reg ← genName `current_processing_rank_id
+    Trace.add_stmt $ .oper (.currentProcessingRankId {
+      dst := reg.toString
+      iterationId := iteration_id
+      channelId := channel_id
+      numChannels := num_channels
+      replicaGroup := replica_group
+    }) name
+    return .scalar reg
 
 nki builtin.isa.send
   (op : AluOp)
@@ -1095,7 +1106,7 @@ nki builtin.isa.recv
     }) name
     return .none
 
-nki builtin.isa.core_barrier
+nki builtin.isa.lnc_barrier
   (data : Access)
   (cores : List Int)
   (engine : Engine := .unassigned)

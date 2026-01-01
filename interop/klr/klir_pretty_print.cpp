@@ -2357,43 +2357,60 @@ std::string to_string(SendRecv &SendRecvInstance) {
   return result;
 };
 
-std::string to_string(SendRecvCCE &SendRecvCCEInstance) {
+std::string to_string(SendRecvCompute &SendRecvComputeInstance) {
   std::string result;
-  result += "SendRecvCCE(";
-  result += "dst=";
-  result += to_string(*(SendRecvCCEInstance.dst.get()));
-  result += ", ";
-  result += "src=";
+  result += "SendRecvCompute(";
+  result += "dsts=";
   {
     size_t i1 = 0;
-    for (Ptr<TensorRef> printListLoopItem1 : SendRecvCCEInstance.src) {
+    for (Ptr<TensorRef> printListLoopItem1 : SendRecvComputeInstance.dsts) {
       result += to_string(*(printListLoopItem1.get()));
       i1++;
-      if (i1 < SendRecvCCEInstance.src.size())
+      if (i1 < SendRecvComputeInstance.dsts.size())
         result += ", ";
     }
   }
   result += ", ";
-  result += "sendToRank=";
-  result += to_string(*(SendRecvCCEInstance.sendToRank.get()));
+  result += "srcs=";
+  {
+    size_t i1 = 0;
+    for (Ptr<TensorRef> printListLoopItem1 : SendRecvComputeInstance.srcs) {
+      result += to_string(*(printListLoopItem1.get()));
+      i1++;
+      if (i1 < SendRecvComputeInstance.srcs.size())
+        result += ", ";
+    }
+  }
+  result += ", ";
+  result += "sendToRanks=";
+  {
+    size_t i1 = 0;
+    for (Ptr<Immediate> printListLoopItem1 :
+         SendRecvComputeInstance.sendToRanks) {
+      result += to_string(*(printListLoopItem1.get()));
+      i1++;
+      if (i1 < SendRecvComputeInstance.sendToRanks.size())
+        result += ", ";
+    }
+  }
   result += ", ";
   result += "recvFromRanks=";
   {
     size_t i1 = 0;
     for (Ptr<Immediate> printListLoopItem1 :
-         SendRecvCCEInstance.recvFromRanks) {
+         SendRecvComputeInstance.recvFromRanks) {
       result += to_string(*(printListLoopItem1.get()));
       i1++;
-      if (i1 < SendRecvCCEInstance.recvFromRanks.size())
+      if (i1 < SendRecvComputeInstance.recvFromRanks.size())
         result += ", ";
     }
   }
   result += ", ";
   result += "pipeId=";
-  result += to_string(*(SendRecvCCEInstance.pipeId.get()));
+  result += to_string(*(SendRecvComputeInstance.pipeId.get()));
   result += ", ";
   result += "op=";
-  result += to_string(SendRecvCCEInstance.op); // mapped from enum
+  result += to_string(SendRecvComputeInstance.op); // mapped from enum
   result += ")";
   return result;
 };
@@ -2498,6 +2515,70 @@ std::string to_string(DmaCompute &DmaComputeInstance) {
   return result;
 };
 
+std::string to_string(
+    ReplicaGroupUnspecifiedWrapper &ReplicaGroupUnspecifiedWrapperInstance) {
+  std::string result;
+  result += "ReplicaGroupUnspecifiedWrapper(";
+  result += ")";
+  return result;
+};
+std::string
+to_string(ReplicaGroupNamedWrapper &ReplicaGroupNamedWrapperInstance) {
+  std::string result;
+  result += "ReplicaGroupNamedWrapper(";
+  result += "name=";
+  result += ReplicaGroupNamedWrapperInstance.name;
+  result += ")";
+  return result;
+};
+std::string
+to_string(ReplicaGroupLiteralWrapper &ReplicaGroupLiteralWrapperInstance) {
+  std::string result;
+  result += "ReplicaGroupLiteralWrapper(";
+  result += "groups=";
+  {
+    size_t i1 = 0;
+    for (List<Int> printListLoopItem1 :
+         ReplicaGroupLiteralWrapperInstance.groups) {
+      {
+        size_t i2 = 0;
+        for (Int printListLoopItem2 : printListLoopItem1) {
+          result += std::to_string(printListLoopItem2);
+          i2++;
+          if (i2 < printListLoopItem1.size())
+            result += ", ";
+        }
+      }
+      i1++;
+      if (i1 < ReplicaGroupLiteralWrapperInstance.groups.size())
+        result += ", ";
+    }
+  }
+  result += ")";
+  return result;
+};
+std::string to_string(ReplicaGroup &ReplicaGroupInstance) {
+  switch (ReplicaGroupInstance.tag) {
+  case (ReplicaGroup::Tag::unspecified): {
+    ReplicaGroupUnspecifiedWrapper &derivedRef =
+        static_cast<ReplicaGroupUnspecifiedWrapper &>(ReplicaGroupInstance);
+    return to_string(derivedRef);
+  }
+  case (ReplicaGroup::Tag::named): {
+    ReplicaGroupNamedWrapper &derivedRef =
+        static_cast<ReplicaGroupNamedWrapper &>(ReplicaGroupInstance);
+    return to_string(derivedRef);
+  }
+  case (ReplicaGroup::Tag::literal): {
+    ReplicaGroupLiteralWrapper &derivedRef =
+        static_cast<ReplicaGroupLiteralWrapper &>(ReplicaGroupInstance);
+    return to_string(derivedRef);
+  }
+  default:
+    return "UNABLE TO PRINT";
+  }
+};
+
 std::string to_string(CollectiveOp &CollectiveOpInstance) {
   std::string result;
   result += "CollectiveOp(";
@@ -2530,40 +2611,12 @@ std::string to_string(CollectiveOp &CollectiveOpInstance) {
     result += "None";
   }
   result += ", ";
-  result += "replicaGroups=";
-  if (CollectiveOpInstance.replicaGroups.has_value()) {
-    {
-      size_t i1 = 0;
-      for (List<Int> printListLoopItem1 :
-           CollectiveOpInstance.replicaGroups.value()) {
-        {
-          size_t i2 = 0;
-          for (Int printListLoopItem2 : printListLoopItem1) {
-            result += std::to_string(printListLoopItem2);
-            i2++;
-            if (i2 < printListLoopItem1.size())
-              result += ", ";
-          }
-        }
-        i1++;
-        if (i1 < CollectiveOpInstance.replicaGroups.value().size())
-          result += ", ";
-      }
-    }
-  } else {
-    result += "None";
-  }
+  result += "replicaGroup=";
+  result += to_string(*(CollectiveOpInstance.replicaGroup.get()));
   result += ", ";
-  result += "reduceScatterDim=";
-  if (CollectiveOpInstance.reduceScatterDim.has_value()) {
-    result += std::to_string(CollectiveOpInstance.reduceScatterDim.value());
-  } else {
-    result += "None";
-  }
-  result += ", ";
-  result += "allGatherDim=";
-  if (CollectiveOpInstance.allGatherDim.has_value()) {
-    result += std::to_string(CollectiveOpInstance.allGatherDim.value());
+  result += "concatDim=";
+  if (CollectiveOpInstance.concatDim.has_value()) {
+    result += std::to_string(CollectiveOpInstance.concatDim.value());
   } else {
     result += "None";
   }
@@ -2592,34 +2645,66 @@ std::string to_string(CollectiveOp &CollectiveOpInstance) {
     result += "None";
   }
   result += ", ";
-  result += "broacastSizes=";
-  if (CollectiveOpInstance.broacastSizes.has_value()) {
-    {
-      size_t i1 = 0;
-      for (Int printListLoopItem1 :
-           CollectiveOpInstance.broacastSizes.value()) {
-        result += std::to_string(printListLoopItem1);
-        i1++;
-        if (i1 < CollectiveOpInstance.broacastSizes.value().size())
-          result += ", ";
+  result += "channel_id=";
+  if (CollectiveOpInstance.channel_id.has_value()) {
+    result += std::to_string(CollectiveOpInstance.channel_id.value());
+  } else {
+    result += "None";
+  }
+  result += ", ";
+  result += "num_channels=";
+  if (CollectiveOpInstance.num_channels.has_value()) {
+    result += std::to_string(CollectiveOpInstance.num_channels.value());
+  } else {
+    result += "None";
+  }
+  result += ")";
+  return result;
+};
+
+std::string to_string(RankId &RankIdInstance) {
+  std::string result;
+  result += "RankId(";
+  result += "dst=";
+  result += RankIdInstance.dst;
+  result += ")";
+  return result;
+};
+
+std::string
+to_string(CurrentProcessingRankId &CurrentProcessingRankIdInstance) {
+  std::string result;
+  result += "CurrentProcessingRankId(";
+  result += "dst=";
+  result += CurrentProcessingRankIdInstance.dst;
+  result += ", ";
+  result += "iterationId=";
+  result += std::to_string(CurrentProcessingRankIdInstance.iterationId);
+  result += ", ";
+  result += "channelId=";
+  result += std::to_string(CurrentProcessingRankIdInstance.channelId);
+  result += ", ";
+  result += "numChannels=";
+  result += std::to_string(CurrentProcessingRankIdInstance.numChannels);
+  result += ", ";
+  result += "replicaGroup=";
+  {
+    size_t i1 = 0;
+    for (List<Int> printListLoopItem1 :
+         CurrentProcessingRankIdInstance.replicaGroup) {
+      {
+        size_t i2 = 0;
+        for (Int printListLoopItem2 : printListLoopItem1) {
+          result += std::to_string(printListLoopItem2);
+          i2++;
+          if (i2 < printListLoopItem1.size())
+            result += ", ";
+        }
       }
+      i1++;
+      if (i1 < CurrentProcessingRankIdInstance.replicaGroup.size())
+        result += ", ";
     }
-  } else {
-    result += "None";
-  }
-  result += ", ";
-  result += "splitDim=";
-  if (CollectiveOpInstance.splitDim.has_value()) {
-    result += std::to_string(CollectiveOpInstance.splitDim.value());
-  } else {
-    result += "None";
-  }
-  result += ", ";
-  result += "concatDim=";
-  if (CollectiveOpInstance.concatDim.has_value()) {
-    result += std::to_string(CollectiveOpInstance.concatDim.value());
-  } else {
-    result += "None";
   }
   result += ")";
   return result;
@@ -3392,12 +3477,12 @@ to_string(OperatorSendRecvWrapper &OperatorSendRecvWrapperInstance) {
   result += ")";
   return result;
 };
-std::string
-to_string(OperatorSendRecvCCEWrapper &OperatorSendRecvCCEWrapperInstance) {
+std::string to_string(
+    OperatorSendRecvComputeWrapper &OperatorSendRecvComputeWrapperInstance) {
   std::string result;
-  result += "OperatorSendRecvCCEWrapper(";
+  result += "OperatorSendRecvComputeWrapper(";
   result += "op=";
-  result += to_string(*(OperatorSendRecvCCEWrapperInstance.op.get()));
+  result += to_string(*(OperatorSendRecvComputeWrapperInstance.op.get()));
   result += ")";
   return result;
 };
@@ -3509,6 +3594,27 @@ std::string to_string(OperatorCollectivePermuteWrapper
   result += ")";
   return result;
 };
+std::string to_string(OperatorCollectivePermuteImplicitWrapper
+                          &OperatorCollectivePermuteImplicitWrapperInstance) {
+  std::string result;
+  result += "OperatorCollectivePermuteImplicitWrapper(";
+  result += "op=";
+  result +=
+      to_string(*(OperatorCollectivePermuteImplicitWrapperInstance.op.get()));
+  result += ")";
+  return result;
+};
+std::string
+to_string(OperatorCollectivePermuteImplicitReduceWrapper
+              &OperatorCollectivePermuteImplicitReduceWrapperInstance) {
+  std::string result;
+  result += "OperatorCollectivePermuteImplicitReduceWrapper(";
+  result += "op=";
+  result += to_string(
+      *(OperatorCollectivePermuteImplicitReduceWrapperInstance.op.get()));
+  result += ")";
+  return result;
+};
 std::string
 to_string(OperatorBroadcastWrapper &OperatorBroadcastWrapperInstance) {
   std::string result;
@@ -3524,6 +3630,24 @@ to_string(OperatorAllToAllWrapper &OperatorAllToAllWrapperInstance) {
   result += "OperatorAllToAllWrapper(";
   result += "op=";
   result += to_string(*(OperatorAllToAllWrapperInstance.op.get()));
+  result += ")";
+  return result;
+};
+std::string to_string(OperatorRankIdWrapper &OperatorRankIdWrapperInstance) {
+  std::string result;
+  result += "OperatorRankIdWrapper(";
+  result += "op=";
+  result += to_string(*(OperatorRankIdWrapperInstance.op.get()));
+  result += ")";
+  return result;
+};
+std::string to_string(OperatorCurrentProcessingRankIdWrapper
+                          &OperatorCurrentProcessingRankIdWrapperInstance) {
+  std::string result;
+  result += "OperatorCurrentProcessingRankIdWrapper(";
+  result += "op=";
+  result +=
+      to_string(*(OperatorCurrentProcessingRankIdWrapperInstance.op.get()));
   result += ")";
   return result;
 };
@@ -3844,9 +3968,9 @@ std::string to_string(Operator &OperatorInstance) {
         static_cast<OperatorSendRecvWrapper &>(OperatorInstance);
     return to_string(derivedRef);
   }
-  case (Operator::Tag::sendRecvCCE): {
-    OperatorSendRecvCCEWrapper &derivedRef =
-        static_cast<OperatorSendRecvCCEWrapper &>(OperatorInstance);
+  case (Operator::Tag::sendRecvCompute): {
+    OperatorSendRecvComputeWrapper &derivedRef =
+        static_cast<OperatorSendRecvComputeWrapper &>(OperatorInstance);
     return to_string(derivedRef);
   }
   case (Operator::Tag::tensorLoad): {
@@ -3909,6 +4033,18 @@ std::string to_string(Operator &OperatorInstance) {
         static_cast<OperatorCollectivePermuteWrapper &>(OperatorInstance);
     return to_string(derivedRef);
   }
+  case (Operator::Tag::collectivePermuteImplicit): {
+    OperatorCollectivePermuteImplicitWrapper &derivedRef =
+        static_cast<OperatorCollectivePermuteImplicitWrapper &>(
+            OperatorInstance);
+    return to_string(derivedRef);
+  }
+  case (Operator::Tag::collectivePermuteImplicitReduce): {
+    OperatorCollectivePermuteImplicitReduceWrapper &derivedRef =
+        static_cast<OperatorCollectivePermuteImplicitReduceWrapper &>(
+            OperatorInstance);
+    return to_string(derivedRef);
+  }
   case (Operator::Tag::broadcast): {
     OperatorBroadcastWrapper &derivedRef =
         static_cast<OperatorBroadcastWrapper &>(OperatorInstance);
@@ -3917,6 +4053,16 @@ std::string to_string(Operator &OperatorInstance) {
   case (Operator::Tag::allToAll): {
     OperatorAllToAllWrapper &derivedRef =
         static_cast<OperatorAllToAllWrapper &>(OperatorInstance);
+    return to_string(derivedRef);
+  }
+  case (Operator::Tag::rankId): {
+    OperatorRankIdWrapper &derivedRef =
+        static_cast<OperatorRankIdWrapper &>(OperatorInstance);
+    return to_string(derivedRef);
+  }
+  case (Operator::Tag::currentProcessingRankId): {
+    OperatorCurrentProcessingRankIdWrapper &derivedRef =
+        static_cast<OperatorCurrentProcessingRankIdWrapper &>(OperatorInstance);
     return to_string(derivedRef);
   }
   case (Operator::Tag::send): {

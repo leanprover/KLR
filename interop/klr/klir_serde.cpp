@@ -2749,23 +2749,23 @@ Ptr<SendRecv> SendRecv_des(FILE *in) {
   return x;
 }
 
-Ptr<SendRecvCCE> SendRecvCCE_des(FILE *in) {
+Ptr<SendRecvCompute> SendRecvCompute_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l)) {
     std::ostringstream msg;
-    msg << "Could not find tag, expecting SendRecvCCE:188,0";
+    msg << "Could not find tag, expecting SendRecvCompute:188,0";
     throw std::runtime_error(msg.str());
   }
   if (t != 188 || c != 0 || l != 6) {
     std::ostringstream msg;
-    msg << "Expecting SendRecvCCE:(188,0,6)";
+    msg << "Expecting SendRecvCompute:(188,0,6)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
-  Ptr<SendRecvCCE> x = ptr<SendRecvCCE>();
-  x->dst = TensorRef_des(in);
-  x->src = List_TensorRef_des(in);
-  x->sendToRank = Immediate_des(in);
+  Ptr<SendRecvCompute> x = ptr<SendRecvCompute>();
+  x->dsts = List_TensorRef_des(in);
+  x->srcs = List_TensorRef_des(in);
+  x->sendToRanks = List_Immediate_des(in);
   x->recvFromRanks = List_Immediate_des(in);
   x->pipeId = Immediate_des(in);
   x->op = AluOp_des(in);
@@ -2837,16 +2837,52 @@ Ptr<DmaCompute> DmaCompute_des(FILE *in) {
   return x;
 }
 
+Ptr<ReplicaGroup> ReplicaGroup_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l))
+    throw std::runtime_error("Could not read tag");
+  if (t != 198)
+    throw std::runtime_error("Unexpected type tag");
+  switch (c) {
+  case 0: {
+    if (l != 0)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<ReplicaGroupUnspecifiedWrapper> x =
+        ptr<ReplicaGroupUnspecifiedWrapper>();
+    return x;
+    break;
+  }
+  case 1: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<ReplicaGroupNamedWrapper> x = ptr<ReplicaGroupNamedWrapper>();
+    x->name = String_des(in);
+    return x;
+    break;
+  }
+  case 2: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<ReplicaGroupLiteralWrapper> x = ptr<ReplicaGroupLiteralWrapper>();
+    x->groups = List_List_Int_des(in);
+    return x;
+    break;
+  }
+  default:
+    throw std::runtime_error("Invalid value tag");
+  }
+}
+
 Ptr<CollectiveOp> CollectiveOp_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l)) {
     std::ostringstream msg;
-    msg << "Could not find tag, expecting CollectiveOp:198,0";
+    msg << "Could not find tag, expecting CollectiveOp:199,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 198 || c != 0 || l != 10) {
+  if (t != 199 || c != 0 || l != 8) {
     std::ostringstream msg;
-    msg << "Expecting CollectiveOp:(198,0,10)";
+    msg << "Expecting CollectiveOp:(199,0,8)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -2854,13 +2890,51 @@ Ptr<CollectiveOp> CollectiveOp_des(FILE *in) {
   x->dsts = List_TensorRef_des(in);
   x->srcs = List_TensorRef_des(in);
   x->op = Option_AluOp_des(in);
-  x->replicaGroups = Option_List_List_Int_des(in);
-  x->reduceScatterDim = Option_Int_des(in);
-  x->allGatherDim = Option_Int_des(in);
-  x->sourceTargetPairs = Option_List_List_Int_des(in);
-  x->broacastSizes = Option_List_Int_des(in);
-  x->splitDim = Option_Int_des(in);
+  x->replicaGroup = ReplicaGroup_des(in);
   x->concatDim = Option_Int_des(in);
+  x->sourceTargetPairs = Option_List_List_Int_des(in);
+  x->channel_id = Option_Int_des(in);
+  x->num_channels = Option_Int_des(in);
+  return x;
+}
+
+Ptr<RankId> RankId_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting RankId:200,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 200 || c != 0 || l != 1) {
+    std::ostringstream msg;
+    msg << "Expecting RankId:(200,0,1)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
+  Ptr<RankId> x = ptr<RankId>();
+  x->dst = String_des(in);
+  return x;
+}
+
+Ptr<CurrentProcessingRankId> CurrentProcessingRankId_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting CurrentProcessingRankId:201,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 201 || c != 0 || l != 5) {
+    std::ostringstream msg;
+    msg << "Expecting CurrentProcessingRankId:(201,0,5)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
+  Ptr<CurrentProcessingRankId> x = ptr<CurrentProcessingRankId>();
+  x->dst = String_des(in);
+  x->iterationId = Int_des(in);
+  x->channelId = Int_des(in);
+  x->numChannels = Int_des(in);
+  x->replicaGroup = List_List_Int_des(in);
   return x;
 }
 
@@ -2868,12 +2942,12 @@ Ptr<Send> Send_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l)) {
     std::ostringstream msg;
-    msg << "Could not find tag, expecting Send:199,0";
+    msg << "Could not find tag, expecting Send:202,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 199 || c != 0 || l != 3) {
+  if (t != 202 || c != 0 || l != 3) {
     std::ostringstream msg;
-    msg << "Expecting Send:(199,0,3)";
+    msg << "Expecting Send:(202,0,3)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -2888,12 +2962,12 @@ Ptr<Recv> Recv_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l)) {
     std::ostringstream msg;
-    msg << "Could not find tag, expecting Recv:200,0";
+    msg << "Could not find tag, expecting Recv:203,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 200 || c != 0 || l != 4) {
+  if (t != 203 || c != 0 || l != 4) {
     std::ostringstream msg;
-    msg << "Expecting Recv:(200,0,4)";
+    msg << "Expecting Recv:(203,0,4)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -3100,12 +3174,12 @@ Ptr<CoreBarrier> CoreBarrier_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l)) {
     std::ostringstream msg;
-    msg << "Could not find tag, expecting CoreBarrier:201,0";
+    msg << "Could not find tag, expecting CoreBarrier:204,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 201 || c != 0 || l != 3) {
+  if (t != 204 || c != 0 || l != 3) {
     std::ostringstream msg;
-    msg << "Expecting CoreBarrier:(201,0,3)";
+    msg << "Expecting CoreBarrier:(204,0,3)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -3120,12 +3194,12 @@ Ptr<Rng> Rng_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l)) {
     std::ostringstream msg;
-    msg << "Could not find tag, expecting Rng:202,0";
+    msg << "Could not find tag, expecting Rng:205,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 202 || c != 0 || l != 2) {
+  if (t != 205 || c != 0 || l != 2) {
     std::ostringstream msg;
-    msg << "Expecting Rng:(202,0,2)";
+    msg << "Expecting Rng:(205,0,2)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -3139,12 +3213,12 @@ Ptr<Rand2> Rand2_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l)) {
     std::ostringstream msg;
-    msg << "Could not find tag, expecting Rand2:203,0";
+    msg << "Could not find tag, expecting Rand2:206,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 203 || c != 0 || l != 3) {
+  if (t != 206 || c != 0 || l != 3) {
     std::ostringstream msg;
-    msg << "Expecting Rand2:(203,0,3)";
+    msg << "Expecting Rand2:(206,0,3)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -3159,12 +3233,12 @@ Ptr<RandGetState> RandGetState_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l)) {
     std::ostringstream msg;
-    msg << "Could not find tag, expecting RandGetState:204,0";
+    msg << "Could not find tag, expecting RandGetState:207,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 204 || c != 0 || l != 2) {
+  if (t != 207 || c != 0 || l != 2) {
     std::ostringstream msg;
-    msg << "Expecting RandGetState:(204,0,2)";
+    msg << "Expecting RandGetState:(207,0,2)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -3178,12 +3252,12 @@ Ptr<SetRngSeed> SetRngSeed_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l)) {
     std::ostringstream msg;
-    msg << "Could not find tag, expecting SetRngSeed:205,0";
+    msg << "Could not find tag, expecting SetRngSeed:208,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 205 || c != 0 || l != 1) {
+  if (t != 208 || c != 0 || l != 1) {
     std::ostringstream msg;
-    msg << "Expecting SetRngSeed:(205,0,1)";
+    msg << "Expecting SetRngSeed:(208,0,1)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -3196,12 +3270,12 @@ Ptr<RandSetState> RandSetState_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l)) {
     std::ostringstream msg;
-    msg << "Could not find tag, expecting RandSetState:206,0";
+    msg << "Could not find tag, expecting RandSetState:209,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 206 || c != 0 || l != 2) {
+  if (t != 209 || c != 0 || l != 2) {
     std::ostringstream msg;
-    msg << "Expecting RandSetState:(206,0,2)";
+    msg << "Expecting RandSetState:(209,0,2)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -3215,12 +3289,12 @@ Ptr<ExtendedInst> ExtendedInst_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l)) {
     std::ostringstream msg;
-    msg << "Could not find tag, expecting ExtendedInst:207,0";
+    msg << "Could not find tag, expecting ExtendedInst:210,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 207 || c != 0 || l != 6) {
+  if (t != 210 || c != 0 || l != 6) {
     std::ostringstream msg;
-    msg << "Expecting ExtendedInst:(207,0,6)";
+    msg << "Expecting ExtendedInst:(210,0,6)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -3238,12 +3312,12 @@ Ptr<TensorScalarCumulative> TensorScalarCumulative_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l)) {
     std::ostringstream msg;
-    msg << "Could not find tag, expecting TensorScalarCumulative:208,0";
+    msg << "Could not find tag, expecting TensorScalarCumulative:211,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 208 || c != 0 || l != 9) {
+  if (t != 211 || c != 0 || l != 9) {
     std::ostringstream msg;
-    msg << "Expecting TensorScalarCumulative:(208,0,9)";
+    msg << "Expecting TensorScalarCumulative:(211,0,9)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -3264,12 +3338,12 @@ Ptr<NcNGather> NcNGather_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l)) {
     std::ostringstream msg;
-    msg << "Could not find tag, expecting NcNGather:209,0";
+    msg << "Could not find tag, expecting NcNGather:212,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 209 || c != 0 || l != 4) {
+  if (t != 212 || c != 0 || l != 4) {
     std::ostringstream msg;
-    msg << "Expecting NcNGather:(209,0,4)";
+    msg << "Expecting NcNGather:(212,0,4)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -3285,7 +3359,7 @@ PrintOutputBuffer PrintOutputBuffer_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 210)
+  if (t != 213)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -3309,12 +3383,12 @@ Ptr<DevicePrint> DevicePrint_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l)) {
     std::ostringstream msg;
-    msg << "Could not find tag, expecting DevicePrint:211,0";
+    msg << "Could not find tag, expecting DevicePrint:214,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 211 || c != 0 || l != 3) {
+  if (t != 214 || c != 0 || l != 3) {
     std::ostringstream msg;
-    msg << "Expecting DevicePrint:(211,0,3)";
+    msg << "Expecting DevicePrint:(214,0,3)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -3329,7 +3403,7 @@ Ptr<Operator> Operator_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 212)
+  if (t != 215)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -3679,8 +3753,9 @@ Ptr<Operator> Operator_des(FILE *in) {
   case 42: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
-    Ptr<OperatorSendRecvCCEWrapper> x = ptr<OperatorSendRecvCCEWrapper>();
-    x->op = SendRecvCCE_des(in);
+    Ptr<OperatorSendRecvComputeWrapper> x =
+        ptr<OperatorSendRecvComputeWrapper>();
+    x->op = SendRecvCompute_des(in);
     return x;
     break;
   }
@@ -3784,7 +3859,8 @@ Ptr<Operator> Operator_des(FILE *in) {
   case 55: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
-    Ptr<OperatorBroadcastWrapper> x = ptr<OperatorBroadcastWrapper>();
+    Ptr<OperatorCollectivePermuteImplicitWrapper> x =
+        ptr<OperatorCollectivePermuteImplicitWrapper>();
     x->op = CollectiveOp_des(in);
     return x;
     break;
@@ -3792,7 +3868,8 @@ Ptr<Operator> Operator_des(FILE *in) {
   case 56: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
-    Ptr<OperatorAllToAllWrapper> x = ptr<OperatorAllToAllWrapper>();
+    Ptr<OperatorCollectivePermuteImplicitReduceWrapper> x =
+        ptr<OperatorCollectivePermuteImplicitReduceWrapper>();
     x->op = CollectiveOp_des(in);
     return x;
     break;
@@ -3800,12 +3877,45 @@ Ptr<Operator> Operator_des(FILE *in) {
   case 57: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorBroadcastWrapper> x = ptr<OperatorBroadcastWrapper>();
+    x->op = CollectiveOp_des(in);
+    return x;
+    break;
+  }
+  case 58: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorAllToAllWrapper> x = ptr<OperatorAllToAllWrapper>();
+    x->op = CollectiveOp_des(in);
+    return x;
+    break;
+  }
+  case 59: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorRankIdWrapper> x = ptr<OperatorRankIdWrapper>();
+    x->op = RankId_des(in);
+    return x;
+    break;
+  }
+  case 60: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorCurrentProcessingRankIdWrapper> x =
+        ptr<OperatorCurrentProcessingRankIdWrapper>();
+    x->op = CurrentProcessingRankId_des(in);
+    return x;
+    break;
+  }
+  case 61: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorSendWrapper> x = ptr<OperatorSendWrapper>();
     x->op = Send_des(in);
     return x;
     break;
   }
-  case 58: {
+  case 62: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorRecvWrapper> x = ptr<OperatorRecvWrapper>();
@@ -3813,7 +3923,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 59: {
+  case 63: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorCoreBarrierWrapper> x = ptr<OperatorCoreBarrierWrapper>();
@@ -3821,7 +3931,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 60: {
+  case 64: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorRngWrapper> x = ptr<OperatorRngWrapper>();
@@ -3829,7 +3939,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 61: {
+  case 65: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorRand2Wrapper> x = ptr<OperatorRand2Wrapper>();
@@ -3837,7 +3947,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 62: {
+  case 66: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorRandGetStateWrapper> x = ptr<OperatorRandGetStateWrapper>();
@@ -3845,7 +3955,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 63: {
+  case 67: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorSetRngSeedWrapper> x = ptr<OperatorSetRngSeedWrapper>();
@@ -3853,7 +3963,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 64: {
+  case 68: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorRandSetStateWrapper> x = ptr<OperatorRandSetStateWrapper>();
@@ -3861,7 +3971,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 65: {
+  case 69: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorExtendedInstWrapper> x = ptr<OperatorExtendedInstWrapper>();
@@ -3869,7 +3979,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 66: {
+  case 70: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorTensorScalarCumulativeWrapper> x =
@@ -3878,7 +3988,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 67: {
+  case 71: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorNcNGatherWrapper> x = ptr<OperatorNcNGatherWrapper>();
@@ -3886,7 +3996,7 @@ Ptr<Operator> Operator_des(FILE *in) {
     return x;
     break;
   }
-  case 68: {
+  case 72: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorDevicePrintWrapper> x = ptr<OperatorDevicePrintWrapper>();

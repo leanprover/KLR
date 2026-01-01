@@ -845,10 +845,10 @@ struct SendRecv final {
   Bool useGpsimdDma;
 };
 
-struct SendRecvCCE final {
-  Ptr<TensorRef> dst;
-  List<Ptr<TensorRef>> src;
-  Ptr<Immediate> sendToRank;
+struct SendRecvCompute final {
+  List<Ptr<TensorRef>> dsts;
+  List<Ptr<TensorRef>> srcs;
+  List<Ptr<Immediate>> sendToRanks;
   List<Ptr<Immediate>> recvFromRanks;
   Ptr<Immediate> pipeId;
   AluOp op;
@@ -877,17 +877,51 @@ struct DmaCompute final {
   AluOp reduceOp;
 };
 
+struct ReplicaGroup {
+  enum class Tag {
+    unspecified = 1,
+    named,
+    literal,
+  };
+  Tag tag;
+  ReplicaGroup(Tag tag) : tag(tag) {}
+};
+
+struct ReplicaGroupUnspecifiedWrapper final : ReplicaGroup {
+  ReplicaGroupUnspecifiedWrapper() : ReplicaGroup(Tag::unspecified) {}
+};
+
+struct ReplicaGroupNamedWrapper final : ReplicaGroup {
+  String name;
+  ReplicaGroupNamedWrapper() : ReplicaGroup(Tag::named) {}
+};
+
+struct ReplicaGroupLiteralWrapper final : ReplicaGroup {
+  List<List<Int>> groups;
+  ReplicaGroupLiteralWrapper() : ReplicaGroup(Tag::literal) {}
+};
+
 struct CollectiveOp final {
   List<Ptr<TensorRef>> dsts;
   List<Ptr<TensorRef>> srcs;
   Option<AluOp> op;
-  Option<List<List<Int>>> replicaGroups;
-  Option<Int> reduceScatterDim;
-  Option<Int> allGatherDim;
-  Option<List<List<Int>>> sourceTargetPairs;
-  Option<List<Int>> broacastSizes;
-  Option<Int> splitDim;
+  Ptr<ReplicaGroup> replicaGroup;
   Option<Int> concatDim;
+  Option<List<List<Int>>> sourceTargetPairs;
+  Option<Int> channel_id;
+  Option<Int> num_channels;
+};
+
+struct RankId final {
+  String dst;
+};
+
+struct CurrentProcessingRankId final {
+  String dst;
+  Int iterationId;
+  Int channelId;
+  Int numChannels;
+  List<List<Int>> replicaGroup;
 };
 
 struct Send final {
@@ -1064,7 +1098,7 @@ struct Operator {
     selectReduce,
     sequenceBounds,
     sendRecv,
-    sendRecvCCE,
+    sendRecvCompute,
     tensorLoad,
     tensorStore,
     registerMove,
@@ -1077,8 +1111,12 @@ struct Operator {
     allGather,
     reduceScatter,
     collectivePermute,
+    collectivePermuteImplicit,
+    collectivePermuteImplicitReduce,
     broadcast,
     allToAll,
+    rankId,
+    currentProcessingRankId,
     send,
     recv,
     coreBarrier,
@@ -1307,9 +1345,9 @@ struct OperatorSendRecvWrapper final : Operator {
   OperatorSendRecvWrapper() : Operator(Tag::sendRecv) {}
 };
 
-struct OperatorSendRecvCCEWrapper final : Operator {
-  Ptr<SendRecvCCE> op;
-  OperatorSendRecvCCEWrapper() : Operator(Tag::sendRecvCCE) {}
+struct OperatorSendRecvComputeWrapper final : Operator {
+  Ptr<SendRecvCompute> op;
+  OperatorSendRecvComputeWrapper() : Operator(Tag::sendRecvCompute) {}
 };
 
 struct OperatorTensorLoadWrapper final : Operator {
@@ -1372,6 +1410,18 @@ struct OperatorCollectivePermuteWrapper final : Operator {
   OperatorCollectivePermuteWrapper() : Operator(Tag::collectivePermute) {}
 };
 
+struct OperatorCollectivePermuteImplicitWrapper final : Operator {
+  Ptr<CollectiveOp> op;
+  OperatorCollectivePermuteImplicitWrapper()
+      : Operator(Tag::collectivePermuteImplicit) {}
+};
+
+struct OperatorCollectivePermuteImplicitReduceWrapper final : Operator {
+  Ptr<CollectiveOp> op;
+  OperatorCollectivePermuteImplicitReduceWrapper()
+      : Operator(Tag::collectivePermuteImplicitReduce) {}
+};
+
 struct OperatorBroadcastWrapper final : Operator {
   Ptr<CollectiveOp> op;
   OperatorBroadcastWrapper() : Operator(Tag::broadcast) {}
@@ -1380,6 +1430,17 @@ struct OperatorBroadcastWrapper final : Operator {
 struct OperatorAllToAllWrapper final : Operator {
   Ptr<CollectiveOp> op;
   OperatorAllToAllWrapper() : Operator(Tag::allToAll) {}
+};
+
+struct OperatorRankIdWrapper final : Operator {
+  Ptr<RankId> op;
+  OperatorRankIdWrapper() : Operator(Tag::rankId) {}
+};
+
+struct OperatorCurrentProcessingRankIdWrapper final : Operator {
+  Ptr<CurrentProcessingRankId> op;
+  OperatorCurrentProcessingRankIdWrapper()
+      : Operator(Tag::currentProcessingRankId) {}
 };
 
 struct OperatorSendWrapper final : Operator {

@@ -166,7 +166,7 @@ partial def operatorBasicTensors : Operator → List TensorRef
   | .selectReduce s => [s.dst, s.predicate, s.onTrue]
   | .sequenceBounds s => [s.dst, s.segmentIds]
   | .sendRecv s => [s.dst, s.src]
-  | .sendRecvCCE s => [s.dst]
+  | .sendRecvCompute _ => []
   | .tensorLoad s => [s.src]
   | .tensorStore s => [s.dst]
   | .registerMove _ => []
@@ -175,7 +175,9 @@ partial def operatorBasicTensors : Operator → List TensorRef
   | .quantizeMX q => [q.dst, q.src, q.dstScale]
   | .ncMatMulMX m => [m.dst, m.stationary, m.moving, m.stationaryScale, m.movingScale]
   | .dmaCompute d => [d.dst]
-  | .allReduce _ | .allGather _ | .reduceScatter _ | .collectivePermute _ | .broadcast _ | .allToAll _ => []
+  | .allReduce _ | .allGather _ | .reduceScatter _ | .allToAll _ | .broadcast _
+  | .collectivePermute _ | .collectivePermuteImplicit _ | .collectivePermuteImplicitReduce _ => []
+  | .rankId _ | .currentProcessingRankId _ => []
   | .send _ | .recv _ => []
   | .coreBarrier c => [c.data]
   | .rng r | .rand2 r | .randGetState r  => [r.dst]
@@ -198,9 +200,11 @@ partial def operatorAdditionalTensors : Operator → List TensorName
   | .activationReduce t => tensors t.reduceRes ++ tensors t.bias
   | .tensorScalarReduce t => tensors t.operand0
   | .selectReduce s => (tensors s.onFalse) ++ (tensors s.reduceRes)
-  | .sendRecvCCE s => tensors s.src
+  | .sendRecvCompute s => tensors s.dsts ++ tensors s.srcs
   | .dmaCompute d => tensors d.srcs
-  | .allReduce op | .allGather op | .reduceScatter op | .collectivePermute op | .broadcast op | .allToAll op => tensors $ op.dsts ++ op.srcs
+  | .allReduce op | .allGather op | .reduceScatter op | .broadcast op | .allToAll op
+  | .collectivePermute op | .collectivePermuteImplicit op | .collectivePermuteImplicitReduce op => 
+    tensors $ op.dsts ++ op.srcs
   | .send s => tensors s.srcs
   | .recv r => tensors r.dsts
   | .rand2 r => tensors r.min ++ tensors r.max
