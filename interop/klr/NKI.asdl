@@ -291,15 +291,24 @@ SequenceBounds = (TensorRef dst, TensorRef segmentIds, Dtype? dtype)
 
 SendRecv = (TensorRef dst, TensorRef src, Immediate sendToRank, Immediate recvFromRank, Immediate pipeId, Bool useGpsimdDma)
 
-SendRecvCCE = (TensorRef dst, TensorRef* src, Immediate sendToRank, Immediate* recvFromRanks, Immediate pipeId, AluOp op)
+SendRecvCompute = (TensorRef* dsts, TensorRef* srcs, Immediate* sendToRanks, Immediate* recvFromRanks, Immediate pipeId, AluOp op)
 
 QuantizeMX = (TensorRef dst, TensorRef src, TensorRef dstScale)
 
 MatMulMX = (TensorRef dst, TensorRef stationary, TensorRef moving, TensorRef stationaryScale, TensorRef movingScale, Nat*? tilePosition, Nat*? tileSize)
 
 DmaCompute = (TensorRef dst, TensorRef* srcs, Immediate* scales, AluOp reduceOp)
+ReplicaGroup =
+ | unspecified()
+ | named(String name)
+ | literal(Int** groups)
 
-CollectiveOp = (TensorRef* dsts, TensorRef* srcs, AluOp? op, Int**? replicaGroups, Int? reduceScatterDim, Int? allGatherDim, Int**? sourceTargetPairs, Int*? broacastSizes, Int? splitDim, Int? concatDim)
+
+CollectiveOp = (TensorRef* dsts, TensorRef* srcs, AluOp? op, ReplicaGroup replicaGroup, Int? concatDim, Int**? sourceTargetPairs, Int? channel_id, Int? num_channels)
+
+RankId = (String dst)
+
+CurrentProcessingRankId = (String dst, Int iterationId, Int channelId, Int numChannels, Int** replicaGroup)
 
 Send = (AluOp op, TensorRef* srcs, Int peerId)
 
@@ -394,7 +403,7 @@ Operator =
  | selectReduce(SelectReduce op)
  | sequenceBounds(SequenceBounds op)
  | sendRecv(SendRecv op)
- | sendRecvCCE(SendRecvCCE op)
+ | sendRecvCompute(SendRecvCompute op)
  | tensorLoad(TensorLoad op)
  | tensorStore(TensorStore op)
  | registerMove(RegisterMove op)
@@ -407,8 +416,12 @@ Operator =
  | allGather(CollectiveOp op)
  | reduceScatter(CollectiveOp op)
  | collectivePermute(CollectiveOp op)
+ | collectivePermuteImplicit(CollectiveOp op)
+ | collectivePermuteImplicitReduce(CollectiveOp op)
  | broadcast(CollectiveOp op)
  | allToAll(CollectiveOp op)
+ | rankId(RankId op)
+ | currentProcessingRankId(CurrentProcessingRankId op)
  | send(Send op)
  | recv(Recv op)
  | coreBarrier(CoreBarrier op)

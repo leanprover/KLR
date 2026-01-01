@@ -911,17 +911,17 @@ instance : MapTensorRefs SendRecv where
   mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src }
 
 @[serde tag = 188]
-structure SendRecvCCE where
-  dst : TensorRef
-  src : List TensorRef
-  sendToRank : Immediate
+structure SendRecvCompute where
+  dsts : List TensorRef
+  srcs : List TensorRef
+  sendToRanks : List Immediate
   recvFromRanks : List Immediate
   pipeId : Immediate
   op : AluOp
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-instance : MapTensorRefs SendRecvCCE where
-  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← op.src.mapM ft }
+instance : MapTensorRefs SendRecvCompute where
+  mapM ft _ op := do pure { op with dsts := ← op.dsts.mapM ft, srcs := ← op.srcs.mapM ft }
 
 /-
 Dynamic control flow operators
@@ -1021,23 +1021,48 @@ instance : MapTensorRefs DmaCompute where
   mapM ft _ op := do pure { op with dst := ← ft op.dst, srcs := ← op.srcs.mapM ft }
 
 @[serde tag = 198]
+inductive ReplicaGroup where
+  | unspecified
+  | named (name : String)
+  | literal (groups : List (List Int))
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+@[serde tag = 199]
 structure CollectiveOp where
   dsts : List TensorRef
   srcs : List TensorRef
-  op : Option AluOp
-  replicaGroups : Option (List (List Int))
-  reduceScatterDim : Option Int
-  allGatherDim : Option Int
-  sourceTargetPairs : Option (List (List Int))
-  broacastSizes : Option (List Int)
-  splitDim : Option Int
-  concatDim : Option Int
+  op : Option AluOp := none
+  replicaGroup : ReplicaGroup := .unspecified
+  concatDim : Option Int := none
+  sourceTargetPairs : Option (List (List Int)) := none
+  channel_id : Option Int := none
+  num_channels : Option Int := none
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 instance : MapTensorRefs CollectiveOp where
   mapM ft _ op := do pure { op with dsts := ← op.dsts.mapM ft, srcs := ← op.srcs.mapM ft }
 
-@[serde tag = 199]
+@[serde tag = 200]
+structure RankId where
+  dst : String
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+instance : MapTensorRefs RankId where
+  mapM _ _ op := pure op
+
+@[serde tag = 201]
+structure CurrentProcessingRankId where
+  dst : String
+  iterationId : Int
+  channelId : Int
+  numChannels : Int
+  replicaGroup : List (List Int)
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+instance : MapTensorRefs CurrentProcessingRankId where
+  mapM _ _ op := pure op
+
+@[serde tag = 202]
 structure Send where
   op : AluOp
   srcs : List TensorRef
@@ -1047,7 +1072,7 @@ deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 instance : MapTensorRefs Send where
   mapM ft _ op := do pure { op with srcs := ← op.srcs.mapM ft }
 
-@[serde tag = 200]
+@[serde tag = 203]
 structure Recv where
   op : AluOp
   dsts : List TensorRef
@@ -1058,7 +1083,7 @@ deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 instance : MapTensorRefs Recv where
   mapM ft _ op := do pure { op with dsts := ← op.dsts.mapM ft }
 
-@[serde tag = 201]
+@[serde tag = 204]
 structure CoreBarrier where
   data : TensorRef
   cores : List Int
@@ -1068,7 +1093,7 @@ deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 instance : MapTensorRefs CoreBarrier where
   mapM ft _ op := do pure { op with data := ← ft op.data }
 
-@[serde tag = 202]
+@[serde tag = 205]
 structure Rng where
   dst : TensorRef
   engine : Engine
@@ -1077,7 +1102,7 @@ deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 instance : MapTensorRefs Rng where
   mapM ft _ op := do pure { op with dst := ← ft op.dst }
 
-@[serde tag = 203]
+@[serde tag = 206]
 structure Rand2 where
   dst : TensorRef
   min : Operand
@@ -1087,7 +1112,7 @@ deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 instance : MapTensorRefs Rand2 where
   mapM ft fo op := do pure { op with dst := ← ft op.dst, min := ← fo op.min, max := ← fo op.max }
 
-@[serde tag = 204]
+@[serde tag = 207]
 structure RandGetState where
   dst : TensorRef
   engine : Engine
@@ -1097,7 +1122,7 @@ instance : MapTensorRefs RandGetState where
   mapM ft _ op := do pure { op with dst := ← ft op.dst }
 
 -- trn1 and trn2
-@[serde tag = 205]
+@[serde tag = 208]
 structure SetRngSeed where
   src : TensorRef
 deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
@@ -1106,7 +1131,7 @@ instance : MapTensorRefs SetRngSeed where
   mapM ft _ op := do pure { op with src := ← ft op.src }
 
 -- trn2+
-@[serde tag = 206]
+@[serde tag = 209]
 structure RandSetState where
   src : TensorRef
   engine : Engine
@@ -1115,7 +1140,7 @@ deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 instance : MapTensorRefs RandSetState where
   mapM ft _ op := do pure { op with src := ← ft op.src }
 
-@[serde tag = 207]
+@[serde tag = 210]
 structure ExtendedInst where
   opcode : Nat
   hasRead : Bool
@@ -1128,7 +1153,7 @@ deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 instance : MapTensorRefs ExtendedInst where
   mapM _ _ op := pure op
 
-@[serde tag = 208]
+@[serde tag = 211]
 structure TensorScalarCumulative where
   dst : TensorRef
   src : TensorRef
@@ -1144,7 +1169,7 @@ structure TensorScalarCumulative where
 instance : MapTensorRefs TensorScalarCumulative where
   mapM ft fo op := do pure { op with dst := ← ft op.dst, src := ← ft op.src, imm0 := ← fo op.imm0, imm1 := ← op.imm1.mapM fo }
 
-@[serde tag = 209]
+@[serde tag = 212]
 structure NcNGather where
   dst : TensorRef
   data : TensorRef
@@ -1156,7 +1181,7 @@ instance : MapTensorRefs NcNGather where
   mapM ft _ op := do pure { op with dst := ← ft op.dst, data := ← ft op.data, indices := ← ft op.indices }
 
 -- Device Print support
-@[serde tag = 210]
+@[serde tag = 213]
 inductive PrintOutputBuffer where
   | stdout | stderr
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
@@ -1168,7 +1193,7 @@ def toName (m : PrintOutputBuffer) :=
   | .stderr => `stderr
 end PrintOutputBuffer
 
-@[serde tag = 211]
+@[serde tag = 214]
 structure DevicePrint where
   src : TensorRef
   printPrefix : String
@@ -1178,7 +1203,7 @@ structure DevicePrint where
 instance : MapTensorRefs DevicePrint where
   mapM ft _ op := do pure { op with src := ← ft op.src }
 
-@[serde tag = 212]
+@[serde tag = 215]
 inductive Operator where
   | activate (op : Activate)
   | ncActivate (op : NcActivate)
@@ -1222,7 +1247,7 @@ inductive Operator where
   | selectReduce (op : SelectReduce)
   | sequenceBounds (op : SequenceBounds)
   | sendRecv (op : SendRecv)
-  | sendRecvCCE (op : SendRecvCCE)
+  | sendRecvCompute (op : SendRecvCompute)
   | tensorLoad (op : TensorLoad)
   | tensorStore (op : TensorStore)
   | registerMove (op : RegisterMove)
@@ -1235,8 +1260,12 @@ inductive Operator where
   | allGather (op : CollectiveOp)
   | reduceScatter (op : CollectiveOp)
   | collectivePermute (op : CollectiveOp)
+  | collectivePermuteImplicit (op : CollectiveOp)
+  | collectivePermuteImplicitReduce (op : CollectiveOp)
   | broadcast (op : CollectiveOp)
   | allToAll (op : CollectiveOp)
+  | rankId (op : RankId)
+  | currentProcessingRankId (op : CurrentProcessingRankId)
   | send (op : Send)
   | recv (op : Recv)
   | coreBarrier (op : CoreBarrier)
@@ -1251,7 +1280,7 @@ inductive Operator where
   | devicePrint (op: DevicePrint)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 213]
+@[serde tag = 216]
 inductive TGROperator where
   | activate (op : Activate)
   | affineSelect (op : AffineSelect)
@@ -1327,7 +1356,7 @@ instance : MapTensorRefs Operator where
   | .selectReduce op => return .selectReduce (← MapTensorRefs.mapM ft fo op)
   | .sequenceBounds op => return .sequenceBounds (← MapTensorRefs.mapM ft fo op)
   | .sendRecv op => return .sendRecv (← MapTensorRefs.mapM ft fo op)
-  | .sendRecvCCE op => return .sendRecvCCE (← MapTensorRefs.mapM ft fo op)
+  | .sendRecvCompute op => return .sendRecvCompute (← MapTensorRefs.mapM ft fo op)
   | .tensorLoad op => return .tensorLoad (← MapTensorRefs.mapM ft fo op)
   | .tensorStore op => return .tensorStore (← MapTensorRefs.mapM ft fo op)
   | .registerMove op => return .registerMove (← MapTensorRefs.mapM ft fo op)
@@ -1340,8 +1369,12 @@ instance : MapTensorRefs Operator where
   | .allGather op => return .allGather (← MapTensorRefs.mapM ft fo op)
   | .reduceScatter op => return .reduceScatter (← MapTensorRefs.mapM ft fo op)
   | .collectivePermute op => return .collectivePermute (← MapTensorRefs.mapM ft fo op)
+  | .collectivePermuteImplicit op => return .collectivePermuteImplicit (← MapTensorRefs.mapM ft fo op)
+  | .collectivePermuteImplicitReduce op => return .collectivePermuteImplicitReduce (← MapTensorRefs.mapM ft fo op)
   | .broadcast op => return .broadcast (← MapTensorRefs.mapM ft fo op)
   | .allToAll op => return .allToAll (← MapTensorRefs.mapM ft fo op)
+  | .rankId op => return .rankId (← MapTensorRefs.mapM ft fo op)
+  | .currentProcessingRankId op => return .currentProcessingRankId (← MapTensorRefs.mapM ft fo op)
   | .send op => return .send (← MapTensorRefs.mapM ft fo op)
   | .recv op => return .recv (← MapTensorRefs.mapM ft fo op)
   | .coreBarrier op => return .coreBarrier (← MapTensorRefs.mapM ft fo op)

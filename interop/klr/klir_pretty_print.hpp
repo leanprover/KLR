@@ -202,7 +202,7 @@ std::string to_string(SequenceBounds &SequenceBoundsInstance);
 
 std::string to_string(SendRecv &SendRecvInstance);
 
-std::string to_string(SendRecvCCE &SendRecvCCEInstance);
+std::string to_string(SendRecvCompute &SendRecvComputeInstance);
 
 std::string to_string(QuantizeMX &QuantizeMXInstance);
 
@@ -210,7 +210,19 @@ std::string to_string(MatMulMX &MatMulMXInstance);
 
 std::string to_string(DmaCompute &DmaComputeInstance);
 
+std::string to_string(
+    ReplicaGroupUnspecifiedWrapper &ReplicaGroupUnspecifiedWrapperInstance);
+std::string
+to_string(ReplicaGroupNamedWrapper &ReplicaGroupNamedWrapperInstance);
+std::string
+to_string(ReplicaGroupLiteralWrapper &ReplicaGroupLiteralWrapperInstance);
+std::string to_string(ReplicaGroup &ReplicaGroupInstance);
+
 std::string to_string(CollectiveOp &CollectiveOpInstance);
+
+std::string to_string(RankId &RankIdInstance);
+
+std::string to_string(CurrentProcessingRankId &CurrentProcessingRankIdInstance);
 
 std::string to_string(Send &SendInstance);
 
@@ -322,8 +334,8 @@ to_string(OperatorSelectReduceWrapper &OperatorSelectReduceWrapperInstance);
 std::string
 to_string(OperatorSequenceBoundsWrapper &OperatorSequenceBoundsWrapperInstance);
 std::string to_string(OperatorSendRecvWrapper &OperatorSendRecvWrapperInstance);
-std::string
-to_string(OperatorSendRecvCCEWrapper &OperatorSendRecvCCEWrapperInstance);
+std::string to_string(
+    OperatorSendRecvComputeWrapper &OperatorSendRecvComputeWrapperInstance);
 std::string
 to_string(OperatorTensorLoadWrapper &OperatorTensorLoadWrapperInstance);
 std::string
@@ -348,9 +360,17 @@ std::string
 to_string(OperatorReduceScatterWrapper &OperatorReduceScatterWrapperInstance);
 std::string to_string(
     OperatorCollectivePermuteWrapper &OperatorCollectivePermuteWrapperInstance);
+std::string to_string(OperatorCollectivePermuteImplicitWrapper
+                          &OperatorCollectivePermuteImplicitWrapperInstance);
+std::string
+to_string(OperatorCollectivePermuteImplicitReduceWrapper
+              &OperatorCollectivePermuteImplicitReduceWrapperInstance);
 std::string
 to_string(OperatorBroadcastWrapper &OperatorBroadcastWrapperInstance);
 std::string to_string(OperatorAllToAllWrapper &OperatorAllToAllWrapperInstance);
+std::string to_string(OperatorRankIdWrapper &OperatorRankIdWrapperInstance);
+std::string to_string(OperatorCurrentProcessingRankIdWrapper
+                          &OperatorCurrentProcessingRankIdWrapperInstance);
 std::string to_string(OperatorSendWrapper &OperatorSendWrapperInstance);
 std::string to_string(OperatorRecvWrapper &OperatorRecvWrapperInstance);
 std::string
