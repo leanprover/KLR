@@ -19,7 +19,7 @@ CC := clang -std=c17 -g -Wall -Wextra -Wno-unused-command-line-argument
 C := region.c peg_parser.c gather.c frontend.c klr_ffi.c
 O := $(patsubst %.c,%.${PY_VER}.o,$C)
 
-TESTS := cbor_test
+TESTS := cbor_test roundtrip_test klir_roundtrip_test
 
 .SUFFIXES:
 .PHONY: all versions test clean
@@ -39,6 +39,7 @@ clean:
 	rm -f *.o *.so
 	rm -f ${TESTS}
 	rm -f load_test
+	rm -f roundtrip_test
 
 peg_parser.${PY_VER}.o: $(wildcard *.c)
 
@@ -94,6 +95,16 @@ frontend${PY_EXT}: $(O) $(KLR_A)
 cbor_test: cbor_test.c
 	clang -std=c17 ${PY_CFLAGS} $< -o $@
 	./$@
+
+# Round trip tests for serialization/deserialization
+klir_common_roundtrip_test: klir_common_roundtrip_test.cpp klir_common.cpp klir_common.hpp region.c cbor.c
+	gcc -O0 -g -std=c17 -Wall -c region.c cbor.c
+	g++ -O0 -g --std=c++17 -Wall -o klir_common_roundtrip_test klir_common_roundtrip_test.cpp klir_common.cpp cbor.o region.o
+
+# KLIR round trip tests for serialization/deserialization
+klir_roundtrip_test: klir_roundtrip_test.cpp klir_serde.cpp klir_common.cpp klir_common.hpp klir_serde.hpp region.c cbor.c
+	gcc -O0 -g -std=c17 -Wall -c region.c cbor.c
+	g++ -O0 -g --std=c++17 -Wall -o klir_roundtrip_test klir_roundtrip_test.cpp klir_serde.cpp klir_common.cpp cbor.o region.o
 
 # Simulate production build
 load_test: *.cpp *.hpp region.c cbor.c
