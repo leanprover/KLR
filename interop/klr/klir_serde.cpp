@@ -12,6 +12,285 @@ Written by the KLR Contributors (https://github.com/leanprover/KLR)
 
 namespace klr {
 
+bool List_Bool_ser(FILE *out, const List<Bool> &value) {
+  if (!serialize_array_start(out, value.size()))
+    return false;
+
+  for (const auto &item : value) {
+    if (!Bool_ser(out, item))
+      return false;
+  }
+  return true;
+}
+
+bool List_Nat_ser(FILE *out, const List<Nat> &value) {
+  if (!serialize_array_start(out, value.size()))
+    return false;
+
+  for (const auto &item : value) {
+    if (!Nat_ser(out, item))
+      return false;
+  }
+  return true;
+}
+
+bool List_Int_ser(FILE *out, const List<Int> &value) {
+  if (!serialize_array_start(out, value.size()))
+    return false;
+
+  for (const auto &item : value) {
+    if (!Int_ser(out, item))
+      return false;
+  }
+  return true;
+}
+
+bool List_Float_ser(FILE *out, const List<Float> &value) {
+  if (!serialize_array_start(out, value.size()))
+    return false;
+
+  for (const auto &item : value) {
+    if (!Float_ser(out, item))
+      return false;
+  }
+  return true;
+}
+
+bool List_String_ser(FILE *out, const List<String> &value) {
+  if (!serialize_array_start(out, value.size()))
+    return false;
+
+  for (const auto &item : value) {
+    if (!String_ser(out, item))
+      return false;
+  }
+  return true;
+}
+
+bool Option_Bool_ser(FILE *out, const Option<Bool> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return Bool_ser(out, value.value);
+  }
+  return true;
+}
+
+bool Option_Nat_ser(FILE *out, const Option<Nat> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return Nat_ser(out, value.value);
+  }
+  return true;
+}
+
+bool Option_Int_ser(FILE *out, const Option<Int> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return Int_ser(out, value.value);
+  }
+  return true;
+}
+
+bool Option_Float_ser(FILE *out, const Option<Float> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return Float_ser(out, value.value);
+  }
+  return true;
+}
+
+bool Option_String_ser(FILE *out, const Option<String> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return String_ser(out, value.value);
+  }
+  return true;
+}
+
+bool Option_List_Bool_ser(FILE *out, const Option<List<Bool>> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return List_Bool_ser(out, value.value);
+  }
+  return true;
+}
+
+bool Option_List_Nat_ser(FILE *out, const Option<List<Nat>> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return List_Nat_ser(out, value.value);
+  }
+  return true;
+}
+
+bool Option_List_Int_ser(FILE *out, const Option<List<Int>> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return List_Int_ser(out, value.value);
+  }
+  return true;
+}
+
+bool Option_List_Float_ser(FILE *out, const Option<List<Float>> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return List_Float_ser(out, value.value);
+  }
+  return true;
+}
+
+bool Option_List_String_ser(FILE *out, const Option<List<String>> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return List_String_ser(out, value.value);
+  }
+  return true;
+}
+
+bool List_List_Bool_ser(FILE *out, const List<List<Bool>> &value) {
+  if (!serialize_array_start(out, value.size()))
+    return false;
+
+  for (const auto &item : value) {
+    if (!List_Bool_ser(out, item))
+      return false;
+  }
+  return true;
+}
+
+bool List_List_Nat_ser(FILE *out, const List<List<Nat>> &value) {
+  if (!serialize_array_start(out, value.size()))
+    return false;
+
+  for (const auto &item : value) {
+    if (!List_Nat_ser(out, item))
+      return false;
+  }
+  return true;
+}
+
+bool List_List_Int_ser(FILE *out, const List<List<Int>> &value) {
+  if (!serialize_array_start(out, value.size()))
+    return false;
+
+  for (const auto &item : value) {
+    if (!List_Int_ser(out, item))
+      return false;
+  }
+  return true;
+}
+
+bool List_List_Float_ser(FILE *out, const List<List<Float>> &value) {
+  if (!serialize_array_start(out, value.size()))
+    return false;
+
+  for (const auto &item : value) {
+    if (!List_Float_ser(out, item))
+      return false;
+  }
+  return true;
+}
+
+bool List_List_String_ser(FILE *out, const List<List<String>> &value) {
+  if (!serialize_array_start(out, value.size()))
+    return false;
+
+  for (const auto &item : value) {
+    if (!List_String_ser(out, item))
+      return false;
+  }
+  return true;
+}
+
+bool Option_List_List_Bool_ser(FILE *out,
+                               const Option<List<List<Bool>>> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return List_List_Bool_ser(out, value.value);
+  }
+  return true;
+}
+
+bool Option_List_List_Nat_ser(FILE *out, const Option<List<List<Nat>>> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return List_List_Nat_ser(out, value.value);
+  }
+  return true;
+}
+
+bool Option_List_List_Int_ser(FILE *out, const Option<List<List<Int>>> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return List_List_Int_ser(out, value.value);
+  }
+  return true;
+}
+
+bool Option_List_List_Float_ser(FILE *out,
+                                const Option<List<List<Float>>> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return List_List_Float_ser(out, value.value);
+  }
+  return true;
+}
+
+bool Option_List_List_String_ser(FILE *out,
+                                 const Option<List<List<String>>> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return List_List_String_ser(out, value.value);
+  }
+  return true;
+}
+
+bool Pos_ser(FILE *out, const Ptr<Pos> &value) {
+  if (!serialize_tag(out, 100, 0, 5))
+    return false;
+  if (!Nat_ser(out, value->line))
+    return false;
+  if (!Nat_ser(out, value->column))
+    return false;
+  if (!Option_Nat_ser(out, value->lineEnd))
+    return false;
+  if (!Option_Nat_ser(out, value->columnEnd))
+    return false;
+  if (!Option_String_ser(out, value->filename))
+    return false;
+  return true;
+}
+
 List<Bool> List_Bool_des(FILE *in) {
   u64 size = 0;
   if (!deserialize_array_start(in, &size))
@@ -327,6 +606,3121 @@ Ptr<Pos> Pos_des(FILE *in) {
   x->columnEnd = Option_Nat_des(in);
   x->filename = Option_String_des(in);
   return x;
+}
+
+bool Immediate_ser(FILE *out, const Ptr<Immediate> &value) {
+  u8 tag_val = 0;
+  u8 field_count = 0;
+
+  // Map immediate tags to their serialization case numbers
+  switch (value->tag) {
+  case Immediate::Tag::reg:
+    tag_val = 0;
+    field_count = 1;
+    break;
+  case Immediate::Tag::pointer:
+    tag_val = 1;
+    field_count = 0;
+    break;
+  case Immediate::Tag::int32:
+    tag_val = 2;
+    field_count = 1;
+    break;
+  case Immediate::Tag::float32:
+    tag_val = 3;
+    field_count = 1;
+    break;
+  default:
+    throw std::runtime_error("Unknown immediate type in serialization");
+    return false;
+  }
+
+  // Serialize the tag (using correct tag number 131)
+  if (!serialize_tag(out, 131, tag_val, field_count))
+    return false;
+
+  // Serialize the fields based on the specific variant
+  switch (value->tag) {
+  case Immediate::Tag::reg: {
+    auto *typed_value =
+        static_cast<const ImmediateRegisterWrapper *>(value.get());
+    return Nat_ser(out, typed_value->reg);
+  }
+  case Immediate::Tag::pointer: {
+    // No fields to serialize for pointer
+    return true;
+  }
+  case Immediate::Tag::int32: {
+    auto *typed_value = static_cast<const ImmediateIntWrapper *>(value.get());
+    return Int_ser(out, typed_value->i);
+  }
+  case Immediate::Tag::float32: {
+    auto *typed_value = static_cast<const ImmediateFloatWrapper *>(value.get());
+    return Float_ser(out, typed_value->f);
+  }
+  default:
+    throw std::runtime_error("Unknown immediate type in serialization");
+    return false;
+  }
+}
+
+bool Memory_ser(FILE *out, const Memory &value) {
+  u8 tag_val = 0;
+  switch (value) {
+  case Memory::hbm:
+    tag_val = 0;
+    break;
+  case Memory::sbuf:
+    tag_val = 1;
+    break;
+  case Memory::psum:
+    tag_val = 2;
+    break;
+  case Memory::reg:
+    tag_val = 3;
+    break;
+  case Memory::shared_hbm:
+    tag_val = 4;
+    break;
+  case Memory::private_hbm:
+    tag_val = 5;
+    break;
+  default:
+    return false;
+  }
+  return serialize_tag(out, 110, tag_val, 0);
+}
+
+bool Dtype_ser(FILE *out, const Dtype &value) {
+  u8 tag_val = 0;
+  switch (value) {
+  case Dtype::bfloat16:
+    tag_val = 0;
+    break;
+  case Dtype::float8e3:
+    tag_val = 1;
+    break;
+  case Dtype::float8e4:
+    tag_val = 2;
+    break;
+  case Dtype::float8e5:
+    tag_val = 3;
+    break;
+  case Dtype::float16:
+    tag_val = 4;
+    break;
+  case Dtype::float32:
+    tag_val = 5;
+    break;
+  case Dtype::float32r:
+    tag_val = 6;
+    break;
+  case Dtype::int8:
+    tag_val = 7;
+    break;
+  case Dtype::int16:
+    tag_val = 8;
+    break;
+  case Dtype::int64:
+    tag_val = 9;
+    break;
+  case Dtype::int32:
+    tag_val = 10;
+    break;
+  case Dtype::uint8:
+    tag_val = 11;
+    break;
+  case Dtype::uint16:
+    tag_val = 12;
+    break;
+  case Dtype::uint32:
+    tag_val = 13;
+    break;
+  case Dtype::uint64:
+    tag_val = 14;
+    break;
+  case Dtype::float8_e4m3:
+    tag_val = 15;
+    break;
+  case Dtype::float8_e4m3fn:
+    tag_val = 16;
+    break;
+  case Dtype::float8_e5m2_x4:
+    tag_val = 17;
+    break;
+  case Dtype::float8_e4m3fn_x4:
+    tag_val = 18;
+    break;
+  case Dtype::float4_e2m1fn_x4:
+    tag_val = 19;
+    break;
+  default:
+    return false;
+  }
+  return serialize_tag(out, 111, tag_val, 0);
+}
+
+bool Shape_ser(FILE *out, const Ptr<Shape> &value) {
+  if (!serialize_tag(out, 112, 0, 2))
+    return false;
+  if (!Nat_ser(out, value->parDim))
+    return false;
+  if (!List_Nat_ser(out, value->freeDims))
+    return false;
+  return true;
+}
+
+bool Address_ser(FILE *out, const Ptr<Address> &value) {
+  if (!serialize_tag(out, 113, 0, 7))
+    return false;
+  if (!String_ser(out, value->name))
+    return false;
+  if (!Memory_ser(out, value->memory))
+    return false;
+  if (!Nat_ser(out, value->parSize))
+    return false;
+  if (!Nat_ser(out, value->freeSize))
+    return false;
+  if (!Option_Nat_ser(out, value->parOffset))
+    return false;
+  if (!Option_Nat_ser(out, value->freeOffset))
+    return false;
+  if (!Bool_ser(out, value->isShared))
+    return false;
+  return true;
+}
+
+bool TensorName_ser(FILE *out, const Ptr<TensorName> &value) {
+  if (!serialize_tag(out, 114, 0, 8))
+    return false;
+  if (!String_ser(out, value->name))
+    return false;
+  if (!Dtype_ser(out, value->dtype))
+    return false;
+  if (!Shape_ser(out, value->shape))
+    return false;
+  if (!Address_ser(out, value->address))
+    return false;
+  if (!Nat_ser(out, value->freeElements))
+    return false;
+  if (!Prop_ser(out, value->parWF))
+    return false;
+  if (!Prop_ser(out, value->freeWF))
+    return false;
+  if (!Bool_ser(out, value->addressRotation))
+    return false;
+  return true;
+}
+
+bool Slice_ser(FILE *out, const Ptr<Slice> &value) {
+  if (!serialize_tag(out, 115, 0, 4))
+    return false;
+  if (!Nat_ser(out, value->l))
+    return false;
+  if (!Nat_ser(out, value->u))
+    return false;
+  if (!Int_ser(out, value->step))
+    return false;
+  if (!Prop_ser(out, value->wf))
+    return false;
+  return true;
+}
+
+bool Index_ser(FILE *out, const Ptr<Index> &value) {
+  u8 tag_val = 0;
+  u8 field_count = 1; // All Index variants have exactly 1 field
+
+  // Map Index tags to their serialization case numbers
+  switch (value->tag) {
+  case Index::Tag::coord:
+    tag_val = 0;
+    break;
+  case Index::Tag::slice:
+    tag_val = 1;
+    break;
+  default:
+    throw std::runtime_error("Unknown Index type in serialization");
+    return false;
+  }
+
+  // Serialize the tag (using correct tag number 117)
+  if (!serialize_tag(out, 117, tag_val, field_count))
+    return false;
+
+  // Serialize the fields based on the specific variant
+  switch (value->tag) {
+  case Index::Tag::coord: {
+    auto *typed_value = static_cast<const IndexCoordWrapper *>(value.get());
+    return Nat_ser(out, typed_value->e);
+  }
+  case Index::Tag::slice: {
+    auto *typed_value = static_cast<const IndexSliceWrapper *>(value.get());
+    return Slice_ser(out, typed_value->slice);
+  }
+  default:
+    throw std::runtime_error("Unknown Index type in serialization");
+    return false;
+  }
+}
+
+bool AccessBasic_ser(FILE *out, const Ptr<AccessBasic> &value) {
+  if (!serialize_tag(out, 118, 0, 3))
+    return false;
+  if (!TensorName_ser(out, value->tensor))
+    return false;
+  if (!List_Index_ser(out, value->indexes))
+    return false;
+  if (!Prop_ser(out, value->lenWF))
+    return false;
+  return true;
+}
+
+bool APPair_ser(FILE *out, const Ptr<APPair> &value) {
+  if (!serialize_tag(out, 119, 0, 3))
+    return false;
+  if (!Int_ser(out, value->step))
+    return false;
+  if (!Nat_ser(out, value->num))
+    return false;
+  if (!Nat_ser(out, value->offset))
+    return false;
+  return true;
+}
+
+bool AccessPattern_ser(FILE *out, const Ptr<AccessPattern> &value) {
+  if (!serialize_tag(out, 120, 0, 6))
+    return false;
+  if (!TensorName_ser(out, value->tensor))
+    return false;
+  if (!Nat_ser(out, value->parNum))
+    return false;
+  if (!List_APPair_ser(out, value->pattern))
+    return false;
+  if (!Nat_ser(out, value->parOffset))
+    return false;
+  if (!Nat_ser(out, value->freeOffset))
+    return false;
+  if (!List_Nat_ser(out, value->fixedAxis))
+    return false;
+  return true;
+}
+
+bool ScalarOffset_ser(FILE *out, const Ptr<ScalarOffset> &value) {
+  u8 tag_val = 0;
+  u8 field_count = 1; // All ScalarOffset variants have exactly 1 field
+
+  // Map ScalarOffset tags to their serialization case numbers
+  switch (value->tag) {
+  case ScalarOffset::Tag::reg:
+    tag_val = 0;
+    break;
+  case ScalarOffset::Tag::acc:
+    tag_val = 1;
+    break;
+  default:
+    throw std::runtime_error("Unknown ScalarOffset type in serialization");
+    return false;
+  }
+
+  // Serialize the tag (using correct tag number 123)
+  if (!serialize_tag(out, 123, tag_val, field_count))
+    return false;
+
+  // Serialize the fields based on the specific variant
+  switch (value->tag) {
+  case ScalarOffset::Tag::reg: {
+    auto *typed_value =
+        static_cast<const ScalarOffsetRegWrapper *>(value.get());
+    return String_ser(out, typed_value->r);
+  }
+  case ScalarOffset::Tag::acc: {
+    auto *typed_value =
+        static_cast<const ScalarOffsetAccWrapper *>(value.get());
+    return Access_ser(out, typed_value->a);
+  }
+  default:
+    throw std::runtime_error("Unknown ScalarOffset type in serialization");
+    return false;
+  }
+}
+
+bool BirAccessPattern_ser(FILE *out, const Ptr<BirAccessPattern> &value) {
+  if (!serialize_tag(out, 124, 0, 7))
+    return false;
+  if (!TensorName_ser(out, value->tensor))
+    return false;
+  if (!Nat_ser(out, value->offset))
+    return false;
+  if (!List_APPair_ser(out, value->pattern))
+    return false;
+  if (!Option_ScalarOffset_ser(out, value->scalarOffset))
+    return false;
+  if (!Option_Access_ser(out, value->vectorOffset))
+    return false;
+  if (!Int_ser(out, value->indirectDim))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtypeOverride))
+    return false;
+  return true;
+}
+
+bool Access_ser(FILE *out, const Ptr<Access> &value) {
+  u8 tag_val = 0;
+  u8 field_count = 1; // All Access variants have exactly 1 field
+
+  // Map Access tags to their serialization case numbers
+  switch (value->tag) {
+  case Access::Tag::simple:
+    tag_val = 0;
+    break;
+  case Access::Tag::basic:
+    tag_val = 1;
+    break;
+  case Access::Tag::pattern:
+    tag_val = 2;
+    break;
+  case Access::Tag::birPattern:
+    tag_val = 3;
+    break;
+  default:
+    throw std::runtime_error("Unknown Access type in serialization");
+    return false;
+  }
+
+  // Serialize the tag
+  if (!serialize_tag(out, 125, tag_val, field_count))
+    return false;
+
+  // Serialize the fields based on the specific variant
+  switch (value->tag) {
+  case Access::Tag::simple: {
+    auto *typed_value = static_cast<const AccessSimpleWrapper *>(value.get());
+    return TensorName_ser(out, typed_value->tensor);
+  }
+  case Access::Tag::basic: {
+    auto *typed_value = static_cast<const AccessBasicWrapper *>(value.get());
+    return AccessBasic_ser(out, typed_value->access);
+  }
+  case Access::Tag::pattern: {
+    auto *typed_value = static_cast<const AccessPatternWrapper *>(value.get());
+    return AccessPattern_ser(out, typed_value->access);
+  }
+  case Access::Tag::birPattern: {
+    auto *typed_value =
+        static_cast<const AccessBirPatternWrapper *>(value.get());
+    return BirAccessPattern_ser(out, typed_value->access);
+  }
+  default:
+    throw std::runtime_error("Unknown Access type in serialization");
+    return false;
+  }
+}
+
+bool TensorHbm_ser(FILE *out, const Ptr<TensorHbm> &value) {
+  if (!serialize_tag(out, 126, 0, 4))
+    return false;
+  if (!String_ser(out, value->name))
+    return false;
+  if (!Dtype_ser(out, value->dtype))
+    return false;
+  if (!Nat_ser(out, value->address))
+    return false;
+  if (!List_APPair_ser(out, value->dims))
+    return false;
+  return true;
+}
+
+bool TensorSram_ser(FILE *out, const Ptr<TensorSram> &value) {
+  if (!serialize_tag(out, 127, 0, 6))
+    return false;
+  if (!String_ser(out, value->name))
+    return false;
+  if (!Dtype_ser(out, value->dtype))
+    return false;
+  if (!Nat_ser(out, value->parNum))
+    return false;
+  if (!List_APPair_ser(out, value->pattern))
+    return false;
+  if (!Nat_ser(out, value->parOffset))
+    return false;
+  if (!Nat_ser(out, value->freeOffset))
+    return false;
+  return true;
+}
+
+bool TensorRef_ser(FILE *out, const Ptr<TensorRef> &value) {
+  u8 tag_val = 0;
+  u8 field_count = 1; // All TensorRef variants have exactly 1 field
+
+  // Map TensorRef tags to their serialization case numbers
+  switch (value->tag) {
+  case TensorRef::Tag::abstract:
+    tag_val = 0;
+    break;
+  case TensorRef::Tag::sbuf:
+    tag_val = 1;
+    break;
+  case TensorRef::Tag::psum:
+    tag_val = 2;
+    break;
+  case TensorRef::Tag::hbm:
+    tag_val = 3;
+    break;
+  case TensorRef::Tag::reg:
+    tag_val = 4;
+    break;
+  default:
+    throw std::runtime_error("Unknown TensorRef type in serialization");
+    return false;
+  }
+
+  // Serialize the tag
+  if (!serialize_tag(out, 128, tag_val, field_count))
+    return false;
+
+  // Serialize the fields based on the specific variant
+  switch (value->tag) {
+  case TensorRef::Tag::abstract: {
+    auto *typed_value =
+        static_cast<const TensorRefAbstractWrapper *>(value.get());
+    return Access_ser(out, typed_value->access);
+  }
+  case TensorRef::Tag::sbuf: {
+    auto *typed_value = static_cast<const TensorRefSbufWrapper *>(value.get());
+    return TensorSram_ser(out, typed_value->view);
+  }
+  case TensorRef::Tag::psum: {
+    auto *typed_value = static_cast<const TensorRefPsumWrapper *>(value.get());
+    return TensorSram_ser(out, typed_value->view);
+  }
+  case TensorRef::Tag::hbm: {
+    auto *typed_value = static_cast<const TensorRefHbmWrapper *>(value.get());
+    return TensorHbm_ser(out, typed_value->view);
+  }
+  case TensorRef::Tag::reg: {
+    auto *typed_value =
+        static_cast<const TensorRefRegisterWrapper *>(value.get());
+    return Nat_ser(out, typed_value->reg);
+  }
+  default:
+    throw std::runtime_error("Unknown TensorRef type in serialization");
+    return false;
+  }
+}
+
+bool MatmulPerfMode_ser(FILE *out, const MatmulPerfMode &value) {
+  u8 tag_val = 0;
+  switch (value) {
+  case MatmulPerfMode::None:
+    tag_val = 0;
+    break;
+  case MatmulPerfMode::DoubleRow:
+    tag_val = 1;
+    break;
+  case MatmulPerfMode::DoubleRowSwInterleave:
+    tag_val = 2;
+    break;
+  default:
+    return false;
+  }
+  return serialize_tag(out, 129, tag_val, 0);
+}
+
+bool Engine_ser(FILE *out, const Engine &value) {
+  u8 tag_val = 0;
+  switch (value) {
+  case Engine::unassigned:
+    tag_val = 0;
+    break;
+  case Engine::act:
+    tag_val = 1;
+    break;
+  case Engine::dma:
+    tag_val = 2;
+    break;
+  case Engine::dve:
+    tag_val = 3;
+    break;
+  case Engine::pe:
+    tag_val = 4;
+    break;
+  case Engine::pool:
+    tag_val = 5;
+    break;
+  case Engine::sp:
+    tag_val = 6;
+    break;
+  default:
+    return false;
+  }
+  return serialize_tag(out, 130, tag_val, 0);
+}
+
+bool ActivationImm_ser(FILE *out, const Ptr<ActivationImm> &value) {
+  u8 tag_val = 0;
+  u8 field_count = 0;
+
+  // Map ActivationImm tags to their serialization case numbers
+  switch (value->tag) {
+  case ActivationImm::Tag::reg:
+    tag_val = 0;
+    field_count = 1;
+    break;
+  case ActivationImm::Tag::pointer:
+    tag_val = 1;
+    field_count = 0;
+    break;
+  case ActivationImm::Tag::float32:
+    tag_val = 2;
+    field_count = 1;
+    break;
+  default:
+    throw std::runtime_error("Unknown ActivationImm type in serialization");
+    return false;
+  }
+
+  // Serialize the tag (using correct tag number 132)
+  if (!serialize_tag(out, 132, tag_val, field_count))
+    return false;
+
+  // Serialize the fields based on the specific variant
+  switch (value->tag) {
+  case ActivationImm::Tag::reg: {
+    auto *typed_value =
+        static_cast<const ActivationImmRegisterWrapper *>(value.get());
+    return Nat_ser(out, typed_value->reg);
+  }
+  case ActivationImm::Tag::pointer: {
+    // No fields to serialize for pointer
+    return true;
+  }
+  case ActivationImm::Tag::float32: {
+    auto *typed_value =
+        static_cast<const ActivationImmFloatWrapper *>(value.get());
+    return Float_ser(out, typed_value->f);
+  }
+  default:
+    throw std::runtime_error("Unknown ActivationImm type in serialization");
+    return false;
+  }
+}
+
+bool Operand_ser(FILE *out, const Ptr<Operand> &value) {
+  u8 tag_val = 0;
+  u8 field_count = 1; // All Operand variants have exactly 1 field
+
+  // Map Operand tags to their serialization case numbers
+  switch (value->tag) {
+  case Operand::Tag::imm:
+    tag_val = 0;
+    break;
+  case Operand::Tag::tile:
+    tag_val = 1;
+    break;
+  default:
+    throw std::runtime_error("Unknown Operand type in serialization");
+    return false;
+  }
+
+  // Serialize the tag
+  if (!serialize_tag(out, 133, tag_val, field_count))
+    return false;
+
+  // Serialize the fields based on the specific variant
+  switch (value->tag) {
+  case Operand::Tag::imm: {
+    auto *typed_value = static_cast<const OperandImmWrapper *>(value.get());
+    return Immediate_ser(out, typed_value->i);
+  }
+  case Operand::Tag::tile: {
+    auto *typed_value = static_cast<const OperandTileWrapper *>(value.get());
+    return TensorRef_ser(out, typed_value->t);
+  }
+  default:
+    throw std::runtime_error("Unknown Operand type in serialization");
+    return false;
+  }
+}
+
+bool DataPattern_ser(FILE *out, const Ptr<DataPattern> &value) {
+  if (!serialize_tag(out, 134, 0, 3))
+    return false;
+  if (!Int_ser(out, value->offset))
+    return false;
+  if (!List_APPair_ser(out, value->pattern))
+    return false;
+  if (!Int_ser(out, value->channelMultiplier))
+    return false;
+  return true;
+}
+
+bool AluOp_ser(FILE *out, const AluOp &value) {
+  u8 tag_val = 0;
+  switch (value) {
+  case AluOp::abs:
+    tag_val = 0;
+    break;
+  case AluOp::add:
+    tag_val = 1;
+    break;
+  case AluOp::arith_shift_left:
+    tag_val = 2;
+    break;
+  case AluOp::arith_shift_right:
+    tag_val = 3;
+    break;
+  case AluOp::average:
+    tag_val = 4;
+    break;
+  case AluOp::bitwise_and:
+    tag_val = 5;
+    break;
+  case AluOp::bitwise_not:
+    tag_val = 6;
+    break;
+  case AluOp::bitwise_or:
+    tag_val = 7;
+    break;
+  case AluOp::bitwise_xor:
+    tag_val = 8;
+    break;
+  case AluOp::bypass:
+    tag_val = 9;
+    break;
+  case AluOp::divide:
+    tag_val = 10;
+    break;
+  case AluOp::is_equal:
+    tag_val = 11;
+    break;
+  case AluOp::is_ge:
+    tag_val = 12;
+    break;
+  case AluOp::is_gt:
+    tag_val = 13;
+    break;
+  case AluOp::is_le:
+    tag_val = 14;
+    break;
+  case AluOp::is_lt:
+    tag_val = 15;
+    break;
+  case AluOp::logical_and:
+    tag_val = 16;
+    break;
+  case AluOp::logical_or:
+    tag_val = 17;
+    break;
+  case AluOp::logical_shift_left:
+    tag_val = 18;
+    break;
+  case AluOp::logical_shift_right:
+    tag_val = 19;
+    break;
+  case AluOp::logical_xor:
+    tag_val = 20;
+    break;
+  case AluOp::max:
+    tag_val = 21;
+    break;
+  case AluOp::min:
+    tag_val = 22;
+    break;
+  case AluOp::mod:
+    tag_val = 23;
+    break;
+  case AluOp::mult:
+    tag_val = 24;
+    break;
+  case AluOp::not_equal:
+    tag_val = 25;
+    break;
+  case AluOp::pow:
+    tag_val = 26;
+    break;
+  case AluOp::rsqrt:
+    tag_val = 27;
+    break;
+  case AluOp::subtract:
+    tag_val = 28;
+    break;
+  default:
+    return false;
+  }
+  return serialize_tag(out, 135, tag_val, 0);
+}
+
+bool DropoutThresholdType_ser(FILE *out, const DropoutThresholdType &value) {
+  u8 tag_val = 0;
+  switch (value) {
+  case DropoutThresholdType::DropRate:
+    tag_val = 0;
+    break;
+  case DropoutThresholdType::KeepRate:
+    tag_val = 1;
+    break;
+  default:
+    return false;
+  }
+  return serialize_tag(out, 136, tag_val, 0);
+}
+
+bool AccumCmd_ser(FILE *out, const AccumCmd &value) {
+  u8 tag_val = 0;
+  switch (value) {
+  case AccumCmd::Idle:
+    tag_val = 0;
+    break;
+  case AccumCmd::Zero:
+    tag_val = 1;
+    break;
+  case AccumCmd::Accumulate:
+    tag_val = 2;
+    break;
+  case AccumCmd::ZeroAccumulate:
+    tag_val = 3;
+    break;
+  case AccumCmd::LoadAccumulate:
+    tag_val = 4;
+    break;
+  default:
+    return false;
+  }
+  return serialize_tag(out, 137, tag_val, 0);
+}
+
+bool ActivationFunc_ser(FILE *out, const ActivationFunc &value) {
+  u8 tag_val = 0;
+  switch (value) {
+  case ActivationFunc::abs:
+    tag_val = 0;
+    break;
+  case ActivationFunc::arctan:
+    tag_val = 1;
+    break;
+  case ActivationFunc::copy:
+    tag_val = 2;
+    break;
+  case ActivationFunc::erf:
+    tag_val = 3;
+    break;
+  case ActivationFunc::erf_dx:
+    tag_val = 4;
+    break;
+  case ActivationFunc::exp:
+    tag_val = 5;
+    break;
+  case ActivationFunc::gelu:
+    tag_val = 6;
+    break;
+  case ActivationFunc::gelu_apprx_tanh:
+    tag_val = 7;
+    break;
+  case ActivationFunc::gelu_dx:
+    tag_val = 8;
+    break;
+  case ActivationFunc::log:
+    tag_val = 9;
+    break;
+  case ActivationFunc::mish:
+    tag_val = 10;
+    break;
+  case ActivationFunc::reciprocal:
+    tag_val = 11;
+    break;
+  case ActivationFunc::relu:
+    tag_val = 12;
+    break;
+  case ActivationFunc::rsqrt:
+    tag_val = 13;
+    break;
+  case ActivationFunc::sigmoid:
+    tag_val = 14;
+    break;
+  case ActivationFunc::sign:
+    tag_val = 15;
+    break;
+  case ActivationFunc::silu:
+    tag_val = 16;
+    break;
+  case ActivationFunc::silu_dx:
+    tag_val = 17;
+    break;
+  case ActivationFunc::sin:
+    tag_val = 18;
+    break;
+  case ActivationFunc::softplus:
+    tag_val = 19;
+    break;
+  case ActivationFunc::sqrt:
+    tag_val = 20;
+    break;
+  case ActivationFunc::square:
+    tag_val = 21;
+    break;
+  case ActivationFunc::tanh:
+    tag_val = 22;
+    break;
+  case ActivationFunc::gelu_apprx_sigmoid:
+    tag_val = 23;
+    break;
+  case ActivationFunc::gelu_apprx_sigmoid_dx:
+    tag_val = 24;
+    break;
+  default:
+    return false;
+  }
+  return serialize_tag(out, 138, tag_val, 0);
+}
+
+bool AffineSelectCmp_ser(FILE *out, const AffineSelectCmp &value) {
+  u8 tag_val = 0;
+  switch (value) {
+  case AffineSelectCmp::GreaterThan:
+    tag_val = 0;
+    break;
+  case AffineSelectCmp::GreaterThanEq:
+    tag_val = 1;
+    break;
+  case AffineSelectCmp::Eq:
+    tag_val = 2;
+    break;
+  case AffineSelectCmp::NotEq:
+    tag_val = 3;
+    break;
+  default:
+    return false;
+  }
+  return serialize_tag(out, 139, tag_val, 0);
+}
+
+bool DgeComputeOp_ser(FILE *out, const DgeComputeOp &value) {
+  u8 tag_val = 0;
+  switch (value) {
+  case DgeComputeOp::none:
+    tag_val = 0;
+    break;
+  case DgeComputeOp::add:
+    tag_val = 1;
+    break;
+  default:
+    return false;
+  }
+  return serialize_tag(out, 140, tag_val, 0);
+}
+
+bool DmaBounds_ser(FILE *out, const Ptr<DmaBounds> &value) {
+  u8 tag_val = 0;
+  u8 field_count = 0;
+
+  // Map DmaBounds tags to their serialization case numbers
+  switch (value->tag) {
+  case DmaBounds::Tag::skip:
+    tag_val = 0;
+    field_count = 0;
+    break;
+  case DmaBounds::Tag::error:
+    tag_val = 1;
+    field_count = 0;
+    break;
+  case DmaBounds::Tag::reg:
+    tag_val = 2;
+    field_count = 1;
+    break;
+  default:
+    throw std::runtime_error("Unknown DmaBounds type in serialization");
+    return false;
+  }
+
+  // Serialize the tag
+  if (!serialize_tag(out, 141, tag_val, field_count))
+    return false;
+
+  // Serialize the fields based on the specific variant
+  switch (value->tag) {
+  case DmaBounds::Tag::skip: {
+    // No fields to serialize
+    return true;
+  }
+  case DmaBounds::Tag::error: {
+    // No fields to serialize
+    return true;
+  }
+  case DmaBounds::Tag::reg: {
+    auto *typed_value = static_cast<const DmaBoundsRegWrapper *>(value.get());
+    return Nat_ser(out, typed_value->reg);
+  }
+  default:
+    throw std::runtime_error("Unknown DmaBounds type in serialization");
+    return false;
+  }
+}
+
+bool MatmulGroupElement_ser(FILE *out, const MatmulGroupElement &value) {
+  u8 tag_val = 0;
+  switch (value) {
+  case MatmulGroupElement::first:
+    tag_val = 0;
+    break;
+  case MatmulGroupElement::middle:
+    tag_val = 1;
+    break;
+  case MatmulGroupElement::last:
+    tag_val = 2;
+    break;
+  case MatmulGroupElement::whole:
+    tag_val = 3;
+    break;
+  default:
+    return false;
+  }
+  return serialize_tag(out, 142, tag_val, 0);
+}
+
+bool IndexMissBehavior_ser(FILE *out, const Ptr<IndexMissBehavior> &value) {
+  u8 tag_val = 0;
+  u8 field_count = 0;
+
+  // Map IndexMissBehavior tags to their serialization case numbers
+  switch (value->tag) {
+  case IndexMissBehavior::Tag::imm:
+    tag_val = 0;
+    field_count = 1;
+    break;
+  case IndexMissBehavior::Tag::skip:
+    tag_val = 1;
+    field_count = 0;
+    break;
+  default:
+    throw std::runtime_error("Unknown IndexMissBehavior type in serialization");
+    return false;
+  }
+
+  // Serialize the tag
+  if (!serialize_tag(out, 143, tag_val, field_count))
+    return false;
+
+  // Serialize the fields based on the specific variant
+  switch (value->tag) {
+  case IndexMissBehavior::Tag::imm: {
+    auto *typed_value =
+        static_cast<const IndexMissBehaviorImmWrapper *>(value.get());
+    return Immediate_ser(out, typed_value->value);
+  }
+  case IndexMissBehavior::Tag::skip: {
+    // No fields to serialize
+    return true;
+  }
+  default:
+    throw std::runtime_error("Unknown IndexMissBehavior type in serialization");
+    return false;
+  }
+}
+
+bool TensorScalarReverseOps_ser(FILE *out,
+                                const TensorScalarReverseOps &value) {
+  u8 tag_val = 0;
+  switch (value) {
+  case TensorScalarReverseOps::none:
+    tag_val = 0;
+    break;
+  case TensorScalarReverseOps::first:
+    tag_val = 1;
+    break;
+  case TensorScalarReverseOps::second:
+    tag_val = 2;
+    break;
+  case TensorScalarReverseOps::both:
+    tag_val = 3;
+    break;
+  default:
+    return false;
+  }
+  return serialize_tag(out, 144, tag_val, 0);
+}
+
+bool TensorSubDim_ser(FILE *out, const TensorSubDim &value) {
+  u8 tag_val = 0;
+  switch (value) {
+  case TensorSubDim::X:
+    tag_val = 0;
+    break;
+  case TensorSubDim::XY:
+    tag_val = 1;
+    break;
+  case TensorSubDim::XYZ:
+    tag_val = 2;
+    break;
+  case TensorSubDim::XYZW:
+    tag_val = 3;
+    break;
+  default:
+    return false;
+  }
+  return serialize_tag(out, 145, tag_val, 0);
+}
+
+bool TransposeOps_ser(FILE *out, const TransposeOps &value) {
+  u8 tag_val = 0;
+  switch (value) {
+  case TransposeOps::None:
+    tag_val = 0;
+    break;
+  case TransposeOps::WZXY:
+    tag_val = 1;
+    break;
+  case TransposeOps::WXZY:
+    tag_val = 2;
+    break;
+  case TransposeOps::WYXZ:
+    tag_val = 3;
+    break;
+  case TransposeOps::ZWYX:
+    tag_val = 4;
+    break;
+  case TransposeOps::ZYWX:
+    tag_val = 5;
+    break;
+  case TransposeOps::ZYXW:
+    tag_val = 6;
+    break;
+  case TransposeOps::YXWZ:
+    tag_val = 7;
+    break;
+  case TransposeOps::YXZW:
+    tag_val = 8;
+    break;
+  case TransposeOps::YWZX:
+    tag_val = 9;
+    break;
+  case TransposeOps::XWZY:
+    tag_val = 10;
+    break;
+  case TransposeOps::XZYW:
+    tag_val = 11;
+    break;
+  case TransposeOps::XYZW:
+    tag_val = 12;
+    break;
+  case TransposeOps::XYWZ:
+    tag_val = 13;
+    break;
+  default:
+    return false;
+  }
+  return serialize_tag(out, 146, tag_val, 0);
+}
+
+bool Dropout_ser(FILE *out, const Ptr<Dropout> &value) {
+  if (!serialize_tag(out, 147, 0, 5))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!DropoutThresholdType_ser(out, value->thresholdType))
+    return false;
+  if (!Operand_ser(out, value->threshold))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  return true;
+}
+
+bool Activate_ser(FILE *out, const Ptr<Activate> &value) {
+  if (!serialize_tag(out, 148, 0, 7))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!AccumCmd_ser(out, value->accumulatorCmd))
+    return false;
+  if (!ActivationFunc_ser(out, value->activationFunc))
+    return false;
+  if (!Immediate_ser(out, value->scale))
+    return false;
+  if (!Immediate_ser(out, value->bias))
+    return false;
+  if (!Immediate_ser(out, value->imm))
+    return false;
+  return true;
+}
+
+bool AffineSelect_ser(FILE *out, const Ptr<AffineSelect> &value) {
+  if (!serialize_tag(out, 150, 0, 5))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!AffineSelectCmp_ser(out, value->fillMode))
+    return false;
+  if (!Nat_ser(out, value->fillReg))
+    return false;
+  if (!DataPattern_ser(out, value->maskPattern))
+    return false;
+  return true;
+}
+
+bool DmaCopy_ser(FILE *out, const Ptr<DmaCopy> &value) {
+  if (!serialize_tag(out, 152, 0, 5))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!DgeComputeOp_ser(out, value->compute_op))
+    return false;
+  if (!DmaBounds_ser(out, value->dstBoundsCheck))
+    return false;
+  if (!DmaBounds_ser(out, value->srcBoundsCheck))
+    return false;
+  return true;
+}
+
+bool DmaTranspose_ser(FILE *out, const Ptr<DmaTranspose> &value) {
+  if (!serialize_tag(out, 154, 0, 6))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!TransposeOps_ser(out, value->axes))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  if (!Nat_ser(out, value->dgeMode))
+    return false;
+  if (!DmaBounds_ser(out, value->oobMode))
+    return false;
+  return true;
+}
+
+bool Transpose_ser(FILE *out, const Ptr<Transpose> &value) {
+  if (!serialize_tag(out, 155, 0, 4))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  if (!Engine_ser(out, value->engine))
+    return false;
+  return true;
+}
+
+bool LoadMaskRegister_ser(FILE *out, const Ptr<LoadMaskRegister> &value) {
+  if (!serialize_tag(out, 156, 0, 1))
+    return false;
+  if (!Nat_ser(out, value->regNum))
+    return false;
+  return true;
+}
+
+bool Shuffle_ser(FILE *out, const Ptr<Shuffle> &value) {
+  if (!serialize_tag(out, 157, 0, 4))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!List_Immediate_ser(out, value->shuffleMask))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  return true;
+}
+
+bool MemSet_ser(FILE *out, const Ptr<MemSet> &value) {
+  if (!serialize_tag(out, 158, 0, 4))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!Immediate_ser(out, value->value))
+    return false;
+  if (!Dtype_ser(out, value->dtype))
+    return false;
+  if (!Engine_ser(out, value->engine))
+    return false;
+  return true;
+}
+
+bool Iota_ser(FILE *out, const Ptr<Iota> &value) {
+  if (!serialize_tag(out, 159, 0, 3))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!DataPattern_ser(out, value->pattern))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  return true;
+}
+
+bool LoadStationary_ser(FILE *out, const Ptr<LoadStationary> &value) {
+  if (!serialize_tag(out, 160, 0, 2))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!Bool_ser(out, value->isTranspose))
+    return false;
+  return true;
+}
+
+bool MatMul_ser(FILE *out, const Ptr<MatMul> &value) {
+  if (!serialize_tag(out, 161, 0, 2))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->moving))
+    return false;
+  return true;
+}
+
+bool LocalGather_ser(FILE *out, const Ptr<LocalGather> &value) {
+  if (!serialize_tag(out, 162, 0, 4))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!IndexMissBehavior_ser(out, value->indexMissBehavior))
+    return false;
+  if (!Bool_ser(out, value->freePoolBuffer))
+    return false;
+  return true;
+}
+
+bool RangeSelect_ser(FILE *out, const Ptr<RangeSelect> &value) {
+  if (!serialize_tag(out, 164, 0, 10))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!AccumCmd_ser(out, value->reduceCommand))
+    return false;
+  if (!AluOp_ser(out, value->reduceOp))
+    return false;
+  if (!Float_ser(out, value->base))
+    return false;
+  if (!Float_ser(out, value->fillValue))
+    return false;
+  if (!AluOp_ser(out, value->compOp0))
+    return false;
+  if (!AluOp_ser(out, value->compOp1))
+    return false;
+  if (!Immediate_ser(out, value->bound0))
+    return false;
+  if (!Immediate_ser(out, value->bound1))
+    return false;
+  return true;
+}
+
+bool ScalarTensorTensor_ser(FILE *out, const Ptr<ScalarTensorTensor> &value) {
+  if (!serialize_tag(out, 166, 0, 8))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src0))
+    return false;
+  if (!TensorRef_ser(out, value->src1))
+    return false;
+  if (!AluOp_ser(out, value->op0))
+    return false;
+  if (!AluOp_ser(out, value->op1))
+    return false;
+  if (!TensorScalarReverseOps_ser(out, value->reverseOperands))
+    return false;
+  if (!Immediate_ser(out, value->imm0))
+    return false;
+  if (!AccumCmd_ser(out, value->accumulatorCmd))
+    return false;
+  return true;
+}
+
+bool CopyPredicated_ser(FILE *out, const Ptr<CopyPredicated> &value) {
+  if (!serialize_tag(out, 168, 0, 5))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!TensorRef_ser(out, value->predicate))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  if (!Bool_ser(out, value->reversePred))
+    return false;
+  return true;
+}
+
+bool TensorTensorScan_ser(FILE *out, const Ptr<TensorTensorScan> &value) {
+  if (!serialize_tag(out, 169, 0, 9))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src0))
+    return false;
+  if (!TensorRef_ser(out, value->src1))
+    return false;
+  if (!AluOp_ser(out, value->op0))
+    return false;
+  if (!AluOp_ser(out, value->op1))
+    return false;
+  if (!TensorScalarReverseOps_ser(out, value->reverseOperands))
+    return false;
+  if (!Operand_ser(out, value->imm0))
+    return false;
+  if (!AccumCmd_ser(out, value->accumulatorCmd))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  return true;
+}
+
+bool MatchValueLoad_ser(FILE *out, const Ptr<MatchValueLoad> &value) {
+  if (!serialize_tag(out, 170, 0, 1))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  return true;
+}
+
+bool FindIndex8_ser(FILE *out, const Ptr<FindIndex8> &value) {
+  if (!serialize_tag(out, 171, 0, 4))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!TensorRef_ser(out, value->vals))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  return true;
+}
+
+bool MatchReplace8_ser(FILE *out, const Ptr<MatchReplace8> &value) {
+  if (!serialize_tag(out, 172, 0, 6))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!TensorRef_ser(out, value->vals))
+    return false;
+  if (!Immediate_ser(out, value->replaceValue))
+    return false;
+  if (!Option_TensorRef_ser(out, value->dstIdx))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  return true;
+}
+
+bool Max8_ser(FILE *out, const Ptr<Max8> &value) {
+  if (!serialize_tag(out, 173, 0, 3))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  return true;
+}
+
+bool BatchNormAggregate_ser(FILE *out, const Ptr<BatchNormAggregate> &value) {
+  if (!serialize_tag(out, 174, 0, 3))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  return true;
+}
+
+bool BatchNormStats_ser(FILE *out, const Ptr<BatchNormStats> &value) {
+  if (!serialize_tag(out, 175, 0, 3))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  return true;
+}
+
+bool Reciprocal_ser(FILE *out, const Ptr<Reciprocal> &value) {
+  if (!serialize_tag(out, 176, 0, 3))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  return true;
+}
+
+bool Copy_ser(FILE *out, const Ptr<Copy> &value) {
+  if (!serialize_tag(out, 177, 0, 3))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!Option_TensorSubDim_ser(out, value->opDim))
+    return false;
+  return true;
+}
+
+bool TensorReduce_ser(FILE *out, const Ptr<TensorReduce> &value) {
+  if (!serialize_tag(out, 179, 0, 7))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!AluOp_ser(out, value->op))
+    return false;
+  if (!TensorSubDim_ser(out, value->opDim))
+    return false;
+  if (!Bool_ser(out, value->negated))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  if (!Bool_ser(out, value->keepdims))
+    return false;
+  return true;
+}
+
+bool TensorScalar_ser(FILE *out, const Ptr<TensorScalar> &value) {
+  if (!serialize_tag(out, 180, 0, 9))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!Operand_ser(out, value->imm0))
+    return false;
+  if (!AluOp_ser(out, value->op0))
+    return false;
+  if (!Option_Operand_ser(out, value->imm1))
+    return false;
+  if (!Option_AluOp_ser(out, value->op1))
+    return false;
+  if (!TensorScalarReverseOps_ser(out, value->reverse))
+    return false;
+  if (!Engine_ser(out, value->engine))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  return true;
+}
+
+bool TensorTensor_ser(FILE *out, const Ptr<TensorTensor> &value) {
+  if (!serialize_tag(out, 182, 0, 6))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src0))
+    return false;
+  if (!TensorRef_ser(out, value->src1))
+    return false;
+  if (!AluOp_ser(out, value->op))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  if (!Engine_ser(out, value->engine))
+    return false;
+  return true;
+}
+
+bool NcMatMul_ser(FILE *out, const Ptr<NcMatMul> &value) {
+  if (!serialize_tag(out, 183, 0, 9))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->stationary))
+    return false;
+  if (!TensorRef_ser(out, value->moving))
+    return false;
+  if (!Bool_ser(out, value->isStationaryOneZero))
+    return false;
+  if (!Bool_ser(out, value->isMovingZero))
+    return false;
+  if (!Bool_ser(out, value->isTranspose))
+    return false;
+  if (!List_Nat_ser(out, value->tilePosition))
+    return false;
+  if (!List_Nat_ser(out, value->tileSize))
+    return false;
+  if (!MatmulPerfMode_ser(out, value->perfMode))
+    return false;
+  return true;
+}
+
+bool TensorScalarReduce_ser(FILE *out, const Ptr<TensorScalarReduce> &value) {
+  if (!serialize_tag(out, 181, 0, 8))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!Operand_ser(out, value->operand0))
+    return false;
+  if (!AluOp_ser(out, value->op0))
+    return false;
+  if (!Bool_ser(out, value->reverse0))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  if (!Option_AluOp_ser(out, value->reduceOp))
+    return false;
+  if (!TensorRef_ser(out, value->reduceRes))
+    return false;
+  return true;
+}
+
+bool TensorPartitionReduce_ser(FILE *out,
+                               const Ptr<TensorPartitionReduce> &value) {
+  if (!serialize_tag(out, 184, 0, 4))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!AluOp_ser(out, value->op))
+    return false;
+  if (!TensorRef_ser(out, value->data))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  return true;
+}
+
+bool NcActivate_ser(FILE *out, const Ptr<NcActivate> &value) {
+  if (!serialize_tag(out, 149, 0, 9))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!AccumCmd_ser(out, value->accumulatorCmd))
+    return false;
+  if (!ActivationFunc_ser(out, value->activationFunc))
+    return false;
+  if (!Operand_ser(out, value->scale))
+    return false;
+  if (!Option_TensorRef_ser(out, value->bias))
+    return false;
+  if (!Option_AluOp_ser(out, value->reduceOp))
+    return false;
+  if (!Option_TensorRef_ser(out, value->reduceRes))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  return true;
+}
+
+bool NcAffineSelect_ser(FILE *out, const Ptr<NcAffineSelect> &value) {
+  if (!serialize_tag(out, 151, 0, 6))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!DataPattern_ser(out, value->pred))
+    return false;
+  if (!TensorRef_ser(out, value->onTrueTile))
+    return false;
+  if (!Immediate_ser(out, value->onFalseValue))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  if (!AluOp_ser(out, value->cmpOp))
+    return false;
+  return true;
+}
+
+bool NcDmaCopy_ser(FILE *out, const Ptr<NcDmaCopy> &value) {
+  if (!serialize_tag(out, 153, 0, 7))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!DgeComputeOp_ser(out, value->compute_op))
+    return false;
+  if (!DmaBounds_ser(out, value->oobMode))
+    return false;
+  if (!Nat_ser(out, value->dgeMode))
+    return false;
+  if (!Bool_ser(out, value->uniqueIndices))
+    return false;
+  if (!Engine_ser(out, value->engine))
+    return false;
+  return true;
+}
+
+bool NcLocalGather_ser(FILE *out, const Ptr<NcLocalGather> &value) {
+  if (!serialize_tag(out, 163, 0, 5))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!TensorRef_ser(out, value->index))
+    return false;
+  if (!Immediate_ser(out, value->numElemPerIdx))
+    return false;
+  if (!Option_Immediate_ser(out, value->numValidIndicies))
+    return false;
+  return true;
+}
+
+bool NcRangeSelect_ser(FILE *out, const Ptr<NcRangeSelect> &value) {
+  if (!serialize_tag(out, 165, 0, 12))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!AccumCmd_ser(out, value->reduceCommand))
+    return false;
+  if (!Option_TensorRef_ser(out, value->reduceRes))
+    return false;
+  if (!Option_AluOp_ser(out, value->reduceOp))
+    return false;
+  if (!AluOp_ser(out, value->compOp0))
+    return false;
+  if (!AluOp_ser(out, value->compOp1))
+    return false;
+  if (!TensorRef_ser(out, value->bound0))
+    return false;
+  if (!TensorRef_ser(out, value->bound1))
+    return false;
+  if (!Immediate_ser(out, value->rangeStart))
+    return false;
+  if (!TensorRef_ser(out, value->onTrueTile))
+    return false;
+  if (!Immediate_ser(out, value->onFalseValue))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  return true;
+}
+
+bool NcScalarTensorTensor_ser(FILE *out,
+                              const Ptr<NcScalarTensorTensor> &value) {
+  if (!serialize_tag(out, 167, 0, 8))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->data))
+    return false;
+  if (!Operand_ser(out, value->src0))
+    return false;
+  if (!Operand_ser(out, value->src1))
+    return false;
+  if (!AluOp_ser(out, value->op0))
+    return false;
+  if (!AluOp_ser(out, value->op1))
+    return false;
+  if (!TensorScalarReverseOps_ser(out, value->reverseOperands))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  return true;
+}
+
+bool NcCopy_ser(FILE *out, const Ptr<NcCopy> &value) {
+  if (!serialize_tag(out, 178, 0, 4))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  if (!Engine_ser(out, value->engine))
+    return false;
+  return true;
+}
+
+bool SelectReduce_ser(FILE *out, const Ptr<SelectReduce> &value) {
+  if (!serialize_tag(out, 185, 0, 9))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->predicate))
+    return false;
+  if (!TensorRef_ser(out, value->onTrue))
+    return false;
+  if (!Operand_ser(out, value->onFalse))
+    return false;
+  if (!Option_TensorRef_ser(out, value->reduceRes))
+    return false;
+  if (!AccumCmd_ser(out, value->reduceCmd))
+    return false;
+  if (!AluOp_ser(out, value->reduceOp))
+    return false;
+  if (!Bool_ser(out, value->reversePred))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  return true;
+}
+
+bool SequenceBounds_ser(FILE *out, const Ptr<SequenceBounds> &value) {
+  if (!serialize_tag(out, 186, 0, 3))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->segmentIds))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  return true;
+}
+
+bool SendRecv_ser(FILE *out, const Ptr<SendRecv> &value) {
+  if (!serialize_tag(out, 187, 0, 6))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!Immediate_ser(out, value->sendToRank))
+    return false;
+  if (!Immediate_ser(out, value->recvFromRank))
+    return false;
+  if (!Immediate_ser(out, value->pipeId))
+    return false;
+  if (!Bool_ser(out, value->useGpsimdDma))
+    return false;
+  return true;
+}
+
+bool SendRecvCompute_ser(FILE *out, const Ptr<SendRecvCompute> &value) {
+  if (!serialize_tag(out, 188, 0, 6))
+    return false;
+  if (!List_TensorRef_ser(out, value->dsts))
+    return false;
+  if (!List_TensorRef_ser(out, value->srcs))
+    return false;
+  if (!List_Immediate_ser(out, value->sendToRanks))
+    return false;
+  if (!List_Immediate_ser(out, value->recvFromRanks))
+    return false;
+  if (!Immediate_ser(out, value->pipeId))
+    return false;
+  if (!AluOp_ser(out, value->op))
+    return false;
+  return true;
+}
+
+bool QuantizeMX_ser(FILE *out, const Ptr<QuantizeMX> &value) {
+  if (!serialize_tag(out, 195, 0, 3))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!TensorRef_ser(out, value->dstScale))
+    return false;
+  return true;
+}
+
+bool MatMulMX_ser(FILE *out, const Ptr<MatMulMX> &value) {
+  if (!serialize_tag(out, 196, 0, 7))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->stationary))
+    return false;
+  if (!TensorRef_ser(out, value->moving))
+    return false;
+  if (!TensorRef_ser(out, value->stationaryScale))
+    return false;
+  if (!TensorRef_ser(out, value->movingScale))
+    return false;
+  if (!Option_List_Nat_ser(out, value->tilePosition))
+    return false;
+  if (!Option_List_Nat_ser(out, value->tileSize))
+    return false;
+  return true;
+}
+
+bool DmaCompute_ser(FILE *out, const Ptr<DmaCompute> &value) {
+  if (!serialize_tag(out, 197, 0, 4))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!List_TensorRef_ser(out, value->srcs))
+    return false;
+  if (!List_Immediate_ser(out, value->scales))
+    return false;
+  if (!AluOp_ser(out, value->reduceOp))
+    return false;
+  return true;
+}
+
+bool ReplicaGroup_ser(FILE *out, const Ptr<ReplicaGroup> &value) {
+  u8 tag_val = 0;
+  u8 field_count = 0;
+
+  // Map ReplicaGroup tags to their serialization case numbers
+  switch (value->tag) {
+  case ReplicaGroup::Tag::unspecified:
+    tag_val = 0;
+    field_count = 0;
+    break;
+  case ReplicaGroup::Tag::named:
+    tag_val = 1;
+    field_count = 1;
+    break;
+  case ReplicaGroup::Tag::literal:
+    tag_val = 2;
+    field_count = 1;
+    break;
+  default:
+    throw std::runtime_error("Unknown ReplicaGroup type in serialization");
+    return false;
+  }
+
+  // Serialize the tag
+  if (!serialize_tag(out, 198, tag_val, field_count))
+    return false;
+
+  // Serialize the fields based on the specific variant
+  switch (value->tag) {
+  case ReplicaGroup::Tag::unspecified: {
+    // No fields to serialize
+    return true;
+  }
+  case ReplicaGroup::Tag::named: {
+    auto *typed_value =
+        static_cast<const ReplicaGroupNamedWrapper *>(value.get());
+    return String_ser(out, typed_value->name);
+  }
+  case ReplicaGroup::Tag::literal: {
+    auto *typed_value =
+        static_cast<const ReplicaGroupLiteralWrapper *>(value.get());
+    return List_List_Int_ser(out, typed_value->groups);
+  }
+  default:
+    throw std::runtime_error("Unknown ReplicaGroup type in serialization");
+    return false;
+  }
+}
+
+bool CollectiveOp_ser(FILE *out, const Ptr<CollectiveOp> &value) {
+  if (!serialize_tag(out, 199, 0, 8))
+    return false;
+  if (!List_TensorRef_ser(out, value->dsts))
+    return false;
+  if (!List_TensorRef_ser(out, value->srcs))
+    return false;
+  if (!Option_AluOp_ser(out, value->op))
+    return false;
+  if (!ReplicaGroup_ser(out, value->replicaGroup))
+    return false;
+  if (!Option_Int_ser(out, value->concatDim))
+    return false;
+  if (!Option_List_List_Int_ser(out, value->sourceTargetPairs))
+    return false;
+  if (!Option_Int_ser(out, value->channel_id))
+    return false;
+  if (!Option_Int_ser(out, value->num_channels))
+    return false;
+  return true;
+}
+
+bool RankId_ser(FILE *out, const Ptr<RankId> &value) {
+  if (!serialize_tag(out, 200, 0, 1))
+    return false;
+  if (!String_ser(out, value->dst))
+    return false;
+  return true;
+}
+
+bool CurrentProcessingRankId_ser(FILE *out,
+                                 const Ptr<CurrentProcessingRankId> &value) {
+  if (!serialize_tag(out, 201, 0, 5))
+    return false;
+  if (!String_ser(out, value->dst))
+    return false;
+  if (!Int_ser(out, value->iterationId))
+    return false;
+  if (!Int_ser(out, value->channelId))
+    return false;
+  if (!Int_ser(out, value->numChannels))
+    return false;
+  if (!List_List_Int_ser(out, value->replicaGroup))
+    return false;
+  return true;
+}
+
+bool Send_ser(FILE *out, const Ptr<Send> &value) {
+  if (!serialize_tag(out, 202, 0, 3))
+    return false;
+  if (!AluOp_ser(out, value->op))
+    return false;
+  if (!List_TensorRef_ser(out, value->srcs))
+    return false;
+  if (!Int_ser(out, value->peerId))
+    return false;
+  return true;
+}
+
+bool Recv_ser(FILE *out, const Ptr<Recv> &value) {
+  if (!serialize_tag(out, 203, 0, 4))
+    return false;
+  if (!AluOp_ser(out, value->op))
+    return false;
+  if (!List_TensorRef_ser(out, value->dsts))
+    return false;
+  if (!List_Int_ser(out, value->replicaGroups))
+    return false;
+  if (!Int_ser(out, value->peerId))
+    return false;
+  return true;
+}
+
+bool BrCmpOp_ser(FILE *out, const BrCmpOp &value) {
+  u8 tag_val = 0;
+  switch (value) {
+  case BrCmpOp::always:
+    tag_val = 0;
+    break;
+  case BrCmpOp::lt_imm:
+    tag_val = 1;
+    break;
+  case BrCmpOp::le_imm:
+    tag_val = 2;
+    break;
+  case BrCmpOp::eq_imm:
+    tag_val = 3;
+    break;
+  case BrCmpOp::ne_imm:
+    tag_val = 4;
+    break;
+  case BrCmpOp::ge_imm:
+    tag_val = 5;
+    break;
+  case BrCmpOp::gt_imm:
+    tag_val = 6;
+    break;
+  case BrCmpOp::lt_reg:
+    tag_val = 7;
+    break;
+  case BrCmpOp::le_reg:
+    tag_val = 8;
+    break;
+  case BrCmpOp::eq_reg:
+    tag_val = 9;
+    break;
+  case BrCmpOp::ne_reg:
+    tag_val = 10;
+    break;
+  case BrCmpOp::ge_reg:
+    tag_val = 11;
+    break;
+  case BrCmpOp::gt_reg:
+    tag_val = 12;
+    break;
+  default:
+    return false;
+  }
+  return serialize_tag(out, 189, tag_val, 0);
+}
+
+bool TensorLoad_ser(FILE *out, const Ptr<TensorLoad> &value) {
+  if (!serialize_tag(out, 190, 0, 2))
+    return false;
+  if (!String_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  return true;
+}
+
+bool TensorStore_ser(FILE *out, const Ptr<TensorStore> &value) {
+  if (!serialize_tag(out, 191, 0, 2))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!String_ser(out, value->src))
+    return false;
+  return true;
+}
+
+bool RegisterMove_ser(FILE *out, const Ptr<RegisterMove> &value) {
+  if (!serialize_tag(out, 192, 0, 2))
+    return false;
+  if (!String_ser(out, value->dst))
+    return false;
+  if (!Int_ser(out, value->imm))
+    return false;
+  return true;
+}
+
+bool CmpBranch_ser(FILE *out, const Ptr<CmpBranch> &value) {
+  if (!serialize_tag(out, 193, 0, 6))
+    return false;
+  if (!String_ser(out, value->reg1))
+    return false;
+  if (!String_ser(out, value->reg2))
+    return false;
+  if (!Int_ser(out, value->imm))
+    return false;
+  if (!BrCmpOp_ser(out, value->op))
+    return false;
+  if (!String_ser(out, value->trueLabel))
+    return false;
+  if (!String_ser(out, value->falseLabel))
+    return false;
+  return true;
+}
+
+bool RegisterAluOp_ser(FILE *out, const Ptr<RegisterAluOp> &value) {
+  if (!serialize_tag(out, 194, 0, 4))
+    return false;
+  if (!String_ser(out, value->dst))
+    return false;
+  if (!String_ser(out, value->src))
+    return false;
+  if (!Int_ser(out, value->imm))
+    return false;
+  if (!AluOp_ser(out, value->op))
+    return false;
+  return true;
+}
+
+bool CoreBarrier_ser(FILE *out, const Ptr<CoreBarrier> &value) {
+  if (!serialize_tag(out, 204, 0, 3))
+    return false;
+  if (!TensorRef_ser(out, value->data))
+    return false;
+  if (!List_Int_ser(out, value->cores))
+    return false;
+  if (!Engine_ser(out, value->engine))
+    return false;
+  return true;
+}
+
+bool Rng_ser(FILE *out, const Ptr<Rng> &value) {
+  if (!serialize_tag(out, 205, 0, 2))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!Engine_ser(out, value->engine))
+    return false;
+  return true;
+}
+
+bool Rand2_ser(FILE *out, const Ptr<Rand2> &value) {
+  if (!serialize_tag(out, 206, 0, 3))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!Operand_ser(out, value->min))
+    return false;
+  if (!Operand_ser(out, value->max))
+    return false;
+  return true;
+}
+
+bool RandGetState_ser(FILE *out, const Ptr<RandGetState> &value) {
+  if (!serialize_tag(out, 207, 0, 2))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!Engine_ser(out, value->engine))
+    return false;
+  return true;
+}
+
+bool SetRngSeed_ser(FILE *out, const Ptr<SetRngSeed> &value) {
+  if (!serialize_tag(out, 208, 0, 1))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  return true;
+}
+
+bool RandSetState_ser(FILE *out, const Ptr<RandSetState> &value) {
+  if (!serialize_tag(out, 209, 0, 2))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!Engine_ser(out, value->engine))
+    return false;
+  return true;
+}
+
+bool ExtendedInst_ser(FILE *out, const Ptr<ExtendedInst> &value) {
+  if (!serialize_tag(out, 210, 0, 6))
+    return false;
+  if (!Nat_ser(out, value->opcode))
+    return false;
+  if (!Bool_ser(out, value->hasRead))
+    return false;
+  if (!Bool_ser(out, value->hasWrite))
+    return false;
+  if (!Nat_ser(out, value->ports))
+    return false;
+  if (!List_Nat_ser(out, value->data0))
+    return false;
+  if (!List_Nat_ser(out, value->data1))
+    return false;
+  return true;
+}
+
+bool TensorScalarCumulative_ser(FILE *out,
+                                const Ptr<TensorScalarCumulative> &value) {
+  if (!serialize_tag(out, 211, 0, 9))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!AluOp_ser(out, value->op0))
+    return false;
+  if (!AluOp_ser(out, value->op1))
+    return false;
+  if (!Operand_ser(out, value->imm0))
+    return false;
+  if (!Option_Operand_ser(out, value->imm1))
+    return false;
+  if (!AccumCmd_ser(out, value->reduceCmd))
+    return false;
+  if (!TensorScalarReverseOps_ser(out, value->reverse))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  return true;
+}
+
+bool NcNGather_ser(FILE *out, const Ptr<NcNGather> &value) {
+  if (!serialize_tag(out, 212, 0, 4))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->data))
+    return false;
+  if (!TensorRef_ser(out, value->indices))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
+    return false;
+  return true;
+}
+
+bool PrintOutputBuffer_ser(FILE *out, const PrintOutputBuffer &value) {
+  u8 tag_val = 0;
+  switch (value) {
+  case PrintOutputBuffer::stdout:
+    tag_val = 0;
+    break;
+  case PrintOutputBuffer::stderr:
+    tag_val = 1;
+    break;
+  default:
+    return false;
+  }
+  return serialize_tag(out, 213, tag_val, 0);
+}
+
+bool DevicePrint_ser(FILE *out, const Ptr<DevicePrint> &value) {
+  if (!serialize_tag(out, 214, 0, 3))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!String_ser(out, value->printPrefix))
+    return false;
+  if (!PrintOutputBuffer_ser(out, value->buffer))
+    return false;
+  return true;
+}
+
+bool Operator_ser(FILE *out, const Ptr<Operator> &value) {
+  u8 tag_val = 0;
+  u8 field_count = 1; // All operators have exactly 1 field (the op pointer)
+
+  // Map operator tags to their serialization case numbers
+  switch (value->tag) {
+  case Operator::Tag::activate:
+    tag_val = 0;
+    break;
+  case Operator::Tag::ncActivate:
+    tag_val = 1;
+    break;
+  case Operator::Tag::activationReduce:
+    tag_val = 2;
+    break;
+  case Operator::Tag::affineSelect:
+    tag_val = 3;
+    break;
+  case Operator::Tag::ncAffineSelect:
+    tag_val = 4;
+    break;
+  case Operator::Tag::batchNormAggregate:
+    tag_val = 5;
+    break;
+  case Operator::Tag::batchNormStats:
+    tag_val = 6;
+    break;
+  case Operator::Tag::copy:
+    tag_val = 7;
+    break;
+  case Operator::Tag::ncCopy:
+    tag_val = 8;
+    break;
+  case Operator::Tag::copyPredicated:
+    tag_val = 9;
+    break;
+  case Operator::Tag::dmaCopy:
+    tag_val = 10;
+    break;
+  case Operator::Tag::ncDmaCopy:
+    tag_val = 11;
+    break;
+  case Operator::Tag::dmaTranspose:
+    tag_val = 12;
+    break;
+  case Operator::Tag::dropout:
+    tag_val = 13;
+    break;
+  case Operator::Tag::findIndex8:
+    tag_val = 14;
+    break;
+  case Operator::Tag::iota:
+    tag_val = 15;
+    break;
+  case Operator::Tag::loadMaskRegister:
+    tag_val = 16;
+    break;
+  case Operator::Tag::loadStationary:
+    tag_val = 17;
+    break;
+  case Operator::Tag::localGather:
+    tag_val = 18;
+    break;
+  case Operator::Tag::ncLocalGather:
+    tag_val = 19;
+    break;
+  case Operator::Tag::matMul:
+    tag_val = 20;
+    break;
+  case Operator::Tag::ncMatMul:
+    tag_val = 21;
+    break;
+  case Operator::Tag::matchReplace8:
+    tag_val = 22;
+    break;
+  case Operator::Tag::matchValueLoad:
+    tag_val = 23;
+    break;
+  case Operator::Tag::max8:
+    tag_val = 24;
+    break;
+  case Operator::Tag::memSet:
+    tag_val = 25;
+    break;
+  case Operator::Tag::rangeSelect:
+    tag_val = 26;
+    break;
+  case Operator::Tag::ncRangeSelect:
+    tag_val = 27;
+    break;
+  case Operator::Tag::reciprocal:
+    tag_val = 28;
+    break;
+  case Operator::Tag::scalarTensorTensor:
+    tag_val = 29;
+    break;
+  case Operator::Tag::ncScalarTensorTensor:
+    tag_val = 30;
+    break;
+  case Operator::Tag::shuffle:
+    tag_val = 31;
+    break;
+  case Operator::Tag::tensorReduce:
+    tag_val = 32;
+    break;
+  case Operator::Tag::tensorScalar:
+    tag_val = 33;
+    break;
+  case Operator::Tag::tensorTensor:
+    tag_val = 34;
+    break;
+  case Operator::Tag::tensorTensorScan:
+    tag_val = 35;
+    break;
+  case Operator::Tag::tensorPartitionReduce:
+    tag_val = 36;
+    break;
+  case Operator::Tag::tensorScalarReduce:
+    tag_val = 37;
+    break;
+  case Operator::Tag::transpose:
+    tag_val = 38;
+    break;
+  case Operator::Tag::selectReduce:
+    tag_val = 39;
+    break;
+  case Operator::Tag::sequenceBounds:
+    tag_val = 40;
+    break;
+  case Operator::Tag::sendRecv:
+    tag_val = 41;
+    break;
+  case Operator::Tag::sendRecvCompute:
+    tag_val = 42;
+    break;
+  case Operator::Tag::tensorLoad:
+    tag_val = 43;
+    break;
+  case Operator::Tag::tensorStore:
+    tag_val = 44;
+    break;
+  case Operator::Tag::registerMove:
+    tag_val = 45;
+    break;
+  case Operator::Tag::cmpBranch:
+    tag_val = 46;
+    break;
+  case Operator::Tag::registerAluOp:
+    tag_val = 47;
+    break;
+  case Operator::Tag::quantizeMX:
+    tag_val = 48;
+    break;
+  case Operator::Tag::ncMatMulMX:
+    tag_val = 49;
+    break;
+  case Operator::Tag::dmaCompute:
+    tag_val = 50;
+    break;
+  case Operator::Tag::allReduce:
+    tag_val = 51;
+    break;
+  case Operator::Tag::allGather:
+    tag_val = 52;
+    break;
+  case Operator::Tag::reduceScatter:
+    tag_val = 53;
+    break;
+  case Operator::Tag::collectivePermute:
+    tag_val = 54;
+    break;
+  case Operator::Tag::collectivePermuteImplicit:
+    tag_val = 55;
+    break;
+  case Operator::Tag::collectivePermuteImplicitReduce:
+    tag_val = 56;
+    break;
+  case Operator::Tag::broadcast:
+    tag_val = 57;
+    break;
+  case Operator::Tag::allToAll:
+    tag_val = 58;
+    break;
+  case Operator::Tag::rankId:
+    tag_val = 59;
+    break;
+  case Operator::Tag::currentProcessingRankId:
+    tag_val = 60;
+    break;
+  case Operator::Tag::send:
+    tag_val = 61;
+    break;
+  case Operator::Tag::recv:
+    tag_val = 62;
+    break;
+  case Operator::Tag::coreBarrier:
+    tag_val = 63;
+    break;
+  case Operator::Tag::rng:
+    tag_val = 64;
+    break;
+  case Operator::Tag::rand2:
+    tag_val = 65;
+    break;
+  case Operator::Tag::randGetState:
+    tag_val = 66;
+    break;
+  case Operator::Tag::setRngSeed:
+    tag_val = 67;
+    break;
+  case Operator::Tag::randSetState:
+    tag_val = 68;
+    break;
+  case Operator::Tag::extendedInst:
+    tag_val = 69;
+    break;
+  case Operator::Tag::tensorScalarCumulative:
+    tag_val = 70;
+    break;
+  case Operator::Tag::ncNGather:
+    tag_val = 71;
+    break;
+  case Operator::Tag::devicePrint:
+    tag_val = 72;
+    break;
+  default:
+    throw std::runtime_error("Unknown operator type in serialization");
+    return false;
+  }
+
+  // Serialize the tag
+  if (!serialize_tag(out, 215, tag_val, field_count))
+    return false;
+
+  // Serialize the fields based on the specific variant
+  switch (value->tag) {
+  case Operator::Tag::activate: {
+    auto *typed_value =
+        static_cast<const OperatorActivateWrapper *>(value.get());
+    return Activate_ser(out, typed_value->op);
+  }
+  case Operator::Tag::ncActivate: {
+    auto *typed_value =
+        static_cast<const OperatorNcActivateWrapper *>(value.get());
+    return NcActivate_ser(out, typed_value->op);
+  }
+  case Operator::Tag::activationReduce: {
+    auto *typed_value =
+        static_cast<const OperatorActivationReduceWrapper *>(value.get());
+    return NcActivate_ser(out, typed_value->op);
+  }
+  case Operator::Tag::affineSelect: {
+    auto *typed_value =
+        static_cast<const OperatorAffineSelectWrapper *>(value.get());
+    return AffineSelect_ser(out, typed_value->op);
+  }
+  case Operator::Tag::ncAffineSelect: {
+    auto *typed_value =
+        static_cast<const OperatorNcAffineSelectWrapper *>(value.get());
+    return NcAffineSelect_ser(out, typed_value->op);
+  }
+  case Operator::Tag::batchNormAggregate: {
+    auto *typed_value =
+        static_cast<const OperatorBatchNormAggregateWrapper *>(value.get());
+    return BatchNormAggregate_ser(out, typed_value->op);
+  }
+  case Operator::Tag::batchNormStats: {
+    auto *typed_value =
+        static_cast<const OperatorBatchNormStatsWrapper *>(value.get());
+    return BatchNormStats_ser(out, typed_value->op);
+  }
+  case Operator::Tag::copy: {
+    auto *typed_value = static_cast<const OperatorCopyWrapper *>(value.get());
+    return Copy_ser(out, typed_value->op);
+  }
+  case Operator::Tag::ncCopy: {
+    auto *typed_value = static_cast<const OperatorNcCopyWrapper *>(value.get());
+    return NcCopy_ser(out, typed_value->op);
+  }
+  case Operator::Tag::copyPredicated: {
+    auto *typed_value =
+        static_cast<const OperatorCopyPredicatedWrapper *>(value.get());
+    return CopyPredicated_ser(out, typed_value->op);
+  }
+  case Operator::Tag::dmaCopy: {
+    auto *typed_value =
+        static_cast<const OperatorDmaCopyWrapper *>(value.get());
+    return DmaCopy_ser(out, typed_value->op);
+  }
+  case Operator::Tag::ncDmaCopy: {
+    auto *typed_value =
+        static_cast<const OperatorNcDmaCopyWrapper *>(value.get());
+    return NcDmaCopy_ser(out, typed_value->op);
+  }
+  case Operator::Tag::dmaTranspose: {
+    auto *typed_value =
+        static_cast<const OperatorDmaTransposeWrapper *>(value.get());
+    return DmaTranspose_ser(out, typed_value->op);
+  }
+  case Operator::Tag::dropout: {
+    auto *typed_value =
+        static_cast<const OperatorDropoutWrapper *>(value.get());
+    return Dropout_ser(out, typed_value->op);
+  }
+  case Operator::Tag::findIndex8: {
+    auto *typed_value =
+        static_cast<const OperatorFindIndex8Wrapper *>(value.get());
+    return FindIndex8_ser(out, typed_value->op);
+  }
+  case Operator::Tag::iota: {
+    auto *typed_value = static_cast<const OperatorIotaWrapper *>(value.get());
+    return Iota_ser(out, typed_value->op);
+  }
+  case Operator::Tag::loadMaskRegister: {
+    auto *typed_value =
+        static_cast<const OperatorLoadMaskRegisterWrapper *>(value.get());
+    return LoadMaskRegister_ser(out, typed_value->op);
+  }
+  case Operator::Tag::loadStationary: {
+    auto *typed_value =
+        static_cast<const OperatorLoadStationaryWrapper *>(value.get());
+    return LoadStationary_ser(out, typed_value->op);
+  }
+  case Operator::Tag::localGather: {
+    auto *typed_value =
+        static_cast<const OperatorLocalGatherWrapper *>(value.get());
+    return LocalGather_ser(out, typed_value->op);
+  }
+  case Operator::Tag::ncLocalGather: {
+    auto *typed_value =
+        static_cast<const OperatorNcLocalGatherWrapper *>(value.get());
+    return NcLocalGather_ser(out, typed_value->op);
+  }
+  case Operator::Tag::matMul: {
+    auto *typed_value = static_cast<const OperatorMatMulWrapper *>(value.get());
+    return MatMul_ser(out, typed_value->op);
+  }
+  case Operator::Tag::ncMatMul: {
+    auto *typed_value =
+        static_cast<const OperatorNcMatMulWrapper *>(value.get());
+    return NcMatMul_ser(out, typed_value->op);
+  }
+  case Operator::Tag::matchReplace8: {
+    auto *typed_value =
+        static_cast<const OperatorMatchReplace8Wrapper *>(value.get());
+    return MatchReplace8_ser(out, typed_value->op);
+  }
+  case Operator::Tag::matchValueLoad: {
+    auto *typed_value =
+        static_cast<const OperatorMatchValueLoadWrapper *>(value.get());
+    return MatchValueLoad_ser(out, typed_value->op);
+  }
+  case Operator::Tag::max8: {
+    auto *typed_value = static_cast<const OperatorMax8Wrapper *>(value.get());
+    return Max8_ser(out, typed_value->op);
+  }
+  case Operator::Tag::memSet: {
+    auto *typed_value = static_cast<const OperatorMemSetWrapper *>(value.get());
+    return MemSet_ser(out, typed_value->op);
+  }
+  case Operator::Tag::rangeSelect: {
+    auto *typed_value =
+        static_cast<const OperatorRangeSelectWrapper *>(value.get());
+    return RangeSelect_ser(out, typed_value->op);
+  }
+  case Operator::Tag::ncRangeSelect: {
+    auto *typed_value =
+        static_cast<const OperatorNcRangeSelectWrapper *>(value.get());
+    return NcRangeSelect_ser(out, typed_value->op);
+  }
+  case Operator::Tag::reciprocal: {
+    auto *typed_value =
+        static_cast<const OperatorReciprocalWrapper *>(value.get());
+    return Reciprocal_ser(out, typed_value->op);
+  }
+  case Operator::Tag::scalarTensorTensor: {
+    auto *typed_value =
+        static_cast<const OperatorScalarTensorTensorWrapper *>(value.get());
+    return ScalarTensorTensor_ser(out, typed_value->op);
+  }
+  case Operator::Tag::ncScalarTensorTensor: {
+    auto *typed_value =
+        static_cast<const OperatorNcScalarTensorTensorWrapper *>(value.get());
+    return NcScalarTensorTensor_ser(out, typed_value->op);
+  }
+  case Operator::Tag::shuffle: {
+    auto *typed_value =
+        static_cast<const OperatorShuffleWrapper *>(value.get());
+    return Shuffle_ser(out, typed_value->op);
+  }
+  case Operator::Tag::tensorReduce: {
+    auto *typed_value =
+        static_cast<const OperatorTensorReduceWrapper *>(value.get());
+    return TensorReduce_ser(out, typed_value->op);
+  }
+  case Operator::Tag::tensorScalar: {
+    auto *typed_value =
+        static_cast<const OperatorTensorScalarWrapper *>(value.get());
+    return TensorScalar_ser(out, typed_value->op);
+  }
+  case Operator::Tag::tensorTensor: {
+    auto *typed_value =
+        static_cast<const OperatorTensorTensorWrapper *>(value.get());
+    return TensorTensor_ser(out, typed_value->op);
+  }
+  case Operator::Tag::tensorTensorScan: {
+    auto *typed_value =
+        static_cast<const OperatorTensorTensorScanWrapper *>(value.get());
+    return TensorTensorScan_ser(out, typed_value->op);
+  }
+  case Operator::Tag::tensorPartitionReduce: {
+    auto *typed_value =
+        static_cast<const OperatorTensorPartitionReduceWrapper *>(value.get());
+    return TensorPartitionReduce_ser(out, typed_value->op);
+  }
+  case Operator::Tag::tensorScalarReduce: {
+    auto *typed_value =
+        static_cast<const OperatorTensorScalarReduceWrapper *>(value.get());
+    return TensorScalarReduce_ser(out, typed_value->op);
+  }
+  case Operator::Tag::transpose: {
+    auto *typed_value =
+        static_cast<const OperatorTransposeWrapper *>(value.get());
+    return Transpose_ser(out, typed_value->op);
+  }
+  case Operator::Tag::selectReduce: {
+    auto *typed_value =
+        static_cast<const OperatorSelectReduceWrapper *>(value.get());
+    return SelectReduce_ser(out, typed_value->op);
+  }
+  case Operator::Tag::sequenceBounds: {
+    auto *typed_value =
+        static_cast<const OperatorSequenceBoundsWrapper *>(value.get());
+    return SequenceBounds_ser(out, typed_value->op);
+  }
+  case Operator::Tag::sendRecv: {
+    auto *typed_value =
+        static_cast<const OperatorSendRecvWrapper *>(value.get());
+    return SendRecv_ser(out, typed_value->op);
+  }
+  case Operator::Tag::sendRecvCompute: {
+    auto *typed_value =
+        static_cast<const OperatorSendRecvComputeWrapper *>(value.get());
+    return SendRecvCompute_ser(out, typed_value->op);
+  }
+  case Operator::Tag::tensorLoad: {
+    auto *typed_value =
+        static_cast<const OperatorTensorLoadWrapper *>(value.get());
+    return TensorLoad_ser(out, typed_value->op);
+  }
+  case Operator::Tag::tensorStore: {
+    auto *typed_value =
+        static_cast<const OperatorTensorStoreWrapper *>(value.get());
+    return TensorStore_ser(out, typed_value->op);
+  }
+  case Operator::Tag::registerMove: {
+    auto *typed_value =
+        static_cast<const OperatorRegisterMoveWrapper *>(value.get());
+    return RegisterMove_ser(out, typed_value->op);
+  }
+  case Operator::Tag::cmpBranch: {
+    auto *typed_value =
+        static_cast<const OperatorCmpBranchWrapper *>(value.get());
+    return CmpBranch_ser(out, typed_value->op);
+  }
+  case Operator::Tag::registerAluOp: {
+    auto *typed_value =
+        static_cast<const OperatorRegisterAluOpWrapper *>(value.get());
+    return RegisterAluOp_ser(out, typed_value->op);
+  }
+  case Operator::Tag::quantizeMX: {
+    auto *typed_value =
+        static_cast<const OperatorQuantizeMXWrapper *>(value.get());
+    return QuantizeMX_ser(out, typed_value->op);
+  }
+  case Operator::Tag::ncMatMulMX: {
+    auto *typed_value =
+        static_cast<const OperatorNcMatMulMXWrapper *>(value.get());
+    return MatMulMX_ser(out, typed_value->op);
+  }
+  case Operator::Tag::dmaCompute: {
+    auto *typed_value =
+        static_cast<const OperatorDmaComputeWrapper *>(value.get());
+    return DmaCompute_ser(out, typed_value->op);
+  }
+  case Operator::Tag::allReduce: {
+    auto *typed_value =
+        static_cast<const OperatorAllReduceWrapper *>(value.get());
+    return CollectiveOp_ser(out, typed_value->op);
+  }
+  case Operator::Tag::allGather: {
+    auto *typed_value =
+        static_cast<const OperatorAllGatherWrapper *>(value.get());
+    return CollectiveOp_ser(out, typed_value->op);
+  }
+  case Operator::Tag::reduceScatter: {
+    auto *typed_value =
+        static_cast<const OperatorReduceScatterWrapper *>(value.get());
+    return CollectiveOp_ser(out, typed_value->op);
+  }
+  case Operator::Tag::collectivePermute: {
+    auto *typed_value =
+        static_cast<const OperatorCollectivePermuteWrapper *>(value.get());
+    return CollectiveOp_ser(out, typed_value->op);
+  }
+  case Operator::Tag::collectivePermuteImplicit: {
+    auto *typed_value =
+        static_cast<const OperatorCollectivePermuteImplicitWrapper *>(
+            value.get());
+    return CollectiveOp_ser(out, typed_value->op);
+  }
+  case Operator::Tag::collectivePermuteImplicitReduce: {
+    auto *typed_value =
+        static_cast<const OperatorCollectivePermuteImplicitReduceWrapper *>(
+            value.get());
+    return CollectiveOp_ser(out, typed_value->op);
+  }
+  case Operator::Tag::broadcast: {
+    auto *typed_value =
+        static_cast<const OperatorBroadcastWrapper *>(value.get());
+    return CollectiveOp_ser(out, typed_value->op);
+  }
+  case Operator::Tag::allToAll: {
+    auto *typed_value =
+        static_cast<const OperatorAllToAllWrapper *>(value.get());
+    return CollectiveOp_ser(out, typed_value->op);
+  }
+  case Operator::Tag::rankId: {
+    auto *typed_value = static_cast<const OperatorRankIdWrapper *>(value.get());
+    return RankId_ser(out, typed_value->op);
+  }
+  case Operator::Tag::currentProcessingRankId: {
+    auto *typed_value =
+        static_cast<const OperatorCurrentProcessingRankIdWrapper *>(
+            value.get());
+    return CurrentProcessingRankId_ser(out, typed_value->op);
+  }
+  case Operator::Tag::send: {
+    auto *typed_value = static_cast<const OperatorSendWrapper *>(value.get());
+    return Send_ser(out, typed_value->op);
+  }
+  case Operator::Tag::recv: {
+    auto *typed_value = static_cast<const OperatorRecvWrapper *>(value.get());
+    return Recv_ser(out, typed_value->op);
+  }
+  case Operator::Tag::coreBarrier: {
+    auto *typed_value =
+        static_cast<const OperatorCoreBarrierWrapper *>(value.get());
+    return CoreBarrier_ser(out, typed_value->op);
+  }
+  case Operator::Tag::rng: {
+    auto *typed_value = static_cast<const OperatorRngWrapper *>(value.get());
+    return Rng_ser(out, typed_value->op);
+  }
+  case Operator::Tag::rand2: {
+    auto *typed_value = static_cast<const OperatorRand2Wrapper *>(value.get());
+    return Rand2_ser(out, typed_value->op);
+  }
+  case Operator::Tag::randGetState: {
+    auto *typed_value =
+        static_cast<const OperatorRandGetStateWrapper *>(value.get());
+    return RandGetState_ser(out, typed_value->op);
+  }
+  case Operator::Tag::setRngSeed: {
+    auto *typed_value =
+        static_cast<const OperatorSetRngSeedWrapper *>(value.get());
+    return SetRngSeed_ser(out, typed_value->op);
+  }
+  case Operator::Tag::randSetState: {
+    auto *typed_value =
+        static_cast<const OperatorRandSetStateWrapper *>(value.get());
+    return RandSetState_ser(out, typed_value->op);
+  }
+  case Operator::Tag::extendedInst: {
+    auto *typed_value =
+        static_cast<const OperatorExtendedInstWrapper *>(value.get());
+    return ExtendedInst_ser(out, typed_value->op);
+  }
+  case Operator::Tag::tensorScalarCumulative: {
+    auto *typed_value =
+        static_cast<const OperatorTensorScalarCumulativeWrapper *>(value.get());
+    return TensorScalarCumulative_ser(out, typed_value->op);
+  }
+  case Operator::Tag::ncNGather: {
+    auto *typed_value =
+        static_cast<const OperatorNcNGatherWrapper *>(value.get());
+    return NcNGather_ser(out, typed_value->op);
+  }
+  case Operator::Tag::devicePrint: {
+    auto *typed_value =
+        static_cast<const OperatorDevicePrintWrapper *>(value.get());
+    return DevicePrint_ser(out, typed_value->op);
+  }
+  default:
+    return false;
+  }
+}
+
+bool Stmt_ser(FILE *out, const Ptr<Stmt> &value) {
+  // For now, only handle the oper case (which is the only variant)
+  if (value->tag != Stmt::Tag::oper) {
+    throw std::runtime_error(
+        "Serialization not implemented for this stmt type");
+    return false;
+  }
+
+  // Serialize the tag (type=103, value=0, fields=3)
+  if (!serialize_tag(out, 103, 0, 3))
+    return false;
+
+  // Cast to the specific wrapper type and serialize fields
+  auto *typed_value = static_cast<const StmtOperWrapper *>(value.get());
+  if (!Operator_ser(out, typed_value->op))
+    return false;
+  if (!Option_String_ser(out, typed_value->name))
+    return false;
+  if (!Pos_ser(out, typed_value->pos))
+    return false;
+
+  return true;
+}
+
+bool Block_ser(FILE *out, const Ptr<Block> &value) {
+  if (!serialize_tag(out, 104, 0, 2))
+    return false;
+  if (!String_ser(out, value->label))
+    return false;
+  if (!List_Stmt_ser(out, value->body))
+    return false;
+  return true;
+}
+
+bool Kernel_ser(FILE *out, const Ptr<Kernel> &value) {
+  if (!serialize_tag(out, 105, 0, 4))
+    return false;
+  if (!String_ser(out, value->name))
+    return false;
+  if (!List_TensorName_ser(out, value->inputs))
+    return false;
+  if (!List_TensorName_ser(out, value->outputs))
+    return false;
+  if (!List_Block_ser(out, value->body))
+    return false;
+  return true;
+}
+
+bool SharedConstantFile_ser(FILE *out, const Ptr<SharedConstantFile> &value) {
+  if (!serialize_tag(out, 106, 0, 2))
+    return false;
+  if (!String_ser(out, value->name))
+    return false;
+  if (!String_ser(out, value->fileName))
+    return false;
+  return true;
+}
+
+bool Edges_ser(FILE *out, const Ptr<Edges> &value) {
+  if (!serialize_tag(out, 107, 0, 2))
+    return false;
+  if (!String_ser(out, value->fromEdge))
+    return false;
+  if (!List_String_ser(out, value->toEdges))
+    return false;
+  return true;
+}
+
+bool LncKernel_ser(FILE *out, const Ptr<LncKernel> &value) {
+  if (!serialize_tag(out, 108, 0, 7))
+    return false;
+  if (!String_ser(out, value->name))
+    return false;
+  if (!List_TensorName_ser(out, value->inputs))
+    return false;
+  if (!List_TensorName_ser(out, value->outputs))
+    return false;
+  if (!List_List_Block_ser(out, value->bodies))
+    return false;
+  if (!List_SharedConstantFile_ser(out, value->sharedConstants))
+    return false;
+  if (!List_TensorName_ser(out, value->sharedBuffers))
+    return false;
+  if (!List_Edges_ser(out, value->edges))
+    return false;
+  return true;
+}
+
+bool List_Index_ser(FILE *out, const List<Ptr<Index>> &value) {
+  if (!serialize_array_start(out, value.size()))
+    return false;
+
+  for (const auto &item : value) {
+    if (!Index_ser(out, item))
+      return false;
+  }
+  return true;
+}
+
+bool List_APPair_ser(FILE *out, const List<Ptr<APPair>> &value) {
+  if (!serialize_array_start(out, value.size()))
+    return false;
+
+  for (const auto &item : value) {
+    if (!APPair_ser(out, item))
+      return false;
+  }
+  return true;
+}
+
+bool Option_ScalarOffset_ser(FILE *out,
+                             const Option<Ptr<ScalarOffset>> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return ScalarOffset_ser(out, value.value);
+  }
+  return true;
+}
+
+bool Option_Access_ser(FILE *out, const Option<Ptr<Access>> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return Access_ser(out, value.value);
+  }
+  return true;
+}
+
+bool Option_Dtype_ser(FILE *out, const Option<Dtype> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return Dtype_ser(out, value.value);
+  }
+  return true;
+}
+
+bool List_Immediate_ser(FILE *out, const List<Ptr<Immediate>> &value) {
+  if (!serialize_array_start(out, value.size()))
+    return false;
+
+  for (const auto &item : value) {
+    if (!Immediate_ser(out, item))
+      return false;
+  }
+  return true;
+}
+
+bool Option_TensorRef_ser(FILE *out, const Option<Ptr<TensorRef>> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return TensorRef_ser(out, value.value);
+  }
+  return true;
+}
+
+bool Option_TensorSubDim_ser(FILE *out, const Option<TensorSubDim> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return TensorSubDim_ser(out, value.value);
+  }
+  return true;
+}
+
+bool Option_Operand_ser(FILE *out, const Option<Ptr<Operand>> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return Operand_ser(out, value.value);
+  }
+  return true;
+}
+
+bool Option_AluOp_ser(FILE *out, const Option<AluOp> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return AluOp_ser(out, value.value);
+  }
+  return true;
+}
+
+bool Option_Immediate_ser(FILE *out, const Option<Ptr<Immediate>> &value) {
+  if (!serialize_option(out, value.has_value))
+    return false;
+
+  if (value.has_value) {
+    return Immediate_ser(out, value.value);
+  }
+  return true;
+}
+
+bool List_TensorRef_ser(FILE *out, const List<Ptr<TensorRef>> &value) {
+  if (!serialize_array_start(out, value.size()))
+    return false;
+
+  for (const auto &item : value) {
+    if (!TensorRef_ser(out, item))
+      return false;
+  }
+  return true;
+}
+
+bool List_Stmt_ser(FILE *out, const List<Ptr<Stmt>> &value) {
+  if (!serialize_array_start(out, value.size()))
+    return false;
+
+  for (const auto &item : value) {
+    if (!Stmt_ser(out, item))
+      return false;
+  }
+  return true;
+}
+
+bool List_TensorName_ser(FILE *out, const List<Ptr<TensorName>> &value) {
+  if (!serialize_array_start(out, value.size()))
+    return false;
+
+  for (const auto &item : value) {
+    if (!TensorName_ser(out, item))
+      return false;
+  }
+  return true;
+}
+
+bool List_Block_ser(FILE *out, const List<Ptr<Block>> &value) {
+  if (!serialize_array_start(out, value.size()))
+    return false;
+
+  for (const auto &item : value) {
+    if (!Block_ser(out, item))
+      return false;
+  }
+  return true;
+}
+
+bool List_List_Block_ser(FILE *out, const List<List<Ptr<Block>>> &value) {
+  if (!serialize_array_start(out, value.size()))
+    return false;
+
+  for (const auto &item : value) {
+    if (!List_Block_ser(out, item))
+      return false;
+  }
+  return true;
+}
+
+bool List_SharedConstantFile_ser(FILE *out,
+                                 const List<Ptr<SharedConstantFile>> &value) {
+  if (!serialize_array_start(out, value.size()))
+    return false;
+
+  for (const auto &item : value) {
+    if (!SharedConstantFile_ser(out, item))
+      return false;
+  }
+  return true;
+}
+
+bool List_Edges_ser(FILE *out, const List<Ptr<Edges>> &value) {
+  if (!serialize_array_start(out, value.size()))
+    return false;
+
+  for (const auto &item : value) {
+    if (!Edges_ser(out, item))
+      return false;
+  }
+  return true;
 }
 
 Ptr<Immediate> Immediate_des(FILE *in) {
@@ -4349,6 +7743,31 @@ List<Ptr<Edges>> List_Edges_des(FILE *in) {
     l.push_back(b);
   }
   return l;
+}
+
+bool KLRFile_ser(FILE *out, const Ptr<KLRFile> &value) {
+  if (!serialize_tag(out, 217, 247, 3))
+    return false;
+  if (!Nat_ser(out, value->major))
+    return false;
+  if (!Nat_ser(out, value->minor))
+    return false;
+  if (!Nat_ser(out, value->patch))
+    return false;
+  return true;
+}
+
+bool KLRMetaData_ser(FILE *out, const Ptr<KLRMetaData> &value) {
+  if (!serialize_tag(out, 235, 0, 1))
+    return false;
+  if (!String_ser(out, value->format))
+    return false;
+  return true;
+}
+
+bool Contents_ser(FILE *out, const Ptr<Contents> &value) {
+  throw std::runtime_error("Serialization not implemented for this sum type");
+  return false;
 }
 
 Ptr<KLRFile> KLRFile_des(FILE *in) {
