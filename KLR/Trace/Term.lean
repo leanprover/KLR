@@ -612,7 +612,7 @@ nki builtin.access.reshape
   | some v => pure v
   | none => flags.address_rotation
 
-  let addr <- if tensor.address.memory == .hbm then
+  let addr <- if tensor.address.memory.isHBM then
       let shape_sz := shape.foldl (. * .) tensor.dtype.size
       let addr_sz := tensor.address.parSize * tensor.address.freeSize
       if addr_sz < shape_sz then

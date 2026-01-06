@@ -41,6 +41,11 @@ def toName (m : Memory) :=
   | .sbuf => `sbuf
   | .psum => `psum
   | .reg => `reg
+
+def isHBM (m : Memory) : Bool :=
+  match m with
+  | .hbm | .shared_hbm | .private_hbm => True
+  | .sbuf | .psum | .reg => False
 end Memory
 
 -- register number
