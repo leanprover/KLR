@@ -59,17 +59,17 @@ def tensorOpScalarInt (op : BinOp) (l : TensorLib.Tensor) (r : Int) : Trace Term
   let br := <- dt.byteArrayOfInt r
   tensorScalarOpByteArray op l br
 
-nki builtin.lang.transpose (src : Access) := do
+nki builtin.tensor.transpose (src : Access) := do
   warn "transpose is not supported"
   return .access src
 
-nki builtin.lang.zeros (shape: Shape) (dtype: Dtype) := do
+nki builtin.tensor.zeros (shape: Shape) (dtype: Dtype) := do
   let tlShape := TensorLib.Shape.mk shape.toList
   let tlDtype <- dtype.toTensorLibDtype
   let tensor := TensorLib.Tensor.zeros tlDtype tlShape
   return .tensor tensor
 
-nki builtin.lang.arange
+nki builtin.tensor.arange
  (start : Nat)
  (stop : Nat)
  (step : Nat := 1)
@@ -84,7 +84,7 @@ nki builtin.lang.arange
     data := data.append bytes
   return .tensor {dtype := tlDtype, shape := tlShape, data := data}
 
-nki builtin.lang.identity
+nki builtin.tensor.identity
   (N : Nat)
   (dtype : Dtype := .float32) := do
   let tlDtype <- dtype.toTensorLibDtype

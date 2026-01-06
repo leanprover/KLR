@@ -34,10 +34,12 @@ def nki_isa : Name := .str nki_ "isa"
 def nki_stdlib : Name := .str nki_ "stdlib"
 def nki_lang : Name := .str nki_ "language"
 def nki_typing : Name := .str nki_ "typing"
+def nki_tensor : Name := .str nki_ "tensor"
 
 def nl : String -> Name := .str nki_lang
 def nisa : String -> Name := .str nki_isa
 def nt : String -> Name := .str nki_typing
+def ntensor : String -> Name := .str nki_tensor
 
 def numpy : Name := .str .anonymous "numpy"
 
