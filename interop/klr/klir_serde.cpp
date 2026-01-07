@@ -2838,6 +2838,20 @@ bool NcNGather_ser(FILE *out, const Ptr<NcNGather> &value) {
   return true;
 }
 
+bool NonzeroWithCount_ser(FILE *out, const Ptr<NonzeroWithCount> &value) {
+  if (!serialize_tag(out, 213, 0, 4))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!Immediate_ser(out, value->indexOffset))
+    return false;
+  if (!Immediate_ser(out, value->paddingVal))
+    return false;
+  return true;
+}
+
 bool PrintOutputBuffer_ser(FILE *out, const PrintOutputBuffer &value) {
   u8 tag_val = 0;
   switch (value) {
@@ -2850,11 +2864,11 @@ bool PrintOutputBuffer_ser(FILE *out, const PrintOutputBuffer &value) {
   default:
     return false;
   }
-  return serialize_tag(out, 213, tag_val, 0);
+  return serialize_tag(out, 214, tag_val, 0);
 }
 
 bool DevicePrint_ser(FILE *out, const Ptr<DevicePrint> &value) {
-  if (!serialize_tag(out, 214, 0, 3))
+  if (!serialize_tag(out, 215, 0, 3))
     return false;
   if (!TensorRef_ser(out, value->src))
     return false;
@@ -3159,8 +3173,12 @@ bool Operator_ser(FILE *out, const Ptr<Operator> &value) {
     tag_val = 71;
     field_count = 1;
     break;
-  case Operator::Tag::devicePrint:
+  case Operator::Tag::nonzeroWithCount:
     tag_val = 72;
+    field_count = 1;
+    break;
+  case Operator::Tag::devicePrint:
+    tag_val = 73;
     field_count = 1;
     break;
   default:
@@ -3169,7 +3187,7 @@ bool Operator_ser(FILE *out, const Ptr<Operator> &value) {
   }
 
   // Serialize the tag
-  if (!serialize_tag(out, 215, tag_val, field_count))
+  if (!serialize_tag(out, 216, tag_val, field_count))
     return false;
 
   // Serialize the fields based on the specific variant
@@ -3525,6 +3543,11 @@ bool Operator_ser(FILE *out, const Ptr<Operator> &value) {
     auto *typed_value =
         static_cast<const OperatorNcNGatherWrapper *>(value.get());
     return NcNGather_ser(out, typed_value->op);
+  }
+  case Operator::Tag::nonzeroWithCount: {
+    auto *typed_value =
+        static_cast<const OperatorNonzeroWithCountWrapper *>(value.get());
+    return NonzeroWithCount_ser(out, typed_value->op);
   }
   case Operator::Tag::devicePrint: {
     auto *typed_value =
@@ -6854,11 +6877,32 @@ Ptr<NcNGather> NcNGather_des(FILE *in) {
   return x;
 }
 
+Ptr<NonzeroWithCount> NonzeroWithCount_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting NonzeroWithCount:213,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 213 || c != 0 || l != 4) {
+    std::ostringstream msg;
+    msg << "Expecting NonzeroWithCount:(213,0,4)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
+  Ptr<NonzeroWithCount> x = ptr<NonzeroWithCount>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  x->indexOffset = Immediate_des(in);
+  x->paddingVal = Immediate_des(in);
+  return x;
+}
+
 PrintOutputBuffer PrintOutputBuffer_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 213)
+  if (t != 214)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -6882,12 +6926,12 @@ Ptr<DevicePrint> DevicePrint_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l)) {
     std::ostringstream msg;
-    msg << "Could not find tag, expecting DevicePrint:214,0";
+    msg << "Could not find tag, expecting DevicePrint:215,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 214 || c != 0 || l != 3) {
+  if (t != 215 || c != 0 || l != 3) {
     std::ostringstream msg;
-    msg << "Expecting DevicePrint:(214,0,3)";
+    msg << "Expecting DevicePrint:(215,0,3)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -6902,7 +6946,7 @@ Ptr<Operator> Operator_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 215)
+  if (t != 216)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -7496,6 +7540,15 @@ Ptr<Operator> Operator_des(FILE *in) {
     break;
   }
   case 72: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorNonzeroWithCountWrapper> x =
+        ptr<OperatorNonzeroWithCountWrapper>();
+    x->op = NonzeroWithCount_des(in);
+    return x;
+    break;
+  }
+  case 73: {
     if (l != 1)
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorDevicePrintWrapper> x = ptr<OperatorDevicePrintWrapper>();

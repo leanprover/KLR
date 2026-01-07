@@ -371,6 +371,7 @@ def klrAST: MetaM (List LeanType) := do
     `KLR.Core.ExtendedInst,
     `KLR.Core.TensorScalarCumulative,
     `KLR.Core.NcNGather,
+    `KLR.Core.NonzeroWithCount,
     `KLR.Core.PrintOutputBuffer,
     `KLR.Core.DevicePrint,
     `KLR.Core.Operator,
