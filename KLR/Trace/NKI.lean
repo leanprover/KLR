@@ -416,9 +416,9 @@ partial def stmt' (s' : Stmt') : Trace Result := do
   | .ifStm e thn els =>
       match <- expr e with
       | .scalar n =>
-          let trueLbl := (<- genName `then).toString
-          let falseLbl := (<- genName `else).toString
-          let endLbl := (<- genName `end).toString
+          let trueLbl := (<- genLabel `then)
+          let falseLbl := (<- genLabel `else)
+          let endLbl := (<- genLabel `end)
           brnz n.toString trueLbl falseLbl
           endBlock
           -- then:
@@ -439,8 +439,8 @@ partial def stmt' (s' : Stmt') : Trace Result := do
           then stmts thn
           else stmts els
   | .forLoop x (.range .dynamic l u s) body => do
-      let bodyLbl := (<- genName `body).toString
-      let endLbl := (<- genName `exit).toString
+      let bodyLbl := (<- genLabel `body)
+      let endLbl := (<- genLabel `exit)
       -- init:
       let _ <- beginBlock
       let l <- scalar l
@@ -478,8 +478,8 @@ partial def stmt' (s' : Stmt') : Trace Result := do
   | .whileLoop test body =>
       match <- expr test with
       | .scalar .. =>
-        let bodyLbl := (<- genName `body).toString
-        let endLbl := (<- genName `exit).toString
+        let bodyLbl := (<- genLabel `body)
+        let endLbl := (<- genLabel `exit)
         -- entry:
         let s <- scalar test
         brnz s bodyLbl endLbl
