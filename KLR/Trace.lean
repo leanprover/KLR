@@ -69,7 +69,18 @@ def runNkiKernel
                     (nl "_program_ndim", int 1) :: kernelEnv k.arch ++ globalEnv
   tracer genDebug env (traceKernel k)
 
--- TODO: check that inputs and outputs are the same
+def compareLabels (originalLabels : Array String) (currentLabels : Array String) : PassM Unit := do
+  if originalLabels.size != currentLabels.size then
+    throw s!"Label count mismatch: first kernel has {originalLabels.size} labels, current kernel has {currentLabels.size} labels"
+
+  -- Compute set differences using List operations
+  let originalList := originalLabels.toList
+  let currentList := currentLabels.toList
+  if originalList != currentList then
+    let onlyInOriginal := originalList.filter (fun x => !currentList.contains x)
+    let onlyInCurrent := currentList.filter (fun x => !originalList.contains x)
+    throw s!"Labels mismatch between different lnc versions. Labels only in lnc=0 kernel {onlyInOriginal}, labels that aren't in original kenrnel {onlyInCurrent} "
+
 -- TODO: check that shared constants are the same
 -- TODO: check that schedule edges make sense
 def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
@@ -78,6 +89,7 @@ def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
   let res <- runNkiKernel k genDebug (0, num)
   let k0 := res.result
   let mut sharedBuffers : List (Core.TensorName × Pos) := res.sharedBuffers
+  let firstKernelLabels := res.labels
 
   let dedupSharedBuf (tensors : List (Core.TensorName × Pos)) : PassM (List Core.TensorName) := do
     let grps := tensors.groupByKey (·.1.name)
@@ -116,6 +128,7 @@ def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
     bodies := res.result.body :: bodies
     sharedBuffers := sharedBuffers ++ res.sharedBuffers
     outputLists := outputLists ++ [res.result.outputs]
+    compareLabels firstKernelLabels res.labels
 
   -- Transpose: [[a1,a2], [a3,a4]] -> [[a1,a3], [a2,a4]]
   let outputsByPosition := outputLists.transpose

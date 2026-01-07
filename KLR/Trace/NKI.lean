@@ -23,6 +23,7 @@ import KLR.Trace.Term
 import KLR.Trace.Types
 import KLR.Trace.Lang
 import KLR.Compile.Pass
+import KLR.Trace.Types
 
 /-
 # NKI built-ins
@@ -565,7 +566,7 @@ partial def lowerRes (t: Term) : Trace (List Core.Access) := do
   | _ => return [] -- all others invariants should not contain tensors
 
 def traceKernel (k : Kernel) : Trace Core.Kernel := do
-  let _ <- beginBlock (<- genName `main).toString
+  let _ <- beginBlock (<- genLabel `main)
   addId
   globals k
   flags k.flags
