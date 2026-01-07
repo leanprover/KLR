@@ -173,6 +173,7 @@ bool ExtendedInst_ser(FILE *out, const Ptr<ExtendedInst> &value);
 bool TensorScalarCumulative_ser(FILE *out,
                                 const Ptr<TensorScalarCumulative> &value);
 bool NcNGather_ser(FILE *out, const Ptr<NcNGather> &value);
+bool NonzeroWithCount_ser(FILE *out, const Ptr<NonzeroWithCount> &value);
 bool PrintOutputBuffer_ser(FILE *out, const PrintOutputBuffer &value);
 bool DevicePrint_ser(FILE *out, const Ptr<DevicePrint> &value);
 bool Operator_ser(FILE *out, const Ptr<Operator> &value);
@@ -302,6 +303,7 @@ Ptr<RandSetState> RandSetState_des(FILE *in);
 Ptr<ExtendedInst> ExtendedInst_des(FILE *in);
 Ptr<TensorScalarCumulative> TensorScalarCumulative_des(FILE *in);
 Ptr<NcNGather> NcNGather_des(FILE *in);
+Ptr<NonzeroWithCount> NonzeroWithCount_des(FILE *in);
 PrintOutputBuffer PrintOutputBuffer_des(FILE *in);
 Ptr<DevicePrint> DevicePrint_des(FILE *in);
 Ptr<Operator> Operator_des(FILE *in);

@@ -185,6 +185,7 @@ partial def operatorBasicTensors : Operator → List TensorRef
   | .extendedInst _ => []
   | .tensorScalarCumulative t => [t.dst, t.src]
   | .ncNGather g => [g.dst, g.data, g.indices]
+  | .nonzeroWithCount n => [n.dst, n.src]
   | .devicePrint t => [t.src]
 
 partial def operatorAdditionalTensors : Operator → List TensorName
@@ -210,6 +211,7 @@ partial def operatorAdditionalTensors : Operator → List TensorName
   | .rand2 r => tensors r.min ++ tensors r.max
   | .tensorScalarCumulative t => (tensors t.imm0) ++ (tensors t.imm1)
   | .ncNGather _ => []
+  | .nonzeroWithCount _ => []
   | _ => []
 
 instance : Tensors Operator where

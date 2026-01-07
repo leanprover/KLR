@@ -1208,3 +1208,19 @@ nki builtin.isa.nc_n_gather
       dtype := dtype.or dst.tensor.dtype
     }) name
     return .none
+
+nki builtin.isa.nonzero_with_count
+  (dst: Access)
+  (src: Access)
+  (index_offset: Immediate := .int 0)
+  (padding_val: Immediate := .int (-1))
+  (mask : Option Immediate := none)
+  (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.nonzeroWithCount {
+      dst := .abstract dst
+      src := .abstract src
+      indexOffset := index_offset
+      paddingVal := padding_val
+    }) name
+    return .none

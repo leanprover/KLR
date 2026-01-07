@@ -3081,6 +3081,24 @@ std::string to_string(NcNGather &NcNGatherInstance) {
   return result;
 };
 
+std::string to_string(NonzeroWithCount &NonzeroWithCountInstance) {
+  std::string result;
+  result += "NonzeroWithCount(";
+  result += "dst=";
+  result += to_string(*(NonzeroWithCountInstance.dst.get()));
+  result += ", ";
+  result += "src=";
+  result += to_string(*(NonzeroWithCountInstance.src.get()));
+  result += ", ";
+  result += "indexOffset=";
+  result += to_string(*(NonzeroWithCountInstance.indexOffset.get()));
+  result += ", ";
+  result += "paddingVal=";
+  result += to_string(*(NonzeroWithCountInstance.paddingVal.get()));
+  result += ")";
+  return result;
+};
+
 std::string to_string(PrintOutputBuffer &PrintOutputBufferInstance) {
   switch (PrintOutputBufferInstance) {
   case PrintOutputBuffer::stdout:
@@ -3748,6 +3766,15 @@ to_string(OperatorNcNGatherWrapper &OperatorNcNGatherWrapperInstance) {
   result += ")";
   return result;
 };
+std::string to_string(
+    OperatorNonzeroWithCountWrapper &OperatorNonzeroWithCountWrapperInstance) {
+  std::string result;
+  result += "OperatorNonzeroWithCountWrapper(";
+  result += "op=";
+  result += to_string(*(OperatorNonzeroWithCountWrapperInstance.op.get()));
+  result += ")";
+  return result;
+};
 std::string
 to_string(OperatorDevicePrintWrapper &OperatorDevicePrintWrapperInstance) {
   std::string result;
@@ -4119,6 +4146,11 @@ std::string to_string(Operator &OperatorInstance) {
   case (Operator::Tag::ncNGather): {
     OperatorNcNGatherWrapper &derivedRef =
         static_cast<OperatorNcNGatherWrapper &>(OperatorInstance);
+    return to_string(derivedRef);
+  }
+  case (Operator::Tag::nonzeroWithCount): {
+    OperatorNonzeroWithCountWrapper &derivedRef =
+        static_cast<OperatorNonzeroWithCountWrapper &>(OperatorInstance);
     return to_string(derivedRef);
   }
   case (Operator::Tag::devicePrint): {

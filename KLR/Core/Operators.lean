@@ -1180,8 +1180,19 @@ structure NcNGather where
 instance : MapTensorRefs NcNGather where
   mapM ft _ op := do pure { op with dst := ← ft op.dst, data := ← ft op.data, indices := ← ft op.indices }
 
--- Device Print support
 @[serde tag = 213]
+structure NonzeroWithCount where
+  dst : TensorRef
+  src : TensorRef
+  indexOffset : Immediate
+  paddingVal : Immediate
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+instance : MapTensorRefs NonzeroWithCount where
+  mapM ft _ op := do pure { op with dst := ← ft op.dst, src := ← ft op.src }
+
+-- Device Print support
+@[serde tag = 214]
 inductive PrintOutputBuffer where
   | stdout | stderr
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
@@ -1193,7 +1204,7 @@ def toName (m : PrintOutputBuffer) :=
   | .stderr => `stderr
 end PrintOutputBuffer
 
-@[serde tag = 214]
+@[serde tag = 215]
 structure DevicePrint where
   src : TensorRef
   printPrefix : String
@@ -1203,7 +1214,7 @@ structure DevicePrint where
 instance : MapTensorRefs DevicePrint where
   mapM ft _ op := do pure { op with src := ← ft op.src }
 
-@[serde tag = 215]
+@[serde tag = 216]
 inductive Operator where
   | activate (op : Activate)
   | ncActivate (op : NcActivate)
@@ -1277,10 +1288,11 @@ inductive Operator where
   | extendedInst (op : ExtendedInst)
   | tensorScalarCumulative (op: TensorScalarCumulative)
   | ncNGather (op: NcNGather)
+  | nonzeroWithCount (op: NonzeroWithCount)
   | devicePrint (op: DevicePrint)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 216]
+@[serde tag = 217]
 inductive TGROperator where
   | activate (op : Activate)
   | affineSelect (op : AffineSelect)
@@ -1386,4 +1398,5 @@ instance : MapTensorRefs Operator where
   | .extendedInst op => return .extendedInst (← MapTensorRefs.mapM ft fo op)
   | .tensorScalarCumulative op => return .tensorScalarCumulative (← MapTensorRefs.mapM ft fo op)
   | .ncNGather op => return .ncNGather (← MapTensorRefs.mapM ft fo op)
+  | .nonzeroWithCount op => return .nonzeroWithCount (← MapTensorRefs.mapM ft fo op)
   | .devicePrint op => return .devicePrint (← MapTensorRefs.mapM ft fo op)

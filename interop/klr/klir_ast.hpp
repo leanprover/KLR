@@ -1043,6 +1043,13 @@ struct NcNGather final {
   Option<Dtype> dtype;
 };
 
+struct NonzeroWithCount final {
+  Ptr<TensorRef> dst;
+  Ptr<TensorRef> src;
+  Ptr<Immediate> indexOffset;
+  Ptr<Immediate> paddingVal;
+};
+
 enum class PrintOutputBuffer {
   stdout = 1,
   stderr,
@@ -1128,6 +1135,7 @@ struct Operator {
     extendedInst,
     tensorScalarCumulative,
     ncNGather,
+    nonzeroWithCount,
     devicePrint,
   };
   Tag tag;
@@ -1497,6 +1505,11 @@ struct OperatorTensorScalarCumulativeWrapper final : Operator {
 struct OperatorNcNGatherWrapper final : Operator {
   Ptr<NcNGather> op;
   OperatorNcNGatherWrapper() : Operator(Tag::ncNGather) {}
+};
+
+struct OperatorNonzeroWithCountWrapper final : Operator {
+  Ptr<NonzeroWithCount> op;
+  OperatorNonzeroWithCountWrapper() : Operator(Tag::nonzeroWithCount) {}
 };
 
 struct OperatorDevicePrintWrapper final : Operator {

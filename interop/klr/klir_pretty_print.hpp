@@ -258,6 +258,8 @@ std::string to_string(TensorScalarCumulative &TensorScalarCumulativeInstance);
 
 std::string to_string(NcNGather &NcNGatherInstance);
 
+std::string to_string(NonzeroWithCount &NonzeroWithCountInstance);
+
 std::string to_string(PrintOutputBuffer &PrintOutputBufferInstance);
 
 std::string to_string(DevicePrint &DevicePrintInstance);
@@ -389,6 +391,8 @@ std::string to_string(OperatorTensorScalarCumulativeWrapper
                           &OperatorTensorScalarCumulativeWrapperInstance);
 std::string
 to_string(OperatorNcNGatherWrapper &OperatorNcNGatherWrapperInstance);
+std::string to_string(
+    OperatorNonzeroWithCountWrapper &OperatorNonzeroWithCountWrapperInstance);
 std::string
 to_string(OperatorDevicePrintWrapper &OperatorDevicePrintWrapperInstance);
 std::string to_string(Operator &OperatorInstance);
