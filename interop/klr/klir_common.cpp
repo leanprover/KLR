@@ -57,11 +57,12 @@ bool serialize_option(FILE *out, bool isSome) {
 }
 
 Prop Prop_des(FILE *in) {
-  u64 size = 0;
-  if (!deserialize_array_start(in, &size))
-    throw std::runtime_error("expecting empty array for Prop");
-  if (size != 0)
-    throw std::runtime_error("Prop array should be empty");
+  // u64 size = 0;
+  // if (!deserialize_array_start(in, &size))
+  //   throw std::runtime_error("expecting empty array for Prop");
+  // if (size != 0)
+  //   throw std::runtime_error("Prop array should be empty");
+  // return Prop();
   return Prop();
 }
 
