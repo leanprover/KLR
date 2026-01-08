@@ -10,6 +10,7 @@ Written by the KLR Contributors (https://github.com/leanprover/KLR)
 #include "klir_common.hpp"
 #include "klir_ast.hpp"
 #include "klir_pretty_print.hpp"
+#include <sstream>
 
 namespace klr {
 

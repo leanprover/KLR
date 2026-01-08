@@ -56,15 +56,15 @@ bool test_option_bool_roundtrip() {
 
     fclose(temp);
 
-    if (original.has_value != deserialized.has_value) {
-      cout << "FAILED (has_value mismatch: expected " << original.has_value
-           << ", got " << deserialized.has_value << ")" << endl;
+    if (original.has_value() != deserialized.has_value()) {
+      cout << "FAILED (has_value mismatch: expected " << original.has_value()
+           << ", got " << deserialized.has_value() << ")" << endl;
       return false;
     }
 
-    if (original.has_value && original.value != deserialized.value) {
-      cout << "FAILED (value mismatch: expected " << original.value << ", got "
-           << deserialized.value << ")" << endl;
+    if (original.has_value() && original.value() != deserialized.value()) {
+      cout << "FAILED (value mismatch: expected " << original.value()
+           << ", got " << deserialized.value() << ")" << endl;
       return false;
     }
   }
@@ -106,15 +106,15 @@ bool test_option_nat_roundtrip() {
 
     fclose(temp);
 
-    if (original.has_value != deserialized.has_value) {
-      cout << "FAILED (has_value mismatch: expected " << original.has_value
-           << ", got " << deserialized.has_value << ")" << endl;
+    if (original.has_value() != deserialized.has_value()) {
+      cout << "FAILED (has_value mismatch: expected " << original.has_value()
+           << ", got " << deserialized.has_value() << ")" << endl;
       return false;
     }
 
-    if (original.has_value && original.value != deserialized.value) {
-      cout << "FAILED (value mismatch: expected " << original.value << ", got "
-           << deserialized.value << ")" << endl;
+    if (original.has_value() && original.value() != deserialized.value()) {
+      cout << "FAILED (value mismatch: expected " << original.value()
+           << ", got " << deserialized.value() << ")" << endl;
       return false;
     }
   }
@@ -157,15 +157,15 @@ bool test_option_string_roundtrip() {
 
     fclose(temp);
 
-    if (original.has_value != deserialized.has_value) {
-      cout << "FAILED (has_value mismatch: expected " << original.has_value
-           << ", got " << deserialized.has_value << ")" << endl;
+    if (original.has_value() != deserialized.has_value()) {
+      cout << "FAILED (has_value mismatch: expected " << original.has_value()
+           << ", got " << deserialized.has_value() << ")" << endl;
       return false;
     }
 
-    if (original.has_value && original.value != deserialized.value) {
-      cout << "FAILED (value mismatch: expected \"" << original.value
-           << "\", got \"" << deserialized.value << "\")" << endl;
+    if (original.has_value() && original.value() != deserialized.value()) {
+      cout << "FAILED (value mismatch: expected \"" << original.value()
+           << "\", got \"" << deserialized.value() << "\")" << endl;
       return false;
     }
   }
@@ -267,24 +267,24 @@ bool test_option_list_nat_roundtrip() {
 
     fclose(temp);
 
-    if (original.has_value != deserialized.has_value) {
-      cout << "FAILED (has_value mismatch: expected " << original.has_value
-           << ", got " << deserialized.has_value << ")" << endl;
+    if (original.has_value() != deserialized.has_value()) {
+      cout << "FAILED (has_value mismatch: expected " << original.has_value()
+           << ", got " << deserialized.has_value() << ")" << endl;
       return false;
     }
 
-    if (original.has_value) {
-      if (original.value.size() != deserialized.value.size()) {
-        cout << "FAILED (size mismatch: expected " << original.value.size()
-             << ", got " << deserialized.value.size() << ")" << endl;
+    if (original.has_value()) {
+      if (original.value().size() != deserialized.value().size()) {
+        cout << "FAILED (size mismatch: expected " << original.value().size()
+             << ", got " << deserialized.value().size() << ")" << endl;
         return false;
       }
 
-      auto orig_it = original.value.begin();
-      auto deser_it = deserialized.value.begin();
+      auto orig_it = original.value().begin();
+      auto deser_it = deserialized.value().begin();
       size_t i = 0;
-      while (orig_it != original.value.end() &&
-             deser_it != deserialized.value.end()) {
+      while (orig_it != original.value().end() &&
+             deser_it != deserialized.value().end()) {
         if (*orig_it != *deser_it) {
           cout << "FAILED (element " << i << " mismatch: expected " << *orig_it
                << ", got " << *deser_it << ")" << endl;
@@ -426,27 +426,28 @@ bool test_pos_roundtrip() {
 
     if (original->line != deserialized->line ||
         original->column != deserialized->column ||
-        original->lineEnd.has_value != deserialized->lineEnd.has_value ||
-        original->columnEnd.has_value != deserialized->columnEnd.has_value ||
-        original->filename.has_value != deserialized->filename.has_value) {
+        original->lineEnd.has_value() != deserialized->lineEnd.has_value() ||
+        original->columnEnd.has_value() !=
+            deserialized->columnEnd.has_value() ||
+        original->filename.has_value() != deserialized->filename.has_value()) {
       cout << "FAILED (basic field mismatch)" << endl;
       return false;
     }
 
-    if (original->lineEnd.has_value &&
-        original->lineEnd.value != deserialized->lineEnd.value) {
+    if (original->lineEnd.has_value() &&
+        original->lineEnd.value() != deserialized->lineEnd.value()) {
       cout << "FAILED (lineEnd mismatch)" << endl;
       return false;
     }
 
-    if (original->columnEnd.has_value &&
-        original->columnEnd.value != deserialized->columnEnd.value) {
+    if (original->columnEnd.has_value() &&
+        original->columnEnd.value() != deserialized->columnEnd.value()) {
       cout << "FAILED (columnEnd mismatch)" << endl;
       return false;
     }
 
-    if (original->filename.has_value &&
-        original->filename.value != deserialized->filename.value) {
+    if (original->filename.has_value() &&
+        original->filename.value() != deserialized->filename.value()) {
       cout << "FAILED (filename mismatch)" << endl;
       return false;
     }
@@ -604,9 +605,9 @@ bool test_stmt_roundtrip() {
   auto deserializedStmt = static_cast<StmtOperWrapper *>(deserialized.get());
 
   // Check name
-  if (deserializedStmt->name.has_value != stmt->name.has_value ||
-      (deserializedStmt->name.has_value &&
-       deserializedStmt->name.value != stmt->name.value)) {
+  if (deserializedStmt->name.has_value() != stmt->name.has_value() ||
+      (deserializedStmt->name.has_value() &&
+       deserializedStmt->name.value() != stmt->name.value())) {
     cout << "FAILED (name mismatch)" << endl;
     return false;
   }
@@ -707,7 +708,7 @@ bool test_block_roundtrip() {
   // Check first statement
   auto deserStmt1 =
       static_cast<StmtOperWrapper *>(deserialized->body.front().get());
-  if (deserStmt1->pos->line != 1 || deserStmt1->name.has_value) {
+  if (deserStmt1->pos->line != 1 || deserStmt1->name.has_value()) {
     cout << "FAILED (first statement mismatch)" << endl;
     return false;
   }
@@ -1956,14 +1957,14 @@ bool test_address_roundtrip() {
   }
 
   // Check optional fields
-  if (deserialized->parOffset.has_value != address->parOffset.has_value ||
-      deserialized->freeOffset.has_value != address->freeOffset.has_value) {
+  if (deserialized->parOffset.has_value() != address->parOffset.has_value() ||
+      deserialized->freeOffset.has_value() != address->freeOffset.has_value()) {
     cout << "FAILED (optional field presence mismatch)" << endl;
     return false;
   }
 
-  if (address->parOffset.has_value &&
-      deserialized->parOffset.value != address->parOffset.value) {
+  if (address->parOffset.has_value() &&
+      deserialized->parOffset.value() != address->parOffset.value()) {
     cout << "FAILED (parOffset value mismatch)" << endl;
     return false;
   }
@@ -3123,6 +3124,600 @@ bool test_kernel_roundtrip() {
   return true;
 }
 
+// Test LncKernel round trip (complex structure with 2D arrays)
+bool test_lnckernel_roundtrip() {
+  cout << "Testing LncKernel round trip... ";
+
+  auto lncKernel = ptr<LncKernel>();
+  lncKernel->name = "test_lnc_kernel";
+
+  // Create input tensors
+  auto inputTensor = ptr<TensorName>();
+  inputTensor->name = "lnc_input";
+  inputTensor->dtype = Dtype::float32;
+  inputTensor->freeElements = 2048;
+  inputTensor->addressRotation = false;
+
+  // Create shape for input
+  auto inputShape = ptr<Shape>();
+  inputShape->parDim = 2;
+  inputShape->freeDims.push_back(32);
+  inputShape->freeDims.push_back(64);
+  inputTensor->shape = inputShape;
+
+  // Create address for input
+  auto inputAddress = ptr<Address>();
+  inputAddress->name = "lnc_input_addr";
+  inputAddress->memory = Memory::hbm;
+  inputAddress->parSize = 2;
+  inputAddress->freeSize = 2048;
+  inputAddress->parOffset = Option<Nat>(0);
+  inputAddress->freeOffset = Option<Nat>(1024);
+  inputAddress->isShared = true;
+  inputTensor->address = inputAddress;
+
+  // Set WF props (empty for now)
+  inputTensor->parWF = Prop{};
+  inputTensor->freeWF = Prop{};
+
+  lncKernel->inputs.push_back(inputTensor);
+
+  // Create output tensor (similar to input but different values)
+  auto outputTensor = ptr<TensorName>();
+  outputTensor->name = "lnc_output";
+  outputTensor->dtype = Dtype::int32;
+  outputTensor->freeElements = 1024;
+  outputTensor->addressRotation = true;
+
+  auto outputShape = ptr<Shape>();
+  outputShape->parDim = 1;
+  outputShape->freeDims.push_back(64);
+  outputTensor->shape = outputShape;
+
+  auto outputAddress = ptr<Address>();
+  outputAddress->name = "lnc_output_addr";
+  outputAddress->memory = Memory::sbuf;
+  outputAddress->parSize = 1;
+  outputAddress->freeSize = 1024;
+  outputAddress->parOffset = Option<Nat>();
+  outputAddress->freeOffset = Option<Nat>(512);
+  outputAddress->isShared = false;
+  outputTensor->address = outputAddress;
+
+  outputTensor->parWF = Prop{};
+  outputTensor->freeWF = Prop{};
+
+  lncKernel->outputs.push_back(outputTensor);
+
+  // Create 2D bodies array (List<List<Block>>)
+  // First row of blocks
+  List<Ptr<Block>> firstRow;
+
+  auto block1 = ptr<Block>();
+  block1->label = "block_1_1";
+  block1->body = {}; // Empty body for simplicity
+  firstRow.push_back(block1);
+
+  auto block2 = ptr<Block>();
+  block2->label = "block_1_2";
+  block2->body = {}; // Empty body for simplicity
+  firstRow.push_back(block2);
+
+  lncKernel->bodies.push_back(firstRow);
+
+  // Second row of blocks
+  List<Ptr<Block>> secondRow;
+
+  auto block3 = ptr<Block>();
+  block3->label = "block_2_1";
+  block3->body = {}; // Empty body for simplicity
+  secondRow.push_back(block3);
+
+  lncKernel->bodies.push_back(secondRow);
+
+  // Create shared constants
+  auto sharedConst1 = ptr<SharedConstantFile>();
+  sharedConst1->name = "const1";
+  sharedConst1->fileName = "constants1.bin";
+  lncKernel->sharedConstants.push_back(sharedConst1);
+
+  auto sharedConst2 = ptr<SharedConstantFile>();
+  sharedConst2->name = "const2";
+  sharedConst2->fileName = "constants2.bin";
+  lncKernel->sharedConstants.push_back(sharedConst2);
+
+  // Create shared buffers (reuse tensor structure)
+  auto sharedBuffer = ptr<TensorName>();
+  sharedBuffer->name = "shared_buf";
+  sharedBuffer->dtype = Dtype::uint8;
+  sharedBuffer->freeElements = 512;
+  sharedBuffer->addressRotation = false;
+
+  auto bufferShape = ptr<Shape>();
+  bufferShape->parDim = 1;
+  bufferShape->freeDims.push_back(512);
+  sharedBuffer->shape = bufferShape;
+
+  auto bufferAddress = ptr<Address>();
+  bufferAddress->name = "shared_buf_addr";
+  bufferAddress->memory = Memory::shared_hbm;
+  bufferAddress->parSize = 1;
+  bufferAddress->freeSize = 512;
+  bufferAddress->parOffset = Option<Nat>();
+  bufferAddress->freeOffset = Option<Nat>();
+  bufferAddress->isShared = true;
+  sharedBuffer->address = bufferAddress;
+
+  sharedBuffer->parWF = Prop{};
+  sharedBuffer->freeWF = Prop{};
+
+  lncKernel->sharedBuffers.push_back(sharedBuffer);
+
+  // Create edges
+  auto edge1 = ptr<Edges>();
+  edge1->fromEdge = "input_edge";
+  edge1->toEdges.push_back("proc_edge1");
+  edge1->toEdges.push_back("proc_edge2");
+  lncKernel->edges.push_back(edge1);
+
+  auto edge2 = ptr<Edges>();
+  edge2->fromEdge = "proc_edge1";
+  edge2->toEdges.push_back("output_edge");
+  lncKernel->edges.push_back(edge2);
+
+  FILE *temp = create_temp_file();
+  if (!temp) {
+    cout << "FAILED (could not create temp file)" << endl;
+    return false;
+  }
+
+  // Serialize
+  if (!LncKernel_ser(temp, lncKernel)) {
+    cout << "FAILED (serialization failed)" << endl;
+    fclose(temp);
+    return false;
+  }
+
+  // Reset file position
+  rewind(temp);
+
+  // Deserialize
+  Ptr<LncKernel> deserialized = LncKernel_des(temp);
+
+  fclose(temp);
+
+  // Check basic fields
+  if (deserialized->name != lncKernel->name) {
+    cout << "FAILED (name mismatch)" << endl;
+    return false;
+  }
+
+  // Check inputs
+  if (deserialized->inputs.size() != lncKernel->inputs.size()) {
+    cout << "FAILED (inputs size mismatch)" << endl;
+    return false;
+  }
+
+  if (deserialized->inputs.size() > 0) {
+    auto firstInput = deserialized->inputs.front();
+    if (firstInput->name != "lnc_input" ||
+        firstInput->dtype != Dtype::float32 ||
+        firstInput->freeElements != 2048 ||
+        firstInput->addressRotation != false) {
+      cout << "FAILED (input tensor mismatch)" << endl;
+      return false;
+    }
+  }
+
+  // Check outputs
+  if (deserialized->outputs.size() != lncKernel->outputs.size()) {
+    cout << "FAILED (outputs size mismatch)" << endl;
+    return false;
+  }
+
+  if (deserialized->outputs.size() > 0) {
+    auto firstOutput = deserialized->outputs.front();
+    if (firstOutput->name != "lnc_output" ||
+        firstOutput->dtype != Dtype::int32 ||
+        firstOutput->freeElements != 1024 ||
+        firstOutput->addressRotation != true) {
+      cout << "FAILED (output tensor mismatch)" << endl;
+      return false;
+    }
+  }
+
+  // Check 2D bodies array
+  if (deserialized->bodies.size() != lncKernel->bodies.size()) {
+    cout << "FAILED (bodies size mismatch: expected "
+         << lncKernel->bodies.size() << ", got " << deserialized->bodies.size()
+         << ")" << endl;
+    return false;
+  }
+
+  // Check first row
+  if (deserialized->bodies.size() > 0) {
+    auto firstRowDeser = deserialized->bodies.begin();
+    auto firstRowOrig = lncKernel->bodies.begin();
+    if (firstRowDeser->size() != firstRowOrig->size()) {
+      cout << "FAILED (first row size mismatch)" << endl;
+      return false;
+    }
+
+    if (firstRowDeser->size() > 0) {
+      auto firstBlockDeser = firstRowDeser->begin();
+      if ((*firstBlockDeser)->label != "block_1_1") {
+        cout << "FAILED (first block label mismatch)" << endl;
+        return false;
+      }
+    }
+
+    if (firstRowDeser->size() > 1) {
+      auto secondBlockDeser = firstRowDeser->begin();
+      ++secondBlockDeser;
+      if ((*secondBlockDeser)->label != "block_1_2") {
+        cout << "FAILED (second block label mismatch)" << endl;
+        return false;
+      }
+    }
+  }
+
+  // Check second row
+  if (deserialized->bodies.size() > 1) {
+    auto secondRowDeser = deserialized->bodies.begin();
+    ++secondRowDeser;
+    auto secondRowOrig = lncKernel->bodies.begin();
+    ++secondRowOrig;
+    if (secondRowDeser->size() != secondRowOrig->size()) {
+      cout << "FAILED (second row size mismatch)" << endl;
+      return false;
+    }
+
+    if (secondRowDeser->size() > 0) {
+      auto thirdBlockDeser = secondRowDeser->begin();
+      if ((*thirdBlockDeser)->label != "block_2_1") {
+        cout << "FAILED (third block label mismatch)" << endl;
+        return false;
+      }
+    }
+  }
+
+  // Check shared constants
+  if (deserialized->sharedConstants.size() !=
+      lncKernel->sharedConstants.size()) {
+    cout << "FAILED (shared constants size mismatch)" << endl;
+    return false;
+  }
+
+  if (deserialized->sharedConstants.size() > 0) {
+    auto firstConst = deserialized->sharedConstants.begin();
+    if ((*firstConst)->name != "const1" ||
+        (*firstConst)->fileName != "constants1.bin") {
+      cout << "FAILED (first shared constant mismatch)" << endl;
+      return false;
+    }
+  }
+
+  if (deserialized->sharedConstants.size() > 1) {
+    auto secondConst = deserialized->sharedConstants.begin();
+    ++secondConst;
+    if ((*secondConst)->name != "const2" ||
+        (*secondConst)->fileName != "constants2.bin") {
+      cout << "FAILED (second shared constant mismatch)" << endl;
+      return false;
+    }
+  }
+
+  // Check shared buffers
+  if (deserialized->sharedBuffers.size() != lncKernel->sharedBuffers.size()) {
+    cout << "FAILED (shared buffers size mismatch)" << endl;
+    return false;
+  }
+
+  if (deserialized->sharedBuffers.size() > 0) {
+    auto firstBuffer = deserialized->sharedBuffers.begin();
+    if ((*firstBuffer)->name != "shared_buf" ||
+        (*firstBuffer)->dtype != Dtype::uint8 ||
+        (*firstBuffer)->freeElements != 512) {
+      cout << "FAILED (shared buffer mismatch)" << endl;
+      return false;
+    }
+  }
+
+  // Check edges
+  if (deserialized->edges.size() != lncKernel->edges.size()) {
+    cout << "FAILED (edges size mismatch)" << endl;
+    return false;
+  }
+
+  if (deserialized->edges.size() > 0) {
+    auto firstEdge = deserialized->edges.begin();
+    if ((*firstEdge)->fromEdge != "input_edge" ||
+        (*firstEdge)->toEdges.size() != 2) {
+      cout << "FAILED (first edge basic mismatch)" << endl;
+      return false;
+    }
+
+    auto firstToEdge = (*firstEdge)->toEdges.begin();
+    auto secondToEdge = firstToEdge;
+    ++secondToEdge;
+    if (*firstToEdge != "proc_edge1" || *secondToEdge != "proc_edge2") {
+      cout << "FAILED (first edge toEdges mismatch)" << endl;
+      return false;
+    }
+  }
+
+  if (deserialized->edges.size() > 1) {
+    auto secondEdge = deserialized->edges.begin();
+    ++secondEdge;
+    if ((*secondEdge)->fromEdge != "proc_edge1" ||
+        (*secondEdge)->toEdges.size() != 1) {
+      cout << "FAILED (second edge basic mismatch)" << endl;
+      return false;
+    }
+
+    auto firstToEdge = (*secondEdge)->toEdges.begin();
+    if (*firstToEdge != "output_edge") {
+      cout << "FAILED (second edge toEdges mismatch)" << endl;
+      return false;
+    }
+  }
+
+  cout << "PASSED" << endl;
+  return true;
+}
+
+// Test SharedConstantFile struct round trip
+bool test_sharedconstantfile_roundtrip() {
+  cout << "Testing SharedConstantFile struct round trip... ";
+
+  auto sharedConst = ptr<SharedConstantFile>();
+  sharedConst->name = "test_constants";
+  sharedConst->fileName = "test_constants.bin";
+
+  FILE *temp = create_temp_file();
+  if (!temp) {
+    cout << "FAILED (could not create temp file)" << endl;
+    return false;
+  }
+
+  if (!SharedConstantFile_ser(temp, sharedConst)) {
+    cout << "FAILED (serialization failed)" << endl;
+    fclose(temp);
+    return false;
+  }
+
+  rewind(temp);
+  Ptr<SharedConstantFile> deserialized = SharedConstantFile_des(temp);
+  fclose(temp);
+
+  if (deserialized->name != sharedConst->name ||
+      deserialized->fileName != sharedConst->fileName) {
+    cout << "FAILED (field mismatch)" << endl;
+    return false;
+  }
+
+  cout << "PASSED" << endl;
+  return true;
+}
+
+// Test Edges struct round trip
+bool test_edges_roundtrip() {
+  cout << "Testing Edges struct round trip... ";
+
+  auto edges = ptr<Edges>();
+  edges->fromEdge = "source_node";
+  edges->toEdges.push_back("dest_node1");
+  edges->toEdges.push_back("dest_node2");
+  edges->toEdges.push_back("dest_node3");
+
+  FILE *temp = create_temp_file();
+  if (!temp) {
+    cout << "FAILED (could not create temp file)" << endl;
+    return false;
+  }
+
+  if (!Edges_ser(temp, edges)) {
+    cout << "FAILED (serialization failed)" << endl;
+    fclose(temp);
+    return false;
+  }
+
+  rewind(temp);
+  Ptr<Edges> deserialized = Edges_des(temp);
+  fclose(temp);
+
+  if (deserialized->fromEdge != edges->fromEdge ||
+      deserialized->toEdges.size() != edges->toEdges.size()) {
+    cout << "FAILED (basic field mismatch)" << endl;
+    return false;
+  }
+
+  // Check toEdges list
+  auto orig_it = edges->toEdges.begin();
+  auto deser_it = deserialized->toEdges.begin();
+  while (orig_it != edges->toEdges.end() &&
+         deser_it != deserialized->toEdges.end()) {
+    if (*orig_it != *deser_it) {
+      cout << "FAILED (toEdges element mismatch)" << endl;
+      return false;
+    }
+    ++orig_it;
+    ++deser_it;
+  }
+
+  cout << "PASSED" << endl;
+  return true;
+}
+
+// Test DgeComputeOp enum round trip
+bool test_dgecomputeop_roundtrip() {
+  cout << "Testing DgeComputeOp enum round trip... ";
+
+  vector<DgeComputeOp> test_values = {DgeComputeOp::none, DgeComputeOp::add};
+
+  for (const DgeComputeOp &original : test_values) {
+    FILE *temp = create_temp_file();
+    if (!temp) {
+      cout << "FAILED (could not create temp file)" << endl;
+      return false;
+    }
+
+    if (!DgeComputeOp_ser(temp, original)) {
+      cout << "FAILED (serialization failed)" << endl;
+      fclose(temp);
+      return false;
+    }
+
+    rewind(temp);
+    DgeComputeOp deserialized = DgeComputeOp_des(temp);
+    fclose(temp);
+
+    if (original != deserialized) {
+      cout << "FAILED (value mismatch)" << endl;
+      return false;
+    }
+  }
+
+  cout << "PASSED" << endl;
+  return true;
+}
+
+// Test MatmulGroupElement enum round trip
+bool test_matmulgroupelement_roundtrip() {
+  cout << "Testing MatmulGroupElement enum round trip... ";
+
+  vector<MatmulGroupElement> test_values = {
+      MatmulGroupElement::first, MatmulGroupElement::middle,
+      MatmulGroupElement::last, MatmulGroupElement::whole};
+
+  for (const MatmulGroupElement &original : test_values) {
+    FILE *temp = create_temp_file();
+    if (!temp) {
+      cout << "FAILED (could not create temp file)" << endl;
+      return false;
+    }
+
+    if (!MatmulGroupElement_ser(temp, original)) {
+      cout << "FAILED (serialization failed)" << endl;
+      fclose(temp);
+      return false;
+    }
+
+    rewind(temp);
+    MatmulGroupElement deserialized = MatmulGroupElement_des(temp);
+    fclose(temp);
+
+    if (original != deserialized) {
+      cout << "FAILED (value mismatch)" << endl;
+      return false;
+    }
+  }
+
+  cout << "PASSED" << endl;
+  return true;
+}
+
+// Test ActivationImm sum type round trip
+bool test_activationimm_roundtrip() {
+  cout << "Testing ActivationImm sum type round trip... ";
+
+  // Test register variant
+  {
+    auto actImm = ptr<ActivationImmRegisterWrapper>();
+    actImm->reg = 55;
+
+    FILE *temp = create_temp_file();
+    if (!temp) {
+      cout << "FAILED (could not create temp file)" << endl;
+      return false;
+    }
+
+    if (!ActivationImm_ser(temp, actImm)) {
+      cout << "FAILED (register serialization failed)" << endl;
+      fclose(temp);
+      return false;
+    }
+
+    rewind(temp);
+    Ptr<ActivationImm> deserialized = ActivationImm_des(temp);
+    fclose(temp);
+
+    if (deserialized->tag != ActivationImm::Tag::reg) {
+      cout << "FAILED (wrong tag for register)" << endl;
+      return false;
+    }
+
+    auto typed =
+        static_cast<ActivationImmRegisterWrapper *>(deserialized.get());
+    if (typed->reg != 55) {
+      cout << "FAILED (register value mismatch)" << endl;
+      return false;
+    }
+  }
+
+  // Test pointer variant
+  {
+    auto actImm = ptr<ActivationImmPointerWrapper>();
+
+    FILE *temp = create_temp_file();
+    if (!temp) {
+      cout << "FAILED (could not create temp file)" << endl;
+      return false;
+    }
+
+    if (!ActivationImm_ser(temp, actImm)) {
+      cout << "FAILED (pointer serialization failed)" << endl;
+      fclose(temp);
+      return false;
+    }
+
+    rewind(temp);
+    Ptr<ActivationImm> deserialized = ActivationImm_des(temp);
+    fclose(temp);
+
+    if (deserialized->tag != ActivationImm::Tag::pointer) {
+      cout << "FAILED (wrong tag for pointer)" << endl;
+      return false;
+    }
+  }
+
+  // Test float variant
+  {
+    auto actImm = ptr<ActivationImmFloatWrapper>();
+    actImm->f = 3.14159f;
+
+    FILE *temp = create_temp_file();
+    if (!temp) {
+      cout << "FAILED (could not create temp file)" << endl;
+      return false;
+    }
+
+    if (!ActivationImm_ser(temp, actImm)) {
+      cout << "FAILED (float serialization failed)" << endl;
+      fclose(temp);
+      return false;
+    }
+
+    rewind(temp);
+    Ptr<ActivationImm> deserialized = ActivationImm_des(temp);
+    fclose(temp);
+
+    if (deserialized->tag != ActivationImm::Tag::float32) {
+      cout << "FAILED (wrong tag for float)" << endl;
+      return false;
+    }
+
+    auto typed = static_cast<ActivationImmFloatWrapper *>(deserialized.get());
+    if (!float_equal(typed->f, 3.14159f)) {
+      cout << "FAILED (float value mismatch)" << endl;
+      return false;
+    }
+  }
+
+  cout << "PASSED" << endl;
+  return true;
+}
+
 int main() {
   cout << "Running KLIR serialization/deserialization round trip tests..."
        << endl
@@ -3293,6 +3888,30 @@ int main() {
   total++;
 
   if (test_kernel_roundtrip())
+    passed++;
+  total++;
+
+  if (test_lnckernel_roundtrip())
+    passed++;
+  total++;
+
+  if (test_sharedconstantfile_roundtrip())
+    passed++;
+  total++;
+
+  if (test_edges_roundtrip())
+    passed++;
+  total++;
+
+  if (test_dgecomputeop_roundtrip())
+    passed++;
+  total++;
+
+  if (test_matmulgroupelement_roundtrip())
+    passed++;
+  total++;
+
+  if (test_activationimm_roundtrip())
     passed++;
   total++;
 

@@ -6,7 +6,10 @@ Authors: Paul Govereau, Sean McLaughlin
 #pragma once
 #include <memory>
 #include <list>
-#include <sstream>
+#include <optional>
+#include <string>
+#include <cstdint>
+#include <cstdio>
 
 namespace klr {
 
@@ -37,24 +40,7 @@ template <class T> using List = std::list<T>;
 
 // template <class T> List<T> list() { return ptr<std::list<T>>(); }
 
-// Simple Option type for compatibility
-template <class T> struct Option {
-  bool has_value = false;
-  T value;
-
-  Option() = default;
-  Option(const T &val) : has_value(true), value(val) {}
-
-  Option &operator=(const T &val) {
-    has_value = true;
-    value = val;
-    return *this;
-  }
-
-  explicit operator bool() const { return has_value; }
-  const T &operator*() const { return value; }
-  T &operator*() { return value; }
-};
+template <class T> using Option = std::optional<T>;
 
 // Deserialization functions
 bool deserialize_tag(FILE *in, u8 *type, u8 *constructor, u8 *len);

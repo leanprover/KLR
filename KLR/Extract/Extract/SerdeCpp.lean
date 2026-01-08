@@ -52,11 +52,11 @@ private def genSig (ty : LeanType) (term : String := ";") : MetaM Unit := do
       genSimpleSig ty term
 
 private def genOptionSer (ty : SimpleType) : MetaM Unit := do
-  IO.println s!"if (!serialize_option(out, value.has_value))
+  IO.println s!"if (!serialize_option(out, value.has_value()))
   return false;
 
-if (value.has_value) \{
-  return {serName ty}(out, value.value);
+if (value.has_value()) \{
+  return {serName ty}(out, value.value());
 }
 return true;"
 
@@ -84,9 +84,8 @@ private def genSer (ty : LeanType) : MetaM Unit := do
   | .simple (.option (.list ty)) => genOptionSer (.list ty)
   | .simple (.option ty) => genOptionSer ty
   | .simple (.list ty) => genListSer ty
-  | .simple _ =>
-    IO.println "throw std::runtime_error(\"Serialization not implemented for this simple type\");"
-    IO.println "return false;"
+  | .simple ty =>
+    IO.println s!"return {serName ty}(out, value);"
   | .prod name fs => do
       match <- KLR.Serde.serdeTags name with
       | (typeTag, [(_, valTag)]) =>
@@ -113,8 +112,61 @@ private def genSer (ty : LeanType) : MetaM Unit := do
         IO.println "}"
         IO.println s!"return serialize_tag(out, {tags.fst}, tag_val, 0);"
       else
-        IO.println "throw std::runtime_error(\"Serialization not implemented for this sum type\");"
-        IO.println "return false;"
+        -- For non-enum sum types, serialize based on the variant
+        IO.println s!"u8 tag_val = 0;"
+        IO.println s!"u8 field_count = 1; // All variants have exactly 1 field"
+        IO.println ""
+        IO.println s!"// Map {name} tags to their serialization case numbers"
+        IO.println s!"switch (value->tag) \{"
+        for v in variants do
+          match v with
+          | .prod n fs => do
+            match tags.snd.lookup n with
+            | some val => do
+              IO.println s!"case {name}::Tag::{Cpp.varName n}:"
+              IO.println s!"  tag_val = {val};"
+              IO.println s!"  field_count = {fs.length};"
+              IO.println s!"  break;"
+            | none => throwError s!"no tag for {n}"
+          | _ => throwError s!"Expecting product for {name}.{v.name}"
+        IO.println "default:"
+        IO.println s!"  throw std::runtime_error(\"Unknown {name} type in serialization\");"
+        IO.println "  return false;"
+        IO.println "}"
+        IO.println ""
+        IO.println s!"// Serialize the tag"
+        IO.println s!"if (!serialize_tag(out, {tags.fst}, tag_val, field_count))"
+        IO.println "  return false;"
+        IO.println ""
+        IO.println s!"// Serialize the fields based on the specific variant"
+        IO.println s!"switch (value->tag) \{"
+        for v in variants do
+          match v with
+          | .prod n fs => do
+            IO.println s!"case {name}::Tag::{Cpp.varName n}: \{"
+            IO.println s!"  auto *typed_value = static_cast<const {Cpp.subclassName n} *>(value.get());"
+            if fs.isEmpty then
+              IO.println s!"  return true; // {Cpp.varName n} variant has no fields to serialize"
+            else
+              -- Generate proper sequential serialization with error checking
+              let rec serializeFields (fields : List Field) : IO Unit := do
+                match fields with
+                | [] => pure ()
+                | [f] =>
+                  -- Last field - return its result
+                  IO.println s!"  return {serName f.type}(out, typed_value->{f.name});"
+                | f :: rest =>
+                  -- Not last field - check for error and continue
+                  IO.println s!"  if (!{serName f.type}(out, typed_value->{f.name}))"
+                  IO.println s!"    return false;"
+                  serializeFields rest
+              serializeFields fs
+            IO.println "}"
+          | _ => throwError s!"Expecting product for {name}.{v.name}"
+        IO.println "default:"
+        IO.println s!"  throw std::runtime_error(\"Unknown {name} type in serialization\");"
+        IO.println "  return false;"
+        IO.println "}"
   IO.println "}"
 
 end Ser
@@ -181,7 +233,8 @@ private def genDes (ty : LeanType) : MetaM Unit := do
   | .simple (.option (.list ty)) => genOptionDes (.list ty)
   | .simple (.option ty) => genOptionDes ty
   | .simple (.list ty) => genListDes ty
-  | .simple _ => pure ()
+  | .simple ty =>
+    IO.println s!"return {desName ty}(in);"
   | .prod name fs => do
       match <- KLR.Serde.serdeTags name with
       | (typeTag, [(_, valTag)]) =>
@@ -244,11 +297,11 @@ def generateKlrH : MetaM Unit := do
   genH (<- commonAST)
   genH (<- klrAST)
   genH (<- fileAST)
-  IO.println "}" -- TODO close namepace!
+  IO.println "} // namespace klr"
 
 def generateKlrC : MetaM Unit := do
   IO.println <| Cpp.headerC ["klir_serde.hpp"]
   genC (<- commonAST)
   genC (<- klrAST)
   genC (<- fileAST)
-  IO.println "}" -- TODO close namepace!
+  IO.println "} // namespace klr"

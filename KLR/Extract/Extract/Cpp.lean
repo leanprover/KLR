@@ -146,7 +146,7 @@ Written by the KLR Contributors (https://github.com/leanprover/KLR)
 // Manual edits to this file will be overwritten.
 
 #include \"klir_common.hpp\"
-{inc}
+{inc}{if !isH then "\n#include <sstream>" else ""}
 
 namespace klr \{
 "

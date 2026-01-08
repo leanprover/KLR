@@ -9,6 +9,7 @@ Written by the KLR Contributors (https://github.com/leanprover/KLR)
 
 #include "klir_common.hpp"
 #include "klir_serde.hpp"
+#include <sstream>
 
 namespace klr {
 
@@ -68,101 +69,101 @@ bool List_String_ser(FILE *out, const List<String> &value) {
 }
 
 bool Option_Bool_ser(FILE *out, const Option<Bool> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return Bool_ser(out, value.value);
+  if (value.has_value()) {
+    return Bool_ser(out, value.value());
   }
   return true;
 }
 
 bool Option_Nat_ser(FILE *out, const Option<Nat> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return Nat_ser(out, value.value);
+  if (value.has_value()) {
+    return Nat_ser(out, value.value());
   }
   return true;
 }
 
 bool Option_Int_ser(FILE *out, const Option<Int> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return Int_ser(out, value.value);
+  if (value.has_value()) {
+    return Int_ser(out, value.value());
   }
   return true;
 }
 
 bool Option_Float_ser(FILE *out, const Option<Float> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return Float_ser(out, value.value);
+  if (value.has_value()) {
+    return Float_ser(out, value.value());
   }
   return true;
 }
 
 bool Option_String_ser(FILE *out, const Option<String> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return String_ser(out, value.value);
+  if (value.has_value()) {
+    return String_ser(out, value.value());
   }
   return true;
 }
 
 bool Option_List_Bool_ser(FILE *out, const Option<List<Bool>> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return List_Bool_ser(out, value.value);
+  if (value.has_value()) {
+    return List_Bool_ser(out, value.value());
   }
   return true;
 }
 
 bool Option_List_Nat_ser(FILE *out, const Option<List<Nat>> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return List_Nat_ser(out, value.value);
+  if (value.has_value()) {
+    return List_Nat_ser(out, value.value());
   }
   return true;
 }
 
 bool Option_List_Int_ser(FILE *out, const Option<List<Int>> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return List_Int_ser(out, value.value);
+  if (value.has_value()) {
+    return List_Int_ser(out, value.value());
   }
   return true;
 }
 
 bool Option_List_Float_ser(FILE *out, const Option<List<Float>> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return List_Float_ser(out, value.value);
+  if (value.has_value()) {
+    return List_Float_ser(out, value.value());
   }
   return true;
 }
 
 bool Option_List_String_ser(FILE *out, const Option<List<String>> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return List_String_ser(out, value.value);
+  if (value.has_value()) {
+    return List_String_ser(out, value.value());
   }
   return true;
 }
@@ -224,53 +225,53 @@ bool List_List_String_ser(FILE *out, const List<List<String>> &value) {
 
 bool Option_List_List_Bool_ser(FILE *out,
                                const Option<List<List<Bool>>> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return List_List_Bool_ser(out, value.value);
+  if (value.has_value()) {
+    return List_List_Bool_ser(out, value.value());
   }
   return true;
 }
 
 bool Option_List_List_Nat_ser(FILE *out, const Option<List<List<Nat>>> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return List_List_Nat_ser(out, value.value);
+  if (value.has_value()) {
+    return List_List_Nat_ser(out, value.value());
   }
   return true;
 }
 
 bool Option_List_List_Int_ser(FILE *out, const Option<List<List<Int>>> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return List_List_Int_ser(out, value.value);
+  if (value.has_value()) {
+    return List_List_Int_ser(out, value.value());
   }
   return true;
 }
 
 bool Option_List_List_Float_ser(FILE *out,
                                 const Option<List<List<Float>>> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return List_List_Float_ser(out, value.value);
+  if (value.has_value()) {
+    return List_List_Float_ser(out, value.value());
   }
   return true;
 }
 
 bool Option_List_List_String_ser(FILE *out,
                                  const Option<List<List<String>>> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return List_List_String_ser(out, value.value);
+  if (value.has_value()) {
+    return List_List_String_ser(out, value.value());
   }
   return true;
 }
@@ -610,9 +611,9 @@ Ptr<Pos> Pos_des(FILE *in) {
 
 bool Immediate_ser(FILE *out, const Ptr<Immediate> &value) {
   u8 tag_val = 0;
-  u8 field_count = 0;
+  u8 field_count = 1; // All variants have exactly 1 field
 
-  // Map immediate tags to their serialization case numbers
+  // Map Immediate tags to their serialization case numbers
   switch (value->tag) {
   case Immediate::Tag::reg:
     tag_val = 0;
@@ -631,11 +632,11 @@ bool Immediate_ser(FILE *out, const Ptr<Immediate> &value) {
     field_count = 1;
     break;
   default:
-    throw std::runtime_error("Unknown immediate type in serialization");
+    throw std::runtime_error("Unknown Immediate type in serialization");
     return false;
   }
 
-  // Serialize the tag (using correct tag number 131)
+  // Serialize the tag
   if (!serialize_tag(out, 131, tag_val, field_count))
     return false;
 
@@ -647,8 +648,9 @@ bool Immediate_ser(FILE *out, const Ptr<Immediate> &value) {
     return Nat_ser(out, typed_value->reg);
   }
   case Immediate::Tag::pointer: {
-    // No fields to serialize for pointer
-    return true;
+    auto *typed_value =
+        static_cast<const ImmediatePointerWrapper *>(value.get());
+    return true; // pointer variant has no fields to serialize
   }
   case Immediate::Tag::int32: {
     auto *typed_value = static_cast<const ImmediateIntWrapper *>(value.get());
@@ -659,7 +661,7 @@ bool Immediate_ser(FILE *out, const Ptr<Immediate> &value) {
     return Float_ser(out, typed_value->f);
   }
   default:
-    throw std::runtime_error("Unknown immediate type in serialization");
+    throw std::runtime_error("Unknown Immediate type in serialization");
     return false;
   }
 }
@@ -828,22 +830,24 @@ bool Slice_ser(FILE *out, const Ptr<Slice> &value) {
 
 bool Index_ser(FILE *out, const Ptr<Index> &value) {
   u8 tag_val = 0;
-  u8 field_count = 1; // All Index variants have exactly 1 field
+  u8 field_count = 1; // All variants have exactly 1 field
 
   // Map Index tags to their serialization case numbers
   switch (value->tag) {
   case Index::Tag::coord:
     tag_val = 0;
+    field_count = 1;
     break;
   case Index::Tag::slice:
     tag_val = 1;
+    field_count = 1;
     break;
   default:
     throw std::runtime_error("Unknown Index type in serialization");
     return false;
   }
 
-  // Serialize the tag (using correct tag number 117)
+  // Serialize the tag
   if (!serialize_tag(out, 117, tag_val, field_count))
     return false;
 
@@ -907,22 +911,24 @@ bool AccessPattern_ser(FILE *out, const Ptr<AccessPattern> &value) {
 
 bool ScalarOffset_ser(FILE *out, const Ptr<ScalarOffset> &value) {
   u8 tag_val = 0;
-  u8 field_count = 1; // All ScalarOffset variants have exactly 1 field
+  u8 field_count = 1; // All variants have exactly 1 field
 
   // Map ScalarOffset tags to their serialization case numbers
   switch (value->tag) {
   case ScalarOffset::Tag::reg:
     tag_val = 0;
+    field_count = 1;
     break;
   case ScalarOffset::Tag::acc:
     tag_val = 1;
+    field_count = 1;
     break;
   default:
     throw std::runtime_error("Unknown ScalarOffset type in serialization");
     return false;
   }
 
-  // Serialize the tag (using correct tag number 123)
+  // Serialize the tag
   if (!serialize_tag(out, 123, tag_val, field_count))
     return false;
 
@@ -966,21 +972,25 @@ bool BirAccessPattern_ser(FILE *out, const Ptr<BirAccessPattern> &value) {
 
 bool Access_ser(FILE *out, const Ptr<Access> &value) {
   u8 tag_val = 0;
-  u8 field_count = 1; // All Access variants have exactly 1 field
+  u8 field_count = 1; // All variants have exactly 1 field
 
   // Map Access tags to their serialization case numbers
   switch (value->tag) {
   case Access::Tag::simple:
     tag_val = 0;
+    field_count = 1;
     break;
   case Access::Tag::basic:
     tag_val = 1;
+    field_count = 1;
     break;
   case Access::Tag::pattern:
     tag_val = 2;
+    field_count = 1;
     break;
   case Access::Tag::birPattern:
     tag_val = 3;
+    field_count = 1;
     break;
   default:
     throw std::runtime_error("Unknown Access type in serialization");
@@ -1050,24 +1060,29 @@ bool TensorSram_ser(FILE *out, const Ptr<TensorSram> &value) {
 
 bool TensorRef_ser(FILE *out, const Ptr<TensorRef> &value) {
   u8 tag_val = 0;
-  u8 field_count = 1; // All TensorRef variants have exactly 1 field
+  u8 field_count = 1; // All variants have exactly 1 field
 
   // Map TensorRef tags to their serialization case numbers
   switch (value->tag) {
   case TensorRef::Tag::abstract:
     tag_val = 0;
+    field_count = 1;
     break;
   case TensorRef::Tag::sbuf:
     tag_val = 1;
+    field_count = 1;
     break;
   case TensorRef::Tag::psum:
     tag_val = 2;
+    field_count = 1;
     break;
   case TensorRef::Tag::hbm:
     tag_val = 3;
+    field_count = 1;
     break;
   case TensorRef::Tag::reg:
     tag_val = 4;
+    field_count = 1;
     break;
   default:
     throw std::runtime_error("Unknown TensorRef type in serialization");
@@ -1158,7 +1173,7 @@ bool Engine_ser(FILE *out, const Engine &value) {
 
 bool ActivationImm_ser(FILE *out, const Ptr<ActivationImm> &value) {
   u8 tag_val = 0;
-  u8 field_count = 0;
+  u8 field_count = 1; // All variants have exactly 1 field
 
   // Map ActivationImm tags to their serialization case numbers
   switch (value->tag) {
@@ -1179,7 +1194,7 @@ bool ActivationImm_ser(FILE *out, const Ptr<ActivationImm> &value) {
     return false;
   }
 
-  // Serialize the tag (using correct tag number 132)
+  // Serialize the tag
   if (!serialize_tag(out, 132, tag_val, field_count))
     return false;
 
@@ -1191,8 +1206,9 @@ bool ActivationImm_ser(FILE *out, const Ptr<ActivationImm> &value) {
     return Nat_ser(out, typed_value->reg);
   }
   case ActivationImm::Tag::pointer: {
-    // No fields to serialize for pointer
-    return true;
+    auto *typed_value =
+        static_cast<const ActivationImmPointerWrapper *>(value.get());
+    return true; // pointer variant has no fields to serialize
   }
   case ActivationImm::Tag::float32: {
     auto *typed_value =
@@ -1207,15 +1223,17 @@ bool ActivationImm_ser(FILE *out, const Ptr<ActivationImm> &value) {
 
 bool Operand_ser(FILE *out, const Ptr<Operand> &value) {
   u8 tag_val = 0;
-  u8 field_count = 1; // All Operand variants have exactly 1 field
+  u8 field_count = 1; // All variants have exactly 1 field
 
   // Map Operand tags to their serialization case numbers
   switch (value->tag) {
   case Operand::Tag::imm:
     tag_val = 0;
+    field_count = 1;
     break;
   case Operand::Tag::tile:
     tag_val = 1;
+    field_count = 1;
     break;
   default:
     throw std::runtime_error("Unknown Operand type in serialization");
@@ -1511,7 +1529,7 @@ bool DgeComputeOp_ser(FILE *out, const DgeComputeOp &value) {
 
 bool DmaBounds_ser(FILE *out, const Ptr<DmaBounds> &value) {
   u8 tag_val = 0;
-  u8 field_count = 0;
+  u8 field_count = 1; // All variants have exactly 1 field
 
   // Map DmaBounds tags to their serialization case numbers
   switch (value->tag) {
@@ -1539,12 +1557,12 @@ bool DmaBounds_ser(FILE *out, const Ptr<DmaBounds> &value) {
   // Serialize the fields based on the specific variant
   switch (value->tag) {
   case DmaBounds::Tag::skip: {
-    // No fields to serialize
-    return true;
+    auto *typed_value = static_cast<const DmaBoundsSkipWrapper *>(value.get());
+    return true; // skip variant has no fields to serialize
   }
   case DmaBounds::Tag::error: {
-    // No fields to serialize
-    return true;
+    auto *typed_value = static_cast<const DmaBoundsErrorWrapper *>(value.get());
+    return true; // error variant has no fields to serialize
   }
   case DmaBounds::Tag::reg: {
     auto *typed_value = static_cast<const DmaBoundsRegWrapper *>(value.get());
@@ -1579,7 +1597,7 @@ bool MatmulGroupElement_ser(FILE *out, const MatmulGroupElement &value) {
 
 bool IndexMissBehavior_ser(FILE *out, const Ptr<IndexMissBehavior> &value) {
   u8 tag_val = 0;
-  u8 field_count = 0;
+  u8 field_count = 1; // All variants have exactly 1 field
 
   // Map IndexMissBehavior tags to their serialization case numbers
   switch (value->tag) {
@@ -1608,8 +1626,9 @@ bool IndexMissBehavior_ser(FILE *out, const Ptr<IndexMissBehavior> &value) {
     return Immediate_ser(out, typed_value->value);
   }
   case IndexMissBehavior::Tag::skip: {
-    // No fields to serialize
-    return true;
+    auto *typed_value =
+        static_cast<const IndexMissBehaviorSkipWrapper *>(value.get());
+    return true; // skip variant has no fields to serialize
   }
   default:
     throw std::runtime_error("Unknown IndexMissBehavior type in serialization");
@@ -2469,7 +2488,7 @@ bool DmaCompute_ser(FILE *out, const Ptr<DmaCompute> &value) {
 
 bool ReplicaGroup_ser(FILE *out, const Ptr<ReplicaGroup> &value) {
   u8 tag_val = 0;
-  u8 field_count = 0;
+  u8 field_count = 1; // All variants have exactly 1 field
 
   // Map ReplicaGroup tags to their serialization case numbers
   switch (value->tag) {
@@ -2497,8 +2516,9 @@ bool ReplicaGroup_ser(FILE *out, const Ptr<ReplicaGroup> &value) {
   // Serialize the fields based on the specific variant
   switch (value->tag) {
   case ReplicaGroup::Tag::unspecified: {
-    // No fields to serialize
-    return true;
+    auto *typed_value =
+        static_cast<const ReplicaGroupUnspecifiedWrapper *>(value.get());
+    return true; // unspecified variant has no fields to serialize
   }
   case ReplicaGroup::Tag::named: {
     auto *typed_value =
@@ -2847,231 +2867,304 @@ bool DevicePrint_ser(FILE *out, const Ptr<DevicePrint> &value) {
 
 bool Operator_ser(FILE *out, const Ptr<Operator> &value) {
   u8 tag_val = 0;
-  u8 field_count = 1; // All operators have exactly 1 field (the op pointer)
+  u8 field_count = 1; // All variants have exactly 1 field
 
-  // Map operator tags to their serialization case numbers
+  // Map Operator tags to their serialization case numbers
   switch (value->tag) {
   case Operator::Tag::activate:
     tag_val = 0;
+    field_count = 1;
     break;
   case Operator::Tag::ncActivate:
     tag_val = 1;
+    field_count = 1;
     break;
   case Operator::Tag::activationReduce:
     tag_val = 2;
+    field_count = 1;
     break;
   case Operator::Tag::affineSelect:
     tag_val = 3;
+    field_count = 1;
     break;
   case Operator::Tag::ncAffineSelect:
     tag_val = 4;
+    field_count = 1;
     break;
   case Operator::Tag::batchNormAggregate:
     tag_val = 5;
+    field_count = 1;
     break;
   case Operator::Tag::batchNormStats:
     tag_val = 6;
+    field_count = 1;
     break;
   case Operator::Tag::copy:
     tag_val = 7;
+    field_count = 1;
     break;
   case Operator::Tag::ncCopy:
     tag_val = 8;
+    field_count = 1;
     break;
   case Operator::Tag::copyPredicated:
     tag_val = 9;
+    field_count = 1;
     break;
   case Operator::Tag::dmaCopy:
     tag_val = 10;
+    field_count = 1;
     break;
   case Operator::Tag::ncDmaCopy:
     tag_val = 11;
+    field_count = 1;
     break;
   case Operator::Tag::dmaTranspose:
     tag_val = 12;
+    field_count = 1;
     break;
   case Operator::Tag::dropout:
     tag_val = 13;
+    field_count = 1;
     break;
   case Operator::Tag::findIndex8:
     tag_val = 14;
+    field_count = 1;
     break;
   case Operator::Tag::iota:
     tag_val = 15;
+    field_count = 1;
     break;
   case Operator::Tag::loadMaskRegister:
     tag_val = 16;
+    field_count = 1;
     break;
   case Operator::Tag::loadStationary:
     tag_val = 17;
+    field_count = 1;
     break;
   case Operator::Tag::localGather:
     tag_val = 18;
+    field_count = 1;
     break;
   case Operator::Tag::ncLocalGather:
     tag_val = 19;
+    field_count = 1;
     break;
   case Operator::Tag::matMul:
     tag_val = 20;
+    field_count = 1;
     break;
   case Operator::Tag::ncMatMul:
     tag_val = 21;
+    field_count = 1;
     break;
   case Operator::Tag::matchReplace8:
     tag_val = 22;
+    field_count = 1;
     break;
   case Operator::Tag::matchValueLoad:
     tag_val = 23;
+    field_count = 1;
     break;
   case Operator::Tag::max8:
     tag_val = 24;
+    field_count = 1;
     break;
   case Operator::Tag::memSet:
     tag_val = 25;
+    field_count = 1;
     break;
   case Operator::Tag::rangeSelect:
     tag_val = 26;
+    field_count = 1;
     break;
   case Operator::Tag::ncRangeSelect:
     tag_val = 27;
+    field_count = 1;
     break;
   case Operator::Tag::reciprocal:
     tag_val = 28;
+    field_count = 1;
     break;
   case Operator::Tag::scalarTensorTensor:
     tag_val = 29;
+    field_count = 1;
     break;
   case Operator::Tag::ncScalarTensorTensor:
     tag_val = 30;
+    field_count = 1;
     break;
   case Operator::Tag::shuffle:
     tag_val = 31;
+    field_count = 1;
     break;
   case Operator::Tag::tensorReduce:
     tag_val = 32;
+    field_count = 1;
     break;
   case Operator::Tag::tensorScalar:
     tag_val = 33;
+    field_count = 1;
     break;
   case Operator::Tag::tensorTensor:
     tag_val = 34;
+    field_count = 1;
     break;
   case Operator::Tag::tensorTensorScan:
     tag_val = 35;
+    field_count = 1;
     break;
   case Operator::Tag::tensorPartitionReduce:
     tag_val = 36;
+    field_count = 1;
     break;
   case Operator::Tag::tensorScalarReduce:
     tag_val = 37;
+    field_count = 1;
     break;
   case Operator::Tag::transpose:
     tag_val = 38;
+    field_count = 1;
     break;
   case Operator::Tag::selectReduce:
     tag_val = 39;
+    field_count = 1;
     break;
   case Operator::Tag::sequenceBounds:
     tag_val = 40;
+    field_count = 1;
     break;
   case Operator::Tag::sendRecv:
     tag_val = 41;
+    field_count = 1;
     break;
   case Operator::Tag::sendRecvCompute:
     tag_val = 42;
+    field_count = 1;
     break;
   case Operator::Tag::tensorLoad:
     tag_val = 43;
+    field_count = 1;
     break;
   case Operator::Tag::tensorStore:
     tag_val = 44;
+    field_count = 1;
     break;
   case Operator::Tag::registerMove:
     tag_val = 45;
+    field_count = 1;
     break;
   case Operator::Tag::cmpBranch:
     tag_val = 46;
+    field_count = 1;
     break;
   case Operator::Tag::registerAluOp:
     tag_val = 47;
+    field_count = 1;
     break;
   case Operator::Tag::quantizeMX:
     tag_val = 48;
+    field_count = 1;
     break;
   case Operator::Tag::ncMatMulMX:
     tag_val = 49;
+    field_count = 1;
     break;
   case Operator::Tag::dmaCompute:
     tag_val = 50;
+    field_count = 1;
     break;
   case Operator::Tag::allReduce:
     tag_val = 51;
+    field_count = 1;
     break;
   case Operator::Tag::allGather:
     tag_val = 52;
+    field_count = 1;
     break;
   case Operator::Tag::reduceScatter:
     tag_val = 53;
+    field_count = 1;
     break;
   case Operator::Tag::collectivePermute:
     tag_val = 54;
+    field_count = 1;
     break;
   case Operator::Tag::collectivePermuteImplicit:
     tag_val = 55;
+    field_count = 1;
     break;
   case Operator::Tag::collectivePermuteImplicitReduce:
     tag_val = 56;
+    field_count = 1;
     break;
   case Operator::Tag::broadcast:
     tag_val = 57;
+    field_count = 1;
     break;
   case Operator::Tag::allToAll:
     tag_val = 58;
+    field_count = 1;
     break;
   case Operator::Tag::rankId:
     tag_val = 59;
+    field_count = 1;
     break;
   case Operator::Tag::currentProcessingRankId:
     tag_val = 60;
+    field_count = 1;
     break;
   case Operator::Tag::send:
     tag_val = 61;
+    field_count = 1;
     break;
   case Operator::Tag::recv:
     tag_val = 62;
+    field_count = 1;
     break;
   case Operator::Tag::coreBarrier:
     tag_val = 63;
+    field_count = 1;
     break;
   case Operator::Tag::rng:
     tag_val = 64;
+    field_count = 1;
     break;
   case Operator::Tag::rand2:
     tag_val = 65;
+    field_count = 1;
     break;
   case Operator::Tag::randGetState:
     tag_val = 66;
+    field_count = 1;
     break;
   case Operator::Tag::setRngSeed:
     tag_val = 67;
+    field_count = 1;
     break;
   case Operator::Tag::randSetState:
     tag_val = 68;
+    field_count = 1;
     break;
   case Operator::Tag::extendedInst:
     tag_val = 69;
+    field_count = 1;
     break;
   case Operator::Tag::tensorScalarCumulative:
     tag_val = 70;
+    field_count = 1;
     break;
   case Operator::Tag::ncNGather:
     tag_val = 71;
+    field_count = 1;
     break;
   case Operator::Tag::devicePrint:
     tag_val = 72;
+    field_count = 1;
     break;
   default:
-    throw std::runtime_error("Unknown operator type in serialization");
+    throw std::runtime_error("Unknown Operator type in serialization");
     return false;
   }
 
@@ -3439,32 +3532,44 @@ bool Operator_ser(FILE *out, const Ptr<Operator> &value) {
     return DevicePrint_ser(out, typed_value->op);
   }
   default:
+    throw std::runtime_error("Unknown Operator type in serialization");
     return false;
   }
 }
 
 bool Stmt_ser(FILE *out, const Ptr<Stmt> &value) {
-  // For now, only handle the oper case (which is the only variant)
-  if (value->tag != Stmt::Tag::oper) {
-    throw std::runtime_error(
-        "Serialization not implemented for this stmt type");
+  u8 tag_val = 0;
+  u8 field_count = 1; // All variants have exactly 1 field
+
+  // Map Stmt tags to their serialization case numbers
+  switch (value->tag) {
+  case Stmt::Tag::oper:
+    tag_val = 0;
+    field_count = 3;
+    break;
+  default:
+    throw std::runtime_error("Unknown Stmt type in serialization");
     return false;
   }
 
-  // Serialize the tag (type=103, value=0, fields=3)
-  if (!serialize_tag(out, 103, 0, 3))
+  // Serialize the tag
+  if (!serialize_tag(out, 103, tag_val, field_count))
     return false;
 
-  // Cast to the specific wrapper type and serialize fields
-  auto *typed_value = static_cast<const StmtOperWrapper *>(value.get());
-  if (!Operator_ser(out, typed_value->op))
+  // Serialize the fields based on the specific variant
+  switch (value->tag) {
+  case Stmt::Tag::oper: {
+    auto *typed_value = static_cast<const StmtOperWrapper *>(value.get());
+    if (!Operator_ser(out, typed_value->op))
+      return false;
+    if (!Option_String_ser(out, typed_value->name))
+      return false;
+    return Pos_ser(out, typed_value->pos);
+  }
+  default:
+    throw std::runtime_error("Unknown Stmt type in serialization");
     return false;
-  if (!Option_String_ser(out, typed_value->name))
-    return false;
-  if (!Pos_ser(out, typed_value->pos))
-    return false;
-
-  return true;
+  }
 }
 
 bool Block_ser(FILE *out, const Ptr<Block> &value) {
@@ -3555,31 +3660,31 @@ bool List_APPair_ser(FILE *out, const List<Ptr<APPair>> &value) {
 
 bool Option_ScalarOffset_ser(FILE *out,
                              const Option<Ptr<ScalarOffset>> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return ScalarOffset_ser(out, value.value);
+  if (value.has_value()) {
+    return ScalarOffset_ser(out, value.value());
   }
   return true;
 }
 
 bool Option_Access_ser(FILE *out, const Option<Ptr<Access>> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return Access_ser(out, value.value);
+  if (value.has_value()) {
+    return Access_ser(out, value.value());
   }
   return true;
 }
 
 bool Option_Dtype_ser(FILE *out, const Option<Dtype> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return Dtype_ser(out, value.value);
+  if (value.has_value()) {
+    return Dtype_ser(out, value.value());
   }
   return true;
 }
@@ -3596,51 +3701,51 @@ bool List_Immediate_ser(FILE *out, const List<Ptr<Immediate>> &value) {
 }
 
 bool Option_TensorRef_ser(FILE *out, const Option<Ptr<TensorRef>> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return TensorRef_ser(out, value.value);
+  if (value.has_value()) {
+    return TensorRef_ser(out, value.value());
   }
   return true;
 }
 
 bool Option_TensorSubDim_ser(FILE *out, const Option<TensorSubDim> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return TensorSubDim_ser(out, value.value);
+  if (value.has_value()) {
+    return TensorSubDim_ser(out, value.value());
   }
   return true;
 }
 
 bool Option_Operand_ser(FILE *out, const Option<Ptr<Operand>> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return Operand_ser(out, value.value);
+  if (value.has_value()) {
+    return Operand_ser(out, value.value());
   }
   return true;
 }
 
 bool Option_AluOp_ser(FILE *out, const Option<AluOp> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return AluOp_ser(out, value.value);
+  if (value.has_value()) {
+    return AluOp_ser(out, value.value());
   }
   return true;
 }
 
 bool Option_Immediate_ser(FILE *out, const Option<Ptr<Immediate>> &value) {
-  if (!serialize_option(out, value.has_value))
+  if (!serialize_option(out, value.has_value()))
     return false;
 
-  if (value.has_value) {
-    return Immediate_ser(out, value.value);
+  if (value.has_value()) {
+    return Immediate_ser(out, value.value());
   }
   return true;
 }
@@ -7766,8 +7871,66 @@ bool KLRMetaData_ser(FILE *out, const Ptr<KLRMetaData> &value) {
 }
 
 bool Contents_ser(FILE *out, const Ptr<Contents> &value) {
-  throw std::runtime_error("Serialization not implemented for this sum type");
-  return false;
+  u8 tag_val = 0;
+  u8 field_count = 1; // All variants have exactly 1 field
+
+  // Map Contents tags to their serialization case numbers
+  switch (value->tag) {
+  case Contents::Tag::python:
+    tag_val = 0;
+    field_count = 1;
+    break;
+  case Contents::Tag::nki:
+    tag_val = 1;
+    field_count = 1;
+    break;
+  case Contents::Tag::kernel:
+    tag_val = 2;
+    field_count = 1;
+    break;
+  case Contents::Tag::lnc:
+    tag_val = 3;
+    field_count = 1;
+    break;
+  case Contents::Tag::hlo:
+    tag_val = 4;
+    field_count = 1;
+    break;
+  default:
+    throw std::runtime_error("Unknown Contents type in serialization");
+    return false;
+  }
+
+  // Serialize the tag
+  if (!serialize_tag(out, 236, tag_val, field_count))
+    return false;
+
+  // Serialize the fields based on the specific variant
+  switch (value->tag) {
+  case Contents::Tag::python: {
+    auto *typed_value = static_cast<const ContentsPythonWrapper *>(value.get());
+    return Kernel_ser(out, typed_value->kernel);
+  }
+  case Contents::Tag::nki: {
+    auto *typed_value = static_cast<const ContentsNkiWrapper *>(value.get());
+    return Kernel_ser(out, typed_value->kernel);
+  }
+  case Contents::Tag::kernel: {
+    auto *typed_value = static_cast<const ContentsKernelWrapper *>(value.get());
+    return Kernel_ser(out, typed_value->kernel);
+  }
+  case Contents::Tag::lnc: {
+    auto *typed_value = static_cast<const ContentsLncWrapper *>(value.get());
+    return LncKernel_ser(out, typed_value->kernel);
+  }
+  case Contents::Tag::hlo: {
+    auto *typed_value = static_cast<const ContentsHloWrapper *>(value.get());
+    return String_ser(out, typed_value->name);
+  }
+  default:
+    throw std::runtime_error("Unknown Contents type in serialization");
+    return false;
+  }
 }
 
 Ptr<KLRFile> KLRFile_des(FILE *in) {
