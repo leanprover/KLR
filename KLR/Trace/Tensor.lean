@@ -63,13 +63,13 @@ nki builtin.tensor.transpose (src : Access) := do
   warn "transpose is not supported"
   return .access src
 
-nki builtin.tensor.zeros (shape: Shape) (dtype: Dtype) := do
+nki builtin.meta.tensor.zeros (shape: Shape) (dtype: Dtype) := do
   let tlShape := TensorLib.Shape.mk shape.toList
   let tlDtype <- dtype.toTensorLibDtype
   let tensor := TensorLib.Tensor.zeros tlDtype tlShape
   return .tensor tensor
 
-nki builtin.tensor.arange
+nki builtin.meta.tensor.arange
  (start : Nat)
  (stop : Nat)
  (step : Nat := 1)
@@ -84,7 +84,7 @@ nki builtin.tensor.arange
     data := data.append bytes
   return .tensor {dtype := tlDtype, shape := tlShape, data := data}
 
-nki builtin.tensor.identity
+nki builtin.meta.tensor.identity
   (N : Nat)
   (dtype : Dtype := .float32) := do
   let tlDtype <- dtype.toTensorLibDtype
