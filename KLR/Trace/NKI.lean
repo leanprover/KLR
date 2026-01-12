@@ -273,6 +273,10 @@ partial def bindArgs
         : Trace (List (String × Term)) := do
   if args.length + kwargs.length > f.args.length then
     throw "too many arguments given (varargs not supported)"
+  let validArgNames := f.args.map (·.name)
+  kwargs.forM fun (name, _) => do
+    if !validArgNames.contains name then
+      throw s!"unexpected keyword argument '{name}'"
   f.args.zipIdx.mapM fun ({name := x, dflt := d}, i) => do
     if h:args.length > i then
       pure ⟨x, args.get (Fin.mk i h)⟩
