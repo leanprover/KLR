@@ -716,6 +716,6 @@ def builtinEnv : List (Name × Term) := Id.run do
       | .str `builtin.isa n => [nisa n, name]
       | .str `builtin.typing n => [nt n, name]
       | .str `builtin.lang n => [nl n, name]
-      | .str `builtin.tensor n => [ntensor n, name]
+      | .str `builtin.meta.tensor n => [ntensor n, name]
       | _ => [name]
     names.map fun n => (n, fn)
