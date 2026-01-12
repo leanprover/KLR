@@ -538,6 +538,13 @@ static lean_object* const_expr(struct state *st, PyObject *obj) {
       error(st, "numpy dtypes are not supported as arguments");
     }
   }
+  else if (PyFunction_Check(obj)) {
+    lean_object *func_name = py_def_name(st, obj);
+    if (!st->ignore_refs) {
+      add_work(st, NULL, obj);
+    }
+    e = Python_Expr_mk(Python_Expr_name(func_name, Python_Ctx_load), pos);
+  }
   else if (PyObject_HasAttrString(obj, "__class__") &&
            PyObject_HasAttrString(obj, "__dict__"))
   {
