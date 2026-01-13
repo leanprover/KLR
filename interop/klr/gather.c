@@ -267,14 +267,11 @@ static void add_work(struct state *st, char *suggested_name, PyObject *obj) {
   }
 
   // Check if this is a jit-decorated function
-  if (PyFunction_Check(obj)) {
-    // Method 1: Check for __wrapped__ attribute (if decorator sets it)
-    PyObject *kernel_func = PyObject_GetAttrString(obj, "__kernel_func");
-    if (kernel_func && !PyErr_Occurred()) {
-      obj = kernel_func;
-    } else {
-      PyErr_Clear();
-    }
+  PyObject *kernel_func = PyObject_GetAttrString(obj, "__wrapped__");
+  if (kernel_func && !PyErr_Occurred()) {
+    obj = kernel_func;
+  } else {
+    PyErr_Clear();
   }
 
   // Scan/Add to worklist
@@ -734,6 +731,14 @@ static struct ref reference(struct state *st, struct _expr *e) {
     }
     ref.obj = lookup(st, e->v.Name.id);
     if (ref.obj) {
+      // Check if this is a jit-decorated function
+      PyObject *kernel_func = PyObject_GetAttrString(ref.obj, "__wrapped__");
+      if (kernel_func && !PyErr_Occurred()) {
+        ref.obj = kernel_func;
+      } else {
+        PyErr_Clear();
+      }
+
       if (PyModule_Check(ref.obj)) {
         PyObject *name = PyModule_GetNameObject(ref.obj);
         ref.name = py_strdup(st, name);
