@@ -41,6 +41,7 @@ def NKIEnv : List (Name × Term) :=
   , module nki_lang
   , module nki_stdlib
   , module nki_typing
+  , module nki_meta
   , module nki_tensor
   , module `math
   , module `numpy

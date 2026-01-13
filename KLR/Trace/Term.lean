@@ -20,6 +20,7 @@ import KLR.Trace.Lang
 import KLR.Trace.Python
 import KLR.Trace.Types
 import KLR.Trace.Tensor
+import KLR.Trace.Builtin
 import KLR.Core.Indexing
 
 /-
@@ -455,7 +456,21 @@ def Term.attr (t : Term) (id : String) : Trace Term :=
   | .module n
   | .builtin n _
   | .source { name := n, ..}
-  | .var n => lookup (.str n id)
+  | .var n => do
+      -- First try direct lookup (e.g., nki.tensor)
+      try lookup (.str n id)
+      catch _ =>
+        -- Handle specific module mappings that don't follow the direct pattern
+        -- This handles cases like nki.tensor -> nki.meta.tensor
+        let targetName := match n, id with
+          | nki_, "tensor" => Option.some nki_tensor
+          | _, _ => Option.none
+        match targetName with
+        | Option.some name => lookup name
+        | Option.none =>
+          -- Generic fallback: try n ++ id
+          let targetModuleName := n ++ id.toName
+          lookup targetModuleName
   | .ref _ .list =>
       match id with
       | "append"
