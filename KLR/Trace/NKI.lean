@@ -312,6 +312,13 @@ partial def fnCall
         let args <- bindArgs f (ref :: args) kwargs
         callFn f args
       | _ => throw s!"{func} is not a method of {cls}"
+  | .ref name (.object cls) => do
+      match <- lookup? (.str cls "__call__") with
+      | some (.source f) =>
+        let ref := Term.ref name (.object cls)
+        let args <- bindArgs f (ref :: args) kwargs
+        callFn f args
+      | _ => throw s!"class {cls} is not callable (no __call__ method)"
   | t => throw s!"'{Term.kindStr t}' is not a callable type"
 
 -- Statements
