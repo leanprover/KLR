@@ -33,6 +33,11 @@ def KLR.Core.Dtype.toString : Dtype → String
   | .uint16 => "uint16"
   | .uint32 => "uint32"
   | .uint64 => "uint64"
+  | .float8_e4m3 => "float8_e4m3"
+  | .float8_e4m3fn => "float8_e4m3fn"
+  | .float8_e5m2_x4 => "float8_e5m2_x4"
+  | .float8_e4m3fn_x4 => "float8_e4m3fn_x4"
+  | .float4_e2m1fn_x4 => "float4_e2m1fn_x4"
 
 namespace KLR.Py
 
