@@ -32,6 +32,10 @@ lean_exe "klr" where
   root := `Main
   supportInterpreter := true
 
+lean_exe "klr-fuzz" where
+  root := `KLR.Fuzz.Main
+  supportInterpreter := true
+
 require Cli from git
   "https://github.com/leanprover/lean4-cli.git" @ "v4.23.0"
 
