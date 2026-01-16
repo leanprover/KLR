@@ -76,7 +76,7 @@ nki builtin.meta.tensor.arange
  (dtype : Dtype := .float32) := do
   let tlDtype <- dtype.toTensorLibDtype
   let cnt := (stop - start + step - 1).div  step
-  let tlShape := TensorLib.Shape.mk [cnt]
+  let tlShape := TensorLib.Shape.mk [1, cnt]
   let values := List.range cnt |>.map (fun i => start + i * step)
   let mut data := ByteArray.emptyWithCapacity $ cnt * tlDtype.itemsize
   for v in values do
