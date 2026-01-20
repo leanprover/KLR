@@ -198,6 +198,12 @@ nki builtin.isa.activation
  (name : Option String := none) := do
   if mask.isSome then
     throw maskNotSupported
+  match bias with
+  | none => pure ()
+  | some a =>
+     let { parDim , freeDims } <- a.shape
+     if freeDims != [1] then
+       throw s!"bias shape ({parDim}x{freeDims}) must be Nx1"
   Trace.add_stmt $ .oper (.ncActivate {
     dst := .abstract dst,
     src := .abstract data,
