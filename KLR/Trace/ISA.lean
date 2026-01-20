@@ -904,11 +904,13 @@ nki builtin.isa.quantize_mx
   (dst : Access)
   (src: Access)
   (dst_scale : Access)
+  (scale_partition_index : Nat := 0)
   (name : Option String := none) := do
     Trace.add_stmt $ .oper (.quantizeMX {
       dst := .abstract dst,
       src := .abstract src,
       dstScale := .abstract dst_scale,
+      scalePIDX := scale_partition_index
     }) name
     return .none
 

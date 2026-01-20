@@ -2441,13 +2441,15 @@ bool SendRecvCompute_ser(FILE *out, const Ptr<SendRecvCompute> &value) {
 }
 
 bool QuantizeMX_ser(FILE *out, const Ptr<QuantizeMX> &value) {
-  if (!serialize_tag(out, 195, 0, 3))
+  if (!serialize_tag(out, 195, 0, 4))
     return false;
   if (!TensorRef_ser(out, value->dst))
     return false;
   if (!TensorRef_ser(out, value->src))
     return false;
   if (!TensorRef_ser(out, value->dstScale))
+    return false;
+  if (!Nat_ser(out, value->scalePIDX))
     return false;
   return true;
 }
@@ -6301,9 +6303,9 @@ Ptr<QuantizeMX> QuantizeMX_des(FILE *in) {
     msg << "Could not find tag, expecting QuantizeMX:195,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 195 || c != 0 || l != 3) {
+  if (t != 195 || c != 0 || l != 4) {
     std::ostringstream msg;
-    msg << "Expecting QuantizeMX:(195,0,3)";
+    msg << "Expecting QuantizeMX:(195,0,4)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -6311,6 +6313,7 @@ Ptr<QuantizeMX> QuantizeMX_des(FILE *in) {
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
   x->dstScale = TensorRef_des(in);
+  x->scalePIDX = Nat_des(in);
   return x;
 }
 

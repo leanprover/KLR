@@ -858,6 +858,7 @@ struct QuantizeMX final {
   Ptr<TensorRef> dst;
   Ptr<TensorRef> src;
   Ptr<TensorRef> dstScale;
+  Nat scalePIDX;
 };
 
 struct MatMulMX final {

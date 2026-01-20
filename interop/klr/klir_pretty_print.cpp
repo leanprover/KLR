@@ -2427,6 +2427,9 @@ std::string to_string(QuantizeMX &QuantizeMXInstance) {
   result += ", ";
   result += "dstScale=";
   result += to_string(*(QuantizeMXInstance.dstScale.get()));
+  result += ", ";
+  result += "scalePIDX=";
+  result += std::to_string(QuantizeMXInstance.scalePIDX);
   result += ")";
   return result;
 };

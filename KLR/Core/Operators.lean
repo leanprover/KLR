@@ -990,6 +990,8 @@ structure QuantizeMX where
     dst :       TensorRef  -- NOTE: do we need special tensor types for MX ones. ISA does
     src :       TensorRef
     dstScale :  TensorRef
+    scalePIDX:  Nat
+
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 instance : MapTensorRefs QuantizeMX where
