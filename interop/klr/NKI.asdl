@@ -293,7 +293,7 @@ SendRecv = (TensorRef dst, TensorRef src, Immediate sendToRank, Immediate recvFr
 
 SendRecvCompute = (TensorRef* dsts, TensorRef* srcs, Immediate* sendToRanks, Immediate* recvFromRanks, Immediate pipeId, AluOp op)
 
-QuantizeMX = (TensorRef dst, TensorRef src, TensorRef dstScale, Nat scalePIDX)
+QuantizeMX = (TensorRef dst, TensorRef src, TensorRef dstScale)
 
 MatMulMX = (TensorRef dst, TensorRef stationary, TensorRef moving, TensorRef stationaryScale, TensorRef movingScale, Nat*? tilePosition, Nat*? tileSize)
 
