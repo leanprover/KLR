@@ -126,14 +126,21 @@ structure Keyword where
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 end
 
-mutual
+
 @[serde tag = 10]
+structure WithItem where
+  item : Expr
+  var : Option Expr
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+mutual
+@[serde tag = 11]
 structure Stmt where
   stmt : Stmt'
   pos : Pos
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 11]
+@[serde tag = 12]
 inductive Stmt' where
   | pass
   | expr (e : Expr)
@@ -147,6 +154,7 @@ inductive Stmt' where
   | breakLoop
   | continueLoop
   | whileLoop (test : Expr) (body : List Stmt) (orelse : List Stmt)
+  | withBlock (items : List WithItem) (body : List Stmt)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 end
 
@@ -169,7 +177,7 @@ then the structure will be populated with:
 Note, this is slightly different from the official Python AST, which
 encodes the kw_defaults as a list with None for missing defaults.
 -/
-@[serde tag = 12]
+@[serde tag = 13]
 structure Args where
   posonlyargs : List String
   args : List String
@@ -194,7 +202,7 @@ def Args.all_defaults (args : Args) : List Keyword :=
   let dflt  := dflt.map fun (n, e) => .mk n e { line := 0 }
   dflt ++ args.kw_defaults
 
-@[serde tag = 13]
+@[serde tag = 14]
 structure Fun where
   name : String
   fileName : String
@@ -205,7 +213,7 @@ structure Fun where
   body: List Stmt
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 14]
+@[serde tag = 15]
 structure Class where
   name : String
   bases : List Expr
@@ -234,7 +242,7 @@ An example of a global is:
     else:
       ...
 -/
-@[serde tag = 15]
+@[serde tag = 16]
 structure Kernel where
   entry : String
   funcs : List Fun

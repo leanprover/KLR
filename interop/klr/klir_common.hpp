@@ -10,6 +10,7 @@ Authors: Paul Govereau, Sean McLaughlin
 #include <string>
 #include <cstdint>
 #include <cstdio>
+#include <stdexcept>
 
 namespace klr {
 

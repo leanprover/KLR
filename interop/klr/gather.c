@@ -1208,6 +1208,23 @@ static lean_object* args(struct state *st, arguments_ty python) {
 // -----------------------------------------------------------------------------
 // -- Statements
 
+static lean_object* withitem(struct state *st, struct _withitem *python) {
+  lean_object *item = expr(st, python->context_expr);
+  lean_object *var = mkNone();
+  if (python->optional_vars)
+    var =mkSome(expr(st, python->optional_vars));
+  return Python_WithItem_mk(item, var);
+}
+
+static lean_object* withitems(struct state *st, asdl_withitem_seq *python) {
+  lean_object *arr = lean_alloc_array(0, python->size);
+  for (int i = 0; i < python->size; i++) {
+    lean_object *wi = withitem(st, python->typed_elements[i]);
+    arr = lean_array_push(arr, wi);
+  }
+  return lean_array_to_list(arr);
+}
+
 static lean_object* stmts(struct state *st, asdl_stmt_seq *python);
 
 static lean_object* stmt(struct state *st, struct _stmt *python) {
@@ -1296,9 +1313,9 @@ static lean_object* stmt(struct state *st, struct _stmt *python) {
       break;
     }
 
-    // TODO: do we need with?
     case With_kind:
-      error(st, "NKI does not support 'with' statements at this time.");
+      s = Python_Stmt_withBlock(withitems(st, python->v.With.items),
+                                stmts(st, python->v.With.body));
       break;
 
     case FunctionDef_kind:

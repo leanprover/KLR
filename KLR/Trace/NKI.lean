@@ -513,6 +513,13 @@ partial def stmt' (s' : Stmt') : Trace Result := do
           if res == .brk then break
           if let .ret t := res then return .ret t
         return .next
+  | .withBlock (.str _ "no_reorder") body =>
+      beginWithBlock
+      let res <- stmts body
+      endWithBlock
+      return res
+  | .withBlock name _ =>
+      throw s!"unsupported with context {name}"
 end
 
 /-

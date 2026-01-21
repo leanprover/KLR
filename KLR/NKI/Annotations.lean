@@ -58,6 +58,9 @@ private def checkName : Name -> Ann Name
   | .str _ "sequential_range" => do
     warn "annotation has no effect"
     return `range
+  | .str n "no_reorder" => do
+    warn "annotation has no effect"
+    return .str n "no_reorder"
   | n => do isValidName n; return n
 
 mutual
@@ -134,6 +137,11 @@ private def iterator : Iterator -> Ann Iterator
         | _ => throw "invalid range arguments"
     | _ => return .expr e
 
+private def withType (name : Name) : Ann Name := do
+  match name with
+  | .str _ "no_reorder" => return name
+  | _ => throw s!"invalid with context {name} (only no_reorder is supported)"
+
 mutual
 private def stmt (s : Stmt) : Ann Stmt :=
   withPos s.pos do return { s with stmt := <- stmt' s.stmt }
@@ -157,6 +165,7 @@ private def stmt' (s : Stmt') : Ann Stmt' := do
   | .breakLoop => return .breakLoop
   | .continueLoop => return .continueLoop
   | .whileLoop test body => return .whileLoop test (<- stmts body)
+  | .withBlock name body => return .withBlock (<- withType name) (<- stmts body)
   termination_by sizeOf s
 end
 

@@ -225,6 +225,10 @@ structure State where
   labels : Array String := #[]
   -- debug info
   debug : DebugInfo := {}
+  -- no reorder
+  edges : List (String × String) := []
+  noReorderDepth : Nat := 0
+  lastInst : Option String := none
 
 instance : Inhabited State where
   default := {}
@@ -329,7 +333,17 @@ def add_stmt (stmt : Pos -> Stmt) : Trace Unit := do
     | .oper op (some name) pos =>
        pure (Core.Stmt.oper op (some name) pos, name)
   modifyThe State fun s =>
-    { s with stmts := s.stmts.push stmt }
+    let edges := match s.lastInst with
+      | none => s.edges
+      | some n => (n, name) :: s.edges
+    let lastInst := match s.noReorderDepth with
+      | 0 => none
+      | _ => some name
+    { s with
+        stmts := s.stmts.push stmt
+        edges := edges
+        lastInst := lastInst
+    }
   dbgAdd name
 
 def jmp (target : String) : Trace Unit := do
@@ -394,6 +408,19 @@ def beginBlock (label : Option String := none) : Trace String := do
   let l := label.getD ((<- genLabel `label))
   endBlock l
   return l
+
+def beginWithBlock : Trace Unit :=
+  modify fun s => { s with noReorderDepth := s.noReorderDepth + 1 }
+
+def endWithBlock : Trace Unit :=
+  modify fun s =>
+    let (i, d) := match s.noReorderDepth with
+      | 0 | 1 => (none, 0)
+      | .succ n => (s.lastInst, n)
+    { s with
+        noReorderDepth := d
+        lastInst := i
+    }
 
 private def identity (n : Nat) : TensorLib.Tensor := Id.run do
   let dtype := TensorLib.Dtype.int8
@@ -475,6 +502,7 @@ structure TraceResult (a : Type) where
   sharedBuffers : List (TensorName × Pos)
   debug : Array DebugItem
   labels : Array String
+  edges : List (String × String)
   result : a
 
 -- Run a `Trace` monad computation, and handle any generated warnings or errors.
@@ -484,7 +512,7 @@ def tracer (genDebug : Bool) (g : List (Name × Term)) (m : Trace a) : PassM (Tr
   runPassWith initialState do
     let x <- m
     let st <- get
-    return ⟨st.sharedConstants, st.sharedBuffers.toList, st.debug.leaf, st.labels, x⟩
+    return ⟨st.sharedConstants, st.sharedBuffers.toList, st.debug.leaf, st.labels, st.edges, x⟩
 
 -- Truthiness of Terms following Python
 namespace Term

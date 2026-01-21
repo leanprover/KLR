@@ -151,6 +151,9 @@ private def stmt' (s : Stmt') : Format :=
   | .whileLoop test body =>
       "while " ++ format test ++ ":" ++ .line ++
         stmts body
+  | .withBlock name body =>
+      "with " ++ format name ++ ":" ++ .line ++
+        stmts body
   termination_by sizeOf s
 end
 

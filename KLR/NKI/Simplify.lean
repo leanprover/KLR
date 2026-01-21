@@ -379,6 +379,18 @@ private def stmt' (s : Python.Stmt') : Simplify (List Stmt') := do
       if orelse.length > 0 then
         throw "while-orelse is not supported in NKI"
       return [.whileLoop (<- expr test) (<- stmts body)]
+  | .withBlock items body =>
+      match items with
+      | [⟨⟨ .call f args kws , pos ⟩, var⟩] =>
+        if var.isSome then
+          withPos pos $ throw "NKI does not support name bindings in with statements"
+        let name <- match <- expr f with
+          | ⟨ .var n, _ ⟩ => pure n
+          | ⟨ _, pos⟩ => withPos pos $ throw "NKI only allows simple function calls as with contexts"
+        if args.length > 0 || kws.length > 0 then
+          withPos pos $ throw "NKI does not support function call arguments in with contexts"
+        return [.withBlock name (<- stmts body)]
+      | _ => throw "NKI only supports with statements with a single, simple function call as context"
   termination_by sizeOf s
 end
 
