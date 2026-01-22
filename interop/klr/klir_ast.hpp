@@ -1061,6 +1061,14 @@ struct DevicePrint final {
   PrintOutputBuffer buffer;
 };
 
+struct Exponential final {
+  Ptr<TensorRef> dst;
+  Ptr<TensorRef> src;
+  Ptr<Operand> maxValue;
+  AccumCmd reducecmd;
+  Ptr<Operand> ReduceInit;
+};
+
 struct Operator {
   enum class Tag {
     activate = 1,
@@ -1137,6 +1145,7 @@ struct Operator {
     ncNGather,
     nonzeroWithCount,
     devicePrint,
+    exponential,
   };
   Tag tag;
   Operator(Tag tag) : tag(tag) {}
@@ -1515,6 +1524,11 @@ struct OperatorNonzeroWithCountWrapper final : Operator {
 struct OperatorDevicePrintWrapper final : Operator {
   Ptr<DevicePrint> op;
   OperatorDevicePrintWrapper() : Operator(Tag::devicePrint) {}
+};
+
+struct OperatorExponentialWrapper final : Operator {
+  Ptr<Exponential> op;
+  OperatorExponentialWrapper() : Operator(Tag::exponential) {}
 };
 
 struct Stmt {

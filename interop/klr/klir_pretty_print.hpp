@@ -264,6 +264,8 @@ std::string to_string(PrintOutputBuffer &PrintOutputBufferInstance);
 
 std::string to_string(DevicePrint &DevicePrintInstance);
 
+std::string to_string(Exponential &ExponentialInstance);
+
 std::string to_string(OperatorActivateWrapper &OperatorActivateWrapperInstance);
 std::string
 to_string(OperatorNcActivateWrapper &OperatorNcActivateWrapperInstance);
@@ -395,6 +397,8 @@ std::string to_string(
     OperatorNonzeroWithCountWrapper &OperatorNonzeroWithCountWrapperInstance);
 std::string
 to_string(OperatorDevicePrintWrapper &OperatorDevicePrintWrapperInstance);
+std::string
+to_string(OperatorExponentialWrapper &OperatorExponentialWrapperInstance);
 std::string to_string(Operator &OperatorInstance);
 
 std::string to_string(StmtOperWrapper &StmtOperWrapperInstance);

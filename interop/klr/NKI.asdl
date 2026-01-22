@@ -362,6 +362,8 @@ PrintOutputBuffer =
   | stderr
 
 DevicePrint = (TensorRef src, String printPrefix, PrintOutputBuffer buffer)
+
+Exponential = (TensorRef dst, TensorRef src, Operand maxValue, AccumCmd reducecmd, Operand ReduceInit)
 Operator =
  | activate(Activate op)
  | ncActivate(NcActivate op)
@@ -437,6 +439,7 @@ Operator =
  | ncNGather(NcNGather op)
  | nonzeroWithCount(NonzeroWithCount op)
  | devicePrint(DevicePrint op)
+ | exponential(Exponential op)
 
 Stmt =
  | oper(Operator op, String? name, Pos pos)

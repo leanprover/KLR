@@ -374,6 +374,7 @@ def klrAST: MetaM (List LeanType) := do
     `KLR.Core.NonzeroWithCount,
     `KLR.Core.PrintOutputBuffer,
     `KLR.Core.DevicePrint,
+    `KLR.Core.Exponential,
     `KLR.Core.Operator,
     -- Core.Basic
     `KLR.Core.Stmt,
