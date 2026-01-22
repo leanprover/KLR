@@ -353,6 +353,7 @@ static bool is_tensor(PyObject *obj) {
   return strcmp(t->tp_name, "tensor") == 0 ||         // nki
          strcmp(t->tp_name, "numpy.ndarray") == 0 ||  // numpy
          strcmp(t->tp_name, "Tensor") == 0 ||         // PyTorch
+         strcmp(t->tp_name, "FakeTensor") == 0 ||     // PyTorch
          strcmp(t->tp_name, "ShapedArray") == 0;      // JAX
 }
 
