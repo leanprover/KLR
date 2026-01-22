@@ -2879,6 +2879,22 @@ bool DevicePrint_ser(FILE *out, const Ptr<DevicePrint> &value) {
   return true;
 }
 
+bool Exponential_ser(FILE *out, const Ptr<Exponential> &value) {
+  if (!serialize_tag(out, 216, 0, 5))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!Operand_ser(out, value->maxValue))
+    return false;
+  if (!AccumCmd_ser(out, value->reducecmd))
+    return false;
+  if (!Operand_ser(out, value->ReduceInit))
+    return false;
+  return true;
+}
+
 bool Operator_ser(FILE *out, const Ptr<Operator> &value) {
   u8 tag_val = 0;
   u8 field_count = 1; // All variants have exactly 1 field
@@ -3181,13 +3197,17 @@ bool Operator_ser(FILE *out, const Ptr<Operator> &value) {
     tag_val = 73;
     field_count = 1;
     break;
+  case Operator::Tag::exponential:
+    tag_val = 74;
+    field_count = 1;
+    break;
   default:
     throw std::runtime_error("Unknown Operator type in serialization");
     return false;
   }
 
   // Serialize the tag
-  if (!serialize_tag(out, 216, tag_val, field_count))
+  if (!serialize_tag(out, 217, tag_val, field_count))
     return false;
 
   // Serialize the fields based on the specific variant
@@ -3553,6 +3573,11 @@ bool Operator_ser(FILE *out, const Ptr<Operator> &value) {
     auto *typed_value =
         static_cast<const OperatorDevicePrintWrapper *>(value.get());
     return DevicePrint_ser(out, typed_value->op);
+  }
+  case Operator::Tag::exponential: {
+    auto *typed_value =
+        static_cast<const OperatorExponentialWrapper *>(value.get());
+    return Exponential_ser(out, typed_value->op);
   }
   default:
     throw std::runtime_error("Unknown Operator type in serialization");
@@ -6942,11 +6967,33 @@ Ptr<DevicePrint> DevicePrint_des(FILE *in) {
   return x;
 }
 
+Ptr<Exponential> Exponential_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting Exponential:216,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 216 || c != 0 || l != 5) {
+    std::ostringstream msg;
+    msg << "Expecting Exponential:(216,0,5)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
+  Ptr<Exponential> x = ptr<Exponential>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  x->maxValue = Operand_des(in);
+  x->reducecmd = AccumCmd_des(in);
+  x->ReduceInit = Operand_des(in);
+  return x;
+}
+
 Ptr<Operator> Operator_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 216)
+  if (t != 217)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -7553,6 +7600,14 @@ Ptr<Operator> Operator_des(FILE *in) {
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorDevicePrintWrapper> x = ptr<OperatorDevicePrintWrapper>();
     x->op = DevicePrint_des(in);
+    return x;
+    break;
+  }
+  case 74: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorExponentialWrapper> x = ptr<OperatorExponentialWrapper>();
+    x->op = Exponential_des(in);
     return x;
     break;
   }

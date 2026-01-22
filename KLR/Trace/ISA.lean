@@ -1230,3 +1230,25 @@ nki builtin.isa.nonzero_with_count
       paddingVal := padding_val
     }) name
     return .none
+
+nki builtin.isa.exponential
+  (dst : Access)
+  (src : Access)
+  (max_value : Sum Immediate Access := .inl $ .float 0.0)
+  (reduce_cmd : AccumCmd := .Idle)
+  (reduce_init : Sum Immediate Access := .inl $ .float 0.0)
+  (mask : Option Immediate := none)
+  (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.exponential {
+      dst := .abstract dst,
+      src := .abstract src,
+      maxValue := match max_value with
+        | .inl imm => .imm imm
+        | .inr t => .tile $ .abstract t,
+      reducecmd := reduce_cmd,
+      ReduceInit := match reduce_init with
+        | .inl imm => .imm imm
+        | .inr t => .tile $ .abstract t
+    }) name
+    return .none

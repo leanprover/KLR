@@ -187,6 +187,7 @@ partial def operatorBasicTensors : Operator → List TensorRef
   | .ncNGather g => [g.dst, g.data, g.indices]
   | .nonzeroWithCount n => [n.dst, n.src]
   | .devicePrint t => [t.src]
+  | .exponential e => [e.dst, e.src]
 
 partial def operatorAdditionalTensors : Operator → List TensorName
   | .ncActivate d => (tensors d.scale) ++ (tensors d.bias) ++ (tensors d.reduceRes)
@@ -204,7 +205,7 @@ partial def operatorAdditionalTensors : Operator → List TensorName
   | .sendRecvCompute s => tensors s.dsts ++ tensors s.srcs
   | .dmaCompute d => tensors d.srcs
   | .allReduce op | .allGather op | .reduceScatter op | .broadcast op | .allToAll op
-  | .collectivePermute op | .collectivePermuteImplicit op | .collectivePermuteImplicitReduce op => 
+  | .collectivePermute op | .collectivePermuteImplicit op | .collectivePermuteImplicitReduce op =>
     tensors $ op.dsts ++ op.srcs
   | .send s => tensors s.srcs
   | .recv r => tensors r.dsts
@@ -212,6 +213,7 @@ partial def operatorAdditionalTensors : Operator → List TensorName
   | .tensorScalarCumulative t => (tensors t.imm0) ++ (tensors t.imm1)
   | .ncNGather _ => []
   | .nonzeroWithCount _ => []
+  | .exponential e => (tensors e.maxValue) ++ (tensors e.ReduceInit)
   | _ => []
 
 instance : Tensors Operator where

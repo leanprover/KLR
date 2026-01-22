@@ -3127,6 +3127,27 @@ std::string to_string(DevicePrint &DevicePrintInstance) {
   return result;
 };
 
+std::string to_string(Exponential &ExponentialInstance) {
+  std::string result;
+  result += "Exponential(";
+  result += "dst=";
+  result += to_string(*(ExponentialInstance.dst.get()));
+  result += ", ";
+  result += "src=";
+  result += to_string(*(ExponentialInstance.src.get()));
+  result += ", ";
+  result += "maxValue=";
+  result += to_string(*(ExponentialInstance.maxValue.get()));
+  result += ", ";
+  result += "reducecmd=";
+  result += to_string(ExponentialInstance.reducecmd); // mapped from enum
+  result += ", ";
+  result += "ReduceInit=";
+  result += to_string(*(ExponentialInstance.ReduceInit.get()));
+  result += ")";
+  return result;
+};
+
 std::string
 to_string(OperatorActivateWrapper &OperatorActivateWrapperInstance) {
   std::string result;
@@ -3784,6 +3805,15 @@ to_string(OperatorDevicePrintWrapper &OperatorDevicePrintWrapperInstance) {
   result += ")";
   return result;
 };
+std::string
+to_string(OperatorExponentialWrapper &OperatorExponentialWrapperInstance) {
+  std::string result;
+  result += "OperatorExponentialWrapper(";
+  result += "op=";
+  result += to_string(*(OperatorExponentialWrapperInstance.op.get()));
+  result += ")";
+  return result;
+};
 std::string to_string(Operator &OperatorInstance) {
   switch (OperatorInstance.tag) {
   case (Operator::Tag::activate): {
@@ -4156,6 +4186,11 @@ std::string to_string(Operator &OperatorInstance) {
   case (Operator::Tag::devicePrint): {
     OperatorDevicePrintWrapper &derivedRef =
         static_cast<OperatorDevicePrintWrapper &>(OperatorInstance);
+    return to_string(derivedRef);
+  }
+  case (Operator::Tag::exponential): {
+    OperatorExponentialWrapper &derivedRef =
+        static_cast<OperatorExponentialWrapper &>(OperatorInstance);
     return to_string(derivedRef);
   }
   default:

@@ -1215,6 +1215,23 @@ instance : MapTensorRefs DevicePrint where
   mapM ft _ op := do pure { op with src := ← ft op.src }
 
 @[serde tag = 216]
+structure Exponential where
+  dst : TensorRef
+  src : TensorRef
+  maxValue : Operand
+  reducecmd : AccumCmd
+  ReduceInit : Operand
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+instance : MapTensorRefs Exponential where
+  mapM ft fo op := do pure { op with
+    dst := ← ft op.dst,
+    src := ← ft op.src,
+    maxValue := ← fo op.maxValue,
+    ReduceInit := ← fo op.ReduceInit
+  }
+
+@[serde tag = 217]
 inductive Operator where
   | activate (op : Activate)
   | ncActivate (op : NcActivate)
@@ -1290,9 +1307,10 @@ inductive Operator where
   | ncNGather (op: NcNGather)
   | nonzeroWithCount (op: NonzeroWithCount)
   | devicePrint (op: DevicePrint)
+  | exponential(op: Exponential)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 217]
+@[serde tag = 218]
 inductive TGROperator where
   | activate (op : Activate)
   | affineSelect (op : AffineSelect)
@@ -1400,3 +1418,4 @@ instance : MapTensorRefs Operator where
   | .ncNGather op => return .ncNGather (← MapTensorRefs.mapM ft fo op)
   | .nonzeroWithCount op => return .nonzeroWithCount (← MapTensorRefs.mapM ft fo op)
   | .devicePrint op => return .devicePrint (← MapTensorRefs.mapM ft fo op)
+  | .exponential op => return .exponential (← MapTensorRefs.mapM ft fo op)
