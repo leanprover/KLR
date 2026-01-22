@@ -721,7 +721,6 @@ def builtinEnv : List (Name × Term) := Id.run do
     let fn := .builtin name none
     let names : List Name := match name with
       | .str `builtin.python n => [.str `builtins n, .str .anonymous n]
-      | .str `builtin.isa n => [nisa n, name]
       | .str `builtin.typing n => [nt n, name]
       | .str `builtin.lang n => [nl n, name]
       | .str `builtin.meta.tensor n => [ntensor n, name]
