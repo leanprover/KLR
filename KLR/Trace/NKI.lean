@@ -565,8 +565,10 @@ private def processArgs (args : List Arg) : Trace (List Value × List Keyword) :
   let (inputs, kws) <- args.foldlM (init := ([], [])) fun (inputs, kws) ⟨name, e⟩ => do
     modify fun s => {s with tensorNames := s.tensorNames.insert name}
     match e with
-    | ⟨ .value (.tensor s d _), pos ⟩ =>
-      let t := .tensor s d name
+    | ⟨ .value (.tensor s d tensorName), pos ⟩ =>
+      -- Use the embedded tensor name if available, otherwise use the argument name
+      let finalName := tensorName.getD name
+      let t := .tensor s d finalName
       let e' := ⟨ .value t, pos ⟩
       return (t :: inputs, .mk name e' :: kws)
     | _ => return (inputs, .mk name e :: kws)

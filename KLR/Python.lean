@@ -42,7 +42,8 @@ inductive Const where
   | string (value : String)
   | ellipsis
   -- TODO handle tensor data as well
-  | tensor (shape : List Nat) (dtype : String)
+  -- name is the path to the tensor in the argument structure (e.g., "x.0.attr.1")
+  | tensor (shape : List Nat) (dtype : String) (name : Option String := none)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 /-
