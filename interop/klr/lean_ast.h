@@ -4,7 +4,7 @@ lean_object* Python_Const_bool(uint8_t);
 lean_object* Python_Const_int(lean_object*);
 lean_object* Python_Const_float(double);
 lean_object* Python_Const_string(lean_object*);
-lean_object* Python_Const_tensor(lean_object*,lean_object*);
+lean_object* Python_Const_tensor(lean_object*,lean_object*,lean_object*);
 extern lean_object* Python_Const_none;
 extern lean_object* Python_Const_ellipsis;
 lean_object* Python_Keyword_mk(lean_object*,lean_object*,lean_object*);
