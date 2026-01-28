@@ -214,7 +214,8 @@ structure State where
   locals : Env := ∅
   body : Array Block := #[]
   flags : Array (String × NKI.Value) := #[]
-  tensorNames : Lean.PersistentHashSet String := ∅
+  tensorIndex : Nat := 0
+  tensorNames : Std.TreeSet String := ∅
   sharedConstants : SharedConstants := #[]
   sharedBuffers : Array (TensorName × Pos) := #[]
   dynamicCtx : Bool := False
@@ -388,7 +389,6 @@ def addImm (src dst : String) (imm : Int) : Trace Unit := do
     })
     (<- genLabel `brnz))
 
-
 def endBlock (next : Option String := none) : Trace Unit := do
   if let some target := next then
     jmp target
@@ -478,13 +478,15 @@ def checkTensorName (name : String) : Trace Unit := do
 -- generate a unique tensor name
 def genTensorName : Trace String := do
   let st <- get
-  let mut n := st.stmts.size * st.body.size -- arbitrary
+  let mut n := st.tensorIndex
   let mut name := ""
   repeat
     name := s!"tensor{n}"
     if not (st.tensorNames.contains name) then break
     n := n + 1
-  set { st with tensorNames := st.tensorNames.insert name }
+  set { st with
+        tensorIndex := n + 1
+        tensorNames := st.tensorNames.insert name }
   return name
 
 -- Either check or generate a tensor name
