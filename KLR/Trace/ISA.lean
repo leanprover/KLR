@@ -69,14 +69,25 @@ private def getReg : Term -> Trace Name
   | .scalar s => return s
   | _ => throw "expecting register value"
 
-nki builtin.isa.register_alloc (t : Option Int := none) := do
+nki builtin.isa.register_alloc (t : Sum Immediate Access) := do
   let reg <- genName `reg
-  add_stmt (.oper (.registerMove {
-    dst := reg.toString
-    imm := (t.getD 0).toInt32
-    })
-    (<- genName `move).toString
-  )
+  match t with
+  | .inl (.int i) =>
+    add_stmt (.oper (.registerMove {
+      dst := reg.toString
+      imm := i
+      })
+      (<- genName `move).toString
+    )
+  | .inl _ =>
+    throw "register_alloc requires an integer immediate or tensor access"
+  | .inr acc =>
+    add_stmt (.oper (.tensorLoad {
+      dst := reg.toString
+      src := .abstract acc
+      })
+      (<- genName `load).toString
+    )
   return .scalar reg
 
 nki builtin.isa.register_move (dst : Term) (imm : Int) := do
