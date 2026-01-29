@@ -2880,7 +2880,7 @@ bool DevicePrint_ser(FILE *out, const Ptr<DevicePrint> &value) {
 }
 
 bool Exponential_ser(FILE *out, const Ptr<Exponential> &value) {
-  if (!serialize_tag(out, 216, 0, 5))
+  if (!serialize_tag(out, 216, 0, 6))
     return false;
   if (!TensorRef_ser(out, value->dst))
     return false;
@@ -2888,9 +2888,45 @@ bool Exponential_ser(FILE *out, const Ptr<Exponential> &value) {
     return false;
   if (!Operand_ser(out, value->maxValue))
     return false;
+  if (!Option_TensorRef_ser(out, value->reduceRes))
+    return false;
   if (!AccumCmd_ser(out, value->reducecmd))
     return false;
-  if (!Operand_ser(out, value->ReduceInit))
+  if (!Operand_ser(out, value->reduceInit))
+    return false;
+  return true;
+}
+
+bool Activate2_ser(FILE *out, const Ptr<Activate2> &value) {
+  if (!serialize_tag(out, 217, 0, 14))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!TensorRef_ser(out, value->src))
+    return false;
+  if (!AluOp_ser(out, value->op0))
+    return false;
+  if (!AluOp_ser(out, value->op1))
+    return false;
+  if (!Operand_ser(out, value->imm0))
+    return false;
+  if (!Operand_ser(out, value->imm1))
+    return false;
+  if (!ActivationFunc_ser(out, value->activationFunc))
+    return false;
+  if (!Operand_ser(out, value->reluParam))
+    return false;
+  if (!AluOp_ser(out, value->reduceOp))
+    return false;
+  if (!Option_TensorRef_ser(out, value->reduceRes))
+    return false;
+  if (!AccumCmd_ser(out, value->reduceCmd))
+    return false;
+  if (!Bool_ser(out, value->reverse0))
+    return false;
+  if (!Bool_ser(out, value->reverse1))
+    return false;
+  if (!Option_Dtype_ser(out, value->dtype))
     return false;
   return true;
 }
@@ -3201,13 +3237,17 @@ bool Operator_ser(FILE *out, const Ptr<Operator> &value) {
     tag_val = 74;
     field_count = 1;
     break;
+  case Operator::Tag::activate2:
+    tag_val = 75;
+    field_count = 1;
+    break;
   default:
     throw std::runtime_error("Unknown Operator type in serialization");
     return false;
   }
 
   // Serialize the tag
-  if (!serialize_tag(out, 217, tag_val, field_count))
+  if (!serialize_tag(out, 218, tag_val, field_count))
     return false;
 
   // Serialize the fields based on the specific variant
@@ -3578,6 +3618,11 @@ bool Operator_ser(FILE *out, const Ptr<Operator> &value) {
     auto *typed_value =
         static_cast<const OperatorExponentialWrapper *>(value.get());
     return Exponential_ser(out, typed_value->op);
+  }
+  case Operator::Tag::activate2: {
+    auto *typed_value =
+        static_cast<const OperatorActivate2Wrapper *>(value.get());
+    return Activate2_ser(out, typed_value->op);
   }
   default:
     throw std::runtime_error("Unknown Operator type in serialization");
@@ -6974,9 +7019,9 @@ Ptr<Exponential> Exponential_des(FILE *in) {
     msg << "Could not find tag, expecting Exponential:216,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 216 || c != 0 || l != 5) {
+  if (t != 216 || c != 0 || l != 6) {
     std::ostringstream msg;
-    msg << "Expecting Exponential:(216,0,5)";
+    msg << "Expecting Exponential:(216,0,6)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -6984,8 +7029,40 @@ Ptr<Exponential> Exponential_des(FILE *in) {
   x->dst = TensorRef_des(in);
   x->src = TensorRef_des(in);
   x->maxValue = Operand_des(in);
+  x->reduceRes = Option_TensorRef_des(in);
   x->reducecmd = AccumCmd_des(in);
-  x->ReduceInit = Operand_des(in);
+  x->reduceInit = Operand_des(in);
+  return x;
+}
+
+Ptr<Activate2> Activate2_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting Activate2:217,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 217 || c != 0 || l != 14) {
+    std::ostringstream msg;
+    msg << "Expecting Activate2:(217,0,14)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
+  Ptr<Activate2> x = ptr<Activate2>();
+  x->dst = TensorRef_des(in);
+  x->src = TensorRef_des(in);
+  x->op0 = AluOp_des(in);
+  x->op1 = AluOp_des(in);
+  x->imm0 = Operand_des(in);
+  x->imm1 = Operand_des(in);
+  x->activationFunc = ActivationFunc_des(in);
+  x->reluParam = Operand_des(in);
+  x->reduceOp = AluOp_des(in);
+  x->reduceRes = Option_TensorRef_des(in);
+  x->reduceCmd = AccumCmd_des(in);
+  x->reverse0 = Bool_des(in);
+  x->reverse1 = Bool_des(in);
+  x->dtype = Option_Dtype_des(in);
   return x;
 }
 
@@ -6993,7 +7070,7 @@ Ptr<Operator> Operator_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 217)
+  if (t != 218)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -7608,6 +7685,14 @@ Ptr<Operator> Operator_des(FILE *in) {
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorExponentialWrapper> x = ptr<OperatorExponentialWrapper>();
     x->op = Exponential_des(in);
+    return x;
+    break;
+  }
+  case 75: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorActivate2Wrapper> x = ptr<OperatorActivate2Wrapper>();
+    x->op = Activate2_des(in);
     return x;
     break;
   }

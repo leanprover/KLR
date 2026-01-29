@@ -1219,8 +1219,9 @@ structure Exponential where
   dst : TensorRef
   src : TensorRef
   maxValue : Operand
+  reduceRes       : Option TensorRef
   reducecmd : AccumCmd
-  ReduceInit : Operand
+  reduceInit : Operand
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 instance : MapTensorRefs Exponential where
@@ -1228,10 +1229,39 @@ instance : MapTensorRefs Exponential where
     dst := ← ft op.dst,
     src := ← ft op.src,
     maxValue := ← fo op.maxValue,
-    ReduceInit := ← fo op.ReduceInit
+    reduceRes := ← op.reduceRes.mapM ft,
+    reduceInit := ← fo op.reduceInit
   }
 
 @[serde tag = 217]
+structure Activate2 where
+  dst             : TensorRef
+  src             : TensorRef
+  op0             : AluOp
+  op1             : AluOp
+  imm0            : Operand
+  imm1            : Operand
+  activationFunc  : ActivationFunc
+  reluParam       : Operand
+  reduceOp        : AluOp
+  reduceRes       : Option TensorRef
+  reduceCmd       : AccumCmd
+  reverse0        : Bool
+  reverse1        : Bool
+  dtype           : Option Dtype
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+instance : MapTensorRefs Activate2 where
+  mapM ft fo op := do pure { op with
+    dst := ← ft op.dst,
+    src := ← ft op.src,
+    imm0 := ← fo op.imm0,
+    imm1 := ← fo op.imm1,
+    reluParam := ← fo op.reluParam,
+    reduceRes := ← op.reduceRes.mapM ft
+  }
+
+@[serde tag = 218]
 inductive Operator where
   | activate (op : Activate)
   | ncActivate (op : NcActivate)
@@ -1308,9 +1338,10 @@ inductive Operator where
   | nonzeroWithCount (op: NonzeroWithCount)
   | devicePrint (op: DevicePrint)
   | exponential(op: Exponential)
+  | activate2 (op: Activate2)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 218]
+@[serde tag = 219]
 inductive TGROperator where
   | activate (op : Activate)
   | affineSelect (op : AffineSelect)
@@ -1419,3 +1450,4 @@ instance : MapTensorRefs Operator where
   | .nonzeroWithCount op => return .nonzeroWithCount (← MapTensorRefs.mapM ft fo op)
   | .devicePrint op => return .devicePrint (← MapTensorRefs.mapM ft fo op)
   | .exponential op => return .exponential (← MapTensorRefs.mapM ft fo op)
+  | .activate2 op => return .activate2 (← MapTensorRefs.mapM ft fo op)

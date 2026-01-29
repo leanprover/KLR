@@ -1235,6 +1235,7 @@ nki builtin.isa.exponential
   (dst : Access)
   (src : Access)
   (max_value : Sum Immediate Access := .inl $ .float 0.0)
+  (reduce_res : Option Access := none)
   (reduce_cmd : AccumCmd := .Idle)
   (reduce_init : Sum Immediate Access := .inl $ .float 0.0)
   (mask : Option Immediate := none)
@@ -1246,9 +1247,52 @@ nki builtin.isa.exponential
       maxValue := match max_value with
         | .inl imm => .imm imm
         | .inr t => .tile $ .abstract t,
+      reduceRes := reduce_res.map .abstract,
       reducecmd := reduce_cmd,
-      ReduceInit := match reduce_init with
+      reduceInit := match reduce_init with
         | .inl imm => .imm imm
         | .inr t => .tile $ .abstract t
+    }) name
+    return .none
+
+nki builtin.isa.activate2
+  (dst : Access)
+  (src : Access)
+  (op0 : AluOp)
+  (op1 : AluOp)
+  (imm0 : Sum Immediate Access)
+  (imm1 : Sum Immediate Access)
+  (op : ActivationFunc)
+  -- kwargs
+  (relu_param : Sum Immediate Access := .inl $ .float 0.0)
+  (reduce_op : AluOp := .bypass)
+  (reduce_res : Option Access := none)
+  (reduce_cmd : AccumCmd := .Idle)
+  (reverse0 : Bool := false)
+  (reverse1 : Bool := false)
+  (mask : Option Immediate := none)
+  (name : Option String := none) := do
+    if mask.isSome then throw maskNotSupported
+    Trace.add_stmt $ .oper (.activate2 {
+      dst := .abstract dst,
+      src := .abstract src,
+      op0 := op0,
+      op1 := op1,
+      imm0 := match imm0 with
+        | .inl imm => .imm imm
+        | .inr t => .tile $ .abstract t,
+      imm1 := match imm1 with
+        | .inl imm => .imm imm
+        | .inr t => .tile $ .abstract t,
+      activationFunc := op,
+      reluParam := match relu_param with
+        | .inl imm => .imm imm
+        | .inr t => .tile $ .abstract t,
+      reduceOp := reduce_op,
+      reduceRes := reduce_res.map .abstract,
+      reduceCmd := reduce_cmd,
+      reverse0 := reverse0,
+      reverse1 := reverse1,
+      dtype := dst.tensor.dtype
     }) name
     return .none
