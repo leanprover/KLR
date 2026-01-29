@@ -394,9 +394,10 @@ partial def scalar (e : Expr) : Trace String :=
   withPos e.pos do
     let rec getName (t : Term) : Trace String := do
       match t with
-      | .bool true => getName (<- Isa.builtin_isa_register_alloc [.int 1] [])
-      | .bool false => getName (<- Isa.builtin_isa_register_alloc [.int 0] [])
-      | .int i => getName (<- Isa.builtin_isa_register_alloc [.int i] [])
+      | .bool true => getName (<- Isa.builtin_isa_register_alloc [.int 1] [("t", .int 1)])
+      | .bool false => getName (<- Isa.builtin_isa_register_alloc [.int 0] [("t", .int 0)])
+      | .int i => getName (<- Isa.builtin_isa_register_alloc [.int i] [("t", .int i)])
+      | .access a => getName (<- Isa.builtin_isa_register_alloc [.access a] [("t", .access a)])
       | .scalar n => return n.toString
       | _ => throw "expecting scalar value"
     getName (<- expr' e.expr)
