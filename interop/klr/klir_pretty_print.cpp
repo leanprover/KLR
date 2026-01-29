@@ -3139,11 +3139,74 @@ std::string to_string(Exponential &ExponentialInstance) {
   result += "maxValue=";
   result += to_string(*(ExponentialInstance.maxValue.get()));
   result += ", ";
+  result += "reduceRes=";
+  if (ExponentialInstance.reduceRes.has_value()) {
+    result += to_string(*(ExponentialInstance.reduceRes.value().get()));
+  } else {
+    result += "None";
+  }
+  result += ", ";
   result += "reducecmd=";
   result += to_string(ExponentialInstance.reducecmd); // mapped from enum
   result += ", ";
-  result += "ReduceInit=";
-  result += to_string(*(ExponentialInstance.ReduceInit.get()));
+  result += "reduceInit=";
+  result += to_string(*(ExponentialInstance.reduceInit.get()));
+  result += ")";
+  return result;
+};
+
+std::string to_string(Activate2 &Activate2Instance) {
+  std::string result;
+  result += "Activate2(";
+  result += "dst=";
+  result += to_string(*(Activate2Instance.dst.get()));
+  result += ", ";
+  result += "src=";
+  result += to_string(*(Activate2Instance.src.get()));
+  result += ", ";
+  result += "op0=";
+  result += to_string(Activate2Instance.op0); // mapped from enum
+  result += ", ";
+  result += "op1=";
+  result += to_string(Activate2Instance.op1); // mapped from enum
+  result += ", ";
+  result += "imm0=";
+  result += to_string(*(Activate2Instance.imm0.get()));
+  result += ", ";
+  result += "imm1=";
+  result += to_string(*(Activate2Instance.imm1.get()));
+  result += ", ";
+  result += "activationFunc=";
+  result += to_string(Activate2Instance.activationFunc); // mapped from enum
+  result += ", ";
+  result += "reluParam=";
+  result += to_string(*(Activate2Instance.reluParam.get()));
+  result += ", ";
+  result += "reduceOp=";
+  result += to_string(Activate2Instance.reduceOp); // mapped from enum
+  result += ", ";
+  result += "reduceRes=";
+  if (Activate2Instance.reduceRes.has_value()) {
+    result += to_string(*(Activate2Instance.reduceRes.value().get()));
+  } else {
+    result += "None";
+  }
+  result += ", ";
+  result += "reduceCmd=";
+  result += to_string(Activate2Instance.reduceCmd); // mapped from enum
+  result += ", ";
+  result += "reverse0=";
+  result += std::to_string(Activate2Instance.reverse0);
+  result += ", ";
+  result += "reverse1=";
+  result += std::to_string(Activate2Instance.reverse1);
+  result += ", ";
+  result += "dtype=";
+  if (Activate2Instance.dtype.has_value()) {
+    result += to_string(Activate2Instance.dtype.value()); // mapped from enum
+  } else {
+    result += "None";
+  }
   result += ")";
   return result;
 };
@@ -3814,6 +3877,15 @@ to_string(OperatorExponentialWrapper &OperatorExponentialWrapperInstance) {
   result += ")";
   return result;
 };
+std::string
+to_string(OperatorActivate2Wrapper &OperatorActivate2WrapperInstance) {
+  std::string result;
+  result += "OperatorActivate2Wrapper(";
+  result += "op=";
+  result += to_string(*(OperatorActivate2WrapperInstance.op.get()));
+  result += ")";
+  return result;
+};
 std::string to_string(Operator &OperatorInstance) {
   switch (OperatorInstance.tag) {
   case (Operator::Tag::activate): {
@@ -4191,6 +4263,11 @@ std::string to_string(Operator &OperatorInstance) {
   case (Operator::Tag::exponential): {
     OperatorExponentialWrapper &derivedRef =
         static_cast<OperatorExponentialWrapper &>(OperatorInstance);
+    return to_string(derivedRef);
+  }
+  case (Operator::Tag::activate2): {
+    OperatorActivate2Wrapper &derivedRef =
+        static_cast<OperatorActivate2Wrapper &>(OperatorInstance);
     return to_string(derivedRef);
   }
   default:

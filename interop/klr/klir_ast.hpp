@@ -1065,8 +1065,26 @@ struct Exponential final {
   Ptr<TensorRef> dst;
   Ptr<TensorRef> src;
   Ptr<Operand> maxValue;
+  Option<Ptr<TensorRef>> reduceRes;
   AccumCmd reducecmd;
-  Ptr<Operand> ReduceInit;
+  Ptr<Operand> reduceInit;
+};
+
+struct Activate2 final {
+  Ptr<TensorRef> dst;
+  Ptr<TensorRef> src;
+  AluOp op0;
+  AluOp op1;
+  Ptr<Operand> imm0;
+  Ptr<Operand> imm1;
+  ActivationFunc activationFunc;
+  Ptr<Operand> reluParam;
+  AluOp reduceOp;
+  Option<Ptr<TensorRef>> reduceRes;
+  AccumCmd reduceCmd;
+  Bool reverse0;
+  Bool reverse1;
+  Option<Dtype> dtype;
 };
 
 struct Operator {
@@ -1146,6 +1164,7 @@ struct Operator {
     nonzeroWithCount,
     devicePrint,
     exponential,
+    activate2,
   };
   Tag tag;
   Operator(Tag tag) : tag(tag) {}
@@ -1529,6 +1548,11 @@ struct OperatorDevicePrintWrapper final : Operator {
 struct OperatorExponentialWrapper final : Operator {
   Ptr<Exponential> op;
   OperatorExponentialWrapper() : Operator(Tag::exponential) {}
+};
+
+struct OperatorActivate2Wrapper final : Operator {
+  Ptr<Activate2> op;
+  OperatorActivate2Wrapper() : Operator(Tag::activate2) {}
 };
 
 struct Stmt {

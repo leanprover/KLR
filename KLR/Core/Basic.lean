@@ -188,6 +188,7 @@ partial def operatorBasicTensors : Operator → List TensorRef
   | .nonzeroWithCount n => [n.dst, n.src]
   | .devicePrint t => [t.src]
   | .exponential e => [e.dst, e.src]
+  | .activate2 a => [a.dst, a.src]
 
 partial def operatorAdditionalTensors : Operator → List TensorName
   | .ncActivate d => (tensors d.scale) ++ (tensors d.bias) ++ (tensors d.reduceRes)
@@ -213,7 +214,7 @@ partial def operatorAdditionalTensors : Operator → List TensorName
   | .tensorScalarCumulative t => (tensors t.imm0) ++ (tensors t.imm1)
   | .ncNGather _ => []
   | .nonzeroWithCount _ => []
-  | .exponential e => (tensors e.maxValue) ++ (tensors e.ReduceInit)
+  | .exponential e => (tensors e.maxValue) ++ (tensors e.reduceRes) ++ (tensors e.reduceInit)
   | _ => []
 
 instance : Tensors Operator where
