@@ -47,6 +47,7 @@ def NKIEnv : List (Name × Term) :=
   , const_int (.str (nisa "nc_version") "gen1") 1
   , const_int (.str (nisa "nc_version") "gen2") 2
   , const_int (.str (nisa "nc_version") "gen3") 3
+  , const_int (.str (nisa "nc_version") "gen4") 4
   , const_var (nl "psum")
   , const_var (nl "sbuf")
   , const_var (nl "hbm")
