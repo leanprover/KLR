@@ -292,7 +292,8 @@ instance : FromNKI AccumCmd where
     | some "reset" => return .Zero
     | some "reduce" => return .Accumulate
     | some "reset_reduce" => return .ZeroAccumulate
-    | _ => throw "expecting accumulator command (idle, reset, reduce, reset_reduce)"
+    | some "load_reduce" => return .LoadAccumulate
+    | _ => throw "expecting accumulator command (idle, reset, reduce, reset_reduce, load_reduce)"
 
 instance : FromNKI MatmulPerfMode where
   fromNKI? t :=
