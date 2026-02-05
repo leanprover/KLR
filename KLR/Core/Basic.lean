@@ -189,6 +189,7 @@ partial def operatorBasicTensors : Operator → List TensorRef
   | .devicePrint t => [t.src]
   | .exponential e => [e.dst, e.src]
   | .activate2 a => [a.dst, a.src]
+  | .dveReadAccumulator e => [e.dst]
 
 partial def operatorAdditionalTensors : Operator → List TensorName
   | .ncActivate d => (tensors d.scale) ++ (tensors d.bias) ++ (tensors d.reduceRes)
