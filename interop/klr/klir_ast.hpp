@@ -1087,6 +1087,11 @@ struct Activate2 final {
   Option<Dtype> dtype;
 };
 
+struct DveReadAccumulator final {
+  Ptr<TensorRef> dst;
+  Bool negated;
+};
+
 struct Operator {
   enum class Tag {
     activate = 1,
@@ -1165,6 +1170,7 @@ struct Operator {
     devicePrint,
     exponential,
     activate2,
+    dveReadAccumulator,
   };
   Tag tag;
   Operator(Tag tag) : tag(tag) {}
@@ -1553,6 +1559,11 @@ struct OperatorExponentialWrapper final : Operator {
 struct OperatorActivate2Wrapper final : Operator {
   Ptr<Activate2> op;
   OperatorActivate2Wrapper() : Operator(Tag::activate2) {}
+};
+
+struct OperatorDveReadAccumulatorWrapper final : Operator {
+  Ptr<DveReadAccumulator> op;
+  OperatorDveReadAccumulatorWrapper() : Operator(Tag::dveReadAccumulator) {}
 };
 
 struct Stmt {

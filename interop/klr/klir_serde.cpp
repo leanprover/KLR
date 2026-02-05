@@ -2931,6 +2931,16 @@ bool Activate2_ser(FILE *out, const Ptr<Activate2> &value) {
   return true;
 }
 
+bool DveReadAccumulator_ser(FILE *out, const Ptr<DveReadAccumulator> &value) {
+  if (!serialize_tag(out, 218, 0, 2))
+    return false;
+  if (!TensorRef_ser(out, value->dst))
+    return false;
+  if (!Bool_ser(out, value->negated))
+    return false;
+  return true;
+}
+
 bool Operator_ser(FILE *out, const Ptr<Operator> &value) {
   u8 tag_val = 0;
   u8 field_count = 1; // All variants have exactly 1 field
@@ -3241,13 +3251,17 @@ bool Operator_ser(FILE *out, const Ptr<Operator> &value) {
     tag_val = 75;
     field_count = 1;
     break;
+  case Operator::Tag::dveReadAccumulator:
+    tag_val = 76;
+    field_count = 1;
+    break;
   default:
     throw std::runtime_error("Unknown Operator type in serialization");
     return false;
   }
 
   // Serialize the tag
-  if (!serialize_tag(out, 218, tag_val, field_count))
+  if (!serialize_tag(out, 219, tag_val, field_count))
     return false;
 
   // Serialize the fields based on the specific variant
@@ -3623,6 +3637,11 @@ bool Operator_ser(FILE *out, const Ptr<Operator> &value) {
     auto *typed_value =
         static_cast<const OperatorActivate2Wrapper *>(value.get());
     return Activate2_ser(out, typed_value->op);
+  }
+  case Operator::Tag::dveReadAccumulator: {
+    auto *typed_value =
+        static_cast<const OperatorDveReadAccumulatorWrapper *>(value.get());
+    return DveReadAccumulator_ser(out, typed_value->op);
   }
   default:
     throw std::runtime_error("Unknown Operator type in serialization");
@@ -7066,11 +7085,30 @@ Ptr<Activate2> Activate2_des(FILE *in) {
   return x;
 }
 
+Ptr<DveReadAccumulator> DveReadAccumulator_des(FILE *in) {
+  u8 t, c, l;
+  if (!deserialize_tag(in, &t, &c, &l)) {
+    std::ostringstream msg;
+    msg << "Could not find tag, expecting DveReadAccumulator:218,0";
+    throw std::runtime_error(msg.str());
+  }
+  if (t != 218 || c != 0 || l != 2) {
+    std::ostringstream msg;
+    msg << "Expecting DveReadAccumulator:(218,0,2)";
+    msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
+    throw std::runtime_error(msg.str());
+  }
+  Ptr<DveReadAccumulator> x = ptr<DveReadAccumulator>();
+  x->dst = TensorRef_des(in);
+  x->negated = Bool_des(in);
+  return x;
+}
+
 Ptr<Operator> Operator_des(FILE *in) {
   u8 t, c, l;
   if (!deserialize_tag(in, &t, &c, &l))
     throw std::runtime_error("Could not read tag");
-  if (t != 218)
+  if (t != 219)
     throw std::runtime_error("Unexpected type tag");
   switch (c) {
   case 0: {
@@ -7693,6 +7731,15 @@ Ptr<Operator> Operator_des(FILE *in) {
       throw std::runtime_error("Wrong number of elements");
     Ptr<OperatorActivate2Wrapper> x = ptr<OperatorActivate2Wrapper>();
     x->op = Activate2_des(in);
+    return x;
+    break;
+  }
+  case 76: {
+    if (l != 1)
+      throw std::runtime_error("Wrong number of elements");
+    Ptr<OperatorDveReadAccumulatorWrapper> x =
+        ptr<OperatorDveReadAccumulatorWrapper>();
+    x->op = DveReadAccumulator_des(in);
     return x;
     break;
   }

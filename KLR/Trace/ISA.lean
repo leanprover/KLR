@@ -1315,3 +1315,13 @@ nki builtin.isa.activate2
       dtype := dst.tensor.dtype
     }) name
     return .none
+
+nki builtin.isa.dveReadAccumulator
+  (dst : Access)
+  (negated : Bool := false)
+  (name : Option String := none) := do
+    Trace.add_stmt $ .oper (.dveReadAccumulator {
+      dst := .abstract dst,
+      negated := negated,
+    }) name
+    return .none

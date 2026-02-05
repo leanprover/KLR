@@ -366,6 +366,8 @@ DevicePrint = (TensorRef src, String printPrefix, PrintOutputBuffer buffer)
 Exponential = (TensorRef dst, TensorRef src, Operand maxValue, TensorRef? reduceRes, AccumCmd reducecmd, Operand reduceInit)
 
 Activate2 = (TensorRef dst, TensorRef src, AluOp op0, AluOp op1, Operand imm0, Operand imm1, ActivationFunc activationFunc, Operand reluParam, AluOp reduceOp, TensorRef? reduceRes, AccumCmd reduceCmd, Bool reverse0, Bool reverse1, Dtype? dtype)
+
+DveReadAccumulator = (TensorRef dst, Bool negated)
 Operator =
  | activate(Activate op)
  | ncActivate(NcActivate op)
@@ -443,6 +445,7 @@ Operator =
  | devicePrint(DevicePrint op)
  | exponential(Exponential op)
  | activate2(Activate2 op)
+ | dveReadAccumulator(DveReadAccumulator op)
 
 Stmt =
  | oper(Operator op, String? name, Pos pos)
