@@ -631,7 +631,13 @@ nki builtin.access.reshape
     else
       pure tensor.address
   let t <- TensorName.make name dtype shape' addr address_rotation
-  return .access (.simple t)
+  if dtype == self.tensor.dtype then
+    return .access (.simple t)
+  else
+    let ap <- (Access.simple t).toAP
+    let bap := Core.BirAccessPattern.fromAccessPattern ap
+    let bap := { bap with dtypeOverride := dtype }
+    return .access (.birPattern bap)
 
 nki builtin.access.ap
     (self : Access)

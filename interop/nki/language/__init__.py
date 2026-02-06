@@ -11,6 +11,7 @@ def multiply(): pass
 def par_dim(x): return x
 
 int32 = "int32"
+uint32 = "uint32"
 float16 = "float16"
 uint8 = "uint8"
 

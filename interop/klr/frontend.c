@@ -59,6 +59,7 @@ static PyObject* kernel_specialize(struct kernel *self, PyObject *args_tuple) {
       return NULL;
   }
   if (args != Py_None && !PyTuple_Check(args)) {
+      PyErr_SetString(PyExc_TypeError, "Invalid Argument: 'args' must be a tuple");
       return NULL;
   }
   if (kwargs != Py_None && !PyDict_Check(kwargs)) {
