@@ -208,6 +208,11 @@ private def binop' (op : BinOp) (l r : Term) : Trace Term := do
   -- arithmetic / bitwise
   | _ => termOp op l r
 
+private def mkRef (t : Term) (ty: RefType) : Trace Term := do
+  let name <- genName `ref
+  extend_global name t
+  return .ref name ty
+
 def binop (op : BinOp) (l r : Term) : Trace Term := do
   let l <- match l with
     | .ref name _ => lookup name
@@ -215,7 +220,10 @@ def binop (op : BinOp) (l r : Term) : Trace Term := do
   let r <- match r with
     | .ref name _ => lookup name
     | _ => pure r
-  binop' op l r
+  match <- binop' op l r with
+  | .list l => mkRef (.list l) .list
+  | .dict d => mkRef (.dict d) .dict
+  | t => return t
 
 /-
 # Evaluating index expressions
