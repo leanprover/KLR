@@ -58,7 +58,7 @@ private def value : Python.Const -> Simplify Value
   | .float f => return .float f
   | .string s => return .string s
   | .ellipsis => throw "invalid use of ellipsis"
-  | .tensor s dty => return .tensor s dty none
+  | .tensor s dty name => return .tensor s dty name
 
 private def strValue (e : Python.Expr) : Simplify String :=
   withPos e.pos do
