@@ -35,6 +35,10 @@ open KLR.NKI
 
 -- NKI environment, including constants and the names of builtin functions
 -- TODO: these should be defined in Python, not here
+
+-- TODO: this is a hack to work-around gather deficiencies
+private def enum_alias (name : String) := (nisa name, Term.var (.str (nisa "constants") name))
+
 def NKIEnv : List (Name × Term) :=
   [ module nki_
   , module nki_isa
@@ -53,6 +57,12 @@ def NKIEnv : List (Name × Term) :=
   , const_var (nl "hbm")
   , const_var (nl "shared_hbm")
   , const_var (nl "private_hbm")
+  -- TODO: this is a hack to work-around gather deficiencies
+  , enum_alias "engine"
+  , enum_alias "reduce_cmd"
+  , enum_alias "oob_mode"
+  , enum_alias "dge_mode"
+  , enum_alias "matmul_perf_mode"
   ]
 
 -- The result of a statement evaluation
