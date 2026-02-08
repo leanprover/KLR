@@ -1262,6 +1262,17 @@ instance : MapTensorRefs Activate2 where
   }
 
 @[serde tag = 218]
+structure DveReadAccumulator where
+  dst     : TensorRef
+  negated : Bool
+  deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
+
+instance : MapTensorRefs DveReadAccumulator where
+  mapM ft _ op := do pure { op with
+    dst := ← ft op.dst
+  }
+
+@[serde tag = 219]
 inductive Operator where
   | activate (op : Activate)
   | ncActivate (op : NcActivate)
@@ -1339,9 +1350,10 @@ inductive Operator where
   | devicePrint (op: DevicePrint)
   | exponential(op: Exponential)
   | activate2 (op: Activate2)
+  | dveReadAccumulator (op: DveReadAccumulator)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
-@[serde tag = 219]
+@[serde tag = 220]
 inductive TGROperator where
   | activate (op : Activate)
   | affineSelect (op : AffineSelect)
@@ -1451,3 +1463,4 @@ instance : MapTensorRefs Operator where
   | .devicePrint op => return .devicePrint (← MapTensorRefs.mapM ft fo op)
   | .exponential op => return .exponential (← MapTensorRefs.mapM ft fo op)
   | .activate2 op => return .activate2 (← MapTensorRefs.mapM ft fo op)
+  | .dveReadAccumulator op => return .dveReadAccumulator (← MapTensorRefs.mapM ft fo op)

@@ -3211,6 +3211,18 @@ std::string to_string(Activate2 &Activate2Instance) {
   return result;
 };
 
+std::string to_string(DveReadAccumulator &DveReadAccumulatorInstance) {
+  std::string result;
+  result += "DveReadAccumulator(";
+  result += "dst=";
+  result += to_string(*(DveReadAccumulatorInstance.dst.get()));
+  result += ", ";
+  result += "negated=";
+  result += std::to_string(DveReadAccumulatorInstance.negated);
+  result += ")";
+  return result;
+};
+
 std::string
 to_string(OperatorActivateWrapper &OperatorActivateWrapperInstance) {
   std::string result;
@@ -3886,6 +3898,15 @@ to_string(OperatorActivate2Wrapper &OperatorActivate2WrapperInstance) {
   result += ")";
   return result;
 };
+std::string to_string(OperatorDveReadAccumulatorWrapper
+                          &OperatorDveReadAccumulatorWrapperInstance) {
+  std::string result;
+  result += "OperatorDveReadAccumulatorWrapper(";
+  result += "op=";
+  result += to_string(*(OperatorDveReadAccumulatorWrapperInstance.op.get()));
+  result += ")";
+  return result;
+};
 std::string to_string(Operator &OperatorInstance) {
   switch (OperatorInstance.tag) {
   case (Operator::Tag::activate): {
@@ -4268,6 +4289,11 @@ std::string to_string(Operator &OperatorInstance) {
   case (Operator::Tag::activate2): {
     OperatorActivate2Wrapper &derivedRef =
         static_cast<OperatorActivate2Wrapper &>(OperatorInstance);
+    return to_string(derivedRef);
+  }
+  case (Operator::Tag::dveReadAccumulator): {
+    OperatorDveReadAccumulatorWrapper &derivedRef =
+        static_cast<OperatorDveReadAccumulatorWrapper &>(OperatorInstance);
     return to_string(derivedRef);
   }
   default:
