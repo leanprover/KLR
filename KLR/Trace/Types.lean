@@ -295,10 +295,12 @@ def lookup_flag? (flag : String) : Trace $ Option NKI.Value := do
 namespace flags
 
 
-def address_rotation : Trace $ Bool := do
-  match <- lookup_flag? "address_rotation" with
-  | some $ .bool b => return b
-  | _ => return true
+def address_rotation (param : Option Bool := none) (hasAddr : Bool := false) : Trace Bool := do
+  if let .some b := param then
+    return b
+  if let .some (.bool b) <- lookup_flag? "address_rotation" then
+    return b
+  return not hasAddr
 
 def unsafe_cast_fp8fncast : Trace $ Bool := do
   match <- lookup_flag? "UNSAFE_FP8FNCAST" with

@@ -38,9 +38,7 @@ nki builtin.lang.ndarray
     | some (par, free) => (some par, some free)
     | none => (none, none)
     let name <- tensorName name
-    let address_rotation <- match address_rotation with
-    | some v => pure v
-    | none => flags.address_rotation
+    let address_rotation <- flags.address_rotation address_rotation address.isSome
     let address := { name, memory, parSize, freeSize, parOffset, freeOffset : Address }
     let tensor <- TensorName.make name dtype shape address address_rotation
     if buffer == some .shared_hbm || buffer == some .hbm then
