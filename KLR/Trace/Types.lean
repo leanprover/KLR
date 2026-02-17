@@ -298,7 +298,7 @@ namespace flags
 def address_rotation : Trace $ Bool := do
   match <- lookup_flag? "address_rotation" with
   | some $ .bool b => return b
-  | _ => return false
+  | _ => return true
 
 def unsafe_cast_fp8fncast : Trace $ Bool := do
   match <- lookup_flag? "UNSAFE_FP8FNCAST" with
