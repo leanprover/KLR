@@ -126,9 +126,21 @@ structure KernelInfo where
   errors : String
   inputs : List TensorInfo
   outputs : List TensorInfo
+  aliases : List (Nat × Nat)
   sharedConstants : List Core.SharedConstantFile
   sharedBuffers : List TensorInfo
   deriving ToJson
+
+-- Alias info is a list of input to output indexes
+-- e.g. the identify function would have [(0,0)]
+-- Note, the interface on the other side is a dictionary, so we can only list
+-- one output for each input.
+private def generateAliases (k : LncKernel) : List (Nat × Nat) := Id.run do
+  let mut pairs := []
+  for (inp, i) in List.zipIdx (k.inputs) do
+    if let some j := k.outputs.findIdx? fun out => out.address.name == inp.address.name then
+      pairs := (i,j) :: pairs
+  return pairs
 
 private def resultToInfo (res : CompileResult LncKernel) (msgsFile errorsFile warningsFile: String) : KernelInfo :=
   match res.result with
@@ -139,6 +151,7 @@ private def resultToInfo (res : CompileResult LncKernel) (msgsFile errorsFile wa
       errors := errorsFile
       inputs := []
       outputs := []
+      aliases := []
       sharedConstants := []
       sharedBuffers := []
     }
@@ -157,6 +170,7 @@ private def resultToInfo (res : CompileResult LncKernel) (msgsFile errorsFile wa
         dtype := reprStr out.dtype,
         shape := out.shape.toList
       },
+      aliases := generateAliases kernel
       sharedConstants := kernel.sharedConstants
       sharedBuffers := kernel.sharedBuffers.map fun buf => {
         name := buf.name,
