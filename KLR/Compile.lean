@@ -43,8 +43,8 @@ private def sharedConstant
   let (name, tensor) := c
   let dst := s!"{outfolder}/shared_constants"
   IO.FS.createDirAll dst
-  let name ← uniqueName dst name
-  let fName := s!"{dst}/{name}.npy"
+  let uName ← uniqueName dst name
+  let fName := s!"{dst}/{uName}.npy"
   let data := tensor.toNpy
   data.save! (System.FilePath.mk fName)
   return ⟨name, fName⟩
