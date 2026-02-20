@@ -30,16 +30,16 @@ def converRevOps (reverse0 : Bool) (reverse1 : Bool) : TensorScalarReverseOps :=
     | false, true => .second
     | true, true => .both
 
-def dimsFromPythonDefs (dims : Int) (d : Sum Int (List Int)) : Trace TensorSubDim :=
+def dimsFromPythonDefs (d : Sum Int (List Int)) : Trace TensorSubDim :=
   match d with
   | .inl 1 => return .X
   | .inl _ => throw  "not a valid dim"
-  | .inr r => do
-    if r == [dims] then return .X
-    if r == [dims-1, dims] then return .XY
-    if r == [dims-2, dims-1, dims] then return .XYZ
-    if r == [dims-3, dims-2, dims-1, dims] then return .XYZW
-    throw "not a valid dim"
+  | .inr r => match r with
+    | [4] => return .X
+    | [3, 4] => return .XY
+    | [2, 3, 4] => return .XYZ
+    | [1, 2, 3, 4] => return .XYZW
+    | _ => throw "not a valid dim"
 
 def getTransposeOps(op: Option (List Int)) : Trace TransposeOps :=
   match op with
@@ -284,7 +284,7 @@ nki builtin.isa.tensor_reduce
       dst  := .abstract dst,
       src  := .abstract data,
       op   := op,
-      opDim := <- dimsFromPythonDefs (<- data.shape).toList.length axis,
+      opDim := <- dimsFromPythonDefs axis,
       dtype := dst.tensor.dtype,
       negated := negate,
       keepdims := keepdims
