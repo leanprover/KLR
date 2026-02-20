@@ -442,7 +442,8 @@ private def mkFromSexpBodyForStruct (indName : Name) : TermElabM Term := do
       let getter ← `(doElem| Except.mapError (fun s => (toString $(quote indName)) ++ "." ++ (toString $(quote field)) ++ ": " ++ s) <| $getter)
       return getter
   )
-  let fields := fields.map mkIdent
+  let fieldNames := fields.map mkIdent
+  let fieldValues <- fields.mapM fun f => return mkIdent (<- Lean.Core.mkFreshUserName f) --  mkIdent f.capitalize
   let name <- Meta.nameToStrLit indName
   `(do
       let n <- sexp.length?
@@ -453,11 +454,11 @@ private def mkFromSexpBodyForStruct (indName : Name) : TermElabM Term := do
         | some k => throw s!"No field named {k} in {$name}"
         | none => pure ()
       try
-        $[let $fields:ident ← $getNamed]*
-        return { $[$fields:ident := $(id fields)],* }
+        $[let $fieldValues:ident ← $getNamed]*
+        return { $[$fieldNames:ident := $(fieldValues)],* }
       catch _ =>
-        $[let $fields:ident ← $getPositional]*
-        return { $[$fields:ident := $(id fields)],* }
+        $[let $fieldValues:ident ← $getPositional]*
+        return { $[$fieldNames:ident := $(fieldValues)],* }
   )
 
 /-
