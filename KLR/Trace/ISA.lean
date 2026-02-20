@@ -35,10 +35,10 @@ def dimsFromPythonDefs (dims : Int) (d : Sum Int (List Int)) : Trace TensorSubDi
   | .inl 1 => return .X
   | .inl _ => throw  "not a valid dim"
   | .inr r => do
-    if r == [dims-1] then return .X                            -- last dim, 2d+ case
-    if r == [dims-2, dims-1] then return .XY                   -- last 2 dims, 3d+ case
-    if r == [dims-3, dims-2, dims-1] then return .XYZ          -- last 3 dims, 4d+ case
-    if r == [dims-4, dims-3, dims-2, dims-1] then return .XYZW -- last 4 dims, 5d case
+    if r == [dims] then return .X
+    if r == [dims-1, dims] then return .XY
+    if r == [dims-2, dims-1, dims] then return .XYZ
+    if r == [dims-3, dims-2, dims-1, dims] then return .XYZW
     throw "not a valid dim"
 
 def getTransposeOps(op: Option (List Int)) : Trace TransposeOps :=
