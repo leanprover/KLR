@@ -28,13 +28,13 @@ open Lean (FromJson ToJson)
 open Core (LncKernel SharedConstantFile)
 open Pass (CompileResult)
 
-private partial def uniqueName (dst : String) (base : String) : IO String := do
-  let fName := s!"{dst}/{base}.npy"
+private partial def uniqueName (dst : String) (base : String) (suffix : Nat := 0) : IO String := do
+  let candidate := s!"{base}_{suffix}"
+  let fName := s!"{dst}/{candidate}.npy"
   if ← FilePath.pathExists (FilePath.mk fName) then
-    let suffix ← IO.rand 0 (2^64 - 1)
-    uniqueName dst s!"{base}_{suffix}"
+    uniqueName dst base (suffix + 1)
   else
-    return base
+    return candidate
 
 private def sharedConstant
     (outfolder : String)
