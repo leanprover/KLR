@@ -28,13 +28,17 @@ open Lean (FromJson ToJson)
 open Core (LncKernel SharedConstantFile)
 open Pass (CompileResult)
 
-private partial def uniqueName (dst : String) (base : String) : IO String := do
+private def uniqueName (dst : String) (base : String) : IO String := do
   let fName := s!"{dst}/{base}.npy"
-  if ← FilePath.pathExists (FilePath.mk fName) then
-    let suffix ← IO.rand 0 (2^64 - 1)
-    uniqueName dst s!"{base}_{suffix}"
-  else
+  if !(← FilePath.pathExists (FilePath.mk fName)) then
     return base
+  let entries ← System.FilePath.readDir (FilePath.mk dst)
+  let count := entries.filter (fun e =>
+    e.fileName.startsWith s!"{base}_" && e.fileName.endsWith ".npy") |>.size
+  let gen := mkStdGen count
+  let (suffix, _) := RandomGen.next gen
+  let suffix := suffix % (2^64)
+  return s!"{base}_{suffix}"
 
 private def sharedConstant
     (outfolder : String)
