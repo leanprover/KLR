@@ -355,7 +355,7 @@ private def swapLast (engine : Engine) (name : String) (last : LastInst) : LastI
 private def updateLast (engine : Engine) (name : String) (state : State) : State :=
   if state.noReorderDepth == 0 then state else
     let (last, names) := swapLast engine name state.lastInst
-    let edges := names.map (name, ·)
+    let edges := names.map (·, name)
     { state with lastInst := last, edges := edges ++ state.edges }
 
 def add_stmt (stmt : Pos -> Stmt) : Trace Unit := do
