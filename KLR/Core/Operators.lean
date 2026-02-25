@@ -1451,3 +1451,94 @@ instance : MapTensorRefs Operator where
   | .devicePrint op => return .devicePrint (← MapTensorRefs.mapM ft fo op)
   | .exponential op => return .exponential (← MapTensorRefs.mapM ft fo op)
   | .activate2 op => return .activate2 (← MapTensorRefs.mapM ft fo op)
+
+
+namespace Operator
+
+-- return the engine for an operator
+-- this is used by the automatic dependency edge insertion under a no_reorder block
+-- a value of unassigned will cause the operation to be seqeunced with all other operations
+
+-- TODO: some operators don't have engine fields even though they support multiple engines (underspecified)
+-- TODO: dma is probably not what the user wants, they want to synchronize with the engine that initiated the dma trigger
+--       however user cannot specifiy this in NKI, so we use dma
+
+def engine : Operator -> Engine
+  | .activate .. => .act
+  | .ncActivate .. => .act
+  | .activationReduce .. => .act
+  | .affineSelect .. => .pool
+  | .ncAffineSelect .. => .pool
+  | .batchNormAggregate .. => .dve
+  | .batchNormStats .. => .dve
+  | .copy .. => .unassigned -- underspecified
+  | .ncCopy op => op.engine
+  | .copyPredicated .. => .dve
+  | .dmaCopy .. => .dma -- underspecified
+  | .ncDmaCopy op => op.engine
+  | .dmaTranspose .. => .dma -- underspecified
+  | .dropout .. => .dve
+  | .findIndex8 .. => .dve
+  | .iota .. => .pool
+  | .loadMaskRegister .. => .dve
+  | .loadStationary .. => .pe
+  | .localGather .. => .pool
+  | .ncLocalGather .. => .pool
+  | .matMul .. => .pe
+  | .ncMatMul .. => .pe
+  | .matchReplace8 .. => .dve
+  | .matchValueLoad .. => .dve
+  | .max8 .. => .dve
+  | .memSet op => op.engine
+  | .rangeSelect .. => .dve
+  | .ncRangeSelect .. => .dve
+  | .reciprocal .. => .dve
+  | .scalarTensorTensor .. => .dve
+  | .ncScalarTensorTensor .. => .dve
+  | .shuffle .. => .dve
+  | .tensorReduce .. => .unassigned -- underspecified: .dve but also pool on Cayman+
+  | .tensorScalar op => op.engine
+  | .tensorTensor op => op.engine
+  | .tensorTensorScan .. => .dve
+  | .tensorPartitionReduce .. => .pool
+  | .tensorScalarReduce .. => .dve
+  | .transpose op => op.engine
+  | .selectReduce .. => .dve
+  | .sequenceBounds .. => .pool
+  | .sendRecv .. => .unassigned
+  | .sendRecvCompute .. => .unassigned
+  | .tensorLoad .. => .unassigned
+  | .tensorStore .. => .unassigned
+  | .registerMove .. => .unassigned
+  | .cmpBranch .. => .unassigned
+  | .registerAluOp .. => .unassigned
+  | .quantizeMX .. => .dve
+  | .ncMatMulMX .. => .pe
+  | .dmaCompute .. => .dma -- underspecified
+  | .allReduce .. => .unassigned
+  | .allGather .. => .unassigned
+  | .reduceScatter .. => .unassigned
+  | .collectivePermute .. => .unassigned
+  | .collectivePermuteImplicit .. => .unassigned
+  | .collectivePermuteImplicitReduce .. => .unassigned
+  | .broadcast .. => .unassigned
+  | .allToAll .. => .unassigned
+  | .rankId .. => .unassigned
+  | .currentProcessingRankId .. => .unassigned
+  | .send .. => .unassigned
+  | .recv .. => .unassigned
+  | .coreBarrier op => op.engine
+  | .rng op => op.engine
+  | .rand2 .. => .unassigned
+  | .randGetState op => op.engine
+  | .setRngSeed .. => .unassigned
+  | .randSetState op => op.engine
+  | .extendedInst .. => .unassigned
+  | .tensorScalarCumulative .. => .dve
+  | .ncNGather .. => .unassigned
+  | .nonzeroWithCount .. => .unassigned
+  | .devicePrint .. => .unassigned
+  | .exponential .. => .dve
+  | .activate2 .. => .act
+
+end Operator
