@@ -209,6 +209,14 @@ abbrev SharedConstant := String × TensorLib.Tensor
 abbrev SharedConstants := Array SharedConstant
 abbrev Env := Std.HashMap Name Term
 
+structure LastInst where
+  act  : Option String := none
+  dma  : Option String := none
+  dve  : Option String := none
+  pe   : Option String := none
+  pool : Option String := none
+  sp   : Option String := none
+
 structure State where
   globals : Env := ∅
   locals : Env := ∅
@@ -229,7 +237,7 @@ structure State where
   -- no reorder
   edges : List (String × String) := []
   noReorderDepth : Nat := 0
-  lastInst : Option String := none
+  lastInst : LastInst := {}
 
 instance : Inhabited State where
   default := {}
@@ -327,6 +335,29 @@ def enterFun (m : Trace a) : Trace a := do
     modify fun s => { s with locals }
 
 -- append fully traced statement
+
+private def swapLast (engine : Engine) (name : String) (last : LastInst) : LastInst × List String :=
+  let (names, last) := match engine with
+    | .act  => ([last.act],  { last with act  := some name})
+    | .dma  => ([last.dma],  { last with dma  := some name})
+    | .dve  => ([last.dve],  { last with dve  := some name})
+    | .pe   => ([last.pe],   { last with pe   := some name})
+    | .pool => ([last.pool], { last with pool := some name})
+    | .sp   => ([last.sp],   { last with sp   := some name})
+    | .unassigned =>
+       ([last.act, last.dma, last.dve, last.pe, last.pool, last.sp],
+        { act  := some name, dma  := some name,
+          dve  := some name, pe   := some name,
+          pool := some name, sp   := some name })
+  let names := names.filterMap fun n => n.map toString
+  (last, names)
+
+private def updateLast (engine : Engine) (name : String) (state : State) : State :=
+  if state.noReorderDepth == 0 then state else
+    let (last, names) := swapLast engine name state.lastInst
+    let edges := names.map (name, ·)
+    { state with lastInst := last, edges := edges ++ state.edges }
+
 def add_stmt (stmt : Pos -> Stmt) : Trace Unit := do
   let pos <- getPos
   let (stmt, name) <- match stmt pos with
@@ -336,17 +367,8 @@ def add_stmt (stmt : Pos -> Stmt) : Trace Unit := do
     | .oper op (some name) pos =>
        pure (Core.Stmt.oper op (some name) pos, name)
   modifyThe State fun s =>
-    let edges := match s.lastInst with
-      | none => s.edges
-      | some n => (n, name) :: s.edges
-    let lastInst := match s.noReorderDepth with
-      | 0 => none
-      | _ => some name
-    { s with
-        stmts := s.stmts.push stmt
-        edges := edges
-        lastInst := lastInst
-    }
+    let s := updateLast stmt.engine name s
+    { s with stmts := s.stmts.push stmt }
   dbgAdd name
 
 def jmp (target : String) : Trace Unit := do
@@ -417,7 +439,7 @@ def beginWithBlock : Trace Unit :=
 def endWithBlock : Trace Unit :=
   modify fun s =>
     let (i, d) := match s.noReorderDepth with
-      | 0 | 1 => (none, 0)
+      | 0 | 1 => ({ : LastInst}, 0)
       | .succ n => (s.lastInst, n)
     { s with
         noReorderDepth := d

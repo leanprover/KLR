@@ -52,6 +52,9 @@ inductive Stmt where
   | oper (op : Operator) (name : Option String) (pos : Pos)
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
+def Stmt.engine : Stmt -> Engine
+  | .oper op .. => op.engine
+
 @[serde tag = 104]
 structure Block where
   label : String
