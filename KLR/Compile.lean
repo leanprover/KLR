@@ -28,14 +28,6 @@ open Lean (FromJson ToJson)
 open Core (LncKernel SharedConstantFile)
 open Pass (CompileResult)
 
-private partial def uniqueName (dst : String) (base : String) (suffix : Nat := 0) : IO String := do
-  let candidate := s!"{base}_{suffix}"
-  let fName := s!"{dst}/{candidate}.npy"
-  if ← FilePath.pathExists (FilePath.mk fName) then
-    uniqueName dst base (suffix + 1)
-  else
-    return candidate
-
 private def sharedConstant
     (outfolder : String)
     (c : String × TensorLib.Tensor)
@@ -43,10 +35,14 @@ private def sharedConstant
   let (name, tensor) := c
   let dst := s!"{outfolder}/shared_constants"
   IO.FS.createDirAll dst
-  let uName ← uniqueName dst name
-  let fName := s!"{dst}/{uName}.npy"
+
   let data := tensor.toNpy
-  data.save! (System.FilePath.mk fName)
+  let hashInput := s!"{data.header.descr.toNpyString}:{data.header.shape.val}".toUTF8 ++ data.data
+  let hash := Util.SHA256.byteArrayToHashString (Util.SHA256.hash hashInput)
+  let (_, tmpPath) ← IO.FS.createTempFile
+  data.save! tmpPath
+  let fName := s!"{dst}/{hash}.npy"
+  IO.FS.rename tmpPath.toString fName
   return ⟨name, fName⟩
 
 structure DebugInfo where
