@@ -39,10 +39,11 @@ private def sharedConstant
   let data := tensor.toNpy
   let hashInput := s!"{data.header.descr.toNpyString}:{data.header.shape.val}".toUTF8 ++ data.data
   let hash := Util.SHA256.byteArrayToHashString (Util.SHA256.hash hashInput)
-  let (_, tmpPath) ← IO.FS.createTempFile
-  data.save! tmpPath
+  let ns ← IO.monoNanosNow
+  let tmpName := s!"{dst}/{hash}_{ns}.tmp.npy"
+  data.save! tmpName
   let fName := s!"{dst}/{hash}.npy"
-  IO.FS.rename tmpPath.toString fName
+  IO.FS.rename tmpName fName
   return ⟨name, fName⟩
 
 structure DebugInfo where
