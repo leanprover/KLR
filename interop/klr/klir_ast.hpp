@@ -1572,6 +1572,7 @@ struct StmtOperWrapper final : Stmt {
 
 struct Block final {
   String label;
+  Bool noReorder;
   List<Ptr<Stmt>> body;
 };
 

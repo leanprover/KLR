@@ -209,14 +209,6 @@ abbrev SharedConstant := String × TensorLib.Tensor
 abbrev SharedConstants := Array SharedConstant
 abbrev Env := Std.HashMap Name Term
 
-structure LastInst where
-  act  : Option String := none
-  dma  : Option String := none
-  dve  : Option String := none
-  pe   : Option String := none
-  pool : Option String := none
-  sp   : Option String := none
-
 structure State where
   globals : Env := ∅
   locals : Env := ∅
@@ -235,9 +227,7 @@ structure State where
   -- debug info
   debug : DebugInfo := {}
   -- no reorder
-  edges : List (String × String) := []
   noReorderDepth : Nat := 0
-  lastInst : LastInst := {}
 
 instance : Inhabited State where
   default := {}
@@ -336,28 +326,6 @@ def enterFun (m : Trace a) : Trace a := do
 
 -- append fully traced statement
 
-private def swapLast (engine : Engine) (name : String) (last : LastInst) : LastInst × List String :=
-  let (names, last) := match engine with
-    | .act  => ([last.act],  { last with act  := some name})
-    | .dma  => ([last.dma],  { last with dma  := some name})
-    | .dve  => ([last.dve],  { last with dve  := some name})
-    | .pe   => ([last.pe],   { last with pe   := some name})
-    | .pool => ([last.pool], { last with pool := some name})
-    | .sp   => ([last.sp],   { last with sp   := some name})
-    | .unassigned =>
-       ([last.act, last.dma, last.dve, last.pe, last.pool, last.sp],
-        { act  := some name, dma  := some name,
-          dve  := some name, pe   := some name,
-          pool := some name, sp   := some name })
-  let names := names.filterMap fun n => n.map toString
-  (last, names)
-
-private def updateLast (engine : Engine) (name : String) (state : State) : State :=
-  if state.noReorderDepth == 0 then state else
-    let (last, names) := swapLast engine name state.lastInst
-    let edges := names.map (·, name)
-    { state with lastInst := last, edges := edges ++ state.edges }
-
 def add_stmt (stmt : Pos -> Stmt) : Trace Unit := do
   let pos <- getPos
   let (stmt, name) <- match stmt pos with
@@ -367,7 +335,6 @@ def add_stmt (stmt : Pos -> Stmt) : Trace Unit := do
     | .oper op (some name) pos =>
        pure (Core.Stmt.oper op (some name) pos, name)
   modifyThe State fun s =>
-    let s := updateLast stmt.engine name s
     { s with stmts := s.stmts.push stmt }
   dbgAdd name
 
@@ -413,14 +380,14 @@ def addImm (src dst : String) (imm : Int) : Trace Unit := do
     })
     (<- genLabel `brnz))
 
-def endBlock (next : Option String := none) : Trace Unit := do
+def endBlock (next : Option String := none) (noReorder : Bool := false) : Trace Unit := do
   if let some target := next then
     jmp target
 
   modify fun st =>
     let body := match st.label with
       | none => st.body
-      | some lbl => st.body.push ⟨ lbl, st.stmts.toList ⟩
+      | some lbl => st.body.push ⟨ lbl, noReorder, st.stmts.toList ⟩
 
     { st with
         body := body
@@ -429,22 +396,21 @@ def endBlock (next : Option String := none) : Trace Unit := do
     }
 
 def beginBlock (label : Option String := none) : Trace String := do
+  if (<- get).noReorderDepth > 0 then
+    throw "Dynamic control-flow cannot be nested with a no_reorder block"
   let l := label.getD ((<- genLabel `label))
   endBlock l
   return l
 
-def beginWithBlock : Trace Unit :=
+def beginWithBlock : Trace Unit := do
+  if (<- get).noReorderDepth == 0 then
+    let _ <- beginBlock
   modify fun s => { s with noReorderDepth := s.noReorderDepth + 1 }
 
-def endWithBlock : Trace Unit :=
-  modify fun s =>
-    let (i, d) := match s.noReorderDepth with
-      | 0 | 1 => ({ : LastInst}, 0)
-      | .succ n => (s.lastInst, n)
-    { s with
-        noReorderDepth := d
-        lastInst := i
-    }
+def endWithBlock : Trace Unit := do
+  if (<- get).noReorderDepth == 1 then
+    endBlock (<- genLabel `label) true
+  modify fun s => { s with noReorderDepth := s.noReorderDepth - 1 }
 
 private def identity (n : Nat) : TensorLib.Tensor := Id.run do
   let dtype := TensorLib.Dtype.int8
@@ -487,7 +453,7 @@ def addId : Trace Unit := do
   let lbl := (<- genLabel `init)
   let idTensor :=  identity 128
   modify fun s => { s with
-    body := #[Block.mk lbl [initStmt]] ++ s.body,
+    body := #[Block.mk lbl false [initStmt]] ++ s.body,
     sharedConstants := s.sharedConstants.push (hbmInitName.toString, idTensor)
   }
   extend_global idName (.access (.simple tensorName))
@@ -528,7 +494,6 @@ structure TraceResult (a : Type) where
   sharedBuffers : List (TensorName × Pos)
   debug : Array DebugItem
   labels : Array String
-  edges : List (String × String)
   result : a
 
 -- Run a `Trace` monad computation, and handle any generated warnings or errors.
@@ -538,7 +503,7 @@ def tracer (genDebug : Bool) (g : List (Name × Term)) (m : Trace a) : PassM (Tr
   runPassWith initialState do
     let x <- m
     let st <- get
-    return ⟨st.sharedConstants, st.sharedBuffers.toList, st.debug.leaf, st.labels, st.edges, x⟩
+    return ⟨st.sharedConstants, st.sharedBuffers.toList, st.debug.leaf, st.labels, x⟩
 
 -- Truthiness of Terms following Python
 namespace Term

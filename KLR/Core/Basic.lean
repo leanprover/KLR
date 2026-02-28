@@ -58,6 +58,7 @@ def Stmt.engine : Stmt -> Engine
 @[serde tag = 104]
 structure Block where
   label : String
+  noReorder : Bool
   body : List Stmt
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
