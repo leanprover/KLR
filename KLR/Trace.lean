@@ -122,12 +122,10 @@ def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
 
   let mut result := [{ res with result := () }]
   let mut bodies := [res.result.body]
-  let mut edges := k.edges ++ res.edges.map fun (a,b) => ⟨ a, [b] ⟩
   for i in [1:num] do
     let res <- runNkiKernel k genDebug (i,num)
     result := { res with result := () } :: result
     bodies := res.result.body :: bodies
-    edges := edges ++ res.edges.map fun (a,b) => ⟨ a, [b] ⟩
     sharedBuffers := sharedBuffers ++ res.sharedBuffers
     outputLists := outputLists ++ [res.result.outputs]
     compareLabels firstKernelLabels res.labels
@@ -145,7 +143,7 @@ def runLncKernels (k : NKI.Kernel) (genDebug : Bool := false)
     outputs := k0.outputs
     bodies := bodies.reverse
     sharedConstants := []
-    edges := edges
+    edges := k.edges
     sharedBuffers := dedupedSharedBuffers
   }
   return (result.reverse, kernel, outputsByPosition)

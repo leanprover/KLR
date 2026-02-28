@@ -144,11 +144,11 @@ private def genSer (ty : LeanType) : MetaM Unit := do
           match v with
           | .prod n fs => do
             IO.println s!"case {name}::Tag::{Cpp.varName n}: \{"
-            IO.println s!"  auto *typed_value = static_cast<const {Cpp.subclassName n} *>(value.get());"
             if fs.isEmpty then
               IO.println s!"  return true; // {Cpp.varName n} variant has no fields to serialize"
             else
               -- Generate proper sequential serialization with error checking
+              IO.println s!"  auto *typed_value = static_cast<const {Cpp.subclassName n} *>(value.get());"
               let rec serializeFields (fields : List Field) : IO Unit := do
                 match fields with
                 | [] => pure ()

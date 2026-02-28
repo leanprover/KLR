@@ -4310,6 +4310,9 @@ std::string to_string(Block &BlockInstance) {
   result += "label=";
   result += BlockInstance.label;
   result += ", ";
+  result += "noReorder=";
+  result += std::to_string(BlockInstance.noReorder);
+  result += ", ";
   result += "body=";
   {
     size_t i1 = 0;

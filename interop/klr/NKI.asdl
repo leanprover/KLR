@@ -448,7 +448,7 @@ Stmt =
  | oper(Operator op, String? name, Pos pos)
 
 
-Block = (String label, Stmt* body)
+Block = (String label, Bool noReorder, Stmt* body)
 
 Kernel = (String name, TensorName* inputs, TensorName* outputs, Block* body)
 

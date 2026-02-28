@@ -648,8 +648,6 @@ bool Immediate_ser(FILE *out, const Ptr<Immediate> &value) {
     return Nat_ser(out, typed_value->reg);
   }
   case Immediate::Tag::pointer: {
-    auto *typed_value =
-        static_cast<const ImmediatePointerWrapper *>(value.get());
     return true; // pointer variant has no fields to serialize
   }
   case Immediate::Tag::int32: {
@@ -1206,8 +1204,6 @@ bool ActivationImm_ser(FILE *out, const Ptr<ActivationImm> &value) {
     return Nat_ser(out, typed_value->reg);
   }
   case ActivationImm::Tag::pointer: {
-    auto *typed_value =
-        static_cast<const ActivationImmPointerWrapper *>(value.get());
     return true; // pointer variant has no fields to serialize
   }
   case ActivationImm::Tag::float32: {
@@ -1557,11 +1553,9 @@ bool DmaBounds_ser(FILE *out, const Ptr<DmaBounds> &value) {
   // Serialize the fields based on the specific variant
   switch (value->tag) {
   case DmaBounds::Tag::skip: {
-    auto *typed_value = static_cast<const DmaBoundsSkipWrapper *>(value.get());
     return true; // skip variant has no fields to serialize
   }
   case DmaBounds::Tag::error: {
-    auto *typed_value = static_cast<const DmaBoundsErrorWrapper *>(value.get());
     return true; // error variant has no fields to serialize
   }
   case DmaBounds::Tag::reg: {
@@ -1626,8 +1620,6 @@ bool IndexMissBehavior_ser(FILE *out, const Ptr<IndexMissBehavior> &value) {
     return Immediate_ser(out, typed_value->value);
   }
   case IndexMissBehavior::Tag::skip: {
-    auto *typed_value =
-        static_cast<const IndexMissBehaviorSkipWrapper *>(value.get());
     return true; // skip variant has no fields to serialize
   }
   default:
@@ -2516,8 +2508,6 @@ bool ReplicaGroup_ser(FILE *out, const Ptr<ReplicaGroup> &value) {
   // Serialize the fields based on the specific variant
   switch (value->tag) {
   case ReplicaGroup::Tag::unspecified: {
-    auto *typed_value =
-        static_cast<const ReplicaGroupUnspecifiedWrapper *>(value.get());
     return true; // unspecified variant has no fields to serialize
   }
   case ReplicaGroup::Tag::named: {
@@ -3666,9 +3656,11 @@ bool Stmt_ser(FILE *out, const Ptr<Stmt> &value) {
 }
 
 bool Block_ser(FILE *out, const Ptr<Block> &value) {
-  if (!serialize_tag(out, 104, 0, 2))
+  if (!serialize_tag(out, 104, 0, 3))
     return false;
   if (!String_ser(out, value->label))
+    return false;
+  if (!Bool_ser(out, value->noReorder))
     return false;
   if (!List_Stmt_ser(out, value->body))
     return false;
@@ -7730,14 +7722,15 @@ Ptr<Block> Block_des(FILE *in) {
     msg << "Could not find tag, expecting Block:104,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 104 || c != 0 || l != 2) {
+  if (t != 104 || c != 0 || l != 3) {
     std::ostringstream msg;
-    msg << "Expecting Block:(104,0,2)";
+    msg << "Expecting Block:(104,0,3)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
   Ptr<Block> x = ptr<Block>();
   x->label = String_des(in);
+  x->noReorder = Bool_des(in);
   x->body = List_Stmt_des(in);
   return x;
 }
