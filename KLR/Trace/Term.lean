@@ -659,7 +659,9 @@ nki builtin.access.ap
   | .simple t =>
       let pattern := pattern.map fun (s,c) => Core.APPair.mk s c 0
       let scalarOffset <- scalar_offset.mapM fun
-        | .inl a => pure (.acc a)
+        | .inl a => do
+           let ap <- a.toAP
+           pure (.acc $ .birPattern $ Core.BirAccessPattern.fromAccessPattern ap)
         | .inr r => match r with
           | .scalar s => pure (.reg s.toString)
           | _ => throw s!"scalar_offset requires scalar argument, got {r.kindStr}"
