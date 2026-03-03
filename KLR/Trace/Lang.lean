@@ -45,6 +45,27 @@ nki builtin.lang.ndarray
       Trace.addSharedBuffer tensor
     return .access (.simple tensor)
 
+nki builtin.lang.zeros
+  (shape : Shape)
+  (dtype : Dtype)
+  (buffer : Option Memory := none)
+  (name : Option String := none) := do
+    let memory := buffer.getD .sbuf
+    let (parSize, freeSize) := Address.defaultSize shape dtype
+    let name <- tensorName name
+    let address := { name, memory, parSize, freeSize, parOffset := none, freeOffset := none : Address }
+    let tensor <- TensorName.make name dtype shape (some address) (<- flags.address_rotation)
+    if buffer == some .shared_hbm || buffer == some .hbm then
+      Trace.addSharedBuffer tensor
+    let access := Access.simple tensor
+    Trace.add_stmt $ .oper (.memSet {
+      dst    := .abstract access,
+      value  := if dtype.isInt then .int 0 else .float 0.0,
+      dtype  := access.tensor.dtype,
+      engine := Engine.unassigned
+    }) none
+    return .access access
+
 nki builtin.lang.par_dim (t : Term) := do
   warn "par_dim is deprecated"
   return t

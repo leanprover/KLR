@@ -145,6 +145,22 @@ def min_max_test(t):
   assert 2.0 == max([2.0, 1])
   assert 2.0 == max([1, 2.0])
 
+def zeros_default_buffer(t):
+  z = nl.zeros((128, 512), dtype=nl.float16)
+  nisa.dma_copy(t[0:128, 0:512], z[:, :])
+
+def zeros_sbuf(t):
+  z = nl.zeros((128, 512), dtype=nl.float16, buffer=nl.sbuf)
+  nisa.dma_copy(t[0:128, 0:512], z[:, :])
+
+def zeros_psum(t):
+  z = nl.zeros((128, 512), dtype=nl.float32, buffer=nl.psum)
+  nisa.dma_copy(t[0:128, 0:512], z[:, :])
+
+def zeros_int(t):
+  z = nl.zeros((128, 512), dtype=nl.int8, buffer=nl.sbuf)
+  nisa.dma_copy(t[0:128, 0:512], z[:, :])
+
 # test each function in turn
 @pytest.mark.parametrize("f", [
   const_stmt,
@@ -158,7 +174,11 @@ def min_max_test(t):
   ifs,
   loops,
   undefined_ok,
-  min_max_test
+  min_max_test,
+  zeros_default_buffer,
+  zeros_sbuf,
+  zeros_psum,
+  zeros_int,
   ])
 def test_succeed(f):
   t = np.zeros((10,10,10), dtype=np.float32)
