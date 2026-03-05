@@ -44,7 +44,7 @@ private def sharedConstant
   data.save! tmpName
   let fName := s!"{dst}/{hash}.npy"
   IO.FS.rename tmpName fName
-  return ⟨name, fName⟩
+  return ⟨name, s!"shared_constants/{hash}.npy"⟩
 
 structure DebugInfo where
   lnc : Nat
