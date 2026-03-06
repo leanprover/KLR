@@ -595,7 +595,6 @@ partial def lowerRes (t: Term) : Trace (List Core.Access) := do
 
 def traceKernel (k : Kernel) : Trace Core.Kernel := do
   let _ <- beginBlock (<- genLabel `main)
-  addId
   globals k
   flags k.flags
   match k.funs.find? fun f => f.name == k.entry with
