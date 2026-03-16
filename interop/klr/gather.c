@@ -682,6 +682,26 @@ static void add_global(struct state *st, lean_object *name, PyObject *obj) {
   st->defs = def;
 }
 
+// Create a global alias that references another name
+// Used for import aliases: e.g., "dma_copy = nki.isa.neuron_isa.dma_copy"
+static void add_global_alias(struct state *st, const char *alias_name, lean_object *target_name) {
+  if (!alias_name || !target_name || have_def(st, alias_name))
+    return;
+
+  struct definition *def = region_alloc(st->region, sizeof(*def));
+  lean_object *pos = curPos(st);
+  
+  lean_object *ref_expr = Python_Expr_mk(Python_Expr_name(target_name, Python_Ctx_load), pos);
+  
+  def->str = lean_mk_string(alias_name);
+  def->name = alias_name;
+  def->type = GLOBAL;
+  def->obj = Python_Keyword_mk(mkSome(def->str), ref_expr, pos);
+  
+  def->next = st->defs;
+  st->defs = def;
+}
+
 // Lookup item `id` in dictionary `name` which should be an attribute of `obj`.
 // e.g. f.name['id']
 static PyObject* lookup_(PyObject *obj, const char *name, PyObject *id) {
@@ -1667,7 +1687,8 @@ static void definition(struct state *st, PyObject *obj, char* suggested_name) {
     if (st->scope.f) {
       function(st, name, stmt);
       if (suggested_name && strcmp(lean_string_cstr(name), suggested_name) != 0) {
-        function(st, lean_mk_string(suggested_name), stmt);
+        lean_inc(name);
+        add_global_alias(st, suggested_name, name);
       }
     }
     break;
@@ -1676,7 +1697,8 @@ static void definition(struct state *st, PyObject *obj, char* suggested_name) {
     if (st->scope.cls) {
       class(st, name, stmt);
       if (suggested_name && strcmp(lean_string_cstr(name), suggested_name) != 0) {
-        class(st, lean_mk_string(suggested_name), stmt);
+        lean_inc(name);
+        add_global_alias(st, suggested_name, name);
       }
     }
     break;
