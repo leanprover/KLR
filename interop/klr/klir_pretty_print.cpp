@@ -1372,6 +1372,13 @@ std::string to_string(DmaTranspose &DmaTransposeInstance) {
   result += ", ";
   result += "oobMode=";
   result += to_string(*(DmaTransposeInstance.oobMode.get()));
+  result += ", ";
+  result += "priority=";
+  if (DmaTransposeInstance.priority.has_value()) {
+    result += std::to_string(DmaTransposeInstance.priority.value());
+  } else {
+    result += "None";
+  }
   result += ")";
   return result;
 };
@@ -2000,6 +2007,16 @@ std::string to_string(TensorScalarReduce &TensorScalarReduceInstance) {
   result += ", ";
   result += "reduceRes=";
   result += to_string(*(TensorScalarReduceInstance.reduceRes.get()));
+  result += ", ";
+  result += "reduceCmd=";
+  result += to_string(TensorScalarReduceInstance.reduceCmd); // mapped from enum
+  result += ", ";
+  result += "reduceInit=";
+  if (TensorScalarReduceInstance.reduceInit.has_value()) {
+    result += to_string(*(TensorScalarReduceInstance.reduceInit.value().get()));
+  } else {
+    result += "None";
+  }
   result += ")";
   return result;
 };
@@ -2126,6 +2143,13 @@ std::string to_string(NcDmaCopy &NcDmaCopyInstance) {
   result += ", ";
   result += "uniqueIndices=";
   result += std::to_string(NcDmaCopyInstance.uniqueIndices);
+  result += ", ";
+  result += "priority=";
+  if (NcDmaCopyInstance.priority.has_value()) {
+    result += std::to_string(NcDmaCopyInstance.priority.value());
+  } else {
+    result += "None";
+  }
   result += ", ";
   result += "engine=";
   result += to_string(NcDmaCopyInstance.engine); // mapped from enum
@@ -2656,6 +2680,13 @@ std::string to_string(CollectiveOp &CollectiveOpInstance) {
   result += "num_channels=";
   if (CollectiveOpInstance.num_channels.has_value()) {
     result += std::to_string(CollectiveOpInstance.num_channels.value());
+  } else {
+    result += "None";
+  }
+  result += ", ";
+  result += "priority=";
+  if (CollectiveOpInstance.priority.has_value()) {
+    result += std::to_string(CollectiveOpInstance.priority.value());
   } else {
     result += "None";
   }

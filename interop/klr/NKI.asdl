@@ -217,7 +217,7 @@ AffineSelect = (TensorRef dst, TensorRef src, AffineSelectCmp fillMode, Reg fill
 
 DmaCopy = (TensorRef dst, TensorRef src, DgeComputeOp compute_op, DmaBounds dstBoundsCheck, DmaBounds srcBoundsCheck)
 
-DmaTranspose = (TensorRef dst, TensorRef src, TransposeOps axes, Dtype? dtype, Nat dgeMode, DmaBounds oobMode)
+DmaTranspose = (TensorRef dst, TensorRef src, TransposeOps axes, Dtype? dtype, Nat dgeMode, DmaBounds oobMode, Nat? priority)
 
 Transpose = (TensorRef dst, TensorRef src, Dtype? dtype, Engine engine)
 
@@ -267,7 +267,7 @@ TensorTensor = (TensorRef dst, TensorRef src0, TensorRef src1, AluOp op, Dtype? 
 
 NcMatMul = (TensorRef dst, TensorRef stationary, TensorRef moving, Bool isStationaryOneZero, Bool isMovingZero, Bool isTranspose, Nat* tilePosition, Nat* tileSize, MatmulPerfMode perfMode)
 
-TensorScalarReduce = (TensorRef dst, TensorRef src, Operand operand0, AluOp op0, Bool reverse0, Dtype? dtype, AluOp? reduceOp, TensorRef reduceRes)
+TensorScalarReduce = (TensorRef dst, TensorRef src, Operand operand0, AluOp op0, Bool reverse0, Dtype? dtype, AluOp? reduceOp, TensorRef reduceRes, AccumCmd reduceCmd, Immediate? reduceInit)
 
 TensorPartitionReduce = (TensorRef dst, AluOp op, TensorRef data, Dtype? dtype)
 
@@ -275,7 +275,7 @@ NcActivate = (TensorRef dst, TensorRef src, AccumCmd accumulatorCmd, ActivationF
 
 NcAffineSelect = (TensorRef dst, DataPattern pred, TensorRef onTrueTile, Immediate onFalseValue, Dtype? dtype, AluOp cmpOp)
 
-NcDmaCopy = (TensorRef dst, TensorRef src, DgeComputeOp compute_op, DmaBounds oobMode, Nat dgeMode, Bool uniqueIndices, Engine engine)
+NcDmaCopy = (TensorRef dst, TensorRef src, DgeComputeOp compute_op, DmaBounds oobMode, Nat dgeMode, Bool uniqueIndices, Nat? priority, Engine engine)
 
 NcLocalGather = (TensorRef dst, TensorRef src, TensorRef index, Immediate numElemPerIdx, Immediate? numValidIndicies)
 
@@ -304,7 +304,7 @@ ReplicaGroup =
  | literal(Int** groups)
 
 
-CollectiveOp = (TensorRef* dsts, TensorRef* srcs, AluOp? op, ReplicaGroup replicaGroup, Int? concatDim, Int**? sourceTargetPairs, Int? channel_id, Int? num_channels)
+CollectiveOp = (TensorRef* dsts, TensorRef* srcs, AluOp? op, ReplicaGroup replicaGroup, Int? concatDim, Int**? sourceTargetPairs, Int? channel_id, Int? num_channels, Nat? priority)
 
 RankId = (String dst)
 

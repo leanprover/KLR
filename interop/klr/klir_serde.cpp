@@ -1791,7 +1791,7 @@ bool DmaCopy_ser(FILE *out, const Ptr<DmaCopy> &value) {
 }
 
 bool DmaTranspose_ser(FILE *out, const Ptr<DmaTranspose> &value) {
-  if (!serialize_tag(out, 154, 0, 6))
+  if (!serialize_tag(out, 154, 0, 7))
     return false;
   if (!TensorRef_ser(out, value->dst))
     return false;
@@ -1804,6 +1804,8 @@ bool DmaTranspose_ser(FILE *out, const Ptr<DmaTranspose> &value) {
   if (!Nat_ser(out, value->dgeMode))
     return false;
   if (!DmaBounds_ser(out, value->oobMode))
+    return false;
+  if (!Option_Nat_ser(out, value->priority))
     return false;
   return true;
 }
@@ -2179,7 +2181,7 @@ bool NcMatMul_ser(FILE *out, const Ptr<NcMatMul> &value) {
 }
 
 bool TensorScalarReduce_ser(FILE *out, const Ptr<TensorScalarReduce> &value) {
-  if (!serialize_tag(out, 181, 0, 8))
+  if (!serialize_tag(out, 181, 0, 10))
     return false;
   if (!TensorRef_ser(out, value->dst))
     return false;
@@ -2196,6 +2198,10 @@ bool TensorScalarReduce_ser(FILE *out, const Ptr<TensorScalarReduce> &value) {
   if (!Option_AluOp_ser(out, value->reduceOp))
     return false;
   if (!TensorRef_ser(out, value->reduceRes))
+    return false;
+  if (!AccumCmd_ser(out, value->reduceCmd))
+    return false;
+  if (!Option_Immediate_ser(out, value->reduceInit))
     return false;
   return true;
 }
@@ -2258,7 +2264,7 @@ bool NcAffineSelect_ser(FILE *out, const Ptr<NcAffineSelect> &value) {
 }
 
 bool NcDmaCopy_ser(FILE *out, const Ptr<NcDmaCopy> &value) {
-  if (!serialize_tag(out, 153, 0, 7))
+  if (!serialize_tag(out, 153, 0, 8))
     return false;
   if (!TensorRef_ser(out, value->dst))
     return false;
@@ -2271,6 +2277,8 @@ bool NcDmaCopy_ser(FILE *out, const Ptr<NcDmaCopy> &value) {
   if (!Nat_ser(out, value->dgeMode))
     return false;
   if (!Bool_ser(out, value->uniqueIndices))
+    return false;
+  if (!Option_Nat_ser(out, value->priority))
     return false;
   if (!Engine_ser(out, value->engine))
     return false;
@@ -2527,7 +2535,7 @@ bool ReplicaGroup_ser(FILE *out, const Ptr<ReplicaGroup> &value) {
 }
 
 bool CollectiveOp_ser(FILE *out, const Ptr<CollectiveOp> &value) {
-  if (!serialize_tag(out, 199, 0, 8))
+  if (!serialize_tag(out, 199, 0, 9))
     return false;
   if (!List_TensorRef_ser(out, value->dsts))
     return false;
@@ -2544,6 +2552,8 @@ bool CollectiveOp_ser(FILE *out, const Ptr<CollectiveOp> &value) {
   if (!Option_Int_ser(out, value->channel_id))
     return false;
   if (!Option_Int_ser(out, value->num_channels))
+    return false;
+  if (!Option_Nat_ser(out, value->priority))
     return false;
   return true;
 }
@@ -5511,9 +5521,9 @@ Ptr<DmaTranspose> DmaTranspose_des(FILE *in) {
     msg << "Could not find tag, expecting DmaTranspose:154,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 154 || c != 0 || l != 6) {
+  if (t != 154 || c != 0 || l != 7) {
     std::ostringstream msg;
-    msg << "Expecting DmaTranspose:(154,0,6)";
+    msg << "Expecting DmaTranspose:(154,0,7)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -5524,6 +5534,7 @@ Ptr<DmaTranspose> DmaTranspose_des(FILE *in) {
   x->dtype = Option_Dtype_des(in);
   x->dgeMode = Nat_des(in);
   x->oobMode = DmaBounds_des(in);
+  x->priority = Option_Nat_des(in);
   return x;
 }
 
@@ -6055,9 +6066,9 @@ Ptr<TensorScalarReduce> TensorScalarReduce_des(FILE *in) {
     msg << "Could not find tag, expecting TensorScalarReduce:181,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 181 || c != 0 || l != 8) {
+  if (t != 181 || c != 0 || l != 10) {
     std::ostringstream msg;
-    msg << "Expecting TensorScalarReduce:(181,0,8)";
+    msg << "Expecting TensorScalarReduce:(181,0,10)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -6070,6 +6081,8 @@ Ptr<TensorScalarReduce> TensorScalarReduce_des(FILE *in) {
   x->dtype = Option_Dtype_des(in);
   x->reduceOp = Option_AluOp_des(in);
   x->reduceRes = TensorRef_des(in);
+  x->reduceCmd = AccumCmd_des(in);
+  x->reduceInit = Option_Immediate_des(in);
   return x;
 }
 
@@ -6150,9 +6163,9 @@ Ptr<NcDmaCopy> NcDmaCopy_des(FILE *in) {
     msg << "Could not find tag, expecting NcDmaCopy:153,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 153 || c != 0 || l != 7) {
+  if (t != 153 || c != 0 || l != 8) {
     std::ostringstream msg;
-    msg << "Expecting NcDmaCopy:(153,0,7)";
+    msg << "Expecting NcDmaCopy:(153,0,8)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -6163,6 +6176,7 @@ Ptr<NcDmaCopy> NcDmaCopy_des(FILE *in) {
   x->oobMode = DmaBounds_des(in);
   x->dgeMode = Nat_des(in);
   x->uniqueIndices = Bool_des(in);
+  x->priority = Option_Nat_des(in);
   x->engine = Engine_des(in);
   return x;
 }
@@ -6464,9 +6478,9 @@ Ptr<CollectiveOp> CollectiveOp_des(FILE *in) {
     msg << "Could not find tag, expecting CollectiveOp:199,0";
     throw std::runtime_error(msg.str());
   }
-  if (t != 199 || c != 0 || l != 8) {
+  if (t != 199 || c != 0 || l != 9) {
     std::ostringstream msg;
-    msg << "Expecting CollectiveOp:(199,0,8)";
+    msg << "Expecting CollectiveOp:(199,0,9)";
     msg << " got:(" << (int)t << "," << (int)c << "," << (int)l << ")";
     throw std::runtime_error(msg.str());
   }
@@ -6479,6 +6493,7 @@ Ptr<CollectiveOp> CollectiveOp_des(FILE *in) {
   x->sourceTargetPairs = Option_List_List_Int_des(in);
   x->channel_id = Option_Int_des(in);
   x->num_channels = Option_Int_des(in);
+  x->priority = Option_Nat_des(in);
   return x;
 }
 

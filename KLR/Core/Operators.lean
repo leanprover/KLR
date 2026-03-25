@@ -398,6 +398,7 @@ structure NcDmaCopy where
   oobMode            : DmaBounds
   dgeMode            : Nat
   uniqueIndices      : Bool
+  priority           : Option Nat
   engine             : Engine
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
@@ -415,6 +416,7 @@ structure DmaTranspose where
   dtype : Option Dtype
   dgeMode : Nat
   oobMode : DmaBounds
+  priority : Option Nat
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 instance : MapTensorRefs DmaTranspose where
@@ -824,6 +826,8 @@ structure TensorScalarReduce where
   dtype : Option Dtype
   reduceOp : Option AluOp
   reduceRes : TensorRef
+  reduceCmd : AccumCmd
+  reduceInit : Option Immediate
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 instance : MapTensorRefs TensorScalarReduce where
@@ -1037,6 +1041,7 @@ structure CollectiveOp where
   sourceTargetPairs : Option (List (List Int)) := none
   channel_id : Option Int := none
   num_channels : Option Int := none
+  priority : Option Nat := none
   deriving BEq, FromCBOR, FromJson, FromSexp, Repr, ToCBOR, ToJson, ToSexp
 
 instance : MapTensorRefs CollectiveOp where

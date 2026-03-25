@@ -541,6 +541,7 @@ struct DmaTranspose final {
   Option<Dtype> dtype;
   Nat dgeMode;
   Ptr<DmaBounds> oobMode;
+  Option<Nat> priority;
 };
 
 struct Transpose final {
@@ -737,6 +738,8 @@ struct TensorScalarReduce final {
   Option<Dtype> dtype;
   Option<AluOp> reduceOp;
   Ptr<TensorRef> reduceRes;
+  AccumCmd reduceCmd;
+  Option<Ptr<Immediate>> reduceInit;
 };
 
 struct TensorPartitionReduce final {
@@ -774,6 +777,7 @@ struct NcDmaCopy final {
   Ptr<DmaBounds> oobMode;
   Nat dgeMode;
   Bool uniqueIndices;
+  Option<Nat> priority;
   Engine engine;
 };
 
@@ -910,6 +914,7 @@ struct CollectiveOp final {
   Option<List<List<Int>>> sourceTargetPairs;
   Option<Int> channel_id;
   Option<Int> num_channels;
+  Option<Nat> priority;
 };
 
 struct RankId final {

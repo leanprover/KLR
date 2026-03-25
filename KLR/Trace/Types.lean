@@ -454,6 +454,7 @@ def addId : Trace Unit := do
     oobMode := .skip,
     dgeMode := 0,
     uniqueIndices := false
+    priority := .none
     engine := .unassigned
   }) none pos
   let lbl := (<- genLabel `init)

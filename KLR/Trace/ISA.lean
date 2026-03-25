@@ -455,6 +455,8 @@ nki builtin.isa.tensor_scalar_reduce
  (reduce_op : AluOp)
  (reduce_res : Access)
  (reverse0 : Bool := false)
+ (reduce_cmd : AccumCmd := .Zero)
+ (reduce_init : Option Immediate := none)
  (mask : Option Immediate := none)
  (name : Option String := none) := do
     if mask.isSome then throw maskNotSupported
@@ -469,6 +471,8 @@ nki builtin.isa.tensor_scalar_reduce
         reduceRes := .abstract reduce_res
         reverse0 := reverse0
         dtype := dst.tensor.dtype
+        reduceCmd := reduce_cmd
+        reduceInit := reduce_init
     }) name
     return .none
 
@@ -745,6 +749,7 @@ nki builtin.isa.dma_copy
  (dge_mode : Nat := 0)
  (unique_indices : Bool := false)
  (engine : Engine := .unassigned)
+ (priority : Option Nat := .none)
  (name : Option String := none) := do
   if mask.isSome then throw maskNotSupported
   let op : DgeComputeOp := <- match dst_rmw_op with
@@ -763,6 +768,7 @@ nki builtin.isa.dma_copy
         | _ => .skip,
       dgeMode := dge_mode,
       uniqueIndices := unique_indices
+      priority
       engine
   }) name
   return .none
@@ -775,6 +781,7 @@ nki builtin.isa.dma_transpose
   (mask : Option Immediate := none)
   (dge_mode : Nat := 0)
   (oob_mode : Nat := 0)
+  (priority : Option Nat := .none)
   (name : Option String := none) := do
   if mask.isSome then throw maskNotSupported
   if oob_mode > 1 then throw "unsupported oob mode"
@@ -792,6 +799,7 @@ nki builtin.isa.dma_transpose
         | 0 => .error
         | 1 => .skip
         | _ => .error,
+    priority
   }) name
   return .none
 
@@ -999,12 +1007,14 @@ nki builtin.isa.all_reduce
   (srcs : List Access)
   (dsts : List Access)
   (replica_group: Sum String (List (List Int)))
+  (priority : Option Nat := none)
   (name : Option String := none) := do
     Trace.add_stmt $ .oper (.allReduce {
       dsts := dsts.map .abstract
       srcs := srcs.map .abstract
       op := some op
       replicaGroup := replicaGroupFromSum replica_group
+      priority
     }) name
     return .none
 
@@ -1014,12 +1024,14 @@ nki builtin.isa.all_gather
   (dsts : List Access)
   (replica_group : Sum String (List (List Int)))
   (concat_dim : Int)
+  (priority : Option Nat := none)
   (name : Option String := none) := do
     Trace.add_stmt $ .oper (.allGather {
       dsts := dsts.map .abstract
       srcs := srcs.map .abstract
       replicaGroup := replicaGroupFromSum replica_group
       concatDim := some concat_dim
+      priority
     }) name
     return .none
 
@@ -1030,6 +1042,7 @@ nki builtin.isa.reduce_scatter
   (dsts : List Access)
   (replica_group : Sum String (List (List Int)))
   (concat_dim : Int)
+  (priority : Option Nat := none)
   (name : Option String := none) := do
     Trace.add_stmt $ .oper (.reduceScatter {
       dsts := dsts.map .abstract
@@ -1037,6 +1050,7 @@ nki builtin.isa.reduce_scatter
       op := some op
       replicaGroup := replicaGroupFromSum replica_group
       concatDim := some concat_dim
+      priority
     }) name
     return .none
 
@@ -1046,12 +1060,14 @@ nki builtin.isa.all_to_all
   (dsts : List Access)
   (replica_group : Sum String (List (List Int)))
   (concat_dim : Int)
+  (priority : Option Nat := none)
   (name : Option String := none) := do
     Trace.add_stmt $ .oper (.allToAll {
       dsts := dsts.map .abstract
       srcs := srcs.map .abstract
       replicaGroup := replicaGroupFromSum replica_group
       concatDim := some concat_dim
+      priority
     }) name
     return .none
 
@@ -1060,11 +1076,13 @@ nki builtin.isa.collective_permute
   (src : Access)
   (dst : Access)
   (source_target_pairs: List (List Int))
+  (priority : Option Nat := none)
   (name : Option String := none) := do
     Trace.add_stmt $ .oper (.collectivePermute {
       dsts := [.abstract dst]
       srcs := [.abstract src]
       sourceTargetPairs := some source_target_pairs
+      priority
     }) name
     return .none
 
@@ -1075,6 +1093,7 @@ nki builtin.isa.collective_permute_implicit
   (replica_group : Sum String (List (List Int)))
   (channel_id : Int)
   (num_channels : Int := 1)
+  (priority : Option Nat := none)
   (name : Option String := none) := do
     Trace.add_stmt $ .oper (.collectivePermuteImplicit {
       dsts := [.abstract dst]
@@ -1082,6 +1101,7 @@ nki builtin.isa.collective_permute_implicit
       replicaGroup := replicaGroupFromSum replica_group
       channel_id := some channel_id
       num_channels := some num_channels
+      priority
     }) name
     return .none
 
@@ -1094,6 +1114,7 @@ nki builtin.isa.collective_permute_implicit_reduce
   (replica_group : Sum String (List (List Int)))
   (channel_id : Int)
   (num_channels : Int := 1)
+  (priority : Option Nat := none)
   (name : Option String := none) := do
     Trace.add_stmt $ .oper (.collectivePermuteImplicitReduce {
       dsts := [.abstract dst]
@@ -1102,6 +1123,7 @@ nki builtin.isa.collective_permute_implicit_reduce
       replicaGroup := replicaGroupFromSum replica_group
       channel_id := some channel_id
       num_channels := some num_channels
+      priority
     }) name
     return .none
 
