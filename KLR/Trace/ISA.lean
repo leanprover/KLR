@@ -455,7 +455,7 @@ nki builtin.isa.tensor_scalar_reduce
  (reduce_op : AluOp)
  (reduce_res : Access)
  (reverse0 : Bool := false)
- (reduce_cmd : AccumCmd := .Zero)
+ (reduce_cmd : AccumCmd := .ZeroAccumulate)
  (reduce_init : Option Immediate := none)
  (mask : Option Immediate := none)
  (name : Option String := none) := do
